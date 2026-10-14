@@ -1,0 +1,2293 @@
+#!/usr/bin/env hibr
+#
+# files -- a file browser for the desktop, and a lister on its own.
+#
+#     hibr examples/desktop/apps/files.hibr /etc
+#
+# Three views, which v cycles through: a list of names, the same with size,
+# time and permissions, and a grid of icons.  Everything moves under a fixed
+# frame: the keys move the selection, the wheel moves the view without it,
+# and a click lands on what it was aimed at.
+#
+# Files are dragged out to other windows and to the desktop, and dropped in
+# from them.  A drop moves; with ctrl held it copies; nothing is ever put
+# over something already there.  Opening a file opens it in a terminal with
+# hvi, and opening a folder goes into it.
+#
+# The details come from one `ls -l` per directory, read when the details
+# view first needs them -- never one stat per row, which would make the
+# browser the slowest thing on the desktop.
+
+strict
+
+app files "A file browser"
+
+# What the hibr menu shows, how big a new window is, and whether a second
+# launch opens another window or brings this one forward.
+command -v dt_app > /dev/null && dt_app files "Files" 12 34 many "▤"
+
+# Rename and Get Info are windows of their own (dt_new, not dt_launch --
+# they are never on a menu, just opened directly on the entry that asked
+# for one), registered only so dt_win and dt_btn see fixed=1 for them the
+# same way any other fixed app does: one field or a handful is never worth
+# resizing. hidden is what actually keeps them off the hibr menu and out
+# of App Shortcuts -- launched with no entry to show, gi_draw and the
+# rename field would have nothing populated and nothing to act on.
+command -v dt_app > /dev/null && dt_app rn "Rename" 6 46 "" "" fixed hidden
+command -v dt_app > /dev/null && dt_app gi "Get Info" 18 48 "" "" fixed hidden
+
+# Per window, not per app.  Two browsers must be able to be in two different
+# directories; a global would put them both in the last one opened.  FB holds
+# each window's state and FL holds its listing.
+declare -gA FB
+command -v dt_keepstate > /dev/null && dt_keepstate files FB
+declare -gA FL
+declare -gA RN
+declare -gA GI
+declare -gA OW
+command -v dt_app > /dev/null && dt_app ow "Open With" 8 54 "" "" fixed hidden
+
+# Whether Files' right-click menu offers Open With and Open Terminal Here,
+# set in Control Panel > Files.
+DT_FBOPENWITH="${DT_FBOPENWITH-1}"
+DT_FBTERMHERE="${DT_FBTERMHERE-1}"
+command -v dt_keep > /dev/null && dt_keep DT_FBOPENWITH DT_FBTERMHERE
+FILES_VIEWS=(list details icons)
+FILES_TILE=12
+FB_PATHS=()
+
+# What a directory never shown before opens as -- the Files pane's own
+# setting (control-panel/filesview.hibr), kept the plain way a scalar is.
+FB_DEFAULTVIEW="${FB_DEFAULTVIEW-list}"
+command -v dt_keep > /dev/null && dt_keep FB_DEFAULTVIEW
+
+# Which view a directory was last shown in, kept across windows and across
+# restarts -- its own small file, not the desktop's DT_CONF, since it is
+# the browser's own concern and nothing else reads it. One assignment per
+# line, sourced back exactly the way dt_load reads DT_CONF, so no parser
+# of its own is needed.
+FB_VIEWFILE="${FB_VIEWFILE-${XDG_STATE_HOME:-$HOME/.local/state}/hibr/files-views}"
+declare -gA FB_VIEWS
+[ -r "$FB_VIEWFILE" ] && . "$FB_VIEWFILE"
+
+# The in-process ls, so the details view does not exec a program; the one on
+# the PATH writes the same columns if the module cannot be had.
+mod load ls > /dev/null 2>&1
+
+# Read a directory into FL: name, whether it is a directory, a link or can
+# be run.  Directories come first, each group in the order the glob gave,
+# which is sorted.
+#
+# Entries past ["n"] are left over from a larger directory and never read,
+# because everything that walks the list stops there.
+fn fb_scan(int id) {
+	local f n=0 base d dirs files q=${FB[$id]["q"]}
+
+	d=${FB[$id]["dir"]}
+	if [[ $d == dav://* ]]; then
+		fb_rscan "$id" "$d"
+		return
+	fi
+	if [ "$d" != / ]; then
+		FL[$id][$n]["name"]=".."
+		FL[$id][$n]["dir"]=1
+		FL[$id][$n]["kind"]=up
+		FL[$id][$n]["m"]=
+		n=$((n + 1))
+	fi
+	dirs=("$d"/*/)
+	files=("$d"/*)
+	if [ -n "${FB[$id]["hidden"]}" ]; then
+		dirs+=("$d"/.*/)
+		files+=("$d"/.*)
+	fi
+	for f in "${dirs[@]}"; do
+		f=${f%/}
+		base=${f##*/}
+		[ -d "$f" ] || continue
+		[ "$base" = "." ] || [ "$base" = ".." ] && continue
+		[ -n "$q" ] && [[ ${base,,} != *"${q,,}"* ]] && continue
+		FL[$id][$n]["name"]="$base"
+		FL[$id][$n]["dir"]=1
+		FL[$id][$n]["kind"]=dir
+		FL[$id][$n]["m"]=
+		n=$((n + 1))
+	done
+	for f in "${files[@]}"; do
+		[ -e "$f" ] || [ -L "$f" ] || continue
+		[ -d "$f" ] && continue
+		base=${f##*/}
+		[ -n "$q" ] && [[ ${base,,} != *"${q,,}"* ]] && continue
+		FL[$id][$n]["name"]="$base"
+		FL[$id][$n]["dir"]=0
+		FL[$id][$n]["m"]=
+		if [ -L "$f" ]; then
+			FL[$id][$n]["kind"]=link
+		elif [ -x "$f" ]; then
+			FL[$id][$n]["kind"]=exe
+		else
+			FL[$id][$n]["kind"]=file
+		fi
+		n=$((n + 1))
+	done
+	FB[$id]["n"]=$n
+	FB[$id]["top"]=0
+	FB[$id]["sel"]=0
+	FB[$id]["last"]=-1
+	FB[$id]["meta"]=
+	FB[$id]["marks"]=0
+	FB[$id]["anchor"]=0
+	FB[$id]["defer"]=
+	fb_sort "$id"
+}
+
+# A folder on a server: listed by the dav module, with sizes and times
+# from the listing itself, so the details view needs no ls. Only on
+# success does anything change -- a server that cannot be reached leaves
+# the window where it was, with a note saying why. Hidden names, dots
+# first, follow the same switch as local ones.
+FB_RLIST=()
+fn fb_rscan(int id, d) {
+	local r k n=0 nm q=${FB[$id]["q"]} hid=${FB[$id]["hidden"]} pass dir t
+	local -a keys
+	local -A rank
+
+	if ! dt_has dt_davok || ! dt_davok; then
+		local why=$DT_WHY
+		if [ -z "$why" ]; then
+			why := dt_tr "Remote folders need the desktop"
+		fi
+		dt_notep high "$why"
+		return 1
+	fi
+	if ! r := dav ls "$d" 2> "$DR_ERRF"; then
+		dt_davwhy
+		dt_notep high "${d#dav://}: $DT_WHY"
+		return 1
+	fi
+	FB[$id]["dir"]=$d
+	if [[ ${d#dav://} == */* ]]; then
+		FL[$id][$n]["name"]=".."
+		FL[$id][$n]["dir"]=1
+		FL[$id][$n]["kind"]=up
+		FL[$id][$n]["m"]=
+		FL[$id][$n]["size"]=0
+		FL[$id][$n]["time"]=
+		FL[$id][$n]["perm"]=
+		FL[$id][$n]["trank"]=0
+		n=$((n + 1))
+	fi
+	keys=()
+	for k in "${!r[@]}"; do
+		printf -v t '%012d %s' "${r[$k]["mtime"]:-0}" "$k"
+		keys+=("$t")
+	done
+	arr sort keys
+	k=${#keys[@]}
+	for t in "${keys[@]}"; do
+		rank["${t#* }"]=$k
+		k=$((k - 1))
+	done
+	for pass in 1 0; do
+		for k in "${!r[@]}"; do
+			[ "${r[$k]["dir"]}" = "$pass" ] || continue
+			nm=${r[$k]["name"]}
+			[ -z "$hid" ] && [[ $nm == .* ]] && continue
+			[ -n "$q" ] && [[ ${nm,,} != *"${q,,}"* ]] && continue
+			FL[$id][$n]["name"]=$nm
+			FL[$id][$n]["dir"]=$pass
+			FL[$id][$n]["m"]=
+			if [ "$pass" = 1 ]; then
+				FL[$id][$n]["kind"]=dir
+				FL[$id][$n]["perm"]=d
+			else
+				FL[$id][$n]["kind"]=file
+				FL[$id][$n]["perm"]=-
+			fi
+			FL[$id][$n]["size"]=${r[$k]["size"]}
+			printf -v t '%(%b %e %H:%M)T' "${r[$k]["mtime"]:-0}"
+			FL[$id][$n]["time"]=$t
+			FL[$id][$n]["etag"]=${r[$k]["etag"]}
+			FL[$id][$n]["type"]=${r[$k]["type"]}
+			FL[$id][$n]["user"]=
+			FL[$id][$n]["group"]=
+			FL[$id][$n]["trank"]=${rank["$k"]}
+			n=$((n + 1))
+		done
+	done
+	FB[$id]["n"]=$n
+	FB[$id]["top"]=0
+	FB[$id]["sel"]=0
+	FB[$id]["last"]=-1
+	FB[$id]["meta"]=1
+	FB[$id]["marks"]=0
+	FB[$id]["anchor"]=0
+	FB[$id]["defer"]=
+	fb_sort "$id"
+	return 0
+}
+
+# Whether a window shows a folder on a server.
+fn fb_remote(int id) {
+	[[ ${FB[$id]["dir"]} == dav://* ]]
+}
+
+# --- what is selected ----------------------------------------------------
+#
+# The cursor is one entry; marks are any number more.  With nothing marked,
+# the cursor is the selection, which is what a single click leaves.  ".." is
+# never marked, because nothing sensible is done to it.
+
+# Mark entry i or take its mark away, keeping count.
+fn fb_mark(int id, int i, int on) {
+	local c
+
+	[ "${FL[$id][$i]["kind"]}" = up ] && return 0
+	c=${FB[$id]["marks"]}
+	if [ "$on" = 1 ]; then
+		[ -n "${FL[$id][$i]["m"]}" ] && return 0
+		FL[$id][$i]["m"]=1
+		FB[$id]["marks"]=$((c + 1))
+	else
+		[ -z "${FL[$id][$i]["m"]}" ] && return 0
+		FL[$id][$i]["m"]=
+		FB[$id]["marks"]=$((c - 1))
+	fi
+}
+
+# Nothing marked.
+fn fb_clear(int id) {
+	local i=0 n=${FB[$id]["n"]}
+
+	[ "${FB[$id]["marks"]}" = 0 ] && return 0
+	while [ "$i" -lt "$n" ]; do
+		FL[$id][$i]["m"]=
+		i=$((i + 1))
+	done
+	FB[$id]["marks"]=0
+}
+
+# Mark everything between two entries, and nothing else.
+fn fb_range(int id, int a, int b) {
+	local i
+
+	fb_clear "$id"
+	[ "$a" -gt "$b" ] && { i=$a; a=$b; b=$i; }
+	i=$a
+	while [ "$i" -le "$b" ]; do
+		fb_mark "$id" "$i" 1
+		i=$((i + 1))
+	done
+}
+
+# What is selected, as entries: the marked ones, or the cursor when none
+# are.  Fails when that leaves only "..".
+fn fb_selected(int id) {
+	local i=0 n=${FB[$id]["n"]} out= sel
+
+	if [ "${FB[$id]["marks"]}" -gt 0 ]; then
+		while [ "$i" -lt "$n" ]; do
+			[ -n "${FL[$id][$i]["m"]}" ] && out="$out $i"
+			i=$((i + 1))
+		done
+	else
+		sel=${FB[$id]["sel"]}
+		[ "${FL[$id][$sel]["kind"]}" = up ] || out=" $sel"
+	fi
+	[ -n "$out" ] || return 1
+	ret "${out# }"
+}
+
+FB_CRUMBS=()
+
+# Every directory between root and $1, each a full path so the same string
+# is what the breadcrumb shows and what it means -- dt_droplist has no room
+# for a label distinct from the value it hands back. Into FB_CRUMBS.
+fn fb_crumbs(d) {
+	local rest seg cur=
+
+	if [[ $d == dav://* ]]; then
+		rest=${d#dav://}
+		cur="dav://${rest%%/*}"
+		FB_CRUMBS=("$cur")
+		[[ $rest == */* ]] && rest=${rest#*/} || rest=
+		while [ -n "$rest" ]; do
+			seg=${rest%%/*}
+			cur="$cur/$seg"
+			FB_CRUMBS+=("$cur")
+			case $rest in
+			*/*) rest=${rest#*/} ;;
+			*) rest= ;;
+			esac
+		done
+		return 0
+	fi
+	FB_CRUMBS=(/)
+	rest=${d#/}
+	while [ -n "$rest" ]; do
+		seg=${rest%%/*}
+		cur="$cur/$seg"
+		FB_CRUMBS+=("$cur")
+		case $rest in
+		*/*) rest=${rest#*/} ;;
+		*) rest= ;;
+		esac
+	done
+}
+
+# The paths of a list of entries, into FB_PATHS.
+fn fb_paths(int id, sel) {
+	local i p ss
+
+	FB_PATHS=()
+	read -ra ss <<< "$sel"
+	for i in "${ss[@]}"; do
+		p := fb_path "$id" "$i"
+		FB_PATHS+=("$p")
+	done
+}
+
+# The pen for an entry's row: the cursor brightest, marked entries lit,
+# the rest by what they are.
+fn fb_rowpen(int id, int i) {
+	if [ "$i" = "${FB[$id]["sel"]}" ]; then
+		console pen "$DT_SELINK" "$DT_ACTIVE" bold
+	elif [ -n "${FL[$id][$i]["m"]}" ]; then
+		console pen "$DT_INK" "$DT_IDLE" bold
+	else
+		fb_pen "${FL[$id][$i]["kind"]}"
+	fi
+}
+
+# Fill in size, time and permissions for the details view, from one ls.
+fn fb_meta(int id) {
+	local d out line perm links user group size mon day tm name i n rank
+	local -A at
+
+	d=${FB[$id]["dir"]}
+	n=${FB[$id]["n"]}
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		at["${FL[$id][$i]["name"]}"]=$i
+		FL[$id][$i]["size"]=
+		FL[$id][$i]["time"]=
+		FL[$id][$i]["perm"]=
+		FL[$id][$i]["user"]=
+		FL[$id][$i]["group"]=
+		FL[$id][$i]["trank"]=0
+		i=$((i + 1))
+	done
+	# -t lists newest first, so where a line falls is its age: the one
+	# number the text "Sep 29 18:05" cannot be sorted by.
+	out=$(LC_ALL=C ls -l -a -t "$d" 2> /dev/null)
+	rank=0
+	while IFS= read -r line; do
+		case $line in total*) continue ;; esac
+		rank=$((rank + 1))
+		read -r perm links user group size mon day tm name <<< "$line"
+		case $perm in l*) name=${name% -> *} ;; esac
+		i=${at["$name"]}
+		[ -n "$i" ] || continue
+		FL[$id][$i]["perm"]=$perm
+		FL[$id][$i]["size"]=$size
+		FL[$id][$i]["time"]="$mon $day $tm"
+		FL[$id][$i]["user"]=$user
+		FL[$id][$i]["group"]=$group
+		FL[$id][$i]["trank"]=$rank
+	done <<< "$out"
+	FB[$id]["meta"]=1
+}
+
+# Order the list by the window's own sort, once a heading has been clicked:
+# the column (name, size, time, mode) and the direction. ".." stays first
+# and folders stay ahead of files, as in every file browser, and each group
+# is ordered by one key per entry, sorted in C by arr sort -- names by
+# their lower-case form, sizes zero-padded, times by where ls -t put them.
+# Until then the glob's own order stands.
+fn fb_sort(int id) {
+	local by=${FB[$id]["sort"]} dir=${FB[$id]["sdir"]:-asc}
+	local n=${FB[$id]["n"]:-0} i k key start=0 f nm
+	local -a kd kf order
+	local -a xname xdir xkind xm xsize xtime xperm xuser xgroup xtrank
+
+	[ -n "$by" ] || return 0
+	case $by in size | time | mode) [ -n "${FB[$id]["meta"]}" ] || fb_meta "$id" ;; esac
+	[ "${FL[$id][0]["kind"]}" = up ] && start=1
+	i=$start
+	while [ "$i" -lt "$n" ]; do
+		nm := str lower "${FL[$id][$i]["name"]}"
+		# A number column turns its own key round for descending, so ties
+		# still read A to Z; only a text column's list is reversed.
+		k=${FL[$id][$i]["size"]:-0}
+		[ "$by" = time ] && k=$((999999999 - ${FL[$id][$i]["trank"]:-0}))
+		case $by in
+		size | time)
+			[ "$dir" = desc ] && k=$((999999999999999 - k))
+			printf -v key '%015d' "$k"
+			;;
+		mode) key=${FL[$id][$i]["perm"]} ;;
+		*) key=$nm ;;
+		esac
+		key="$key	$nm	$i"
+		if [ "${FL[$id][$i]["dir"]}" = 1 ]; then
+			kd+=("$key")
+		else
+			kf+=("$key")
+		fi
+		i=$((i + 1))
+	done
+	arr sort kd
+	arr sort kf
+	for f in d f; do
+		if [ "$f" = d ]; then
+			k=${#kd[@]}
+		else
+			k=${#kf[@]}
+		fi
+		i=0
+		while [ "$i" -lt "$k" ]; do
+			if [ "$dir" = asc ] || [ "$by" = size ] || [ "$by" = time ]; then
+				key=$i
+			else
+				key=$((k - 1 - i))
+			fi
+			if [ "$f" = d ]; then
+				key=${kd[$key]}
+			else
+				key=${kf[$key]}
+			fi
+			order+=("${key##*	}")
+			i=$((i + 1))
+		done
+	done
+	for i in "${order[@]}"; do
+		xname+=("${FL[$id][$i]["name"]}")
+		xdir+=("${FL[$id][$i]["dir"]}")
+		xkind+=("${FL[$id][$i]["kind"]}")
+		xm+=("${FL[$id][$i]["m"]}")
+		xsize+=("${FL[$id][$i]["size"]}")
+		xtime+=("${FL[$id][$i]["time"]}")
+		xperm+=("${FL[$id][$i]["perm"]}")
+		xuser+=("${FL[$id][$i]["user"]}")
+		xgroup+=("${FL[$id][$i]["group"]}")
+		xtrank+=("${FL[$id][$i]["trank"]}")
+	done
+	k=0
+	while [ "$k" -lt "${#order[@]}" ]; do
+		i=$((start + k))
+		FL[$id][$i]["name"]=${xname[$k]}
+		FL[$id][$i]["dir"]=${xdir[$k]}
+		FL[$id][$i]["kind"]=${xkind[$k]}
+		FL[$id][$i]["m"]=${xm[$k]}
+		FL[$id][$i]["size"]=${xsize[$k]}
+		FL[$id][$i]["time"]=${xtime[$k]}
+		FL[$id][$i]["perm"]=${xperm[$k]}
+		FL[$id][$i]["user"]=${xuser[$k]}
+		FL[$id][$i]["group"]=${xgroup[$k]}
+		FL[$id][$i]["trank"]=${xtrank[$k]}
+		k=$((k + 1))
+	done
+}
+
+# A heading clicked in the details view: sort by it, or the other way if it
+# already was. Names and modes start at A; sizes largest first; times
+# newest first -- what is looked for most often. The selected entry stays
+# selected wherever it lands.
+fn fb_headsort(int id, col) {
+	local nm i n
+
+	if [ "${FB[$id]["sort"]}" = "$col" ]; then
+		if [ "${FB[$id]["sdir"]}" = asc ]; then
+			FB[$id]["sdir"]=desc
+		else
+			FB[$id]["sdir"]=asc
+		fi
+	else
+		FB[$id]["sort"]=$col
+		case $col in
+		size | time) FB[$id]["sdir"]=desc ;;
+		*) FB[$id]["sdir"]=asc ;;
+		esac
+	fi
+	nm=${FL[$id][${FB[$id]["sel"]:-0}]["name"]}
+	fb_sort "$id"
+	n=${FB[$id]["n"]}
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		if [ "${FL[$id][$i]["name"]}" = "$nm" ]; then
+			FB[$id]["sel"]=$i
+			break
+		fi
+		i=$((i + 1))
+	done
+	fb_show "$id"
+}
+
+# A size as people read one: 4.8K, 19M.
+fn fb_human(int n) {
+	local i=0 t
+	local units=(B K M G T)
+
+	[ -z "$n" ] && { ret ""; return; }
+	while [ "$n" -ge 10240 ] && [ "$i" -lt 4 ]; do
+		n=$((n / 1024))
+		i=$((i + 1))
+	done
+	if [ "$n" -ge 1024 ] && [ "$i" -lt 4 ]; then
+		t=$((n * 10 / 1024))
+		i=$((i + 1))
+		ret "$((t / 10)).$((t % 10))${units[$i]}"
+		return
+	fi
+	ret "$n${units[$i]}"
+}
+
+# The full path of entry i.
+fn fb_path(int id, int i) {
+	local d nm
+
+	d=${FB[$id]["dir"]}
+	nm=${FL[$id][$i]["name"]}
+	if [ "$nm" = .. ]; then
+		d=${d%/*}
+		ret "${d:-/}"
+	elif [ "$d" = / ]; then
+		ret "/$nm"
+	else
+		ret "$d/$nm"
+	fi
+}
+
+# The window's title: what the menu opened it with, once it is somewhere
+# worth naming -- an app knows what it is showing better than the menu
+# that opened it does, the same reasoning term_open's own dt_retitle uses.
+# $HOME collapses to ~ the same way a prompt's \w already would.
+fn fb_retitle(int id, t) {
+	case $t in
+	dav://*/*) t=${t#dav://}; t="${t%%/*}:/${t#*/}" ;;
+	dav://*) t="${t#dav://}:/" ;;
+	"$HOME") t="~" ;;
+	"$HOME"/*) t="~${t#$HOME}" ;;
+	esac
+	if command -v dt_retitle > /dev/null; then
+		local wt
+		wt := dt_wintitle Files "$t"
+		dt_retitle "$id" "$wt"
+	fi
+}
+
+# Go somewhere, keeping the path absolute and without a trailing slash.
+fn fb_go(int id, d) {
+	local old=${FB[$id]["dir"]}
+
+	if [[ $d != /* ]] && [[ $d != dav://* ]] && [[ $old == dav://* ]]; then
+		d="$old/$d"
+	fi
+	if [[ $d == dav://* ]]; then
+		while [ "$d" != "${d%/}" ]; do d=${d%/}; done
+		while [ "$d" != "${d%/.}" ]; do d=${d%/.}; done
+		if [[ $d == */.. ]]; then
+			d=${d%/..}
+			[[ ${d#dav://} == */* ]] && d=${d%/*}
+		fi
+		fb_rscan "$id" "$d" || return 1
+		FB[$id]["q"]=
+		FB[$id]["qon"]=
+		FB[$id]["view"] := fb_dirview "$d"
+		fb_retitle "$id" "$d"
+		return 0
+	fi
+	case $d in
+	/*) ;;
+	*) d="${FB[$id]["dir"]}/$d" ;;
+	esac
+	while [ "$d" != "${d%/.}" ]; do d=${d%/.}; done
+	case $d in
+	*/..)
+		d=${d%/..}
+		d=${d%/*}
+		[ -z "$d" ] && d=/
+		;;
+	esac
+	[ "$d" != / ] && d=${d%/}
+	[ -d "$d" ] || return 1
+	FB[$id]["q"]=
+	FB[$id]["qon"]=
+	FB[$id]["dir"]=$d
+	FB[$id]["view"] := fb_dirview "$d"
+	fb_retitle "$id" "$d"
+	fb_scan "$id"
+}
+
+# Keep the selection on screen after it moves.  Positions are items, and
+# the screen holds `per` of them to a row -- one in the lists, a row of
+# tiles in the icons.
+fn fb_show(int id) {
+	local vis sel n top per
+
+	vis=${FB[$id]["vis"]}
+	per=${FB[$id]["per"]}
+	sel=${FB[$id]["sel"]}
+	n=${FB[$id]["n"]}
+	[ "$sel" -ge "$n" ] && sel=$((n - 1))
+	[ "$sel" -lt 0 ] && sel=0
+	FB[$id]["sel"]=$sel
+	top=${FB[$id]["top"]}
+	[ "$sel" -lt "$top" ] && top=$((sel - sel % per))
+	[ "$sel" -ge $((top + vis)) ] && top=$(((sel / per + 1) * per - vis))
+	FB[$id]["top"]=$top
+	fb_clamp "$id"
+}
+
+# Keep the view itself inside the list, on a whole row.
+fn fb_clamp(int id) {
+	local max n vis per top
+
+	n=${FB[$id]["n"]}
+	vis=${FB[$id]["vis"]}
+	per=${FB[$id]["per"]}
+	top=${FB[$id]["top"]}
+	max=$((((n + per - 1) / per) * per - vis))
+	[ "$max" -lt 0 ] && max=0
+	[ "$top" -gt "$max" ] && top=$max
+	[ "$top" -lt 0 ] && top=0
+	FB[$id]["top"]=$((top - top % per))
+}
+
+# The view a directory was last shown in, or the default.
+fn fb_dirview(dir) {
+	ret "${FB_VIEWS["$dir"]:-$FB_DEFAULTVIEW}"
+}
+
+# Remember which view a directory is shown in, and keep it. Written
+# through a temporary file and a rename, the same discipline dt_save uses
+# for the desktop's own settings. A path holding a literal double quote is
+# skipped rather than written unparseably, since only the value is
+# escaped here, not the key -- the same limitation dt_save's own DT_KEYS
+# and DT_APPKEY already accept for a controlled vocabulary of names; a
+# filesystem path is not controlled.
+fn fb_view_save(dir, view) {
+	local d tmp=$FB_VIEWFILE.$$
+
+	FB_VIEWS["$dir"]=$view
+	mkdir -p "${FB_VIEWFILE%/*}" 2> /dev/null || return 1
+	{
+		for d in "${!FB_VIEWS[@]}"; do
+			case $d in *'"'*) continue ;; esac
+			printf 'FB_VIEWS["%s"]=%q\n' "$d" "${FB_VIEWS["$d"]}"
+		done
+	} > "$tmp" && mv -f "$tmp" "$FB_VIEWFILE"
+}
+
+# Forget every directory's own remembered view -- Control Panel's own
+# Reset All Views (#51), next to Default File View (#50). Each one starts
+# fresh from the default the next time it is shown; a window already
+# open keeps showing whatever it is currently showing, the same as
+# changing the default itself already leaves an open window alone.
+fb_reset_views() {
+	unset FB_VIEWS
+	declare -gA FB_VIEWS
+	rm -f "$FB_VIEWFILE"
+}
+
+fn files_open(int id, d) {
+	local d=${d:-${FB_DIR:-$PWD}} want=
+
+	[[ $d == dav://* ]] && want=$d && d=$HOME
+	[ -d "$d" ] || d=$PWD
+	FB[$id]["dir"]=$d
+	FB[$id]["hidden"]=
+	FB[$id]["view"] := fb_dirview "$d"
+	FB[$id]["vis"]=1
+	FB[$id]["per"]=1
+	fb_retitle "$id" "$d"
+	fb_scan "$id"
+	[ -n "$want" ] && fb_go "$id" "$want"
+	return 0
+}
+
+# After Restart Desktop the folder is read again, since its listing is not
+# kept; where it was, the view and the selection are.
+fn files_resume(int id) {
+	if fb_remote "$id"; then
+		fb_scan "$id" && return 0
+		FB[$id]["dir"]=$HOME
+	fi
+	[ -d "${FB[$id]["dir"]}" ] || FB[$id]["dir"]=$HOME
+	fb_scan "$id"
+}
+
+# The colour an entry is drawn in, by what it is.
+fn fb_pen(kind) {
+	case $kind in
+	up | dir) console pen "$DT_WARN" "$DT_FACE" ;;
+	exe) console pen "$DT_GOOD" "$DT_FACE" ;;
+	link) console pen "$DT_INFO" "$DT_FACE" ;;
+	*) console pen "$DT_INK" "$DT_FACE" ;;
+	esac
+}
+
+# The picture an entry has in the icon view.
+fn fb_glyph(kind) {
+	case $kind in
+	up) ret "${GL[up]}" ;;
+	dir) ret "${GL[folder]}${GL[folder]}" ;;
+	exe) ret "${GL[right]}" ;;
+	link) ret "${GL[hook]}" ;;
+	*) ret "${GL[file]}" ;;
+	esac
+}
+
+fn files_draw(int id, int h, int w, int row, int col) {
+	local t n sel pw=$w bw=0 q=${FB[$id]["q"]} on sx px
+
+	dt_wclear "$id"
+	if [ "$w" -ge 36 ]; then
+		bw=16
+		pw=$((w - bw - 2))
+	fi
+	FB[$id]["w"]=$w
+	FB[$id]["x0"]=1
+	sx=$((w - bw + 1))
+	px=1
+	case $DT_MIRRORON in 1) FB[$id]["x0"]=2; sx=1; px=$((w - pw + 1)) ;; esac
+	FB[$id]["px"]=$px
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	t="${FB[$id]["dir"]}"
+	[ ${#t} -gt "$pw" ] && t="${GL[ellipsis]}${t: -$((pw - 1))}"
+	case $DT_MIRRORON in
+	1) t := dt_rpad "$t" "$pw" ;;
+	*) t := str pad "$t" "$pw" ;;
+	esac
+	console put -p "w$id" 1 "$px" "$t"
+	if [ "$bw" -gt 0 ]; then
+		if [ -n "$q" ] || [ -n "${FB[$id]["qon"]}" ]; then
+			on=0
+			[ -n "${FB[$id]["qon"]}" ] && on=1
+			dt_textdraw "$id" 1 "$sx" "$bw" "$q" "${#q}" "$on"
+		else
+			console pen "$DT_DIM" "$DT_WELL"
+			t := str pad " Search  /" "$bw"
+			console put -p "w$id" 1 "$sx" "$t"
+		fi
+		dt_wreg "$id" 1 "$sx" "$bw" search
+	fi
+	case ${FB[$id]["view"]} in
+	details) fb_drawdet "$id" "$h" "$w" ;;
+	icons) fb_drawicons "$id" "$h" "$w" ;;
+	*) fb_drawlist "$id" "$h" "$w" ;;
+	esac
+	fb_bar "$id" "$h" "$w"
+	n=${FB[$id]["n"]}
+	sel=${FB[$id]["sel"]}
+	console pen "$DT_DIM" "$DT_FACE"
+	if [ "${FB[$id]["marks"]}" -gt 0 ]; then
+		t := dt_tr "%s selected" "${FB[$id]["marks"]}"
+	else
+		t="$((sel + 1)) of $n"
+	fi
+	case $DT_MIRRORON in
+	1)
+		n := str width "$t"
+		console put -p "w$id" "$h" $((w - n)) "$t"
+		console put -p "w$id" "$h" 1 "${FB[$id]["view"]}"
+		;;
+	*)
+		console put -p "w$id" "$h" 1 "$t"
+		t=${FB[$id]["view"]}
+		console put -p "w$id" "$h" $((w - ${#t})) "$t"
+		;;
+	esac
+}
+
+# A list of names, one to a row.
+fn fb_drawlist(int id, int h, int w) {
+	local i r nm t n top sel
+
+	FB[$id]["y0"]=2
+	FB[$id]["vis"]=$((h - 2))
+	FB[$id]["per"]=1
+	n=${FB[$id]["n"]}
+	top=${FB[$id]["top"]}
+	sel=${FB[$id]["sel"]}
+	i=$top
+	r=2
+	while [ "$r" -lt "$h" ] && [ "$i" -lt "$n" ]; do
+		nm=${FL[$id][$i]["name"]}
+		[ "${FL[$id][$i]["dir"]}" = 1 ] && nm="$nm/"
+		case $DT_MIRRORON in
+		1) t := dt_rpad "$nm " $((w - 1)) ;;
+		*) t := str pad " $nm" $((w - 1)) ;;
+		esac
+		fb_rowpen "$id" "$i"
+		console put -p "w$id" "$r" "${FB[$id]["x0"]}" "$t"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+}
+
+# The list with a size, a time and permissions: as many of those columns as
+# the window has room for, dropped from the right as it narrows.
+fn fb_drawdet(int id, int h, int w) {
+	local i r nm t n top sel nw sz line mk ms mt mm a x hx
+	local cs=0 ct=0 cp=0
+
+	[ -n "${FB[$id]["meta"]}" ] || fb_meta "$id"
+	FB[$id]["y0"]=3
+	FB[$id]["vis"]=$((h - 3))
+	FB[$id]["per"]=1
+	nw=$((w - 1))
+	[ "$nw" -ge 24 ] && cs=1 && nw=$((nw - 7))
+	[ "$nw" -ge 30 ] && ct=1 && nw=$((nw - 14))
+	[ "$nw" -ge 24 ] && cp=1 && nw=$((nw - 11))
+	mk=; ms=; mt=; mm=
+	if [ -n "${FB[$id]["sort"]}" ]; then
+		a="${GL[down]}"
+		[ "${FB[$id]["sdir"]}" = asc ] && a="${GL[up]}"
+		case ${FB[$id]["sort"]} in
+		name) mk=$a ;;
+		size) ms=$a ;;
+		time) mt=$a ;;
+		mode) mm=$a ;;
+		esac
+	fi
+	console pen "$DT_DIM" "$DT_FACE"
+	if [ "$DT_MIRRORON" = 1 ]; then
+		fb_dethead "$id" "$nw" "$cs" "$ct" "$cp" "$mk" "$ms" "$mt" "$mm"
+	else
+	line := str pad " Name$mk" "$nw"
+	x=$((1 + nw))
+	hx="name 1 $x"
+	if [ "$cs" = 1 ]; then
+		t := str pad "Size$ms" 5
+		line="$line  $t"
+		hx="$hx size $x $((x + 7))"
+		x=$((x + 7))
+	fi
+	if [ "$ct" = 1 ]; then
+		t := str pad "Modified$mt" 12
+		line="$line  $t"
+		hx="$hx time $x $((x + 14))"
+		x=$((x + 14))
+	fi
+	if [ "$cp" = 1 ]; then
+		line="$line Mode$mm"
+		hx="$hx mode $x $((x + 11))"
+	fi
+	FB[$id]["hx"]=$hx
+	console put -p "w$id" 2 1 "$line"
+	fi
+	n=${FB[$id]["n"]}
+	top=${FB[$id]["top"]}
+	sel=${FB[$id]["sel"]}
+	i=$top
+	r=3
+	while [ "$r" -lt "$h" ] && [ "$i" -lt "$n" ]; do
+		nm=${FL[$id][$i]["name"]}
+		[ "${FL[$id][$i]["dir"]}" = 1 ] && nm="$nm/"
+		[ "${#nm}" -ge "$nw" ] && nm="${nm:0:$((nw - 2))}${GL[ellipsis]}"
+		if [ "$DT_MIRRORON" = 1 ]; then
+			line := fb_detrow "$id" "$i" "$nm" "$nw" "$cs" "$ct" "$cp"
+			fb_rowpen "$id" "$i"
+			console put -p "w$id" "$r" 2 "$line"
+			r=$((r + 1))
+			i=$((i + 1))
+			continue
+		fi
+		line := str pad " $nm" "$nw"
+		if [ "$cs" = 1 ]; then
+			if [ "${FL[$id][$i]["dir"]}" = 1 ]; then
+				sz="-"
+			else
+				sz := fb_human "${FL[$id][$i]["size"]}"
+			fi
+			printf -v t "%7s" "$sz"
+			line="$line$t"
+		fi
+		if [ "$ct" = 1 ]; then
+			printf -v t "  %-12s" "${FL[$id][$i]["time"]}"
+			line="$line$t"
+		fi
+		[ "$cp" = 1 ] && line="$line ${FL[$id][$i]["perm"]}"
+		line := str pad "$line" $((w - 1))
+		fb_rowpen "$id" "$i"
+		console put -p "w$id" "$r" 1 "$line"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+}
+
+# The details header mirrored: Mode, Modified and Size from the left, the name at the right.
+fn fb_dethead(int id, int nw, int cs, int ct, int cp, mk, ms, mt, mm) {
+	local line="" t hx="" x=2
+
+	if [ "$cp" = 1 ]; then
+		t := str pad "Mode$mm" 11
+		line+=$t
+		hx="$hx mode $x $((x + 11))"
+		x=$((x + 11))
+	fi
+	if [ "$ct" = 1 ]; then
+		t := str pad "Modified$mt" 14
+		line+=$t
+		hx="$hx time $x $((x + 14))"
+		x=$((x + 14))
+	fi
+	if [ "$cs" = 1 ]; then
+		t := dt_rpad "Size$ms" 7
+		line+=$t
+		hx="$hx size $x $((x + 7))"
+		x=$((x + 7))
+	fi
+	t := dt_rpad "Name$mk " "$nw"
+	line+=$t
+	hx="$hx name $x $((x + nw))"
+	FB[$id]["hx"]=${hx# }
+	console put -p "w$id" 2 2 "$line"
+}
+
+# One row of the details mirrored, its columns in the header's order.
+fn fb_detrow(int id, int i, nm, int nw, int cs, int ct, int cp) {
+	local line="" t sz
+
+	[ "$cp" = 1 ] && line="${FL[$id][$i]["perm"]} "
+	if [ "$ct" = 1 ]; then
+		printf -v t "%-12s  " "${FL[$id][$i]["time"]}"
+		line+=$t
+	fi
+	if [ "$cs" = 1 ]; then
+		if [ "${FL[$id][$i]["dir"]}" = 1 ]; then
+			sz="-"
+		else
+			sz := fb_human "${FL[$id][$i]["size"]}"
+		fi
+		printf -v t "%7s" "$sz"
+		line+=$t
+	fi
+	t := dt_rpad "$nm " "$nw"
+	ret "$line$t"
+}
+
+# A grid of tiles: a picture, and the name under it.
+fn fb_drawicons(int id, int h, int w) {
+	local i n top sel per rows r c x y g nm tw=$FILES_TILE
+
+	per=$(((w - 1) / tw))
+	[ "$per" -lt 1 ] && per=1
+	rows=$(((h - 1) / 3))
+	[ "$rows" -lt 1 ] && rows=1
+	FB[$id]["y0"]=2
+	FB[$id]["per"]=$per
+	FB[$id]["vis"]=$((per * rows))
+	n=${FB[$id]["n"]}
+	top=${FB[$id]["top"]}
+	sel=${FB[$id]["sel"]}
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$i" -lt $((top + per * rows)) ]; do
+		r=$(((i - top) / per))
+		c=$(((i - top) % per))
+		y=$((2 + r * 3))
+		x=$((1 + c * tw))
+		case $DT_MIRRORON in 1) x=$((w + 1 - (c + 1) * tw)) ;; esac
+		g := fb_glyph "${FL[$id][$i]["kind"]}"
+		fb_pen "${FL[$id][$i]["kind"]}"
+		console put -p "w$id" "$y" $((x + (tw - ${#g}) / 2)) "$g"
+		nm=${FL[$id][$i]["name"]}
+		[ "${#nm}" -gt $((tw - 2)) ] && nm="${nm:0:$((tw - 3))}${GL[ellipsis]}"
+		fb_rowpen "$id" "$i"
+		console put -p "w$id" $((y + 1)) $((x + (tw - ${#nm}) / 2)) "$nm"
+		i=$((i + 1))
+	done
+}
+
+# A scrollbar when the list is longer than the window, via the shared
+# dt_scrollbar every scrollable window uses. n and vis are items, not
+# rows, when per (the icon view's columns) is more than one -- rows and
+# shown convert them, and dt_scrollbar's own gate gets the right answer
+# from those rather than from n and vis directly.
+fn fb_bar(int id, int h, int w) {
+	local n per vis top rows shown y0
+
+	n=${FB[$id]["n"]}
+	per=${FB[$id]["per"]}
+	vis=${FB[$id]["vis"]}
+	top=${FB[$id]["top"]}
+	y0=${FB[$id]["y0"]}
+	rows=$(((n + per - 1) / per))
+	shown=$((vis / per))
+	case $DT_MIRRORON in 1) w=1 ;; esac
+	dt_scrollbar "$id" "$y0" "$w" $((h - y0)) "$rows" "$shown" \
+		$((top / per))
+}
+
+# Keys.  The arrows move the cursor and leave only it selected; with shift
+# they carry the selection with them from where it was anchored.  Space
+# marks or unmarks the cursor's entry and steps on, ctrl-a marks everything.
+fn files_key(int id, k) {
+	local vis sel n per icons= to ext=
+
+	vis=${FB[$id]["vis"]}
+	per=${FB[$id]["per"]}
+	sel=${FB[$id]["sel"]}
+	n=${FB[$id]["n"]}
+	[ "${FB[$id]["view"]}" = icons ] && icons=1
+	if [ -n "${FB[$id]["qon"]}" ]; then
+		fb_searchkey "$id" "$k" && return 0
+	fi
+	case $k in
+	/ | ctrl-f)
+		FB[$id]["qon"]=1
+		return 0
+		;;
+	escape)
+		[ -n "${FB[$id]["q"]}" ] || return 1
+		FB[$id]["q"]=
+		fb_scan "$id"
+		return 0
+		;;
+	esac
+	case $k in shift-*) ext=1; k=${k#shift-} ;; esac
+	case $k in
+	up) to=$((sel - per)) ;;
+	down) to=$((sel + per)) ;;
+	left)
+		if [ -n "$icons" ]; then
+			to=$((sel - 1))
+		elif [ -z "$ext" ]; then
+			fb_go "$id" ..
+			return 0
+		fi
+		;;
+	right)
+		if [ -n "$icons" ]; then
+			to=$((sel + 1))
+		elif [ -z "$ext" ]; then
+			fb_open "$id"
+			return 0
+		fi
+		;;
+	pageup) to=$((sel - vis)) ;;
+	pagedown) to=$((sel + vis)) ;;
+	home) to=0 ;;
+	end) to=$((n - 1)) ;;
+	enter) fb_open "$id" ;;
+	backspace) fb_go "$id" .. ;;
+	" " | space)
+		if [ -n "${FL[$id][$sel]["m"]}" ]; then
+			fb_mark "$id" "$sel" 0
+		else
+			fb_mark "$id" "$sel" 1
+		fi
+		to=$((sel + 1))
+		ext=keep
+		;;
+	ctrl-a)
+		fb_range "$id" 0 $((n - 1))
+		return 0
+		;;
+	h) files_hidden "$id" ;;
+	v) files_cycle "$id" ;;
+	n) files_rename "$id" ;;
+	i) files_info "$id" ;;
+	delete) files_trash "$id" ;;
+	*) return 1 ;;
+	esac
+	[ -n "$to" ] || { fb_show "$id"; return 0; }
+	FB[$id]["sel"]=$to
+	fb_show "$id"
+	to=${FB[$id]["sel"]}
+	case $ext in
+	keep) ;;
+	1) fb_range "$id" "${FB[$id]["anchor"]}" "$to" ;;
+	*)
+		fb_clear "$id"
+		FB[$id]["anchor"]=$to
+		;;
+	esac
+	return 0
+}
+
+# A key while the search box has the keyboard: typing narrows the list as it
+# goes, enter keeps what it found and goes back to the list, escape clears
+# it. The arrows leave the box and move in the list, as anything else does.
+fn fb_searchkey(int id, k) {
+	local q=${FB[$id]["q"]} r
+
+	case $k in
+	enter)
+		FB[$id]["qon"]=
+		return 0
+		;;
+	escape)
+		FB[$id]["qon"]=
+		FB[$id]["q"]=
+		fb_scan "$id"
+		return 0
+		;;
+	up | down | pageup | pagedown | tab)
+		FB[$id]["qon"]=
+		return 1
+		;;
+	esac
+	for r in "${!DT_KEYS[@]}"; do
+		if [ "${DT_KEYS["$r"]}" = "$k" ]; then
+			FB[$id]["qon"]=
+			return 1
+		fi
+	done
+	r := dt_textkey "$q" "${#q}" "$k" || return 0
+	FB[$id]["q"]=${r% *}
+	fb_scan "$id"
+	return 0
+}
+
+# Open the selected entry: go into a folder, and hand a file to the desktop,
+# which opens it in a terminal with hvi.
+fn fb_open(int id) {
+	local sel p
+
+	sel=${FB[$id]["sel"]}
+	[ "${FB[$id]["n"]}" = 0 ] && return 0
+	if [ "${FL[$id][$sel]["dir"]}" = 1 ]; then
+		fb_go "$id" "${FL[$id][$sel]["name"]}"
+		return 0
+	fi
+	p := fb_path "$id" "$sel"
+	if [[ $p == dav://* ]]; then
+		dt_has dt_davopen && dt_davopen "$p"
+		return 0
+	fi
+	command -v dt_openfile > /dev/null && dt_openfile "$p"
+	return 0
+}
+
+# Rename: one field, a real window of its own. mv does the actual work,
+# the same command every move in this app already shells out to.
+fn files_rename(int id) {
+	local sel rid h=7 w=46 r c nm p
+
+	sel=${FB[$id]["sel"]}
+	[ "${FB[$id]["n"]}" = 0 ] && return 0
+	[ "${FL[$id][$sel]["kind"]}" = up ] && return 0
+	nm=${FL[$id][$sel]["name"]}
+	p := fb_path "$id" "$sel"
+	r=$((DT_ROWS / 2 - h / 2))
+	c=$(((DT_COLS - w) / 2))
+	rid := dt_new "Rename" "$h" "$w" "$r" "$c" rn
+	RN[$rid]["dir"]=${FB[$id]["dir"]}
+	RN[$rid]["path"]=$p
+	RN[$rid]["text"]=$nm
+	RN[$rid]["cur"]=${#nm}
+	RN[$rid]["focus"]=text
+}
+
+# The name field, then Rename and Cancel: tab moves between the three, and
+# enter does what has focus -- or renames, from the field.
+fn rn_draw(int id, int h, int w, int row, int col) {
+	local f=${RN[$id]["focus"]} on=0
+
+	dt_wclear "$id"
+	[ "$f" = text ] && on=1
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 1 2 "New name:"
+	dt_textdraw "$id" 2 2 $((w - 4)) "${RN[$id]["text"]}" \
+		"${RN[$id]["cur"]}" "$on"
+	dt_dlgbtns "$id" "$h" "$w" "$f" ok Rename cancel Cancel
+}
+
+fn rn_click(int? id = "", int? r = "", int? c = "", btn = "") {
+	local cur tag
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	ok) rn_commit "$id"; return 0 ;;
+	cancel) dt_del "$id"; return 0 ;;
+	esac
+	[ "$r" = 2 ] || return 0
+	RN[$id]["focus"]=text
+	cur=$((c - 2))
+	[ "$cur" -gt "${#RN[$id]["text"]}" ] && cur=${#RN[$id]["text"]}
+	[ "$cur" -lt 0 ] && cur=0
+	RN[$id]["cur"]=$cur
+}
+
+fn rn_commit(int id) {
+	local name dir old new
+
+	name=${RN[$id]["text"]}
+	dir=${RN[$id]["dir"]}
+	old=${RN[$id]["path"]}
+	if [ -z "$name" ] || [ "$name" = "." ] || [ "$name" = ".." ] ||
+	   [ "${name#*/}" != "$name" ]; then
+		dt_notep low "Not a valid name"
+		return 0
+	fi
+	new="$dir/$name"
+	if [ "$new" = "$old" ]; then
+		dt_del "$id"
+		return 0
+	fi
+	if [[ $old == dav://* ]]; then
+		if fb_rrename "$old" "$new"; then
+			dt_del "$id"
+			dt_changed
+		else
+			dt_notep high "Could not rename it: %s" "$DT_WHY"
+		fi
+		return 0
+	fi
+	if [ -e "$new" ] || [ -L "$new" ]; then
+		dt_notep low "%s already has a %s" "${dir##*/}" "$name"
+		return 0
+	fi
+	if command mv -- "$old" "$new" 2>> "$DT_LOG"; then
+		dt_del "$id"
+		dt_changed
+	else
+		dt_notep high "Could not rename it"
+	fi
+}
+
+fn rn_key(int id, k) {
+	local res f=${RN[$id]["focus"]} d onb=1
+
+	[ "$f" = text ] && onb=0
+	if d := dt_focuskey "$k" "$onb"; then
+		RN[$id]["focus"] := dt_focus "$f" "$d" text ok cancel
+		return 0
+	fi
+	case $k in
+	enter)
+		if [ "$f" = cancel ]; then dt_del "$id"; else rn_commit "$id"; fi
+		return 0
+		;;
+	escape) dt_del "$id"; return 0 ;;
+	esac
+	[ "$f" = text ] || return 0
+	res := dt_textkey "${RN[$id]["text"]}" "${RN[$id]["cur"]}" "$k" ||
+		return 1
+	RN[$id]["text"]=${res% *}
+	RN[$id]["cur"]=${res##* }
+	return 0
+}
+
+fn rn_close(int id) {
+	unset "RN[$id]"
+}
+
+# Get Info: name (so renaming lives here too, the same as it does in a
+# real Get Info panel), kind, size, where, when it last changed, owner
+# and group, and the nine permission bits -- read from the same one-ls
+# metadata the details view uses, applied with chmod and chown the moment
+# a box is clicked or, for the text fields, on enter.
+fn files_info(int id) {
+	local sel h=18 w=48 r c gid nm p isdir
+
+	sel=${FB[$id]["sel"]}
+	[ "${FB[$id]["n"]}" = 0 ] && return 0
+	[ "${FL[$id][$sel]["kind"]}" = up ] && return 0
+	[ -n "${FB[$id]["meta"]}" ] || fb_meta "$id"
+	nm=${FL[$id][$sel]["name"]}
+	p := fb_path "$id" "$sel"
+	isdir=${FL[$id][$sel]["dir"]}
+	r=$((DT_ROWS / 2 - h / 2))
+	c=$(((DT_COLS - w) / 2))
+	gid := dt_new "Get Info" "$h" "$w" "$r" "$c" gi
+	GI[$gid]["dir"]=${FB[$id]["dir"]}
+	GI[$gid]["path"]=$p
+	GI[$gid]["isdir"]=$isdir
+	GI[$gid]["size"]=${FL[$id][$sel]["size"]}
+	GI[$gid]["time"]=${FL[$id][$sel]["time"]}
+	GI[$gid]["namebuf"]=$nm
+	GI[$gid]["namecur"]=${#nm}
+	GI[$gid]["userbuf"]=${FL[$id][$sel]["user"]}
+	GI[$gid]["usercur"]=${#GI[$gid]["userbuf"]}
+	GI[$gid]["groupbuf"]=${FL[$id][$sel]["group"]}
+	GI[$gid]["groupcur"]=${#GI[$gid]["groupbuf"]}
+	GI[$gid]["origuser"]=${GI[$gid]["userbuf"]}
+	GI[$gid]["origgroup"]=${GI[$gid]["groupbuf"]}
+	GI[$gid]["focus"]=name
+	GI[$gid]["remote"]=
+	if fb_remote "$id"; then
+		GI[$gid]["remote"]=1
+		GI[$gid]["etag"]=${FL[$id][$sel]["etag"]}
+		GI[$gid]["type"]=${FL[$id][$sel]["type"]}
+		return 0
+	fi
+	gi_permload "$gid" "${FL[$id][$sel]["perm"]}"
+}
+
+# x and s (setuid/sticky in the executable's own column) both still mean
+# the bit is set; anything else in that column (S, T, a bare -) does not.
+fn gi_permload(int id, p) {
+	GI[$id]["ur"]=0; [ "${p:1:1}" = r ] && GI[$id]["ur"]=1
+	GI[$id]["uw"]=0; [ "${p:2:1}" = w ] && GI[$id]["uw"]=1
+	GI[$id]["ux"]=0
+	case ${p:3:1} in x | s) GI[$id]["ux"]=1 ;; esac
+	GI[$id]["gr"]=0; [ "${p:4:1}" = r ] && GI[$id]["gr"]=1
+	GI[$id]["gw"]=0; [ "${p:5:1}" = w ] && GI[$id]["gw"]=1
+	GI[$id]["gx"]=0
+	case ${p:6:1} in x | s) GI[$id]["gx"]=1 ;; esac
+	GI[$id]["or"]=0; [ "${p:7:1}" = r ] && GI[$id]["or"]=1
+	GI[$id]["ow"]=0; [ "${p:8:1}" = w ] && GI[$id]["ow"]=1
+	GI[$id]["ox"]=0
+	case ${p:9:1} in x | t) GI[$id]["ox"]=1 ;; esac
+}
+
+fn gi_draw(int id, int h, int w, int row, int col) {
+	local sz nfoc ofoc gfoc
+
+	dt_wclear "$id"
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 1 2 "Name:"
+	nfoc=0; [ "${GI[$id]["focus"]}" = name ] && nfoc=1
+	dt_textdraw "$id" 1 8 $((w - 10)) "${GI[$id]["namebuf"]}" \
+		"${GI[$id]["namecur"]}" "$nfoc"
+	dt_wreg "$id" 1 8 $((w - 10)) name
+
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 2 2 "Kind:"
+	if [ "${GI[$id]["isdir"]}" = 1 ]; then
+		dt_tput "$id" 2 8 "folder"
+	else
+		dt_tput "$id" 2 8 "file"
+		sz := fb_human "${GI[$id]["size"]}"
+		dt_tput "$id" 3 2 "Size: %s" "$sz"
+	fi
+	dt_tput "$id" 4 2 "Where:"
+	console put -p "w$id" 4 9 "${GI[$id]["dir"]:0:$((w - 11))}"
+	dt_tput "$id" 5 2 "Modified: %s" "${GI[$id]["time"]}"
+	if [ -n "${GI[$id]["remote"]}" ]; then
+		[ -n "${GI[$id]["type"]}" ] &&
+			dt_tput "$id" 6 2 "Type: %s" "${GI[$id]["type"]:0:$((w - 10))}"
+		console pen "$DT_DIM" "$DT_FACE"
+		dt_tput "$id" 7 2 "ETag: %s" "${GI[$id]["etag"]:0:$((w - 10))}"
+		dt_tput "$id" 9 2 "On a server: no owner or permissions here."
+		dt_dlgbtns "$id" "$h" "$w" "${GI[$id]["focus"]}" ok Apply cancel Close
+		return 0
+	fi
+
+	dt_tput "$id" 7 2 "Owner:"
+	ofoc=0; [ "${GI[$id]["focus"]}" = owner ] && ofoc=1
+	dt_textdraw "$id" 7 9 12 "${GI[$id]["userbuf"]}" \
+		"${GI[$id]["usercur"]}" "$ofoc"
+	dt_wreg "$id" 7 9 12 owner
+	dt_tput "$id" 7 24 "Group:"
+	gfoc=0; [ "${GI[$id]["focus"]}" = group ] && gfoc=1
+	dt_textdraw "$id" 7 31 12 "${GI[$id]["groupbuf"]}" \
+		"${GI[$id]["groupcur"]}" "$gfoc"
+	dt_wreg "$id" 7 31 12 group
+
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" 9 9 "R"
+	console put -p "w$id" 9 15 "W"
+	console put -p "w$id" 9 21 "X"
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 10 2 "Owner"
+	dt_check "$id" 10 8 "${GI[$id]["ur"]}" "" perm:ur
+	dt_check "$id" 10 14 "${GI[$id]["uw"]}" "" perm:uw
+	dt_check "$id" 10 20 "${GI[$id]["ux"]}" "" perm:ux
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 11 2 "Group"
+	dt_check "$id" 11 8 "${GI[$id]["gr"]}" "" perm:gr
+	dt_check "$id" 11 14 "${GI[$id]["gw"]}" "" perm:gw
+	dt_check "$id" 11 20 "${GI[$id]["gx"]}" "" perm:gx
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 12 2 "Other"
+	dt_check "$id" 12 8 "${GI[$id]["or"]}" "" perm:or
+	dt_check "$id" 12 14 "${GI[$id]["ow"]}" "" perm:ow
+	dt_check "$id" 12 20 "${GI[$id]["ox"]}" "" perm:ox
+
+	dt_dlgbtns "$id" "$h" "$w" "${GI[$id]["focus"]}" ok Apply cancel Close
+}
+
+fn gi_chmod(int id) {
+	local u=0 g=0 o=0
+
+	[ "${GI[$id]["ur"]}" = 1 ] && u=$((u + 4))
+	[ "${GI[$id]["uw"]}" = 1 ] && u=$((u + 2))
+	[ "${GI[$id]["ux"]}" = 1 ] && u=$((u + 1))
+	[ "${GI[$id]["gr"]}" = 1 ] && g=$((g + 4))
+	[ "${GI[$id]["gw"]}" = 1 ] && g=$((g + 2))
+	[ "${GI[$id]["gx"]}" = 1 ] && g=$((g + 1))
+	[ "${GI[$id]["or"]}" = 1 ] && o=$((o + 4))
+	[ "${GI[$id]["ow"]}" = 1 ] && o=$((o + 2))
+	[ "${GI[$id]["ox"]}" = 1 ] && o=$((o + 1))
+	if command chmod "$u$g$o" -- "${GI[$id]["path"]}" 2>> "$DT_LOG"; then
+		dt_changed
+	else
+		dt_notep high "Could not change permissions"
+	fi
+}
+
+fn gi_click(int id, int r, int c, btn) {
+	local tag cur
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	ok) gi_apply "$id" ;;
+	cancel) dt_del "$id" ;;
+	name)
+		GI[$id]["focus"]=name
+		cur=$((c - 8))
+		[ "$cur" -gt "${#GI[$id]["namebuf"]}" ] &&
+			cur=${#GI[$id]["namebuf"]}
+		[ "$cur" -lt 0 ] && cur=0
+		GI[$id]["namecur"]=$cur
+		;;
+	owner)
+		GI[$id]["focus"]=owner
+		cur=$((c - 9))
+		[ "$cur" -gt "${#GI[$id]["userbuf"]}" ] &&
+			cur=${#GI[$id]["userbuf"]}
+		[ "$cur" -lt 0 ] && cur=0
+		GI[$id]["usercur"]=$cur
+		;;
+	group)
+		GI[$id]["focus"]=group
+		cur=$((c - 31))
+		[ "$cur" -gt "${#GI[$id]["groupbuf"]}" ] &&
+			cur=${#GI[$id]["groupbuf"]}
+		[ "$cur" -lt 0 ] && cur=0
+		GI[$id]["groupcur"]=$cur
+		;;
+	perm:*)
+		if [ "${GI[$id]["${tag#perm:}"]}" = 1 ]; then
+			GI[$id]["${tag#perm:}"]=0
+		else
+			GI[$id]["${tag#perm:}"]=1
+		fi
+		gi_chmod "$id"
+		;;
+	esac
+}
+
+fn gi_apply(int? id = "") {
+	local old dir name new own grp ok=1
+
+	old=${GI[$id]["path"]}
+	dir=${GI[$id]["dir"]}
+	name=${GI[$id]["namebuf"]}
+	if [ -n "${GI[$id]["remote"]}" ]; then
+		new="$dir/$name"
+		if [ -z "$name" ] || [ "$name" = . ] || [ "$name" = .. ] ||
+		   [ "${name#*/}" != "$name" ]; then
+			dt_notep low "Not a valid name"
+			return 0
+		fi
+		if [ "$new" != "$old" ]; then
+			if ! fb_rrename "$old" "$new"; then
+				dt_notep high "Could not rename it: %s" "$DT_WHY"
+				return 0
+			fi
+			dt_changed
+		fi
+		dt_del "$id"
+		return 0
+	fi
+	if [ -n "$name" ] && [ "$name" != "." ] && [ "$name" != ".." ] &&
+	   [ "${name#*/}" = "$name" ]; then
+		new="$dir/$name"
+		if [ "$new" != "$old" ]; then
+			if [ -e "$new" ] || [ -L "$new" ]; then
+				dt_notep low "%s already has a %s" "${dir##*/}" "$name"
+				ok=0
+			elif command mv -- "$old" "$new" 2>> "$DT_LOG"; then
+				old=$new
+				GI[$id]["path"]=$new
+				dt_changed
+			else
+				dt_notep high "Could not rename it"
+				ok=0
+			fi
+		fi
+	fi
+	own=${GI[$id]["userbuf"]}
+	grp=${GI[$id]["groupbuf"]}
+	if [ "$own" != "${GI[$id]["origuser"]}" ] ||
+	   [ "$grp" != "${GI[$id]["origgroup"]}" ]; then
+		if command chown "$own:$grp" -- "$old" 2>> "$DT_LOG"; then
+			dt_changed
+		else
+			dt_notep high "Could not change owner or group"
+			ok=0
+		fi
+	fi
+	[ "$ok" = 1 ] && dt_del "$id"
+}
+
+fn gi_key(int id, k) {
+	local res field=${GI[$id]["focus"]} buf cur d onb=0
+
+	case $field in ok | cancel) onb=1 ;; esac
+	if d := dt_focuskey "$k" "$onb"; then
+		if [ -n "${GI[$id]["remote"]}" ]; then
+			GI[$id]["focus"] := dt_focus "$field" "$d" name ok cancel
+		else
+			GI[$id]["focus"] := dt_focus "$field" "$d" name owner group ok cancel
+		fi
+		return 0
+	fi
+	case $k in
+	escape) dt_del "$id"; return 0 ;;
+	enter)
+		if [ "$field" = cancel ]; then dt_del "$id"; else gi_apply "$id"; fi
+		return 0
+		;;
+	esac
+	case $field in
+	name) buf=${GI[$id]["namebuf"]}; cur=${GI[$id]["namecur"]} ;;
+	owner) buf=${GI[$id]["userbuf"]}; cur=${GI[$id]["usercur"]} ;;
+	group) buf=${GI[$id]["groupbuf"]}; cur=${GI[$id]["groupcur"]} ;;
+	ok | cancel) return 0 ;;
+	*) return 1 ;;
+	esac
+	res := dt_textkey "$buf" "$cur" "$k" || return 1
+	case $field in
+	name) GI[$id]["namebuf"]=${res% *}; GI[$id]["namecur"]=${res##* } ;;
+	owner) GI[$id]["userbuf"]=${res% *}; GI[$id]["usercur"]=${res##* } ;;
+	group) GI[$id]["groupbuf"]=${res% *}; GI[$id]["groupcur"]=${res##* } ;;
+	esac
+	return 0
+}
+
+fn gi_close(int id) {
+	unset "GI[$id]"
+}
+
+# Open the entry under the cursor with a specific handler, chosen from Open
+# With rather than by its own extension -- the desktop's dt_runhandler is
+# generic on the path once given which one to use.
+# Open the selected file with one opener, this once: Open With never
+# changes what a double-click does -- File Types does that.
+fn files_openwith(int id, name) {
+	local sel p
+
+	sel=${FB[$id]["sel"]}
+	[ "${FB[$id]["n"]}" = 0 ] && return 0
+	[ "${FL[$id][$sel]["dir"]}" = 1 ] && return 0
+	p := fb_path "$id" "$sel"
+	if [[ $p == dav://* ]]; then
+		dt_has dt_davopen && dt_davopen "$p" "$name"
+		return 0
+	fi
+	dt_has dt_openwith && dt_openwith "$name" "$p"
+}
+
+# Open With > Other…: a command typed for the selected file, run in a
+# terminal with the path after it, this once.
+fn files_openother(int id) {
+	local sel p h=8 w=54 r c rid
+
+	sel=${FB[$id]["sel"]}
+	[ "${FL[$id][$sel]["dir"]}" = 1 ] && return 0
+	p := fb_path "$id" "$sel"
+	r=$((DT_ROWS / 2 - h / 2))
+	c=$(((DT_COLS - w) / 2))
+	rid := dt_new "Open With" "$h" "$w" "$r" "$c" ow
+	OW[$rid]["path"]=$p
+	OW[$rid]["buf"]=
+	OW[$rid]["cur"]=0
+	OW[$rid]["focus"]=text
+}
+
+# Open Terminal Here: the selected folder, or the one shown.
+fn files_termhere(int id) {
+	local sel=${FB[$id]["sel"]} d=${FB[$id]["dir"]}
+
+	if fb_remote "$id"; then
+		dt_notep low "A terminal cannot start in a folder on a server"
+		return 0
+	fi
+
+	if [ "${FL[$id][$sel]["dir"]}" = 1 ] &&
+	   [ "${FL[$id][$sel]["kind"]}" != up ]; then
+		d := fb_path "$id" "$sel"
+	fi
+	dt_has dt_termhere && dt_termhere "$d"
+}
+
+# Cut is what Copy is, plus marking the clipboard so a paste after it moves
+# the files instead of copying them; dt_edit reads which happened.
+fn files_cut(int id) {
+	local t
+
+	t := files_copy "$id" || return 1
+	ret "$t"
+}
+
+fn files_hidden(int? id = "") {
+	if [ -n "${FB[$id]["hidden"]}" ]; then
+		FB[$id]["hidden"]=
+	else
+		FB[$id]["hidden"]=1
+	fi
+	fb_scan "$id"
+}
+
+# Show a view, or the next one.
+fn files_view(int id, view) {
+	FB[$id]["view"]=$view
+	FB[$id]["top"]=0
+	fb_view_save "${FB[$id]["dir"]}" "$view"
+}
+fn files_cycle(int id) {
+	case ${FB[$id]["view"]} in
+	list) files_view "$id" details ;;
+	details) files_view "$id" icons ;;
+	*) files_view "$id" list ;;
+	esac
+}
+
+fn fb_home(int? id = "") { fb_go "$id" "$HOME"; }
+
+# Put the keyboard in the search box.
+fn files_search(int id) { FB[$id]["qon"]=1; }
+
+# Move what is selected to the trash, where the desktop keeps one.
+fn files_trash(int id) {
+	local sel nm
+
+	sel := fb_selected "$id" || return 0
+	fb_paths "$id" "$sel"
+	if fb_remote "$id"; then
+		FB_DELPATHS=("${FB_PATHS[@]}")
+		nm=${FB_PATHS[0]##*/}
+		[ "${#FB_PATHS[@]}" -gt 1 ] && nm="${#FB_PATHS[@]} items"
+		DT_T := dt_tr "Delete %s from the server? It cannot be undone." "$nm"
+		dt_confirm "$DT_T" \
+			fb_delete
+		return 0
+	fi
+	command -v dt_trash > /dev/null && dt_trash "${FB_PATHS[@]}"
+	return 0
+}
+
+# Delete what files_trash asked about, once the answer is yes.
+FB_DELPATHS=()
+fb_delete() {
+	[ "${#FB_DELPATHS[@]}" -gt 0 ] || return 0
+	dt_davdelete "${FB_DELPATHS[@]}"
+	FB_DELPATHS=()
+}
+
+# A new folder in the one shown, named so it takes nothing's place, then
+# the Rename window on it.
+fn files_newfolder(int id) {
+	local d=${FB[$id]["dir"]} nm="New Folder" i=2 n
+
+	if fb_remote "$id"; then
+		while fb_rhas "$id" "$nm"; do
+			nm="New Folder $i"
+			i=$((i + 1))
+		done
+		if ! dav mkdir "$d/$nm" 2> "$DR_ERRF"; then
+			dt_davwhy
+			dt_notep high "Could not make a folder: %s" "$DT_WHY"
+			return 0
+		fi
+	else
+		while [ -e "$d/$nm" ] || [ -L "$d/$nm" ]; do
+			nm="New Folder $i"
+			i=$((i + 1))
+		done
+		if ! command mkdir -- "$d/$nm" 2>> "$DT_LOG"; then
+			dt_notep high "Could not make a folder in %s" "${d##*/}"
+			return 0
+		fi
+	fi
+	fb_scan "$id"
+	n=${FB[$id]["n"]}
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		if [ "${FL[$id][$i]["name"]}" = "$nm" ]; then
+			FB[$id]["sel"]=$i
+			break
+		fi
+		i=$((i + 1))
+	done
+	fb_show "$id"
+	files_rename "$id"
+}
+
+# Whether the folder shown, on a server, already has a name.
+fn fb_rhas(int id, nm) {
+	local i=0 n=${FB[$id]["n"]}
+
+	while [ "$i" -lt "$n" ]; do
+		[ "${FL[$id][$i]["name"]}" = "$nm" ] && return 0
+		i=$((i + 1))
+	done
+	return 1
+}
+
+# Rename on a server: within one folder, never over something there.
+fn fb_rrename(old, new) {
+	if dav stat "$new" > /dev/null 2>&1; then
+		DT_WHY="There is already a ${new##*/}"
+		return 1
+	fi
+	if ! dav mv "$old" "$new" 2> "$DR_ERRF"; then
+		dt_davwhy
+		return 1
+	fi
+	return 0
+}
+
+# The servers set up, for the Servers menu.
+fn files_srvmenu(int id) {
+	local s nm
+
+	dt_menu "Servers"
+	if dt_has dt_davok && dt_davok && s := dav servers 2> /dev/null; then
+		for nm in "${!s[@]}"; do
+			dt_item "$nm" "" fb_go "$id" "dav://$nm"
+		done
+		[ "${#s[@]}" -gt 0 ] && dt_sep
+		dt_item "Connect to Server${GL[ellipsis]}" c dt_davserver
+		if fb_remote "$id"; then
+			nm := dt_davname "${FB[$id]["dir"]}"
+			dt_item "Edit This Server${GL[ellipsis]}" e dt_davserver "$nm"
+		fi
+	else
+		dt_dim "Connect to Server${GL[ellipsis]}"
+	fi
+}
+
+files_menus() {
+	local id=$DT_FOCUS on v
+
+	dt_menu "File"
+	dt_item "Open" o fb_open "$id"
+	dt_item "Go Up" u fb_go "$id" ..
+	dt_item "Home" h fb_home "$id"
+	dt_item "New Folder" n files_newfolder "$id"
+	dt_sep
+	if fb_remote "$id"; then
+		dt_item "Delete${GL[ellipsis]}" d files_trash "$id"
+	else
+		dt_item "Move to Trash" t files_trash "$id"
+	fi
+	dt_sep
+	dt_item "Close" w dt_close_focused
+	dt_editmenu
+	dt_menu "View"
+	for v in "${FILES_VIEWS[@]}"; do
+		on=0
+		[ "${FB[$id]["view"]}" = "$v" ] && on=1
+		dt_mark "${v^}" "${v:0:1}" "$on" files_view "$id" "$v"
+	done
+	dt_sep
+	on=0
+	[ -n "${FB[$id]["hidden"]}" ] && on=1
+	dt_mark "Hidden Files" f "$on" files_hidden "$id"
+	dt_item "Search${GL[ellipsis]}" s files_search "$id"
+	dt_item "Refresh" r fb_scan "$id"
+	files_srvmenu "$id"
+}
+
+# Which entry is under a point in the window, if any.
+fn fb_at(int id, int r, int c) {
+	local y0 per top i tw=$FILES_TILE
+
+	y0=${FB[$id]["y0"]}
+	per=${FB[$id]["per"]}
+	top=${FB[$id]["top"]}
+	[ "$r" -lt "$y0" ] && return 1
+	if [ "${FB[$id]["view"]}" = icons ]; then
+		case $DT_MIRRORON in 1) c=$((${FB[$id]["w"]:-0} + 1 - c)) ;; esac
+		[ "$c" -lt 1 ] && return 1
+		[ $(((c - 1) / tw)) -ge "$per" ] && return 1
+		i=$((top + ((r - y0) / 3) * per + (c - 1) / tw))
+	else
+		i=$((top + r - y0))
+	fi
+	[ "$i" -ge "${FB[$id]["n"]}" ] && return 1
+	ret "$i"
+}
+
+# A press selects what it landed on, ctrl adds it to the selection or takes
+# it away, shift takes the run from the anchor, and a second plain press on
+# the same entry opens it.  A plain press on an entry already marked leaves
+# the others marked until the button comes up, so a selection can be picked
+# up whole.  A press that then moves drags the selection: the desktop
+# carries it from there, and whatever it lands on decides what to do.
+fn files_mouse(int id, act, btn, int r, int c, mods) {
+	local i pr pc sel g lb
+	local -a hx
+
+	if [ "$btn" = left ] && [ "$act" = press ] && [ "$r" = 1 ]; then
+		if g := dt_hit "$id" "$r" "$c" && [ "$g" = search ]; then
+			FB[$id]["qon"]=1
+			return 0
+		fi
+		FB[$id]["qon"]=
+		fb_crumbs "${FB[$id]["dir"]}"
+		dt_droplist "$id" 1 "${FB[$id]["px"]:-1}" fb_go "${FB_CRUMBS[@]}"
+		return 0
+	fi
+	if [ "$btn" = right ]; then
+		[ "$act" = press ] || return 0
+		if i := fb_at "$id" "$r" "$c"; then
+			[ -n "${FL[$id][$i]["m"]}" ] || {
+				fb_clear "$id"
+				FB[$id]["sel"]=$i
+			}
+		else
+			fb_clear "$id"
+		fi
+		dt_context_open files "$id" \
+			$((${DT[$id]["row"]} + r)) $((${DT[$id]["col"]} + c))
+		return 0
+	fi
+	[ "$btn" = left ] || return 0
+	if [ "$act" = press ] && [ "$r" = 2 ] &&
+	   [ "${FB[$id]["view"]}" = details ]; then
+		read -r -a hx <<< "${FB[$id]["hx"]}"
+		i=0
+		while [ "$i" -lt "${#hx[@]}" ]; do
+			if [ "$c" -ge "${hx[$((i + 1))]}" ] &&
+			   [ "$c" -lt "${hx[$((i + 2))]}" ]; then
+				fb_headsort "$id" "${hx[$i]}"
+				return 0
+			fi
+			i=$((i + 3))
+		done
+		return 0
+	fi
+	case $act in
+	press)
+		FB[$id]["press"]=
+		FB[$id]["defer"]=
+		if ! i := fb_at "$id" "$r" "$c"; then
+			case $mods in *ctrl* | *shift*) ;; *) fb_clear "$id" ;; esac
+			return 0
+		fi
+		case $mods in
+		*ctrl*)
+			if [ -n "${FL[$id][$i]["m"]}" ]; then
+				fb_mark "$id" "$i" 0
+			else
+				[ "${FB[$id]["marks"]}" = 0 ] &&
+					fb_mark "$id" "${FB[$id]["sel"]}" 1
+				fb_mark "$id" "$i" 1
+			fi
+			FB[$id]["anchor"]=$i
+			FB[$id]["last"]=-1
+			;;
+		*shift*)
+			fb_range "$id" "${FB[$id]["anchor"]}" "$i"
+			FB[$id]["last"]=-1
+			;;
+		*)
+			if [ "$i" = "${FB[$id]["sel"]}" ] &&
+			   [ "$i" = "${FB[$id]["last"]}" ] &&
+			   [ "${FB[$id]["marks"]}" = 0 ]; then
+				fb_open "$id"
+				return 0
+			fi
+			if [ -n "${FL[$id][$i]["m"]}" ]; then
+				FB[$id]["defer"]=1
+			else
+				fb_clear "$id"
+			fi
+			FB[$id]["anchor"]=$i
+			FB[$id]["last"]=$i
+			;;
+		esac
+		FB[$id]["sel"]=$i
+		FB[$id]["press"]="$r $c"
+		;;
+	drag)
+		pr=${FB[$id]["press"]}
+		[ -n "$pr" ] || return 0
+		pc=${pr#* }
+		if [ "$r" = "${pr% *}" ] && [ $((c - pc)) -lt 2 ] &&
+		   [ $((pc - c)) -lt 2 ]; then
+			return 0
+		fi
+		FB[$id]["press"]=
+		FB[$id]["defer"]=
+		sel := fb_selected "$id" || return 0
+		fb_paths "$id" "$sel"
+		i=${FB[$id]["sel"]}
+		g := fb_glyph "${FL[$id][$i]["kind"]}"
+		lb=${FL[$id][$i]["name"]}
+		[ "${#FB_PATHS[@]}" -gt 1 ] && lb="${#FB_PATHS[@]} items"
+		command -v dt_dnd > /dev/null && dt_dnd "$lb" "$g" "${FB_PATHS[@]}"
+		;;
+	release)
+		if [ -n "${FB[$id]["defer"]}" ]; then
+			fb_clear "$id"
+			FB[$id]["defer"]=
+		fi
+		FB[$id]["press"]=
+		;;
+	esac
+	return 0
+}
+
+# Right-click on an entry, or on empty space in the list: the same actions
+# as the File menu, without reaching for the menu bar first.  Open With
+# lists every handler a script of the user's own has registered with
+# dt_handler, regardless of the entry's own extension -- that is what Open
+# With is for.
+fn files_context(int id) {
+	local sel=${FB[$id]["sel"]} n=${FB[$id]["n"]} none isdir ext p t first o
+
+	none=0
+	[ "$n" = 0 ] || [ "${FL[$id][$sel]["kind"]}" = up ] && none=1
+	dt_menu "File"
+	if [ "$none" = 1 ]; then
+		dt_dim "Open"
+	else
+		isdir=${FL[$id][$sel]["dir"]}
+		dt_item "Open" o fb_open "$id"
+		if [ "$isdir" != 1 ] && [ "$DT_FBOPENWITH" = 1 ] &&
+		   dt_has dt_openers; then
+			p := fb_path "$id" "$sel"
+			ext := dt_ext "$p"
+			dt_openers "$p"
+			dt_sub "Open With"
+			first=1
+			for o in "${DT_OWLIST[@]}"; do
+				t := dt_openertitle "$o" "$ext"
+				[ "$first" = 1 ] && t="$t (default)"
+				first=0
+				dt_item "$t" "" files_openwith "$id" "$o"
+			done
+			[ "${#DT_OWLIST[@]}" -gt 0 ] && dt_sep
+			dt_item "Other…" "" files_openother "$id"
+			dt_end
+		fi
+	fi
+	if [ "$DT_FBTERMHERE" = 1 ] && dt_has dt_termhere &&
+	   dt_has term_draw && ! fb_remote "$id"; then
+		dt_item "Open Terminal Here" h files_termhere "$id"
+	fi
+	dt_sep
+	if [ "$none" = 1 ]; then
+		dt_dim "Rename"
+		dt_dim "Cut"
+		dt_dim "Copy"
+	else
+		dt_item "Rename" n files_rename "$id"
+		dt_item "Cut" t dt_edit cut
+		dt_item "Copy" c dt_edit copy
+	fi
+	if [ -n "$DT_CLIP" ]; then
+		dt_item "Paste" v dt_edit paste
+	else
+		dt_dim "Paste"
+	fi
+	dt_sep
+	if [ "$none" = 1 ]; then
+		dt_dim "Info"
+		dt_dim "Move to Trash"
+	elif fb_remote "$id"; then
+		dt_item "Info" i files_info "$id"
+		dt_item "Delete${GL[ellipsis]}" x files_trash "$id"
+	else
+		dt_item "Info" i files_info "$id"
+		dt_item "Move to Trash" x files_trash "$id"
+	fi
+}
+
+# Something dropped here goes into the folder shown, or into the folder it
+# was dropped on.
+fn files_drop(int id, int r, int c, op, ...rest) {
+	local i dst
+
+	shift 4
+	dst=${FB[$id]["dir"]}
+	if i := fb_at "$id" "$r" "$c" && [ "${FL[$id][$i]["dir"]}" = 1 ]; then
+		dst := fb_path "$id" "$i"
+	fi
+	dt_fileop "$op" "$dst" "$@"
+}
+
+# The paths of what is selected, one to a line, for the desktop's Copy; and
+# paths pasted here, one to a line, copy those files into the folder shown.
+# Text that names no file -- copied in a note or a terminal -- becomes a
+# new file here instead, so text and files paste into each other both ways.
+fn files_copy(int id) {
+	local sel p out=
+
+	sel := fb_selected "$id" || return 1
+	fb_paths "$id" "$sel"
+	for p in "${FB_PATHS[@]}"; do out="$out$p"$'\n'; done
+	DT_CLIPKIND=paths
+	ret "${out%$'\n'}"
+}
+fn files_paste(int id, text, op = "") {
+	local p
+	local -a ps
+
+	if [ -n "${FB[$id]["qon"]}" ]; then
+		p := dt_textpaste "${FB[$id]["q"]}" "${#FB[$id]["q"]}" "$text"
+		FB[$id]["q"]=${p% *}
+		fb_scan "$id"
+		return 0
+	fi
+	[ "$op" = cut ] && op=move
+	[ -z "$op" ] && op=copy
+	while IFS= read -r p; do
+		[ -n "$p" ] || continue
+		if [ -e "$p" ] || [ -L "$p" ] || [[ $p == dav://?*/?* ]]; then
+			ps+=("$p")
+		fi
+	done <<< "$text"
+	if [ "${#ps[@]}" = 0 ]; then
+		fb_pastetext "$id" "$text"
+		return 0
+	fi
+	dt_fileop "$op" "${FB[$id]["dir"]}" "${ps[@]}"
+}
+
+# Save pasted text as a new file in the folder shown, named so it takes
+# nothing's place: "Pasted text.txt", then "Pasted text 2.txt" and on.
+fn fb_pastetext(int id, text) {
+	local dir=${FB[$id]["dir"]} f i=2 tmp
+
+	if fb_remote "$id"; then
+		f="Pasted text.txt"
+		while fb_rhas "$id" "$f"; do
+			f="Pasted text $i.txt"
+			i=$((i + 1))
+		done
+		tmp="$DT_DAVCACHE/.jobs/paste.$DR_N"
+		command mkdir -p -- "$tmp" 2> /dev/null
+		if printf '%s\n' "$text" 2> /dev/null > "$tmp/$f"; then
+			dt_davop copy "$dir" "$tmp/$f"
+		else
+			dt_notep high "Cannot hold the pasted text to send it"
+		fi
+		return 0
+	fi
+
+	f="$dir/Pasted text.txt"
+	while [ -e "$f" ] || [ -L "$f" ]; do
+		f="$dir/Pasted text $i.txt"
+		i=$((i + 1))
+	done
+	if printf '%s\n' "$text" 2> /dev/null > "$f"; then
+		dt_notep low "Pasted as %s" "${f##*/}"
+		files_refresh "$id"
+	else
+		dt_notep high "Cannot write in %s" "${dir##*/}"
+	fi
+}
+
+# Something changed on disk: read the folder again, keeping the selection
+# on the same name where it is still there.
+fn files_refresh(int id) {
+	local sel nm i n
+
+	sel=${FB[$id]["sel"]}
+	nm=${FL[$id][$sel]["name"]}
+	fb_scan "$id"
+	n=${FB[$id]["n"]}
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		if [ "${FL[$id][$i]["name"]}" = "$nm" ]; then
+			FB[$id]["sel"]=$i
+			break
+		fi
+		i=$((i + 1))
+	done
+	fb_show "$id"
+}
+
+# The wheel moves the view and leaves the selection where it is, which is
+# what a wheel does everywhere else.
+fn files_wheel(int id, dir, int r, int c) {
+	local top=${FB[$id]["top"]} per=${FB[$id]["per"]}
+
+	case $dir in
+	up) FB[$id]["top"]=$((top - 3 * per)) ;;
+	down) FB[$id]["top"]=$((top + 3 * per)) ;;
+	esac
+	fb_clamp "$id"
+}
+
+# Run directly: list a directory and stop.
+if [ -z "$DT_ROWS" ]; then
+	d=${1:-$PWD}
+	case $d in /*) ;; *) d="$PWD/$d" ;; esac
+	[ -d "$d" ] || { echo "files: $d: not a directory" >&2; exit 1; }
+	FB[0]["dir"]=$d
+	fb_scan 0
+	i=0
+	while [ "$i" -lt "${FB[0]["n"]}" ]; do
+		if [ "${FL[0][$i]["dir"]}" = 1 ]; then
+			echo "${FL[0][$i]["name"]}/"
+		else
+			echo "${FL[0][$i]["name"]}"
+		fi
+		i=$((i + 1))
+	done
+fi
+
+# Copy, cut and paste reach the Rename and Get Info fields: the focused
+# field's text and cursor keys, as "text cur", or a miss off a field.
+fn rn_field(int id) {
+	[ "${RN[$id]["focus"]}" = text ] || return 1
+	ret "text cur"
+}
+
+fn gi_field(int id) {
+	case ${GI[$id]["focus"]} in
+	name) ret "namebuf namecur" ;;
+	owner) ret "userbuf usercur" ;;
+	group) ret "groupbuf groupcur" ;;
+	*) return 1 ;;
+	esac
+}
+
+fn rn_copy(int id) {
+	local k
+
+	k := rn_field "$id" || return 1
+	ret "${RN[$id]["${k% *}"]}"
+}
+
+fn rn_cut(int id) {
+	local k t
+
+	k := rn_field "$id" || return 1
+	t=${RN[$id]["${k% *}"]}
+	RN[$id]["${k% *}"]=
+	RN[$id]["${k#* }"]=0
+	ret "$t"
+}
+
+fn rn_paste(int id, text, op = "") {
+	local k r
+
+	k := rn_field "$id" || return 0
+	r := dt_textpaste "${RN[$id]["${k% *}"]}" "${RN[$id]["${k#* }"]}" "$text"
+	RN[$id]["${k% *}"]=${r% *}
+	RN[$id]["${k#* }"]=${r##* }
+}
+
+fn gi_copy(int id) {
+	local k
+
+	k := gi_field "$id" || return 1
+	ret "${GI[$id]["${k% *}"]}"
+}
+
+fn gi_cut(int id) {
+	local k t
+
+	k := gi_field "$id" || return 1
+	t=${GI[$id]["${k% *}"]}
+	GI[$id]["${k% *}"]=
+	GI[$id]["${k#* }"]=0
+	ret "$t"
+}
+
+fn gi_paste(int id, text, op = "") {
+	local k r
+
+	k := gi_field "$id" || return 0
+	r := dt_textpaste "${GI[$id]["${k% *}"]}" "${GI[$id]["${k#* }"]}" "$text"
+	GI[$id]["${k% *}"]=${r% *}
+	GI[$id]["${k#* }"]=${r##* }
+}
+
+# Open With > Other…: one field, the command; enter runs it on the file.
+fn ow_draw(int id, int h, int w, int row, int col) {
+	local f=${OW[$id]["focus"]} on=0
+
+	dt_wclear "$id"
+	[ "$f" = text ] && on=1
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 1 2 "Open %s with:" "${OW[$id]["path"]##*/}"
+	dt_textdraw "$id" 2 2 $((w - 4)) "${OW[$id]["buf"]}" \
+		"${OW[$id]["cur"]}" "$on"
+	dt_wreg "$id" 2 2 $((w - 4)) text
+	console pen "$DT_DIM" "$DT_FACE"
+	dt_tput "$id" 3 2 "a command; the file goes after it, in a terminal"
+	dt_dlgbtns "$id" "$h" "$w" "$f" ok Open cancel Cancel
+}
+
+fn ow_go(int id) {
+	if [ -z "${OW[$id]["buf"]// /}" ]; then
+		dt_notep low "A command is needed"
+		return 0
+	fi
+	dt_openwithcmd "${OW[$id]["buf"]}" "${OW[$id]["path"]}"
+	dt_del "$id"
+}
+
+fn ow_click(int id, int r, int c, btn = "") {
+	local tag
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	text) OW[$id]["focus"]=text ;;
+	ok) ow_go "$id" ;;
+	cancel) dt_del "$id" ;;
+	esac
+	return 0
+}
+
+fn ow_key(int id, key) {
+	local res f=${OW[$id]["focus"]} d onb=1
+
+	[ "$f" = text ] && onb=0
+	if d := dt_focuskey "$key" "$onb"; then
+		OW[$id]["focus"] := dt_focus "$f" "$d" text ok cancel
+		return 0
+	fi
+	case $key in
+	escape) dt_del "$id"; return 0 ;;
+	enter)
+		if [ "$f" = cancel ]; then dt_del "$id"; else ow_go "$id"; fi
+		return 0
+		;;
+	esac
+	[ "$f" = text ] || return 0
+	res := dt_textkey "${OW[$id]["buf"]}" "${OW[$id]["cur"]}" "$key" ||
+		return 1
+	OW[$id]["buf"]=${res% *}
+	OW[$id]["cur"]=${res##* }
+	return 0
+}
+
+fn ow_field(int id) {
+	[ "${OW[$id]["focus"]}" = text ] || return 1
+	ret "buf cur"
+}
+
+fn ow_copy(int id) {
+	local k
+
+	k := ow_field "$id" || return 1
+	ret "${OW[$id]["buf"]}"
+}
+
+fn ow_cut(int id) {
+	local t
+
+	ow_field "$id" > /dev/null || return 1
+	t=${OW[$id]["buf"]}
+	OW[$id]["buf"]=
+	OW[$id]["cur"]=0
+	ret "$t"
+}
+
+fn ow_paste(int id, text, op = "") {
+	local r
+
+	OW[$id]["focus"]=text
+	r := dt_textpaste "${OW[$id]["buf"]}" "${OW[$id]["cur"]}" "$text"
+	OW[$id]["buf"]=${r% *}
+	OW[$id]["cur"]=${r##* }
+}
+
+fn ow_close(int id) {
+	unset "OW[$id]"
+}
+

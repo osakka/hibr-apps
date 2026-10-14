@@ -1,0 +1,72 @@
+#!/usr/bin/env hibr
+#
+# addapp -- put an app's own file into this catalogue as a bundle.
+#
+#   ./addapp ../hibr/examples/desktop/apps/Games/snake.hibr
+#   ./addapp ../hibr/examples/desktop/apps/Office/write.hibr 0.99.168
+#
+# A bundle named `*.hibr` is placed by `apps install` as the app itself,
+# which is what almost every app here is: one file, no resources. An app
+# that brings files with it is a tarball instead, added by hand (see the
+# README) -- this script does not make one, because nothing here needs one
+# yet and a tool for a case that does not exist is a tool nobody checks.
+#
+# The version, when it is not given, is the hibr release in which that file
+# last changed, read from the source tree's own git log: so a bundle's
+# version moves when the *app* moves and not when anything else does, and
+# `apps list` offers an update for an app that actually changed.
+#
+# Nothing is published here. This writes bundles/NAME/NAME-VERSION.hibr and
+# leaves the index alone; `./mkindex` rebuilds the index from what is in
+# bundles/, and `git push` is what publishes.
+
+set -u
+
+HERE=${BASH_SOURCE%/*}
+
+fn die(...msg) {
+	printf 'addapp: %s\n' "${msg[*]}" >&2
+	exit 1
+}
+
+# The release a file last changed in, from the git log of whatever tree it
+# lives in: a commit subject here is "0.99.181: what it did", so the version
+# is the subject's own first word, less its colon.
+fn relof(path) {
+	local dir sub v
+
+	dir=${path%/*}
+	sub=$(command git -C "$dir" log -1 --format=%s -- "$path" 2> /dev/null) ||
+		die "$path: not in a git tree, so give the version yourself"
+	v=${sub%%:*}
+	case $v in
+	[0-9]*.[0-9]*) ;;
+	*) die "$path: '$sub' does not begin with a version, so give one" ;;
+	esac
+	ret "$v"
+}
+
+[ $# -ge 1 ] || die "usage: addapp PATH-TO-APP.hibr [VERSION]"
+src=$1
+ver=${2-}
+
+[ -r "$src" ] || die "$src: cannot be read"
+case $src in
+*.hibr) ;;
+*) die "$src: an app's file is a .hibr" ;;
+esac
+
+name=${src##*/}
+name=${name%.hibr}
+case $name in
+*[!a-z0-9-]*) die "$name: a name is lower case letters, digits and dashes" ;;
+esac
+
+[ -n "$ver" ] || ver := relof "$src"
+
+dir="$HERE/bundles/$name"
+out="$dir/$name-$ver.hibr"
+mkdir -p "$dir" || die "cannot make $dir"
+command cp -f "$src" "$out" || die "cannot write $out"
+printf '== %s %s -> %s\n' "$name" "$ver" "bundles/$name/$name-$ver.hibr"
+printf '   now ./mkindex, then commit and push\n'

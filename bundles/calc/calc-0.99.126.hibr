@@ -1,0 +1,203 @@
+#!/usr/bin/env hibr
+#
+# calc -- a calculator for the desktop, and a program on its own.
+#
+# Sourced by a session it is an app: the window manager finds calc_draw,
+# calc_key and calc_click and calls those.  Run directly it evaluates its
+# arguments and prints the answer, so it is useful without a desktop:
+#
+#     hibr examples/desktop/apps/Accessories/calc.hibr '3 * (4 + 5)'
+#
+# It does no arithmetic of its own -- the shell has an evaluator and this
+# hands the expression to it, which is why a calculator written in hibr is
+# fifty lines rather than five hundred.  That also fixes what it can do:
+# integers, like the shell and like bash.  There is no decimal point on the
+# keypad because there would be nothing behind it.
+
+strict
+
+app calc "A calculator"
+
+# What the hibr menu shows, how big a new window is, and whether a second
+# launch opens another window or brings this one forward.
+command -v dt_app > /dev/null && dt_app calc "Calculator" 16 24 once "±" fixed
+
+# Per window, not per app: two calculators must be able to hold two
+# different sums.  Everything an app remembers goes under the window id it
+# was handed, because a global is shared by every window of the same app.
+declare -gA CA
+command -v dt_keepstate > /dev/null && dt_keepstate calc CA
+
+# Four columns, five rows.  ^ inserts ** and c clears.
+#
+# An array, not a string: the keypad holds * and ( and ), and a `for k in
+# $CALC_KEYS` would glob them into whatever files are in the current
+# directory -- which it did, and the calculator drew a directory listing.
+CALC_KEYS=(7 8 9 / 4 5 6 '*' 1 2 3 - 0 '(' ')' + c % '^' '=')
+CALC_ROWS=5
+CALC_COLS=4
+
+# Evaluate the expression, or say why it will not.
+#
+# The characters are checked first, so a typed name cannot reach a shell
+# variable: $(( PATH )) is a valid expression and not one a calculator should
+# answer.  What survives that can still be malformed -- "2 +" is -- so it
+# is evaluated as (( v = in, 1 )), which fails with status 1 on a malformed
+# expression, where $(( )) would end the desktop as it ends any bash script.
+fn calc_eval(int id) {
+	local v in
+
+	in=${CA[$id]["in"]}
+
+	[ -z "$in" ] && return 0
+	CA[$id]["err"]=
+	if ! match "$in" '^[0-9+*/%()<>|&^~ -]+$' > /dev/null; then
+		CA[$id]["err"]="digits and operators"
+		return 0
+	fi
+	if (( v = in, 1 )) 2> /dev/null; then
+		CA[$id]["out"]=$v
+		CA[$id]["in"]=
+	else
+		CA[$id]["err"]="not an expression"
+	fi
+}
+
+# Add to the expression, or act on a key that is not part of one.
+fn calc_push(int id, k) {
+	case $k in
+	=) calc_eval "$id" ;;
+	c) CA[$id]["in"]=; CA[$id]["out"]=0; CA[$id]["err"]= ;;
+	"^") CA[$id]["in"]="${CA[$id]["in"]}**"; CA[$id]["err"]= ;;
+	backspace)
+		CA[$id]["in"]="${CA[$id]["in"]%?}"
+		CA[$id]["err"]=
+		;;
+	*) CA[$id]["in"]="${CA[$id]["in"]}$k"; CA[$id]["err"]= ;;
+	esac
+}
+
+fn calc_open(int id, arg) {
+	CA[$id]["in"]=
+	CA[$id]["out"]=0
+	CA[$id]["err"]=
+}
+
+# Where a key sits in the window body: five columns wide, two rows apart.
+fn calc_pos(int i) {
+	ret "$((4 + ($i / CALC_COLS) * 2)) $((2 + ($i % CALC_COLS) * 5))"
+}
+
+# Which key is under a point in the body, if any.
+fn calc_at(int mr, int mc) {
+	local r=$(($mr - 4)) c=$(($mc - 2)) i
+
+	[ "$r" -lt 0 ] || [ "$c" -lt 0 ] && return 1
+	[ $((r % 2)) = 1 ] && return 1
+	[ $((c % 5)) -gt 3 ] && return 1
+	r=$((r / 2))
+	c=$((c / 5))
+	[ "$r" -ge "$CALC_ROWS" ] || [ "$c" -ge "$CALC_COLS" ] && return 1
+	ret "${CALC_KEYS[$((r * CALC_COLS + c))]}"
+}
+
+fn calc_draw(int id, int h, int w, int row, int col) {
+	local k p i=0 t
+
+	console pen "$DT_DIM" "$DT_FACE"
+	t := str pad "${CA[$id]["in"]:-expression}" $((w - 4))
+	console put -p "w$id" 1 2 "$t"
+	if [ -n "${CA[$id]["err"]}" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		t := str pad "${CA[$id]["err"]}" $((w - 4))
+	else
+		console pen "$DT_GOOD" "$DT_FACE" bold
+		t := str pad "${CA[$id]["out"]}" $((w - 4))
+	fi
+	console put -p "w$id" 2 2 "$t"
+
+	for k in "${CALC_KEYS[@]}"; do
+		p := calc_pos "$i"
+		case $k in
+		=) console pen "$DT_SELINK" "$DT_GOOD" bold ;;
+		c) console pen "$DT_SELINK" "$DT_BAD" bold ;;
+		[0-9]) console pen "$DT_INK" "$DT_WELL" ;;
+		*) console pen "$DT_WARN" "$DT_WELL" ;;
+		esac
+		console put -p "w$id" ${p% *} ${p#* } " $k  "
+		i=$((i + 1))
+	done
+	console pen "$DT_DIM" "$DT_FACE"
+	dt_tput "$id" 14 2 "integers only"
+}
+
+# The menus the bar shows while a calculator window has focus.
+calc_menus() {
+	dt_menu "File"
+	dt_item "Close" w dt_close_focused
+	dt_editmenu
+	dt_menu "Calc"
+	dt_item "Evaluate" e calc_eval "$DT_FOCUS"
+	dt_item "Clear" c calc_push "$DT_FOCUS" c
+	dt_item "Backspace" b calc_push "$DT_FOCUS" backspace
+	dt_sep
+	dt_item "Use Answer" u calc_recall "$DT_FOCUS"
+}
+
+# Right-click anywhere on the keypad: the same shortcuts as the Calc menu,
+# without reaching for the menu bar first.
+fn calc_context(int? id = "") {
+	dt_menu "Calc"
+	dt_item "Use Answer" u calc_recall "$id"
+	dt_item "Copy" p dt_edit copy
+	dt_sep
+	dt_item "Clear" c calc_push "$id" c
+}
+
+# Put the answer back in the expression, which is what a calculator's memory
+# is for and costs nothing to provide.
+fn calc_recall(int? id = "") {
+	CA[$id]["in"]="${CA[$id]["out"]}"
+	CA[$id]["err"]=
+}
+
+# The answer is what a calculator has to copy.
+fn calc_copy(int id) {
+	ret "${CA[$id]["out"]}"
+}
+
+# A paste keeps only what can be part of an expression.
+fn calc_paste(int id, text, op = "") {
+	local t=${text//[^0-9+*\/%()<>|&^~ -]/}
+
+	CA[$id]["in"]="${CA[$id]["in"]}$t"
+	CA[$id]["err"]=
+}
+
+fn calc_key(int id, key) {
+	case $key in
+	[0-9] | + | - | "*" | / | % | "(" | ")") calc_push "$id" "$key" ;;
+	= | enter) calc_eval "$id" ;;
+	c) calc_push "$id" c ;;
+	backspace) calc_push "$id" backspace ;;
+	*) return 1 ;;
+	esac
+}
+
+fn calc_click(int id, int r, int c, btn) {
+	local k
+
+	k := calc_at "$r" "$c" || return 0
+	[ -n "$k" ] && calc_push "$id" "$k"
+}
+
+# Run directly: evaluate the arguments and print the answer.
+if [ -z "$DT_ROWS" ] && [ $# -gt 0 ]; then
+	CA[0]["in"]="$*"
+	calc_eval 0
+	if [ -n "${CA[0]["err"]}" ]; then
+		echo "calc: ${CA[0]["err"]}" >&2
+		exit 1
+	fi
+	echo "${CA[0]["out"]}"
+fi

@@ -1,0 +1,260 @@
+#!/usr/bin/env hibr
+#
+# mkindex -- rebuild index.json and index.html from what is in bundles/.
+#
+#   ./mkindex
+#
+# The index is derived, never written by hand: every field in it is read
+# out of the bundle it describes, so the catalogue cannot drift from the
+# code it offers. There is no `hibr` or `abi` field on purpose: what
+# release an app needs is whatever desktop API it calls, which is not in
+# the file, and the release it was last touched in is a plausible-looking
+# guess rather than an answer -- `apps info` saying "needs hibr any" is the
+# honest version of not knowing.
+# A title is the app's own `dt_app` line, the summary and
+# the paragraph under it are the file's own header comment -- the same
+# comment the desktop's About box derives from -- the kind is whichever
+# registration the app makes, and the sha256 is of the bundle as it will be
+# fetched. The version is in the bundle's filename, which is what `addapp`
+# put there.
+#
+# Only the newest version of each app is offered, and the older bundles
+# stay where they are: an index is what to install now, and a pool is what
+# was ever published (the apt repository beside this one works the same
+# way, for the same reason -- somebody can still name an old one).
+
+set -u
+
+HERE=${BASH_SOURCE%/*}
+[ -n "$HERE" ] || HERE=.
+
+fn die(...msg) {
+	printf 'mkindex: %s\n' "${msg[*]}" >&2
+	exit 1
+}
+
+# The newest bundle of one app, by version: `sort -V` orders 0.99.93 before
+# 0.99.168, where a plain sort does not.
+fn newest(dir) {
+	local f
+
+	f=$(command ls "$dir"/*.hibr 2> /dev/null | command sort -V | command tail -1)
+	[ -n "$f" ] || return 1
+	ret "$f"
+}
+
+# The version out of a bundle's own name: NAME-VERSION.hibr.
+fn verof(path, name) {
+	local b
+
+	b=${path##*/}
+	b=${b%.hibr}
+	ret "${b#$name-}"
+}
+
+fn shaof(path) {
+	local line
+
+	line=$(command sha256sum "$path" 2> /dev/null) ||
+		die "sha256sum is needed to describe a bundle"
+	ret "${line%% *}"
+}
+
+# What the app calls itself: the first `dt_app PREFIX "Title"` line, which
+# is the window the app is opened as. A later one is a dialog of its own
+# (Write declares `wrfile` for its file box), so the first is the app.
+fn titleof(path, name) {
+	local l
+
+	while read -r l; do
+		case $l in
+		*dt_app*) ;;
+		*) continue ;;
+		esac
+		if match "$l" 'dt_app[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
+			ret "${M[1]}"
+			return 0
+		fi
+	done < "$path"
+	ret "$name"
+}
+
+# Which scan root this installs into, from the registration it makes. An
+# app that registers nothing the desktop knows is refused rather than
+# guessed at: `apps install` would place it where nothing looks.
+fn kindof(path) {
+	local l
+
+	while read -r l; do
+		case $l in
+		*"dt_app "*) ret apps; return 0 ;;
+		*"cp_pane "*) ret control-panel; return 0 ;;
+		*"cs_module "*) ret control-strip; return 0 ;;
+		*"sv_saver "*) ret savers; return 0 ;;
+		esac
+	done < "$path"
+	return 1
+}
+
+# The file's own header comment: the `# name -- what it is` line as the
+# summary, and the paragraph under it as the prose. Read as the About box
+# reads it, so what the catalogue says and what the app says are the same
+# words.
+fn aboutof(path) {
+	local l out= par= on=0 np=0
+
+	while read -r l; do
+		case $l in
+		"#!"*) continue ;;
+		esac
+		if [ "$on" = 0 ]; then
+			# The first comment line holding ` -- `, whatever is on
+			# the left of it: an app may call itself two words
+			# (`# Prayer Times -- ...`), which a pattern that
+			# wanted one token read as no header at all.
+			case $l in
+			"#"*" -- "*)
+				par=${l#*" -- "}
+				on=1 ;;
+			esac
+			continue
+		fi
+		case $l in
+		"#")
+			# A blank comment line ends a paragraph, and the
+			# summary line's own paragraph *continues* on the
+			# lines under it -- without that, a header whose
+			# first sentence runs over two lines came out as two
+			# paragraphs with the sentence cut in half.
+			[ -z "$par" ] && continue
+			out="$out${out:+
+
+}$par"
+			par=
+			np=$((np + 1))
+			[ "$np" -ge 2 ] && break ;;
+		"#"*)
+			l=${l#\#}
+			l=${l# }
+			par="$par${par:+ }$l" ;;
+		*) break ;;
+		esac
+	done < "$path"
+	[ -n "$par" ] && out="$out${out:+
+
+}$par"
+	ret "$out"
+}
+
+# One row of the page, escaped: a summary is prose from a file nobody here
+# wrote, so it cannot be put in HTML as it stands.
+fn htesc(s) {
+	local t
+
+	t := str replace "$s" "&" "&amp;"
+	t := str replace "$t" "<" "&lt;"
+	t := str replace "$t" ">" "&gt;"
+	ret "$t"
+}
+
+declare -gA IX
+rows=
+n=0
+
+for dir in "$HERE"/bundles/*; do
+	[ -d "$dir" ] || continue
+	name=${dir##*/}
+	bundle := newest "$dir" || die "$name: no bundle in $dir"
+	ver := verof "$bundle" "$name"
+	[ -n "$ver" ] || die "$name: $bundle has no version in its name"
+	sha := shaof "$bundle"
+	title := titleof "$bundle" "$name"
+	kind := kindof "$bundle" ||
+		die "$name: registers no dt_app, cp_pane, cs_module or sv_saver"
+	about := aboutof "$bundle"
+	sum=${about%%$'\n'*}
+
+	IX["apps"]["$name"]["title"]=$title
+	IX["apps"]["$name"]["version"]=$ver
+	IX["apps"]["$name"]["kind"]=$kind
+	IX["apps"]["$name"]["bundle"]="bundles/$name/${bundle##*/}"
+	IX["apps"]["$name"]["sha256"]=$sha
+	IX["apps"]["$name"]["about"]=$about
+	IX["apps"]["$name"]["licence"]="MIT"
+	IX["apps"]["$name"]["author"]="Omar Sakka"
+
+	t := htesc "$title"
+	s := htesc "$sum"
+	rows="$rows<tr><td><code>$name</code></td><td>$t</td><td>$ver</td><td>$s</td></tr>
+"
+	n=$((n + 1))
+	printf '%-12s %-10s %-14s %s\n' "$name" "$ver" "$kind" "${bundle##*/}"
+done
+
+[ "$n" -gt 0 ] || die "bundles/ has nothing in it"
+
+j := json emit IX -p || die "cannot emit the index"
+printf '%s\n' "$j" > "$HERE/index.json" || die "cannot write index.json"
+
+cat > "$HERE/index.html" <<HTML || die "cannot write index.html"
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hibr apps</title>
+<style>
+:root { --bg: #fdfdfb; --fg: #1d1f21; --muted: #5c6166; --code: #f1f1ee; --line: #dddcd6; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #16181b; --fg: #e6e6e3; --muted: #9a9fa5; --code: #22262a; --line: #33383d; }
+}
+body { background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, sans-serif; margin: 0; }
+main { max-width: 52rem; margin: 0 auto; padding: 2.5rem 1rem 4rem; }
+h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+p.lead { color: var(--muted); margin-top: 0; }
+h2 { font-size: 1.1rem; margin-top: 2rem; }
+pre { background: var(--code); border: 1px solid var(--line); border-radius: 6px; padding: .8rem 1rem; overflow-x: auto; font-size: .88rem; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+a { color: inherit; }
+table { border-collapse: collapse; }
+td, th { padding: .25rem 1rem .25rem 0; vertical-align: top; text-align: left; }
+th { border-bottom: 1px solid var(--line); font-weight: 600; }
+td:nth-child(4) { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+<h1>hibr apps</h1>
+<p class="lead">The application catalogue the <code>apps</code> command installs from &mdash;
+applications for the <a href="https://github.com/osakka/hibr">hibr</a> desktop, each one a
+script you can read before you run it.</p>
+
+<h2>Use it</h2>
+<pre><code>apps list
+apps info snake
+apps install snake</code></pre>
+<p>Installing places the app where the desktop already looks
+(<code>\$XDG_DATA_HOME/hibr/apps</code>), so it is on the Applications menu the next
+time the desktop starts. <code>apps remove</code> takes it away again.</p>
+
+<h2>What is here</h2>
+<table>
+<tr><th>name</th><th>title</th><th>version</th><th>what it is</th></tr>
+$rows</table>
+
+<h2>What you are trusting</h2>
+<p>An app is a hibr script and runs with everything your own shell can do: there
+is no sandbox, and there are no signatures here. TLS says which server the
+index came from, and the <code>sha256</code> in the index says the bundle was not
+changed on the way &mdash; neither says who wrote it. The bundles are plain files
+in <a href="https://github.com/osakka/hibr-apps">this repository</a>: read one
+before you install it.</p>
+<p>Every version ever published stays in <code>bundles/</code>, and the index offers
+the newest of each. The whole catalogue is one folder, so a mirror is a copy
+rather than a rewrite: <code>apps index URL</code> points at any copy of it.</p>
+</main>
+</body>
+</html>
+HTML
+
+printf '\n== %d app(s) in index.json and index.html\n' "$n"

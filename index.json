@@ -1,0 +1,214 @@
+{
+  "apps": {
+    "bricks": {
+      "title": "Bricks",
+      "version": "0.99.93",
+      "kind": "apps",
+      "bundle": "bundles/bricks/bricks-0.99.93.hibr",
+      "sha256": "4ef91fab618c432f1c9d2b0f3709e1b2f1d71e0917fd070029be6d55bf5fb3e7",
+      "about": "a bat, a ball and a wall to knock down, after Arkanoid.\n\nEach row of the wall is a string of 1s and 0s, one per brick.  The ball moves one row and one or two columns a step, and takes the columns one at a time, so it never passes through the corner of a brick.  Where it lands on the bat decides how steeply it leaves: the ends send it off at a slant, and the middle sends it back the way it came.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "browser": {
+      "title": "Browser",
+      "version": "0.99.168",
+      "kind": "apps",
+      "bundle": "bundles/browser/browser-0.99.168.hibr",
+      "sha256": "5bb06bfc73d2e94fd0fae5e794269a4e6175a6d6bbf19367fa3db8ad0faf967b",
+      "about": "the web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "calc": {
+      "title": "Calculator",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/calc/calc-0.99.126.hibr",
+      "sha256": "9994c67f13f51514eca169b5781d2b337c4afd7ffa424a442bb4fc84aeb15def",
+      "about": "a calculator for the desktop, and a program on its own.\n\nSourced by a session it is an app: the window manager finds calc_draw, calc_key and calc_click and calls those.  Run directly it evaluates its arguments and prints the answer, so it is useful without a desktop:",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "calendar": {
+      "title": "Calendar",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/calendar/calendar-0.99.126.hibr",
+      "sha256": "a7654c55f9a19f4b4054975f63ea53a97e1ffa8f75461afac97f7b58a46402b1",
+      "about": "your calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "clock": {
+      "title": "Clock",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/clock/clock-0.99.126.hibr",
+      "sha256": "3d1621aa10b4fae5a0bcb444cd66d6deba6bb89bdd047a396a8e3e6ca9378bbc",
+      "about": "the time, large, and the date under it.\n\nIt only draws, so it can never take a key meant for another window.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "contacts": {
+      "title": "Contacts",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/contacts/contacts-0.99.126.hibr",
+      "sha256": "9a0dd5122ffa89dc8e6d15753ef8f662fec4f34ca84432d14660e15d45dedf18",
+      "about": "the people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "dbase": {
+      "title": "dBASE",
+      "version": "0.99.56",
+      "kind": "apps",
+      "bundle": "bundles/dbase/dbase-0.99.56.hibr",
+      "sha256": "95e909722de42157f1bacf2a275146e470b1bdbf3d3e90e40a11104298d84901",
+      "about": "a little dBASE III, on the db module: the dot prompt, BROWSE, an APPEND form, and System 7 style menus driving the same commands.\n\n  . CREATE stats          fields asked for one at a time, as below   . USE stats   . APPEND                a form: tab or enter between fields, escape out   . LIST FOR load > 2.5 .AND. host = 'web1'   . COUNT FOR host = 'web1'   . SUM load    . AVERAGE load FOR host = 'web2'   . BROWSE                arrows and page keys, escape back   . DISPLAY STRUCTURE     . DIR     . ? RECCOUNT()     . HELP     . QUIT",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "diagram": {
+      "title": "Diagram",
+      "version": "0.99.117",
+      "kind": "apps",
+      "bundle": "bundles/diagram/diagram-0.99.117.hibr",
+      "sha256": "9a3d6ec9a21504ae7e69b1030ac8c98be1a3074234be8895be8cefb212644bad",
+      "about": "a Mermaid diagram editor: the text on one side, the drawing on the other, each following the other as it changes.\n\nThe editor half is widgets/textarea.hibr as it comes -- a buffer, a cursor, a selection, undo and the clipboard -- and the drawing half is mods/mermaid, which answers with the text of every row and the style of every character in it as runs. widgets/putruns.hibr draws those with a pen a letter, so the diagram is in the window's own theme colours and nothing here parses an escape sequence. See mods/mermaid/README.md for the three kinds of diagram this understands and what it says plainly that it does not.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "files": {
+      "title": "Files",
+      "version": "0.99.168",
+      "kind": "apps",
+      "bundle": "bundles/files/files-0.99.168.hibr",
+      "sha256": "9db1aec4dd8a5587526a11d7caa542925b5f173e88be3d4b38b5118e6da6bfca",
+      "about": "a file browser for the desktop, and a lister on its own.\n\n    hibr examples/desktop/apps/files.hibr /etc",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "imgview": {
+      "title": "Image Viewer",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/imgview/imgview-0.99.126.hibr",
+      "sha256": "dd08b6f716f01ec685c35e173f0696e7544698800acd161f38713bc5118f76c2",
+      "about": "a picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "mail": {
+      "title": "Mail",
+      "version": "0.99.177",
+      "kind": "apps",
+      "bundle": "bundles/mail/mail-0.99.177.hibr",
+      "sha256": "f87ea10edebc68f5d6a2175e492fed5094f8140c8ffe483652a5005eb82a9127",
+      "about": "email in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "mines": {
+      "title": "Mines",
+      "version": "0.99.93",
+      "kind": "apps",
+      "bundle": "bundles/mines/mines-0.99.93.hibr",
+      "sha256": "565ab95ede7f124c7b5ac7b5d1516b200124d47eecb3dbf0b4aa345cb767819b",
+      "about": "clear the field without stepping on anything.\n\nThe board is three strings of one character per cell: where the mines are, how many touch each cell, and what the player has seen.  A cell is read with ${s:i:1} and written by slicing around it, and opening an empty region is a loop over a stack of indices, so there is no recursion to run out of and nothing here is not ordinary shell.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "prayer": {
+      "title": "Prayer Times",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/prayer/prayer-0.99.126.hibr",
+      "sha256": "be8475f89cc083bc4eb27ab0a22850e44b0c32d7fb41998b222dc63aececb3c4",
+      "about": "a desk accessory (Gitea #70): today's times for where the person is, by the method chosen in Control Panel > Prayer Times, the next one lit with how long until it. The times come from wm/prayer.hibr's dt_ptimes, so the window, the bar and the notes always agree.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "puzzle": {
+      "title": "Puzzle",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/puzzle/puzzle-0.99.126.hibr",
+      "sha256": "395adc8a5323784f0fe191d1bf5c65e16532ab446aac296b2d6bfe29fdaf5f57",
+      "about": "the sliding tile puzzle, 15 numbered tiles and one gap in a 4x4 frame. Arrows move the gap, a click on a tile next to it slides that one into it; get 1 through 15 in reading order with the gap last and it says so.\n\n    arrows / hjkl   slide the gap    click   slide the tile next to it     n               new game",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "sheet": {
+      "title": "Sheet",
+      "version": "0.99.168",
+      "kind": "apps",
+      "bundle": "bundles/sheet/sheet-0.99.168.hibr",
+      "sha256": "ee90709d3871a6cf5b81cf994dd58920b1c59caf78482a0765bf10a0e2b8c461",
+      "about": "a spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "snake": {
+      "title": "Snake",
+      "version": "0.99.93",
+      "kind": "apps",
+      "bundle": "bundles/snake/snake-0.99.93.hibr",
+      "sha256": "de71dce28d7e36d53affff56f4a1869b36cd9e3c4ca7fc8882f49a6951cd0474",
+      "about": "eat, grow, and do not bite yourself.\n\nThe snake is a string of \"row,col\" cells, head first.  A step puts a new head on the front and, unless it has just eaten, takes the tail off the back; running into itself is a pattern match on that string.  No arrays, no C: a game written in the shell, stepping on $EPOCHREALTIME.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "stickies": {
+      "title": "Stickies",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/stickies/stickies-0.99.126.hibr",
+      "sha256": "d40835eaf6a3209d6cd670efdcbcc5c79557641c1bcb7fd85a544a154ee41ff5",
+      "about": "notes stuck on the desktop, as many as you like, each its own colour, each saved as you type. Launching Stickies opens every note there is (a first, empty one if there are none); the Note menu makes a new one, changes the colour, and deletes one. Closing a note only puts it away until Stickies is opened again -- it is still there.\n\nThe colours are the notes' own, not the theme's, the way a game's art is: a yellow note is yellow on every theme. Text wraps at the window's width, and the desktop's Edit menu works on it -- undo and redo, cut, copy, paste, select all.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "term": {
+      "title": "Terminal",
+      "version": "0.99.177",
+      "kind": "apps",
+      "bundle": "bundles/term/term-0.99.177.hibr",
+      "sha256": "7d960cfd79b9593fe44ced0b68b29941f75d6bb7efab42b1672fbbc0c4d4c92e",
+      "about": "a shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "vault": {
+      "title": "Vault",
+      "version": "0.99.126",
+      "kind": "apps",
+      "bundle": "bundles/vault/vault-0.99.126.hibr",
+      "sha256": "7b3c5dc2ebba91df1d908dc52e0bc6741416f740c95aa8417bb54970027c858c",
+      "about": "a desk accessory (Gitea #71): the Bitwarden or Vaultwarden vault's items, found by typing, and a password, a username or a TOTP code copied for a while. Unlocking, locking and syncing are the desktop's own (wm/vault.hibr), so the window, Control Panel > Passwords and every Terminal opened after an unlock agree on whether it is open.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "write": {
+      "title": "Write",
+      "version": "0.99.168",
+      "kind": "apps",
+      "bundle": "bundles/write/write-0.99.168.hibr",
+      "sha256": "ae67ce2a13c8d1f5b41d2394014c1d33f315edf799aac370242b0a9383265b00",
+      "about": "a word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    },
+    "youtube": {
+      "title": "YouTube",
+      "version": "0.99.168",
+      "kind": "apps",
+      "bundle": "bundles/youtube/youtube-0.99.168.hibr",
+      "sha256": "1b3008cf96b4a8abc50821bc7bd1565b9c6506c2c543f27985e66166a1d33ea4",
+      "about": "YouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
+      "licence": "MIT",
+      "author": "Omar Sakka"
+    }
+  }
+}
