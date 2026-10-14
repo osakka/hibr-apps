@@ -348,7 +348,7 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "appstore",
-      "hibr": "0.99.190"
+      "hibr": "0.99.192"
     },
     "system/clipboard": {
       "title": "Clipboard",
@@ -1353,7 +1353,7 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "appstore",
-      "hibr": "0.99.190"
+      "hibr": "0.99.192"
     },
     "clipboard": {
       "title": "Clipboard",

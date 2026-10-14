@@ -43,11 +43,13 @@ PARTSHIBR=0.99.189
 # publisher's own knowledge about one entry, so it is written down with
 # its reason rather than inferred.
 declare -A ENTHIBR
-# The Applications Catalogue window reads `apps list -j`, which is 0.99.190.
-# An older `apps` takes `-j` for the text to search for and answers prose,
-# which the window names as the likely cause -- honest, and still a window
-# that lists nothing.
-ENTHIBR["system/appstore"]=0.99.190
+# The Catalogue window reads `apps list -j`, which is 0.99.190 -- and
+# since 0.99.192 it draws its tree through `widgets/tree.hibr`, which an
+# older desktop does not have: `dt_treepre` would be a command not found
+# on every row. An older `apps` also takes `-j` for the text to search
+# for and answers prose, which the window names as the likely cause --
+# honest, and still a window that lists nothing.
+ENTHIBR["system/appstore"]=0.99.192
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
