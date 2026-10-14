@@ -1,8 +1,11 @@
 # hibr apps
 
-The application catalogue the `apps` command installs from — applications
-for the [hibr](https://github.com/osakka/hibr) desktop, each one a script
-you can read before you run it.
+The catalogue the `apps` command installs from — everything the
+[hibr](https://github.com/osakka/hibr) desktop scans for: applications, the
+desktop's own system apps, Control Panel panes, Control Strip modules,
+screen savers, themes, colour schemes and languages. The five that are
+scripts you can read before you run; the three that are data have nothing
+to run at all.
 
 ## Use it
 
@@ -26,23 +29,38 @@ of one folder rather than a rewrite of every entry.
 
 | | |
 |---|---|
-| `index.json` | the catalogue: one object per app under `apps`, keyed by name |
+| `index.json` | the catalogue: one object per entry under `entries`, keyed by `kind/name`, and the same again under `apps` keyed by name for an older `apps` |
 | `index.html` | the same thing as a page, at <https://osakka.github.io/hibr-apps> |
-| `bundles/NAME/NAME-VERSION.hibr` | every version ever published; the index offers the newest of each |
-| `addapp` | put an app's file in as a bundle, with the version it last changed in |
+| `bundles/KIND/NAME/NAME-VERSION.{hibr,json,tar.gz}` | every version ever published; the index offers the newest of each |
+| `addapp` | put a file in as a bundle, with the version it last changed in |
 | `mkindex` | rebuild `index.json` and `index.html` from what is in `bundles/` |
 
 An entry says `title`, `version`, `kind`, `bundle`, `sha256`, `about`,
-`author` and `licence`. There is deliberately no `hibr` or `abi` field:
-which release an app needs is whatever desktop API it calls, which is not
-written in the file, and the release it last changed in is a
+`author` and `licence`. An **application** deliberately carries no `hibr`
+or `abi` field: which release it needs is whatever desktop API it calls,
+which is not written in the file, and the release it last changed in is a
 plausible-looking guess rather than an answer — `apps info` saying "needs
 hibr any" is the honest version of not knowing.
 
-`kind` is which of the desktop's five scan roots the app installs into:
-`apps`, `system`, `control-panel`, `control-strip` or `savers`. It is read
-from the registration the app makes (`dt_app`, `cp_pane`, `cs_module`,
-`sv_saver`) rather than declared twice.
+A **theme, colour scheme or language** does carry `hibr`, because there
+that requirement is known exactly rather than guessed: the desktop did not
+look in the data folder those install into until 0.99.187, so an older
+`apps` would fetch one, verify it, put it where it belongs and show
+nothing. It refuses with a reason instead —
+`themes/classic: needs hibr 0.99.187 or newer, and this is 0.99.186`.
+
+`kind` is which of the desktop's eight scan roots the entry installs into:
+`apps`, `system`, `control-panel`, `control-strip`, `savers`, `themes`,
+`colours` or `lang`. It is the root the source file lived in, taken from its
+path rather than from what it registers — an application and one of the
+desktop's own system apps both register with `dt_app`, so nothing inside the
+file can tell them apart. The kind also decides the extension: `.hibr` for
+the five that are scripts, `.json` for the three that are data.
+
+A name is unique inside a root and nowhere else, so `clock` is both an
+application and a screen saver. That is why an entry's id is `kind/name` and
+why `apps install savers/clock` is how you ask for the other one; a name
+that means one thing is still enough on its own.
 
 ## Publish
 
@@ -63,10 +81,17 @@ prose from the file's own header comment, the kind from its registration,
 the sha256 from the bytes as they will be fetched — so the catalogue cannot
 drift from the code it offers. Run it after every `addapp`.
 
-An app that brings files with it travels as a tarball instead of a bare
-`.hibr`: `app.json` inside it says which member is the app, and everything
-else lands under `<kind>/NAME/`. `addapp` does not make one, because
-nothing here needs one yet.
+Something that brings other files with it travels as a tarball instead of a
+bare file: `app.json` inside it says which member is the thing itself and
+which root each part belongs in, and `apps install` checks every member
+before it writes anything. `addapp` reads the parts from the source — a
+script declares them in its header (`# part: control-panel/mailset.hibr`),
+and a theme cannot, having no comments, so its picture is read out of the
+theme's own `image` field.
+
+A part is counted rather than owned: two apps that bring the same Control
+Panel pane both install it, and `apps remove` leaves it alone until the last
+of them has gone.
 
 This repository lives at `itdlabs/hibr-apps` and mirrors itself to GitHub,
 where Pages serves it. Push to the first one only.

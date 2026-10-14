@@ -1,0 +1,19 @@
+{
+  "title": "Amber",
+  "about": "An amber monochrome on near-black, after a VT220 at night.",
+  "wall": "#0a0600",
+  "dot": "#2a1a00",
+  "bar": "#1a0f00",
+  "active": "#ffcc33",
+  "idle": "#5a3d00",
+  "face": "#0f0900",
+  "ink": "#ffb000",
+  "dim": "#a87400",
+  "selink": "#0f0900",
+  "good": "#ffcc33",
+  "warn": "#ffd966",
+  "bad": "#ff8c00",
+  "info": "#ffb000",
+  "well": "#2a1a00",
+  "shadow": 55
+}

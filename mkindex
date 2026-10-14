@@ -27,6 +27,10 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
+KINDS="apps system control-panel control-strip savers themes colours lang"
+# The release whose desktop first looks in `$XDG_DATA_HOME/hibr/<kind>` for
+# a theme, a colour scheme or a language. See the `hibr` field below.
+DATAHIBR=0.99.187
 
 fn die(...msg) {
 	printf 'mkindex: %s\n' "${msg[*]}" >&2
@@ -38,20 +42,40 @@ fn die(...msg) {
 fn newest(dir) {
 	local f
 
-	f=$(command ls "$dir"/*.hibr "$dir"/*.tar.gz 2> /dev/null |
+	f=$(command ls "$dir"/*.hibr "$dir"/*.json "$dir"/*.tar.gz 2> /dev/null |
 	    command sort -V | command tail -1)
 	[ -n "$f" ] || return 1
 	ret "$f"
 }
 
-# The version out of a bundle's own name: NAME-VERSION.hibr or .tar.gz.
+# The version out of a bundle's own name: NAME-VERSION.hibr, .json or
+# .tar.gz -- three kinds are data and theirs is the .json.
 fn verof(path, name) {
 	local b
 
 	b=${path##*/}
 	b=${b%.hibr}
+	b=${b%.json}
 	b=${b%.tar.gz}
 	ret "${b#$name-}"
+}
+
+# What a kind calls its files. The five that are scripts are `.hibr`; a
+# theme, a colour scheme and a language are data and are `.json` (ADR 0028
+# for why they are not scripts).
+fn kextof(kind) {
+	case $kind in
+	themes | colours | lang) ret ".json" ;;
+	*) ret ".hibr" ;;
+	esac
+}
+
+# Whether a kind is read rather than run.
+fn isdata(kind) {
+	case $kind in
+	themes | colours | lang) return 0 ;;
+	esac
+	return 1
 }
 
 fn shaof(path) {
@@ -65,12 +89,13 @@ fn shaof(path) {
 # The file to read a bundle's description out of: the bundle itself when it
 # is a bare .hibr, and the member app.json names when it is a tarball. A
 # copy, because `archive` presents a member and `read` wants a file.
-fn readable(bundle, name) {
-	local j app out
+fn readable(bundle, name, kind) {
+	local j app out ext
 	local -A m
 
+	ext := kextof "$kind"
 	case $bundle in
-	*.hibr) ret "$bundle"; return 0 ;;
+	*.hibr | *.json) ret "$bundle"; return 0 ;;
 	esac
 	need archive 2> /dev/null || die "the archive module is needed to read a tarball"
 	archive open mk "$bundle" 2> /dev/null ||
@@ -80,8 +105,8 @@ fn readable(bundle, name) {
 	   json parse m <<< "$j" 2> /dev/null; then
 		app=${m["app"]}
 	fi
-	[ -n "$app" ] || app=$name.hibr
-	out=$TMP/$name.hibr
+	[ -n "$app" ] || app=$name$ext
+	out=$TMP/$name$ext
 	if ! archive cat mk "$app" > "$out" 2> /dev/null; then
 		archive close mk
 		die "$name: $bundle has no $app in it"
@@ -169,6 +194,48 @@ fn aboutof(path) {
 	ret "$out"
 }
 
+declare -g D_TITLE=
+declare -g D_ABOUT=
+
+# What a theme, a colour scheme or a language calls itself, into D_TITLE and
+# D_ABOUT. The two a person picks from a list say so themselves -- `title`
+# and `about`, the words the Appearance pane shows -- so the catalogue and
+# the desktop read one sentence rather than two. A language says neither and
+# cannot be made to: `tools/strings.py --write` rewrites the pseudo-locales
+# whole, so a field added to one would be gone the next time the list of
+# strings moved. Its own `name` is the title, and what it is -- the tag, how
+# many strings it carries, which way it is read -- is the description.
+fn dataof(path, kind, name) {
+	local n d tag
+	local -A j
+
+	D_TITLE=$name
+	D_ABOUT=
+	json parse j < "$path" 2> /dev/null ||
+		die "$kind/$name: $path does not parse as JSON"
+	case $kind in
+	lang)
+		[ -n "${j["name"]-}" ] && D_TITLE=${j["name"]}
+		n := json len j .strings 2> /dev/null || n=0
+		case ${j["dir"]-ltr} in
+		rtl) d="read right to left" ;;
+		*) d="read left to right" ;;
+		esac
+		# The tag only when the name does not already carry it: a
+		# pseudo-locale calls itself `Pseudo (xx)`, and `Pseudo (xx)
+		# (xx)` is the sort of thing a derived field does when
+		# nobody reads what comes out.
+		tag=" (${j["language"]-$name})"
+		case $D_TITLE in
+		*"(${j["language"]-}"*) tag= ;;
+		esac
+		D_ABOUT="The desktop's own words in $D_TITLE$tag: $n strings, $d." ;;
+	*)
+		[ -n "${j["title"]-}" ] && D_TITLE=${j["title"]}
+		D_ABOUT=${j["about"]-} ;;
+	esac
+}
+
 # One row of the page, escaped: a summary is prose from a file nobody here
 # wrote, so it cannot be put in HTML as it stands.
 fn htesc(s) {
@@ -188,6 +255,9 @@ fn kindname(k) {
 	control-panel) ret "Control Panel panes" ;;
 	control-strip) ret "Control Strip modules" ;;
 	savers) ret "Screen savers" ;;
+	themes) ret "Themes" ;;
+	colours) ret "Colour schemes" ;;
+	lang) ret "Languages" ;;
 	*) ret "$k" ;;
 	esac
 }
@@ -206,7 +276,7 @@ n=0
 # `apps` section at all -- whichever was written last would be the only one
 # there, and that silent overwrite is how this was found: 54 bundles in, 53
 # entries out (Gitea #222).
-for kind in apps system control-panel control-strip savers; do
+for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
 	for dir in "$HERE/bundles/$kind"/*; do
 		[ -d "$dir" ] || continue
@@ -220,7 +290,7 @@ for kind in apps system control-panel control-strip savers; do
 	done
 done
 
-for kind in apps system control-panel control-strip savers; do
+for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
 	krows=
 	for dir in "$HERE/bundles/$kind"/*; do
@@ -230,29 +300,61 @@ for kind in apps system control-panel control-strip savers; do
 		ver := verof "$bundle" "$name"
 		[ -n "$ver" ] || die "$kind/$name: $bundle has no version in its name"
 		sha := shaof "$bundle"
-		src := readable "$bundle" "$name"
-		title := titleof "$src" "$name"
-		about := aboutof "$src"
-		if sum := appline "$src"; [ -n "$sum" ]; then
-			about="$sum
+		src := readable "$bundle" "$name" "$kind"
+		# A script describes itself in its own header comment and
+		# its `app` line; a theme, a colour scheme or a language has
+		# no comments to hold either, so its words come from the
+		# fields it already carries (Gitea #224).
+		if isdata "$kind"; then
+			dataof "$src" "$kind" "$name"
+			title=$D_TITLE
+			about=$D_ABOUT
+			sum=${about%%$'\n'*}
+		else
+			title := titleof "$src" "$name"
+			about := aboutof "$src"
+			if sum := appline "$src"; [ -n "$sum" ]; then
+				about="$sum
 
 $about"
-		else
-			sum=${about%%$'\n'*}
+			else
+				sum=${about%%$'\n'*}
+			fi
 		fi
 
 		# Two sections, deliberately (Gitea #222). `entries` is keyed
-		# by the id, kind/name, because the desktop has five
+		# by the id, kind/name, because the desktop has eight
 		# namespaces and a name is only unique inside one of them --
 		# `clock` is an application and a screen saver. `apps` is
 		# kept keyed by name for an `apps` older than 0.99.184, which
 		# then gets every entry whose name is unique and misses only
 		# the one it could not have named anyway.
+		#
+		# A data kind is left out of that older section altogether,
+		# because an `apps` from before 0.99.186 would install one
+		# *wrongly* rather than not at all: its `ap_dest` is
+		# `$AP_DATA/$kind/$name.hibr` for every kind, so a theme
+		# would land as `themes/construction.hibr`, which nothing
+		# reading themes ever looks for -- an install that reports
+		# success and does nothing. Missing from an old client's list
+		# is the honest failure (Gitea #224).
 		id=$kind/$name
 		[ -z "${SEEN["$id"]+x}" ] ||
 			die "$id is in the catalogue twice: ${SEEN["$id"]} and $bundle"
 		SEEN["$id"]=$bundle
-		for f in title version kind bundle sha256 about licence author name; do
+		# A data kind carries `hibr`, which an application deliberately
+		# does not. The README's reason for leaving it off stands for a
+		# script -- which release it needs is whatever desktop API it
+		# calls, which is written nowhere, so a number there would be a
+		# guess -- and does not stand here, because this one is known
+		# exactly: `apps install` could place a theme from 0.99.186 and
+		# the Appearance pane did not look in the data folder until
+		# **0.99.187**, so an older client would fetch it, verify it,
+		# put it where it belongs and show nothing. `ap_needs` refuses
+		# it with a reason instead, which is the difference between a
+		# catalogue that is honest about one thing it knows and one that
+		# guesses about everything (Gitea #224).
+		for f in title version kind bundle sha256 about licence author name hibr; do
 			case $f in
 			title) v=$title ;;
 			version) v=$ver ;;
@@ -263,12 +365,16 @@ $about"
 			licence) v="MIT" ;;
 			author) v="Omar Sakka" ;;
 			name) v=$name ;;
+			hibr) v=; isdata "$kind" && v=$DATAHIBR ;;
 			esac
+			[ -n "$v" ] || [ "$f" != hibr ] || continue
 			IX["entries"]["$id"]["$f"]=$v
 			# A name that means two things cannot go in the older
 			# section at all: whichever was written last would be
 			# the only one there, which is the bug this fixes.
-			[ -z "${DUP["$name"]+x}" ] && IX["apps"]["$name"]["$f"]=$v
+			[ -n "${DUP["$name"]+x}" ] && continue
+			isdata "$kind" && continue
+			IX["apps"]["$name"]["$f"]=$v
 		done
 
 		t := htesc "$title"
@@ -330,10 +436,11 @@ apps info snake
 apps install snake</code></pre>
 <p>Installing places a file where the desktop already looks, so it is there the next
 time the desktop starts: an application under <code>\$XDG_DATA_HOME/hibr/apps</code>, a
-Control Panel pane under <code>control-panel/</code>, and so on for all five kinds.
-Something that brings its own pane or Control Strip module travels as a tarball and
-each part is placed in the root it names. <code>apps remove</code> takes it away again,
-keeping any part another installed app brings too.</p>
+Control Panel pane under <code>control-panel/</code>, a theme under
+<code>themes/</code>, and so on for all eight kinds. Something that brings its own
+pane, Control Strip module or picture travels as a tarball and each part is placed in
+the root it names. <code>apps remove</code> takes it away again, keeping any part
+another installed app brings too.</p>
 
 <h2>What is here</h2>
 <p>The first column is what you install: a name where it means one thing, and
@@ -344,11 +451,14 @@ application and a screen saver, so each is named by its id.</p>
 $rows</table>
 
 <h2>What you are trusting</h2>
-<p>Everything here is a hibr script and runs with everything your own shell can do:
-there is no sandbox, and there are no signatures. TLS says which server the index came
-from, and the <code>sha256</code> in the index says the bundle was not changed on the
-way &mdash; neither says who wrote it. A bundle may not carry a <code>.so</code>: a
-module is native code and comes with hibr itself.</p>
+<p>Five of the eight kinds are hibr scripts and run with everything your own shell can
+do: there is no sandbox, and there are no signatures. The other three &mdash; themes,
+colour schemes and languages &mdash; are data, read rather than run, which is
+deliberate: they are the things people hand each other, and a theme that was a script
+would run as whoever applied it. TLS says which server the index came from, and the
+<code>sha256</code> in the index says the bundle was not changed on the way &mdash;
+neither says who wrote it. A bundle may not carry a <code>.so</code>: a module is
+native code and comes with hibr itself.</p>
 <p>The bundles are plain files in
 <a href="https://github.com/osakka/hibr-apps">this repository</a>: read one before you
 install it &mdash; that is the point of an app being a script. Every version ever

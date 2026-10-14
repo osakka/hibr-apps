@@ -36,10 +36,11 @@ apps info snake
 apps install snake</code></pre>
 <p>Installing places a file where the desktop already looks, so it is there the next
 time the desktop starts: an application under <code>$XDG_DATA_HOME/hibr/apps</code>, a
-Control Panel pane under <code>control-panel/</code>, and so on for all five kinds.
-Something that brings its own pane or Control Strip module travels as a tarball and
-each part is placed in the root it names. <code>apps remove</code> takes it away again,
-keeping any part another installed app brings too.</p>
+Control Panel pane under <code>control-panel/</code>, a theme under
+<code>themes/</code>, and so on for all eight kinds. Something that brings its own
+pane, Control Strip module or picture travels as a tarball and each part is placed in
+the root it names. <code>apps remove</code> takes it away again, keeping any part
+another installed app brings too.</p>
 
 <h2>What is here</h2>
 <p>The first column is what you install: a name where it means one thing, and
@@ -106,14 +107,37 @@ application and a screen saver, so each is named by its id.</p>
 <tr><td><code>savers/mystify</code></td><td>Mystify</td><td>0.99.20</td><td>two four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.</td></tr>
 <tr><td><code>savers/pipes</code></td><td>Pipes</td><td>0.99.20</td><td>pipes growing across the screen a joint at a time, turning now and then, each its own colour, until the screen is full of them and it starts again.</td></tr>
 <tr><td><code>savers/toasters</code></td><td>Flying Toasters</td><td>0.99.20</td><td>flying toasters, in the old After Dark way: toasters flapping their wings and slices of toast drifting down and to the left across a black sky, each at its own pace, coming round again from the top and the right.</td></tr>
+<tr><th colspan="4">Themes</th></tr>
+<tr><td><code>themes/classic</code></td><td>Classic</td><td>0.99.186</td><td>The desktop as it ships: Midnight colours and nothing else changed.</td></tr>
+<tr><td><code>themes/construction</code></td><td>Under Construction</td><td>0.99.186</td><td>Black on hazard yellow, double frames and solid title bars, over a diagonal hatch. Loud on purpose.</td></tr>
+<tr><td><code>themes/meadow</code></td><td>Meadow</td><td>0.99.186</td><td>The late nineties: warm grey, rounded frames, bracketed buttons and a photograph behind it.</td></tr>
+<tr><td><code>themes/retro_car</code></td><td>Retro Car</td><td>0.99.186</td><td>Neon on violet with no window frames, centred titles and every shadow on: eighties dashboard.</td></tr>
+<tr><th colspan="4">Colour schemes</th></tr>
+<tr><td><code>colours/amber</code></td><td>Amber</td><td>0.99.186</td><td>An amber monochrome on near-black, after a VT220 at night.</td></tr>
+<tr><td><code>colours/black</code></td><td>Black</td><td>0.99.186</td><td>Grey on true black with a cool blue accent: as dark as a terminal goes.</td></tr>
+<tr><td><code>colours/dracula</code></td><td>Dracula</td><td>0.99.186</td><td>The Dracula palette: off-white on dark slate with a violet accent.</td></tr>
+<tr><td><code>colours/ember</code></td><td>Ember</td><td>0.99.186</td><td>Warm parchment on a dark brown, accented the orange of a low fire.</td></tr>
+<tr><td><code>colours/forest</code></td><td>Forest</td><td>0.99.186</td><td>Pale green on deep pine, accented the green of new growth.</td></tr>
+<tr><td><code>colours/hazard</code></td><td>Hazard</td><td>0.99.186</td><td>Black on hazard yellow: the highest contrast here, and the loudest.</td></tr>
+<tr><td><code>colours/meadow</code></td><td>Meadow</td><td>0.99.186</td><td>Black on warm grey with a true blue accent, after a desktop of the late nineties.</td></tr>
+<tr><td><code>colours/midnight</code></td><td>Midnight</td><td>0.99.186</td><td>Cool grey on deep navy with a sky-blue accent. The default, and the quietest.</td></tr>
+<tr><td><code>colours/neon</code></td><td>Neon</td><td>0.99.186</td><td>Cyan on deep violet with a magenta accent: eighties arcade, after dark.</td></tr>
+<tr><td><code>colours/paper</code></td><td>Paper</td><td>0.99.186</td><td>Dark slate on warm off-white, accented a printer's blue. The one light scheme.</td></tr>
+<tr><td><code>colours/phosphor</code></td><td>Phosphor</td><td>0.99.186</td><td>Green on black, the glow of a phosphor tube, accents and all.</td></tr>
+<tr><td><code>colours/slate</code></td><td>Slate</td><td>0.99.186</td><td>Light grey on blue-black with a pale blue accent: midnight, a shade cooler.</td></tr>
+<tr><th colspan="4">Languages</th></tr>
+<tr><td><code>lang/ar</code></td><td>العربية</td><td>0.99.178</td><td>The desktop's own words in العربية (ar): 948 strings, read right to left.</td></tr>
 </table>
 
 <h2>What you are trusting</h2>
-<p>Everything here is a hibr script and runs with everything your own shell can do:
-there is no sandbox, and there are no signatures. TLS says which server the index came
-from, and the <code>sha256</code> in the index says the bundle was not changed on the
-way &mdash; neither says who wrote it. A bundle may not carry a <code>.so</code>: a
-module is native code and comes with hibr itself.</p>
+<p>Five of the eight kinds are hibr scripts and run with everything your own shell can
+do: there is no sandbox, and there are no signatures. The other three &mdash; themes,
+colour schemes and languages &mdash; are data, read rather than run, which is
+deliberate: they are the things people hand each other, and a theme that was a script
+would run as whoever applied it. TLS says which server the index came from, and the
+<code>sha256</code> in the index says the bundle was not changed on the way &mdash;
+neither says who wrote it. A bundle may not carry a <code>.so</code>: a module is
+native code and comes with hibr itself.</p>
 <p>The bundles are plain files in
 <a href="https://github.com/osakka/hibr-apps">this repository</a>: read one before you
 install it &mdash; that is the point of an app being a script. Every version ever

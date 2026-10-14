@@ -8,10 +8,15 @@
 #
 # Anything the desktop scans for can be published: an application, one of
 # the desktop's own `system/` apps, a Control Panel pane, a Control Strip
-# module or a screen saver. The **kind** is the scan root the file lives in,
-# taken from its path rather than guessed from what it registers -- a
-# `system/` app and an application both register with `dt_app`, so nothing
-# inside the file can tell them apart.
+# module, a screen saver, a theme, a colour scheme or a language. The
+# **kind** is the scan root the file lives in, taken from its path rather
+# than guessed from what it registers -- a `system/` app and an application
+# both register with `dt_app`, so nothing inside the file can tell them
+# apart -- and the kind decides the extension, `.hibr` for the five that
+# are scripts and `.json` for the three that are data.
+#
+# A theme's own picture is read out of the theme (`image`) rather than
+# declared, because JSON has no comments to declare it in.
 #
 # A file that brings other files with it says so in its own header, under
 # the `app` line that gives its description:
@@ -37,7 +42,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers"
+KINDS="apps system control-panel control-strip savers themes colours lang"
 
 fn die(...msg) {
 	printf 'addapp: %s\n' "${msg[*]}" >&2
@@ -47,12 +52,20 @@ fn die(...msg) {
 # The release a file last changed in, from the git log of the tree it lives
 # in: a commit subject in hibr is "0.99.183: what it did", so the version is
 # that subject's first word, less its colon.
+# The pathspec is the file's own name, resolved against `-C "$dir"` -- a
+# path relative to *this* process's directory means something else there,
+# and `git log` over nothing exits 0 with no output, so a relative source
+# read as an empty version rather than as an error.
 fn relof(path) {
-	local dir sub v
+	local dir base sub v
 
 	dir=${path%/*}
-	sub=$(command git -C "$dir" log -1 --format=%s -- "$path" 2> /dev/null) ||
+	base=${path##*/}
+	[ "$dir" = "$path" ] && dir=.
+	sub=$(command git -C "$dir" log -1 --format=%s -- "$base" 2> /dev/null) ||
 		die "$path: not in a git tree, so give the version yourself"
+	[ -n "$sub" ] ||
+		die "$path: git knows no commit that touched it, so give the version yourself"
 	v=${sub%%:*}
 	case $v in
 	[0-9]*.[0-9]*) ;;
@@ -84,9 +97,27 @@ fn kindof(path) {
 
 # What the file says it brings with it: `# part: control-panel/mailset.hibr`
 # lines in its own header, each one a path under the desktop folder.
-fn partsof(path) {
-	local l out=
+#
+# A theme cannot say that -- JSON has no comments -- so its picture is
+# **read from the theme itself**: `image` is the file `cp_themeread` looks
+# for beside the theme, which makes the part discovered rather than
+# declared twice (Gitea #224).
+fn partsof(path, kind) {
+	local l out= img
+	local -A j
 
+	case $kind in
+	themes)
+		if json parse j < "$path" 2> /dev/null; then
+			img=${j["image"]-}
+			[ -n "$img" ] && out="themes/$img"
+		fi
+		ret "$out"
+		return 0 ;;
+	colours | lang)
+		ret ""
+		return 0 ;;
+	esac
 	while read -r l; do
 		case $l in
 		"# part: "*)
@@ -97,6 +128,14 @@ fn partsof(path) {
 	ret "$out"
 }
 
+# What a kind calls its files, which is also what a bundle of one is named.
+fn kextof(kind) {
+	case $kind in
+	themes | colours | lang) ret ".json" ;;
+	*) ret ".hibr" ;;
+	esac
+}
+
 [ $# -ge 1 ] || die "usage: addapp PATH-TO-FILE.hibr [VERSION]"
 src=$1
 ver=${2-}
@@ -104,26 +143,36 @@ DESKTOP=
 
 [ -r "$src" ] || die "$src: cannot be read"
 case $src in
-*.hibr) ;;
-*) die "$src: an installable file is a .hibr" ;;
+*.hibr | *.json) ;;
+*) die "$src: an installable file is a .hibr or, for a theme, a colour scheme or a language, a .json" ;;
 esac
 
 name=${src##*/}
 name=${name%.hibr}
+name=${name%.json}
+# An underscore as well as a dash, because a name here is a *filename* the
+# desktop already reads -- `retro_car.json` is the theme's name wherever
+# anybody has chosen it, and renaming it to suit this script would change
+# what their own settings file says.
 case $name in
-*[!a-z0-9-]*) die "$name: a name is lower case letters, digits and dashes" ;;
+*[!a-z0-9_-]*) die "$name: a name is lower case letters, digits, dashes and underscores" ;;
 esac
 
 kind := kindof "$src" ||
 	die "$src: not under one of the desktop's scan roots ($KINDS)"
+ext := kextof "$kind"
+case $src in
+*"$ext") ;;
+*) die "$src: a $kind file is a $ext, and this is not one" ;;
+esac
 [ -n "$ver" ] || ver := relof "$src"
 
-parts := partsof "$src"
+parts := partsof "$src" "$kind"
 dir="$HERE/bundles/$kind/$name"
 mkdir -p "$dir" || die "cannot make $dir"
 
 if [ -z "$parts" ]; then
-	out="$dir/$name-$ver.hibr"
+	out="$dir/$name-$ver$ext"
 	command cp -f "$src" "$out" || die "cannot write $out"
 	printf '== %-14s %-10s %s\n' "$kind/$name" "$ver" "${out#$HERE/}"
 	printf '   now ./mkindex, then commit and push\n'
@@ -134,8 +183,8 @@ fi
 # which member is the file itself and where each part goes; `apps install`
 # checks both before it writes anything.
 work=$(command mktemp -d) || die "cannot make a temporary folder"
-command cp -f "$src" "$work/$name.hibr" || die "cannot copy $src"
-j="{\"app\": \"$name.hibr\", \"kind\": \"$kind\", \"parts\": ["
+command cp -f "$src" "$work/$name$ext" || die "cannot copy $src"
+j="{\"app\": \"$name$ext\", \"kind\": \"$kind\", \"parts\": ["
 first=1
 read -ra plist <<< "$parts"
 for p in "${plist[@]}"; do
@@ -144,12 +193,14 @@ for p in "${plist[@]}"; do
 	case $pf in
 	*/*) die "$name: part '$p' is not <kind>/<file>" ;;
 	esac
-	pn=${pf%.hibr}
+	# `as`, the filename it lands as, rather than a name with the kind's
+	# extension appended: a theme's picture is a .png in the themes
+	# folder, which a name could not say (hibr 0.99.186, Gitea #224).
 	[ -r "$DESKTOP/$p" ] || die "$name: part $p is not in $DESKTOP"
 	command cp -f "$DESKTOP/$p" "$work/$pf" || die "cannot copy $DESKTOP/$p"
 	[ "$first" = 1 ] || j="$j,"
 	first=0
-	j="$j{\"file\": \"$pf\", \"kind\": \"$pk\", \"name\": \"$pn\"}"
+	j="$j{\"file\": \"$pf\", \"kind\": \"$pk\", \"as\": \"$pf\"}"
 done
 j="$j]}"
 printf '%s\n' "$j" > "$work/app.json" || die "cannot write app.json"
