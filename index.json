@@ -17,7 +17,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/browser.hibr",
       "sha256": "a42d7a01d39f7c2064643ae999d75c56a643df9a49bf9a3d1cfc4e3b918b45b2",
-      "about": "The web, in a window\n\nthe web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
+      "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser"
@@ -28,7 +28,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/calc.hibr",
       "sha256": "aa3299979fb108c13a70854524c2bab613bf726d65c4d094e4bfda3bfda69342",
-      "about": "A calculator\n\na calculator for the desktop, and a program on its own.\n\nSourced by a session it is an app: the window manager finds calc_draw, calc_key and calc_click and calls those.  Run directly it evaluates its arguments and prints the answer, so it is useful without a desktop:",
+      "about": "A calculator for the desktop, and a program on its own.\n\nSourced by a session it is an app: the window manager finds calc_draw, calc_key and calc_click and calls those.  Run directly it evaluates its arguments and prints the answer, so it is useful without a desktop:",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "calc"
@@ -112,7 +112,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
       "sha256": "0033f63a6855a1a3e21e3d08bf169f0ecb7cc608a56b67438ae2a6e8e217fa4d",
-      "about": "A file browser\n\na file browser for the desktop, and a lister on its own.\n\n    hibr examples/desktop/apps/files.hibr /etc",
+      "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr examples/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
@@ -132,7 +132,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/imgview.hibr",
       "sha256": "ec5865157a32b44fa54bcc267f666a20b257c3565773b95c243e4438293b89db",
-      "about": "A picture in a window\n\na picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
+      "about": "A picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "imgview"
@@ -163,7 +163,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/mines.hibr",
       "sha256": "08cced6a4b000e623ab0bf93a2d7a120efb5c104dbf1caff6b6975bdc9e5e47a",
-      "about": "Clear the field\n\nclear the field without stepping on anything.\n\nThe board is three strings of one character per cell: where the mines are, how many touch each cell, and what the player has seen.  A cell is read with ${s:i:1} and written by slicing around it, and opening an empty region is a loop over a stack of indices, so there is no recursion to run out of and nothing here is not ordinary shell.",
+      "about": "Clear the field without stepping on anything.\n\nThe board is three strings of one character per cell: where the mines are, how many touch each cell, and what the player has seen.  A cell is read with ${s:i:1} and written by slicing around it, and opening an empty region is a loop over a stack of indices, so there is no recursion to run out of and nothing here is not ordinary shell.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mines"
@@ -200,7 +200,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/puzzle.hibr",
       "sha256": "71a4d960cf8ff215565cc4e55b756aad20a52d477e3903bbb6ddcac84d7bb79a",
-      "about": "The sliding tile puzzle\n\nthe sliding tile puzzle, 15 numbered tiles and one gap in a 4x4 frame. Arrows move the gap, a click on a tile next to it slides that one into it; get 1 through 15 in reading order with the gap last and it says so.\n\n    arrows / hjkl   slide the gap    click   slide the tile next to it     n               new game",
+      "about": "The sliding tile puzzle, 15 numbered tiles and one gap in a 4x4 frame. Arrows move the gap, a click on a tile next to it slides that one into it; get 1 through 15 in reading order with the gap last and it says so.\n\n    arrows / hjkl   slide the gap    click   slide the tile next to it     n               new game",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "puzzle"
@@ -211,7 +211,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/sheet.hibr",
       "sha256": "66a954fb62feaa4c60d1e7495b26bd5e216edc06469b0613adf982617e2fc96c",
-      "about": "A spreadsheet whose formulas are hibr\n\na spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
+      "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "sheet"
@@ -222,7 +222,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/snake.hibr",
       "sha256": "f00995c73a597a82b6b513f962d794c15600e6d4849b9569740c48a0ff026f41",
-      "about": "Eat, grow, and do not bite yourself\n\neat, grow, and do not bite yourself.\n\nThe snake is a string of \"row,col\" cells, head first.  A step puts a new head on the front and, unless it has just eaten, takes the tail off the back; running into itself is a pattern match on that string.  No arrays, no C: a game written in the shell, stepping on $EPOCHREALTIME.",
+      "about": "Eat, grow, and do not bite yourself.\n\nThe snake is a string of \"row,col\" cells, head first.  A step puts a new head on the front and, unless it has just eaten, takes the tail off the back; running into itself is a pattern match on that string.  No arrays, no C: a game written in the shell, stepping on $EPOCHREALTIME.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "snake"
@@ -253,7 +253,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
       "sha256": "8a5bef3edd642b2eae29dd9c7172bc27101fceac5bcca967a94a67442c3b77aa",
-      "about": "A shell in a window\n\na shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
+      "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "term",
@@ -338,6 +338,17 @@
         }
       ]
     },
+    "system/appstore": {
+      "title": "Applications Catalogue",
+      "version": "1.0",
+      "kind": "system",
+      "bundle": "bundles/system/appstore.hibr",
+      "sha256": "092498a61cbd154630325d84d64a05fadd9420ab93ffeb44d2cb3bde82a4e4a9",
+      "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "appstore"
+    },
     "system/clipboard": {
       "title": "Clipboard",
       "version": "1.0",
@@ -417,7 +428,7 @@
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
       "sha256": "f71a5ef99f8959b7a900efdbe315490cb2001b4d397244ba3aab2c6cb2d2fd5e",
-      "about": "What is running, and a way to end one\n\nwhat is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
+      "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "tasks",
@@ -437,7 +448,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/abouthibr.hibr",
       "sha256": "610e34ebb8c668fcf42380851e59a1c5f6bac3bf4e2f1ef202946f9e4eeeaa97",
-      "about": "The Control Panel pane for About This Computer\n\nthe Control Panel pane for About This Computer: how often its CPU and memory figures are read again. Named abouthibr, not about, because the app's own about_draw would otherwise be taken for this pane's body.",
+      "about": "The Control Panel pane for About This Computer: how often its CPU and memory figures are read again. Named abouthibr, not about, because the app's own about_draw would otherwise be taken for this pane's body.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "abouthibr"
@@ -448,7 +459,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/aboutme.hibr",
       "sha256": "a6706e3f75b085650564e6a24a38fb872ac4669f2d87049a06a363093b6a6612",
-      "about": "The Control Panel pane for About Me\n\nthe Control Panel pane for About Me: the name, the line under it and the picture the login screen shows for you (examples/desktop/login/), and which session it starts. They live in ~/.config/hibr/me.json -- data, never run, since the login screen reads it before anyone has logged in (as you, never as root). The picture is a PNG or JPEG anywhere you can read it; the file keeps its path.",
+      "about": "The Control Panel pane for About Me: the name, the line under it and the picture the login screen shows for you (examples/desktop/login/), and which session it starts. They live in ~/.config/hibr/me.json -- data, never run, since the login screen reads it before anyone has logged in (as you, never as root). The picture is a PNG or JPEG anywhere you can read it; the file keeps its path.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "aboutme"
@@ -459,7 +470,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
       "sha256": "4eeffdb31e13a9705b126c37378c6f42bb197ade10019fea9b84f89614b38d8f",
-      "about": "The Control Panel pane for how the desktop looks\n\nthe Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
+      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "appearance"
@@ -470,7 +481,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/cliphist.hibr",
       "sha256": "9642dd6264cebaa8d38b5f03e43f3b73290d4bb6406973f6cffeecbd73940f6f",
-      "about": "The Control Panel pane for the clipboard's history\n\nthe Control Panel pane for the clipboard's history (wm/clip.hibr): whether it is kept on disk between desktops, how many entries it keeps besides the pinned ones, and the way to it and to emptying it. Named cliphist, not clipboard, which is the desk accessory's own prefix.",
+      "about": "The Control Panel pane for the clipboard's history (wm/clip.hibr): whether it is kept on disk between desktops, how many entries it keeps besides the pinned ones, and the way to it and to emptying it. Named cliphist, not clipboard, which is the desk accessory's own prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "cliphist"
@@ -481,7 +492,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
       "sha256": "35a7aa63c6999d6aef0278960af2b5a8c89a68719ecc1918c7cdf018fee64f90",
-      "about": "The Control Panel pane for the strip itself\n\nthe Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
+      "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "control-strip"
@@ -503,7 +514,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
       "sha256": "df4b7dc36059c15c5976c2fdced8b02ab6ab5725304cedda62a5ef609f575664",
-      "about": "The Control Panel pane for the bare desktop\n\nthe Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
+      "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "desktop"
@@ -514,7 +525,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/displays.hibr",
       "sha256": "f6230f5a111de0f70505126870d8d2a1541a9bff373822d3881f15bf4b3c1712",
-      "about": "Control Panel's own picture of a multi-monitor arrangement\n\nControl Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
+      "about": "Control Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "displays"
@@ -525,7 +536,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filesview.hibr",
       "sha256": "32bed629ae4fd4790195e05997ae4224ef542277248f470e5e0e66e85e726bd0",
-      "about": "The Control Panel pane for Files\n\nthe Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
+      "about": "The Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "filesview"
@@ -547,7 +558,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/keyboard.hibr",
       "sha256": "d320d9ecb6ab531fe5738782d6cbc61bba137f7096b199402a7c5a8a45f870eb",
-      "about": "The Control Panel pane for how keys reach a terminal window\n\nthe Control Panel pane for how keys reach a terminal window: whether the desktop's shortcuts work while a terminal has focus, and whether ctrl with a letter always goes to the program inside. Which key does what is the Shortcuts pane's, where every one can be changed.",
+      "about": "The Control Panel pane for how keys reach a terminal window: whether the desktop's shortcuts work while a terminal has focus, and whether ctrl with a letter always goes to the program inside. Which key does what is the Shortcuts pane's, where every one can be changed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "keyboard"
@@ -569,7 +580,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mailset.hibr",
       "sha256": "66998961c6b52b269436349525b4338e1b4dbac943bb8fe48fb58cd165b73fa5",
-      "about": "The Control Panel pane for Mail\n\nthe Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
+      "about": "The Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mailset"
@@ -580,7 +591,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
       "sha256": "f16317bb78d52c7cc4712706fabe8b25c86e95577fc2999a5640d88c5c2d8983",
-      "about": "The Control Panel pane for what the mouse does to a window\n\nthe Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
+      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mouse"
@@ -591,7 +602,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/network.hibr",
       "sha256": "ed0a5855a594b2bb23d26fd40e0cd52b681b7c70fd6e2021fdd90ff9a9969251",
-      "about": "The Control Panel pane for WebDAV servers\n\nthe Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
+      "about": "The Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "network"
@@ -602,7 +613,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/notes.hibr",
       "sha256": "7b7cb4f670ca16c8332f08835dd2a525aa5e65ee1754ba97707a4a53a7f29010",
-      "about": "The Control Panel pane for Stickies\n\nthe Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
+      "about": "The Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "notes"
@@ -613,7 +624,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/notifications.hibr",
       "sha256": "540a4b81b55f5eb2164563f8c20bc5ea675e1981617a5a0312e3489ca3247de7",
-      "about": "The Control Panel pane for the corner-stacked notes\n\nthe Control Panel pane for the corner-stacked notes dt_note/dt_notify draw, and the read-only history behind them.\n\nThe pane's own id is \"notify\", not \"notifications\" -- the hidden app that opens the history window (apps/notifications.hibr) is already \"notifications\", and dt_new looks up its lifecycle hooks purely by name (<id>_draw, <id>_open, <id>_drop...); sharing one id between a pane and a window would make this pane's own dropdown handler, <id>_drop, answer to dt_new's drag-and-drop hook for that window instead -- same trap as ft_open once was, from the other direction. wallpaper.hibr's own pane id (wallpick, not wallpaper) is this same choice made before.",
+      "about": "The Control Panel pane for the corner-stacked notes dt_note/dt_notify draw, and the read-only history behind them.\n\nThe pane's own id is \"notify\", not \"notifications\" -- the hidden app that opens the history window (apps/notifications.hibr) is already \"notifications\", and dt_new looks up its lifecycle hooks purely by name (<id>_draw, <id>_open, <id>_drop...); sharing one id between a pane and a window would make this pane's own dropdown handler, <id>_drop, answer to dt_new's drag-and-drop hook for that window instead -- same trap as ft_open once was, from the other direction. wallpaper.hibr's own pane id (wallpick, not wallpaper) is this same choice made before.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "notifications"
@@ -624,7 +635,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
       "sha256": "4e64db6f12b94e0ea594a6abf1c101d6866a919d94f777734bfcd44adfd6e1e1",
-      "about": "The Control Panel pane for how a picture is drawn\n\nthe Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
+      "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "pictures"
@@ -646,7 +657,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/prayerset.hibr",
       "sha256": "03161a229cf442c0f1075b574d3b8641b295b58d95d62af99ae908fc453f95c4",
-      "about": "The Control Panel pane for prayer times\n\nthe Control Panel pane for prayer times (Gitea #70, ADR 0035): where they show, how they are worked out, where the person is, and the athan. The settings are wm/prayer.hibr's; the methods are the salat module's, read from its folders.",
+      "about": "The Control Panel pane for prayer times (Gitea #70, ADR 0035): where they show, how they are worked out, where the person is, and the athan. The settings are wm/prayer.hibr's; the methods are the salat module's, read from its folders.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "prayerset"
@@ -657,7 +668,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/screensaver.hibr",
       "sha256": "7a24d55e7366f8628d8bc1206cc967322dd7dfb593d9ff975934f3f834d94037",
-      "about": "The Control Panel pane for the screen saver\n\nthe Control Panel pane for the screen saver (wm/saver.hibr): which one, or one at random, how many idle minutes before it starts, whether it locks the screen (wm/lock.hibr) once it has run a while, and a look at it now.",
+      "about": "The Control Panel pane for the screen saver (wm/saver.hibr): which one, or one at random, how many idle minutes before it starts, whether it locks the screen (wm/lock.hibr) once it has run a while, and a look at it now.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "screensaver"
@@ -668,7 +679,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
       "sha256": "5cb983a3d5546e93786d9e47c947815ba1508299d734200c72f8662aef94d010",
-      "about": "The Control Panel pane for every shortcut in one list\n\nthe Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both.",
+      "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "shortcuts"
@@ -679,7 +690,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/taskmgr.hibr",
       "sha256": "2594f9fe7fe57a84111dfda152e120fedb5e3d9181da616db83391ad5b55108b",
-      "about": "The Control Panel pane for Task Manager\n\nthe Control Panel pane for Task Manager: how often it rescans, whether its list has a scrollbar, and the order a new window starts in. Its rows appear only once Task Manager itself is loaded, the same way the Terminal pane's wait for the terminal.",
+      "about": "The Control Panel pane for Task Manager: how often it rescans, whether its list has a scrollbar, and the order a new window starts in. Its rows appear only once Task Manager itself is loaded, the same way the Terminal pane's wait for the terminal.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "taskmgr"
@@ -690,7 +701,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/terminal.hibr",
       "sha256": "92edcd8d24ff73ba9c5e3ddb3a1021a867db8f6877dcab8add6de6d342c664f0",
-      "about": "The Control Panel pane for how a terminal window behaves\n\nthe Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
+      "about": "The Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "terminal"
@@ -701,7 +712,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/tube.hibr",
       "sha256": "7ac31b615de1d10571e1917adf2895f489b17161c48d56f6295770438fcca187",
-      "about": "The Control Panel pane for the YouTube app\n\nthe Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
+      "about": "The Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "tube"
@@ -712,7 +723,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/vaultset.hibr",
       "sha256": "65a587757eadebc21426e93051c346eb99269bced59a1e70505d42e23a938d67",
-      "about": "The Control Panel pane for the Bitwarden or Vaultwarden vault\n\nthe Control Panel pane for the Bitwarden or Vaultwarden vault (Gitea #71, ADR 0036): the server and account, whether it is unlocked, when it locks itself, the PIN, syncing, and how long a copied password stays on the clipboard. The vault's own settings -- the lock timeout, the PIN -- are vw's, kept with the account; the rest are the desktop's (wm/vault.hibr).",
+      "about": "The Control Panel pane for the Bitwarden or Vaultwarden vault (Gitea #71, ADR 0036): the server and account, whether it is unlocked, when it locks itself, the PIN, syncing, and how long a copied password stays on the clipboard. The vault's own settings -- the lock timeout, the PIN -- are vw's, kept with the account; the rest are the desktop's (wm/vault.hibr).",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "vaultset"
@@ -723,7 +734,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/versions.hibr",
       "sha256": "044edfdbc71630fc55d942c946d572d61ac4309909150cde21c513c0ba7d7a96",
-      "about": "Which image each part of this desktop is actually running\n\nwhich image each part of this desktop is actually running. About This Computer cannot answer that: it draws $HIBR_VERSION, which is the *desktop process's* own version, and a restart replaces that process and every module it loads while leaving the hold server's image exactly as old as the session (Gitea #42, #198). Three states, asked and named separately, because they move independently.",
+      "about": "Which image each part of this desktop is actually running. About This Computer cannot answer that: it draws $HIBR_VERSION, which is the *desktop process's* own version, and a restart replaces that process and every module it loads while leaving the hold server's image exactly as old as the session (Gitea #42, #198). Three states, asked and named separately, because they move independently.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "versions"
@@ -745,7 +756,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/cursor.hibr",
       "sha256": "9d999f54ff9f2bfbda4a0686d2889475b48cccf1e79f1e84eaf9340f73d436ae",
-      "about": "A Control Strip module for a new terminal's cursor style\n\na Control Strip module for a new terminal's cursor style, the same DT_CURSOR setting Behaviour's own Cursor row changes. Its own name rather than a shape or a letter -- a click opens the three styles as a dropdown, the same as Behaviour's own Cursor row does from a click on its value, so the current style is seen and chosen in the same place.",
+      "about": "A Control Strip module for a new terminal's cursor style, the same DT_CURSOR setting Behaviour's own Cursor row changes. Its own name rather than a shape or a letter -- a click opens the three styles as a dropdown, the same as Behaviour's own Cursor row does from a click on its value, so the current style is seen and chosen in the same place.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "cursor"
@@ -756,7 +767,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/nextprayer.hibr",
       "sha256": "d18e2eb40f2160bc1ecfe1d6d427ae1b20196997497d37feab22b45756ee09fb",
-      "about": "A Control Strip module: the next prayer and its time\n\na Control Strip module: the next prayer and its time, from the same dt_pnext the bar and Prayer Times use (Gitea #70). A click opens the Prayer Times window. Not named prayer: that is the desk accessory's prefix, and a strip module's draw would answer for it.",
+      "about": "A Control Strip module: the next prayer and its time, from the same dt_pnext the bar and Prayer Times use (Gitea #70). A click opens the Prayer Times window. Not named prayer: that is the desk accessory's prefix, and a strip module's draw would answer for it.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "nextprayer"
@@ -767,7 +778,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/shadow.hibr",
       "sha256": "1ef78b10473597f14f7cd62b77f27dc90ff6f3da25835d7f1f7bca5dd5319dac",
-      "about": "A Control Strip module toggling window shadows\n\na Control Strip module toggling window shadows, the same DT_SHADOW setting Behaviour's own Window Shadow row changes. Its own name, not a glyph -- bold in the active colour when on, dimmed when off, since a single icon read as nothing in particular to anyone who had not already memorised what it meant.",
+      "about": "A Control Strip module toggling window shadows, the same DT_SHADOW setting Behaviour's own Window Shadow row changes. Its own name, not a glyph -- bold in the active colour when on, dimmed when off, since a single icon read as nothing in particular to anyone who had not already memorised what it meant.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "shadow"
@@ -789,7 +800,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/wallpaper.hibr",
       "sha256": "0f8852309c731ae2790619a0fd960b5552082e15f0ff215e0d4e27e134e7bcbb",
-      "about": "A Control Strip module cycling the desktop's own wallpaper glyph\n\na Control Strip module cycling the desktop's own wallpaper glyph, the same DT_GLYPH setting Appearance's own Wallpaper row changes. Its own name, not the glyph itself -- a click opens every glyph as a dropdown, each shown as itself, which is its own preview.",
+      "about": "A Control Strip module cycling the desktop's own wallpaper glyph, the same DT_GLYPH setting Appearance's own Wallpaper row changes. Its own name, not the glyph itself -- a click opens every glyph as a dropdown, each shown as itself, which is its own preview.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "wallpaper"
@@ -800,7 +811,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/classicmac.hibr",
       "sha256": "248f4e202788eb35a19bb2526cd6528b7fefa890510cf477130b3c8e4a76d66b",
-      "about": "A compact Macintosh drifting slowly about a dark screen\n\na compact Macintosh drifting slowly about a dark screen, its little screen going through what one did: the happy face it started with, then the desktop -- a menu bar, a disk, a trash -- then a window opening on it, and round again.",
+      "about": "A compact Macintosh drifting slowly about a dark screen, its little screen going through what one did: the happy face it started with, then the desktop -- a menu bar, a disk, a trash -- then a window opening on it, and round again.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "classicmac"
@@ -811,7 +822,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/clock.hibr",
       "sha256": "3dea974df0d064f3c3dc24f7be70eff0e7dff5694e5a21e2047bf6e6eb62db2c",
-      "about": "The time in big digits, moving to a new place every minute\n\nthe time in big digits, moving to a new place every minute so no part of the screen holds the same thing for long, seconds shown when there is room for them.",
+      "about": "The time in big digits, moving to a new place every minute so no part of the screen holds the same thing for long, seconds shown when there is room for them.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "clock"
@@ -833,7 +844,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/mystify.hibr",
       "sha256": "10b669ee7208efbbed920ae0f4af511aea5eb9d817dc42f7726d5f29b3e84aa2",
-      "about": "Two four-cornered shapes bouncing about the screen\n\ntwo four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.",
+      "about": "Two four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mystify"
@@ -844,7 +855,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/pipes.hibr",
       "sha256": "ebf1638831054c2e83309c7b7e95a340b9462bd64357735e1e87565be82146d5",
-      "about": "Pipes growing across the screen a joint at a time\n\npipes growing across the screen a joint at a time, turning now and then, each its own colour, until the screen is full of them and it starts again.",
+      "about": "Pipes growing across the screen a joint at a time, turning now and then, each its own colour, until the screen is full of them and it starts again.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "pipes"
@@ -855,7 +866,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/toasters.hibr",
       "sha256": "d91ae13a4b0753ae8b62c88a7b12dfe65a4d006b7ccfdaf5057031356e9667d4",
-      "about": "Flying toasters, in the old After Dark way\n\nflying toasters, in the old After Dark way: toasters flapping their wings and slices of toast drifting down and to the left across a black sky, each at its own pace, coming round again from the top and the right.",
+      "about": "Flying toasters, in the old After Dark way: toasters flapping their wings and slices of toast drifting down and to the left across a black sky, each at its own pace, coming round again from the top and the right.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "toasters"
@@ -1078,11 +1089,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "94abc98eb329a87d5b5d68b5fb7bdc4211306f0a8b4fe1462eeb77d583493d54",
-      "about": "The desktop's own words in العربية (ar): 948 strings, read right to left.",
+      "sha256": "ae153f1cab3e41be00fcc97f61b529ad083ff86cb5fdd9c0496d7631a1d4915a",
+      "about": "The desktop's own words in العربية (ar): 967 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1107,7 +1118,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/browser.hibr",
       "sha256": "a42d7a01d39f7c2064643ae999d75c56a643df9a49bf9a3d1cfc4e3b918b45b2",
-      "about": "The web, in a window\n\nthe web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
+      "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser"
@@ -1118,7 +1129,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/calc.hibr",
       "sha256": "aa3299979fb108c13a70854524c2bab613bf726d65c4d094e4bfda3bfda69342",
-      "about": "A calculator\n\na calculator for the desktop, and a program on its own.\n\nSourced by a session it is an app: the window manager finds calc_draw, calc_key and calc_click and calls those.  Run directly it evaluates its arguments and prints the answer, so it is useful without a desktop:",
+      "about": "A calculator for the desktop, and a program on its own.\n\nSourced by a session it is an app: the window manager finds calc_draw, calc_key and calc_click and calls those.  Run directly it evaluates its arguments and prints the answer, so it is useful without a desktop:",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "calc"
@@ -1175,7 +1186,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
       "sha256": "0033f63a6855a1a3e21e3d08bf169f0ecb7cc608a56b67438ae2a6e8e217fa4d",
-      "about": "A file browser\n\na file browser for the desktop, and a lister on its own.\n\n    hibr examples/desktop/apps/files.hibr /etc",
+      "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr examples/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
@@ -1187,7 +1198,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/imgview.hibr",
       "sha256": "ec5865157a32b44fa54bcc267f666a20b257c3565773b95c243e4438293b89db",
-      "about": "A picture in a window\n\na picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
+      "about": "A picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "imgview"
@@ -1210,7 +1221,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/mines.hibr",
       "sha256": "08cced6a4b000e623ab0bf93a2d7a120efb5c104dbf1caff6b6975bdc9e5e47a",
-      "about": "Clear the field\n\nclear the field without stepping on anything.\n\nThe board is three strings of one character per cell: where the mines are, how many touch each cell, and what the player has seen.  A cell is read with ${s:i:1} and written by slicing around it, and opening an empty region is a loop over a stack of indices, so there is no recursion to run out of and nothing here is not ordinary shell.",
+      "about": "Clear the field without stepping on anything.\n\nThe board is three strings of one character per cell: where the mines are, how many touch each cell, and what the player has seen.  A cell is read with ${s:i:1} and written by slicing around it, and opening an empty region is a loop over a stack of indices, so there is no recursion to run out of and nothing here is not ordinary shell.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mines"
@@ -1233,7 +1244,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/puzzle.hibr",
       "sha256": "71a4d960cf8ff215565cc4e55b756aad20a52d477e3903bbb6ddcac84d7bb79a",
-      "about": "The sliding tile puzzle\n\nthe sliding tile puzzle, 15 numbered tiles and one gap in a 4x4 frame. Arrows move the gap, a click on a tile next to it slides that one into it; get 1 through 15 in reading order with the gap last and it says so.\n\n    arrows / hjkl   slide the gap    click   slide the tile next to it     n               new game",
+      "about": "The sliding tile puzzle, 15 numbered tiles and one gap in a 4x4 frame. Arrows move the gap, a click on a tile next to it slides that one into it; get 1 through 15 in reading order with the gap last and it says so.\n\n    arrows / hjkl   slide the gap    click   slide the tile next to it     n               new game",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "puzzle"
@@ -1244,7 +1255,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/sheet.hibr",
       "sha256": "66a954fb62feaa4c60d1e7495b26bd5e216edc06469b0613adf982617e2fc96c",
-      "about": "A spreadsheet whose formulas are hibr\n\na spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
+      "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "sheet"
@@ -1255,7 +1266,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/snake.hibr",
       "sha256": "f00995c73a597a82b6b513f962d794c15600e6d4849b9569740c48a0ff026f41",
-      "about": "Eat, grow, and do not bite yourself\n\neat, grow, and do not bite yourself.\n\nThe snake is a string of \"row,col\" cells, head first.  A step puts a new head on the front and, unless it has just eaten, takes the tail off the back; running into itself is a pattern match on that string.  No arrays, no C: a game written in the shell, stepping on $EPOCHREALTIME.",
+      "about": "Eat, grow, and do not bite yourself.\n\nThe snake is a string of \"row,col\" cells, head first.  A step puts a new head on the front and, unless it has just eaten, takes the tail off the back; running into itself is a pattern match on that string.  No arrays, no C: a game written in the shell, stepping on $EPOCHREALTIME.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "snake"
@@ -1278,7 +1289,7 @@
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
       "sha256": "8a5bef3edd642b2eae29dd9c7172bc27101fceac5bcca967a94a67442c3b77aa",
-      "about": "A shell in a window\n\na shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
+      "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "term",
@@ -1331,6 +1342,17 @@
       "name": "about",
       "hibr": "0.99.189"
     },
+    "appstore": {
+      "title": "Applications Catalogue",
+      "version": "1.0",
+      "kind": "system",
+      "bundle": "bundles/system/appstore.hibr",
+      "sha256": "092498a61cbd154630325d84d64a05fadd9420ab93ffeb44d2cb3bde82a4e4a9",
+      "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "appstore"
+    },
     "clipboard": {
       "title": "Clipboard",
       "version": "1.0",
@@ -1382,7 +1404,7 @@
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
       "sha256": "f71a5ef99f8959b7a900efdbe315490cb2001b4d397244ba3aab2c6cb2d2fd5e",
-      "about": "What is running, and a way to end one\n\nwhat is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
+      "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "tasks",
@@ -1394,7 +1416,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/abouthibr.hibr",
       "sha256": "610e34ebb8c668fcf42380851e59a1c5f6bac3bf4e2f1ef202946f9e4eeeaa97",
-      "about": "The Control Panel pane for About This Computer\n\nthe Control Panel pane for About This Computer: how often its CPU and memory figures are read again. Named abouthibr, not about, because the app's own about_draw would otherwise be taken for this pane's body.",
+      "about": "The Control Panel pane for About This Computer: how often its CPU and memory figures are read again. Named abouthibr, not about, because the app's own about_draw would otherwise be taken for this pane's body.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "abouthibr"
@@ -1405,7 +1427,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/aboutme.hibr",
       "sha256": "a6706e3f75b085650564e6a24a38fb872ac4669f2d87049a06a363093b6a6612",
-      "about": "The Control Panel pane for About Me\n\nthe Control Panel pane for About Me: the name, the line under it and the picture the login screen shows for you (examples/desktop/login/), and which session it starts. They live in ~/.config/hibr/me.json -- data, never run, since the login screen reads it before anyone has logged in (as you, never as root). The picture is a PNG or JPEG anywhere you can read it; the file keeps its path.",
+      "about": "The Control Panel pane for About Me: the name, the line under it and the picture the login screen shows for you (examples/desktop/login/), and which session it starts. They live in ~/.config/hibr/me.json -- data, never run, since the login screen reads it before anyone has logged in (as you, never as root). The picture is a PNG or JPEG anywhere you can read it; the file keeps its path.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "aboutme"
@@ -1416,7 +1438,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
       "sha256": "4eeffdb31e13a9705b126c37378c6f42bb197ade10019fea9b84f89614b38d8f",
-      "about": "The Control Panel pane for how the desktop looks\n\nthe Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
+      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "appearance"
@@ -1427,7 +1449,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/cliphist.hibr",
       "sha256": "9642dd6264cebaa8d38b5f03e43f3b73290d4bb6406973f6cffeecbd73940f6f",
-      "about": "The Control Panel pane for the clipboard's history\n\nthe Control Panel pane for the clipboard's history (wm/clip.hibr): whether it is kept on disk between desktops, how many entries it keeps besides the pinned ones, and the way to it and to emptying it. Named cliphist, not clipboard, which is the desk accessory's own prefix.",
+      "about": "The Control Panel pane for the clipboard's history (wm/clip.hibr): whether it is kept on disk between desktops, how many entries it keeps besides the pinned ones, and the way to it and to emptying it. Named cliphist, not clipboard, which is the desk accessory's own prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "cliphist"
@@ -1438,7 +1460,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
       "sha256": "35a7aa63c6999d6aef0278960af2b5a8c89a68719ecc1918c7cdf018fee64f90",
-      "about": "The Control Panel pane for the strip itself\n\nthe Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
+      "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "control-strip"
@@ -1460,7 +1482,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
       "sha256": "df4b7dc36059c15c5976c2fdced8b02ab6ab5725304cedda62a5ef609f575664",
-      "about": "The Control Panel pane for the bare desktop\n\nthe Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
+      "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "desktop"
@@ -1471,7 +1493,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/displays.hibr",
       "sha256": "f6230f5a111de0f70505126870d8d2a1541a9bff373822d3881f15bf4b3c1712",
-      "about": "Control Panel's own picture of a multi-monitor arrangement\n\nControl Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
+      "about": "Control Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "displays"
@@ -1482,7 +1504,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filesview.hibr",
       "sha256": "32bed629ae4fd4790195e05997ae4224ef542277248f470e5e0e66e85e726bd0",
-      "about": "The Control Panel pane for Files\n\nthe Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
+      "about": "The Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "filesview"
@@ -1504,7 +1526,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/keyboard.hibr",
       "sha256": "d320d9ecb6ab531fe5738782d6cbc61bba137f7096b199402a7c5a8a45f870eb",
-      "about": "The Control Panel pane for how keys reach a terminal window\n\nthe Control Panel pane for how keys reach a terminal window: whether the desktop's shortcuts work while a terminal has focus, and whether ctrl with a letter always goes to the program inside. Which key does what is the Shortcuts pane's, where every one can be changed.",
+      "about": "The Control Panel pane for how keys reach a terminal window: whether the desktop's shortcuts work while a terminal has focus, and whether ctrl with a letter always goes to the program inside. Which key does what is the Shortcuts pane's, where every one can be changed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "keyboard"
@@ -1526,7 +1548,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mailset.hibr",
       "sha256": "66998961c6b52b269436349525b4338e1b4dbac943bb8fe48fb58cd165b73fa5",
-      "about": "The Control Panel pane for Mail\n\nthe Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
+      "about": "The Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mailset"
@@ -1537,7 +1559,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
       "sha256": "f16317bb78d52c7cc4712706fabe8b25c86e95577fc2999a5640d88c5c2d8983",
-      "about": "The Control Panel pane for what the mouse does to a window\n\nthe Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
+      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mouse"
@@ -1548,7 +1570,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/network.hibr",
       "sha256": "ed0a5855a594b2bb23d26fd40e0cd52b681b7c70fd6e2021fdd90ff9a9969251",
-      "about": "The Control Panel pane for WebDAV servers\n\nthe Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
+      "about": "The Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "network"
@@ -1559,7 +1581,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/notes.hibr",
       "sha256": "7b7cb4f670ca16c8332f08835dd2a525aa5e65ee1754ba97707a4a53a7f29010",
-      "about": "The Control Panel pane for Stickies\n\nthe Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
+      "about": "The Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "notes"
@@ -1570,7 +1592,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
       "sha256": "4e64db6f12b94e0ea594a6abf1c101d6866a919d94f777734bfcd44adfd6e1e1",
-      "about": "The Control Panel pane for how a picture is drawn\n\nthe Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
+      "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "pictures"
@@ -1592,7 +1614,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/prayerset.hibr",
       "sha256": "03161a229cf442c0f1075b574d3b8641b295b58d95d62af99ae908fc453f95c4",
-      "about": "The Control Panel pane for prayer times\n\nthe Control Panel pane for prayer times (Gitea #70, ADR 0035): where they show, how they are worked out, where the person is, and the athan. The settings are wm/prayer.hibr's; the methods are the salat module's, read from its folders.",
+      "about": "The Control Panel pane for prayer times (Gitea #70, ADR 0035): where they show, how they are worked out, where the person is, and the athan. The settings are wm/prayer.hibr's; the methods are the salat module's, read from its folders.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "prayerset"
@@ -1603,7 +1625,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/screensaver.hibr",
       "sha256": "7a24d55e7366f8628d8bc1206cc967322dd7dfb593d9ff975934f3f834d94037",
-      "about": "The Control Panel pane for the screen saver\n\nthe Control Panel pane for the screen saver (wm/saver.hibr): which one, or one at random, how many idle minutes before it starts, whether it locks the screen (wm/lock.hibr) once it has run a while, and a look at it now.",
+      "about": "The Control Panel pane for the screen saver (wm/saver.hibr): which one, or one at random, how many idle minutes before it starts, whether it locks the screen (wm/lock.hibr) once it has run a while, and a look at it now.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "screensaver"
@@ -1614,7 +1636,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
       "sha256": "5cb983a3d5546e93786d9e47c947815ba1508299d734200c72f8662aef94d010",
-      "about": "The Control Panel pane for every shortcut in one list\n\nthe Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both.",
+      "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "shortcuts"
@@ -1625,7 +1647,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/taskmgr.hibr",
       "sha256": "2594f9fe7fe57a84111dfda152e120fedb5e3d9181da616db83391ad5b55108b",
-      "about": "The Control Panel pane for Task Manager\n\nthe Control Panel pane for Task Manager: how often it rescans, whether its list has a scrollbar, and the order a new window starts in. Its rows appear only once Task Manager itself is loaded, the same way the Terminal pane's wait for the terminal.",
+      "about": "The Control Panel pane for Task Manager: how often it rescans, whether its list has a scrollbar, and the order a new window starts in. Its rows appear only once Task Manager itself is loaded, the same way the Terminal pane's wait for the terminal.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "taskmgr"
@@ -1636,7 +1658,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/terminal.hibr",
       "sha256": "92edcd8d24ff73ba9c5e3ddb3a1021a867db8f6877dcab8add6de6d342c664f0",
-      "about": "The Control Panel pane for how a terminal window behaves\n\nthe Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
+      "about": "The Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "terminal"
@@ -1647,7 +1669,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/tube.hibr",
       "sha256": "7ac31b615de1d10571e1917adf2895f489b17161c48d56f6295770438fcca187",
-      "about": "The Control Panel pane for the YouTube app\n\nthe Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
+      "about": "The Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "tube"
@@ -1658,7 +1680,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/vaultset.hibr",
       "sha256": "65a587757eadebc21426e93051c346eb99269bced59a1e70505d42e23a938d67",
-      "about": "The Control Panel pane for the Bitwarden or Vaultwarden vault\n\nthe Control Panel pane for the Bitwarden or Vaultwarden vault (Gitea #71, ADR 0036): the server and account, whether it is unlocked, when it locks itself, the PIN, syncing, and how long a copied password stays on the clipboard. The vault's own settings -- the lock timeout, the PIN -- are vw's, kept with the account; the rest are the desktop's (wm/vault.hibr).",
+      "about": "The Control Panel pane for the Bitwarden or Vaultwarden vault (Gitea #71, ADR 0036): the server and account, whether it is unlocked, when it locks itself, the PIN, syncing, and how long a copied password stays on the clipboard. The vault's own settings -- the lock timeout, the PIN -- are vw's, kept with the account; the rest are the desktop's (wm/vault.hibr).",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "vaultset"
@@ -1669,7 +1691,7 @@
       "kind": "control-panel",
       "bundle": "bundles/control-panel/versions.hibr",
       "sha256": "044edfdbc71630fc55d942c946d572d61ac4309909150cde21c513c0ba7d7a96",
-      "about": "Which image each part of this desktop is actually running\n\nwhich image each part of this desktop is actually running. About This Computer cannot answer that: it draws $HIBR_VERSION, which is the *desktop process's* own version, and a restart replaces that process and every module it loads while leaving the hold server's image exactly as old as the session (Gitea #42, #198). Three states, asked and named separately, because they move independently.",
+      "about": "Which image each part of this desktop is actually running. About This Computer cannot answer that: it draws $HIBR_VERSION, which is the *desktop process's* own version, and a restart replaces that process and every module it loads while leaving the hold server's image exactly as old as the session (Gitea #42, #198). Three states, asked and named separately, because they move independently.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "versions"
@@ -1691,7 +1713,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/cursor.hibr",
       "sha256": "9d999f54ff9f2bfbda4a0686d2889475b48cccf1e79f1e84eaf9340f73d436ae",
-      "about": "A Control Strip module for a new terminal's cursor style\n\na Control Strip module for a new terminal's cursor style, the same DT_CURSOR setting Behaviour's own Cursor row changes. Its own name rather than a shape or a letter -- a click opens the three styles as a dropdown, the same as Behaviour's own Cursor row does from a click on its value, so the current style is seen and chosen in the same place.",
+      "about": "A Control Strip module for a new terminal's cursor style, the same DT_CURSOR setting Behaviour's own Cursor row changes. Its own name rather than a shape or a letter -- a click opens the three styles as a dropdown, the same as Behaviour's own Cursor row does from a click on its value, so the current style is seen and chosen in the same place.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "cursor"
@@ -1702,7 +1724,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/nextprayer.hibr",
       "sha256": "d18e2eb40f2160bc1ecfe1d6d427ae1b20196997497d37feab22b45756ee09fb",
-      "about": "A Control Strip module: the next prayer and its time\n\na Control Strip module: the next prayer and its time, from the same dt_pnext the bar and Prayer Times use (Gitea #70). A click opens the Prayer Times window. Not named prayer: that is the desk accessory's prefix, and a strip module's draw would answer for it.",
+      "about": "A Control Strip module: the next prayer and its time, from the same dt_pnext the bar and Prayer Times use (Gitea #70). A click opens the Prayer Times window. Not named prayer: that is the desk accessory's prefix, and a strip module's draw would answer for it.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "nextprayer"
@@ -1713,7 +1735,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/shadow.hibr",
       "sha256": "1ef78b10473597f14f7cd62b77f27dc90ff6f3da25835d7f1f7bca5dd5319dac",
-      "about": "A Control Strip module toggling window shadows\n\na Control Strip module toggling window shadows, the same DT_SHADOW setting Behaviour's own Window Shadow row changes. Its own name, not a glyph -- bold in the active colour when on, dimmed when off, since a single icon read as nothing in particular to anyone who had not already memorised what it meant.",
+      "about": "A Control Strip module toggling window shadows, the same DT_SHADOW setting Behaviour's own Window Shadow row changes. Its own name, not a glyph -- bold in the active colour when on, dimmed when off, since a single icon read as nothing in particular to anyone who had not already memorised what it meant.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "shadow"
@@ -1735,7 +1757,7 @@
       "kind": "control-strip",
       "bundle": "bundles/control-strip/wallpaper.hibr",
       "sha256": "0f8852309c731ae2790619a0fd960b5552082e15f0ff215e0d4e27e134e7bcbb",
-      "about": "A Control Strip module cycling the desktop's own wallpaper glyph\n\na Control Strip module cycling the desktop's own wallpaper glyph, the same DT_GLYPH setting Appearance's own Wallpaper row changes. Its own name, not the glyph itself -- a click opens every glyph as a dropdown, each shown as itself, which is its own preview.",
+      "about": "A Control Strip module cycling the desktop's own wallpaper glyph, the same DT_GLYPH setting Appearance's own Wallpaper row changes. Its own name, not the glyph itself -- a click opens every glyph as a dropdown, each shown as itself, which is its own preview.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "wallpaper"
@@ -1746,7 +1768,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/classicmac.hibr",
       "sha256": "248f4e202788eb35a19bb2526cd6528b7fefa890510cf477130b3c8e4a76d66b",
-      "about": "A compact Macintosh drifting slowly about a dark screen\n\na compact Macintosh drifting slowly about a dark screen, its little screen going through what one did: the happy face it started with, then the desktop -- a menu bar, a disk, a trash -- then a window opening on it, and round again.",
+      "about": "A compact Macintosh drifting slowly about a dark screen, its little screen going through what one did: the happy face it started with, then the desktop -- a menu bar, a disk, a trash -- then a window opening on it, and round again.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "classicmac"
@@ -1768,7 +1790,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/mystify.hibr",
       "sha256": "10b669ee7208efbbed920ae0f4af511aea5eb9d817dc42f7726d5f29b3e84aa2",
-      "about": "Two four-cornered shapes bouncing about the screen\n\ntwo four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.",
+      "about": "Two four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mystify"
@@ -1779,7 +1801,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/pipes.hibr",
       "sha256": "ebf1638831054c2e83309c7b7e95a340b9462bd64357735e1e87565be82146d5",
-      "about": "Pipes growing across the screen a joint at a time\n\npipes growing across the screen a joint at a time, turning now and then, each its own colour, until the screen is full of them and it starts again.",
+      "about": "Pipes growing across the screen a joint at a time, turning now and then, each its own colour, until the screen is full of them and it starts again.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "pipes"
@@ -1790,7 +1812,7 @@
       "kind": "savers",
       "bundle": "bundles/savers/toasters.hibr",
       "sha256": "d91ae13a4b0753ae8b62c88a7b12dfe65a4d006b7ccfdaf5057031356e9667d4",
-      "about": "Flying toasters, in the old After Dark way\n\nflying toasters, in the old After Dark way: toasters flapping their wings and slices of toast drifting down and to the left across a black sky, each at its own pace, coming round again from the top and the right.",
+      "about": "Flying toasters, in the old After Dark way: toasters flapping their wings and slices of toast drifting down and to the left across a black sky, each at its own pace, coming round again from the top and the right.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "toasters"

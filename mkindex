@@ -371,9 +371,41 @@ for kind in $KINDS; do
 			title := titleof "$src" "$name"
 			about := aboutof "$src"
 			if sum := appline "$src"; [ -n "$sum" ]; then
-				about="$sum
+				# Almost every file says the same sentence
+				# twice -- once on its `app` line and once
+				# after the `--` in its header, which is where
+				# the About box has always read it from. Put
+				# both in and the catalogue opens with "Eat,
+				# grow, and do not bite yourself / eat, grow,
+				# and do not bite yourself."
+				#
+				# So where the header's first paragraph *is*
+				# the declaration, or is the declaration and
+				# then more, the header's own sentence wins and
+				# the declaration is dropped: "clear the field
+				# without stepping on anything" says more than
+				# "Clear the field", and dropping the longer of
+				# the two to remove a repetition loses what was
+				# being said. Capitalised, because it follows
+				# `name --` in the file and is written in lower
+				# case for that. Where the two genuinely
+				# differ, both are kept, declaration first.
+				local first rest a b
+				first=${about%%$'\n'*}
+				rest=${about#"$first"}
+				rest=${rest#$'\n'}
+				rest=${rest#$'\n'}
+				a=${sum,,}; a=${a%.}
+				b=${first,,}
+				case $b in
+				"$a" | "$a "* | "$a,"* | "$a:"* | "$a."*)
+					about="${first^}${rest:+
 
-$about"
+}$rest" ;;
+				*) about="$sum${about:+
+
+}$about" ;;
+				esac
 			else
 				sum=${about%%$'\n'*}
 			fi
