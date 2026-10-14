@@ -48,7 +48,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers themes colours lang"
+KINDS="apps system control-panel control-strip savers themes colours lang mods"
 
 fn die(...msg) {
 	printf 'addapp: %s\n' "${msg[*]}" >&2
@@ -63,10 +63,29 @@ fn die(...msg) {
 # (Gitea #218). A thing that declares none is refused rather than given a
 # number nobody chose.
 fn verof(path, kind) {
-	local l v=
+	local l v= nm ver abi st p prov bi dsc d
 	local -A j
 
 	case $kind in
+	mods)
+		# A module says it in its own descriptor, which `mod avail`
+		# reads without calling its init. Copied to a folder of its
+		# own first and then picked out **by path**: `mod avail`
+		# lists the whole search path, and the install directory is
+		# always the last of it, so taking the last line read
+		# whichever module sorts last and gave every module the
+		# same version.
+		d=${TMPDIR:-/tmp}/addapp-mod-$$
+		rm -rf "$d"; mkdir -p "$d" || die "cannot make $d"
+		cp -- "$path" "$d/" || die "$path: cannot copy it to read it"
+		while IFS=$'\t' read -r nm ver abi st p prov bi dsc; do
+			case $p in "$d"/*) v=$ver ;; esac
+		done <<< "$(HIBR_MODPATH=$d hibr -c 'mod avail' 2> /dev/null)"
+		rm -rf "$d"
+		[ -n "$v" ] ||
+			die "$path: hibr cannot read a module descriptor in it"
+		ret "$v"
+		return 0 ;;
 	themes | colours | lang)
 		json parse j < "$path" 2> /dev/null ||
 			die "$path: does not parse as JSON"
@@ -174,6 +193,7 @@ fn partsof(path, kind) {
 fn kextof(kind) {
 	case $kind in
 	themes | colours | lang) ret ".json" ;;
+	mods) ret ".so" ;;
 	*) ret ".hibr" ;;
 	esac
 }
@@ -229,13 +249,14 @@ DESKTOP=
 
 [ -r "$src" ] || die "$src: cannot be read"
 case $src in
-*.hibr | *.json) ;;
-*) die "$src: an installable file is a .hibr or, for a theme, a colour scheme or a language, a .json" ;;
+*.hibr | *.json | *.so) ;;
+*) die "$src: an installable file is a .hibr, a .json for a theme, a colour scheme or a language, or a .so for a module" ;;
 esac
 
 name=${src##*/}
 name=${name%.hibr}
 name=${name%.json}
+name=${name%.so}
 # An underscore as well as a dash, because a name here is a *filename* the
 # desktop already reads -- `retro_car.json` is the theme's name wherever
 # anybody has chosen it, and renaming it to suit this script would change

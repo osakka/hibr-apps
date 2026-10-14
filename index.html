@@ -74,7 +74,7 @@ application and a screen saver, so each is named by its id.</p>
 <tr><td><code>apps/youtube</code></td><td>YouTube</td><td>1.0</td><td>YouTube, in a window</td></tr>
 <tr><th colspan="4">The desktop's own</th></tr>
 <tr><td><code>system/about</code></td><td>About This Computer</td><td>1.0</td><td>About this computer: the machine, and the desktop running on it</td></tr>
-<tr><td><code>system/appstore</code></td><td>Applications Catalogue</td><td>1.0</td><td>The application catalogue: browse, install, update and remove</td></tr>
+<tr><td><code>system/appstore</code></td><td>Catalogue</td><td>1.0</td><td>The application catalogue: browse, install, update and remove</td></tr>
 <tr><td><code>system/clipboard</code></td><td>Clipboard</td><td>1.0</td><td>The clipboard's history: copy something back, pin it, keep it</td></tr>
 <tr><td><code>system/modman</code></td><td>Modules</td><td>1.0</td><td>What this shell can load, what it has loaded, and a way to change either</td></tr>
 <tr><td><code>system/notifications</code></td><td>Notifications</td><td>1.0</td><td>A read-only look back at recent notifications</td></tr>
@@ -146,14 +146,19 @@ application and a screen saver, so each is named by its id.</p>
 </table>
 
 <h2>What you are trusting</h2>
-<p>Five of the eight kinds are hibr scripts and run with everything your own shell can
-do: there is no sandbox, and there are no signatures. The other three &mdash; themes,
-colour schemes and languages &mdash; are data, read rather than run, which is
-deliberate: they are the things people hand each other, and a theme that was a script
-would run as whoever applied it. TLS says which server the index came from, and the
-<code>sha256</code> in the index says the bundle was not changed on the way &mdash;
-neither says who wrote it. A bundle may not carry a <code>.so</code>: a module is
-native code and comes with hibr itself.</p>
+<p>Five of the nine kinds are hibr scripts and run with everything your own shell can
+do: there is no sandbox. Three &mdash; themes, colour schemes and languages &mdash;
+are data, read rather than run, which is deliberate: they are the things people hand
+each other, and a theme that was a script would run as whoever applied it. The ninth
+is <code>mods</code>, a hibr module: native code, with no sandbox at all, which is
+why <code>apps</code> refuses to install one from a catalogue it cannot verify.</p>
+<p>TLS says which server the index came from; the <code>sha256</code> in the index
+says the bundle was not changed on the way; and the detached signature beside the
+index (<code>index.json.asc</code>) says who published it &mdash; the same key that
+signs the <a href="https://github.com/osakka/hibr-apt">apt repository</a>,
+<code>A1E3CA78 8A8FB020 52DA22B4 13035BE1 B1674431</code>. Because the index carries
+every bundle's hash, that one signature covers every bundle. What it does not say is
+that an app is any good.</p>
 <p>The bundles are plain files in
 <a href="https://github.com/osakka/hibr-apps">this repository</a>: read one before you
 install it &mdash; that is the point of an app being a script. Every version ever

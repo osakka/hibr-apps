@@ -27,7 +27,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers themes colours lang"
+KINDS="apps system control-panel control-strip savers themes colours lang mods"
 # The release whose desktop first looks in `$XDG_DATA_HOME/hibr/<kind>` for
 # a theme, a colour scheme or a language. See the `hibr` field below.
 DATAHIBR=0.99.187
@@ -48,6 +48,11 @@ declare -A ENTHIBR
 # which the window names as the likely cause -- honest, and still a window
 # that lists nothing.
 ENTHIBR["system/appstore"]=0.99.190
+# And the release whose `apps` has a `mods` kind at all, and whose shell
+# has a module directory of the person's own to put one in (ADR 0044,
+# Gitea #221). Before it there was nowhere for a module to land and `apps`
+# refused a `.so` by name, so an older client must decline rather than try.
+MODSHIBR=0.99.191
 
 fn die(...msg) {
 	printf 'mkindex: %s\n' "${msg[*]}" >&2
@@ -62,6 +67,7 @@ fn nameof(path) {
 
 	b=${b%.tar.gz}
 	b=${b%.hibr}
+	b=${b%.so}
 	b=${b%.json}
 	ret "$b"
 }
@@ -100,8 +106,80 @@ fn verof(path, kind) {
 fn kextof(kind) {
 	case $kind in
 	themes | colours | lang) ret ".json" ;;
+	mods) ret ".so" ;;
 	*) ret ".hibr" ;;
 	esac
+}
+
+# Whether a kind is native code rather than something read or run by the
+# shell. One kind is, and everything that differs about publishing a
+# module hangs off this (ADR 0044).
+fn isnative(kind) {
+	[ "$kind" = mods ] && return 0
+	return 1
+}
+
+# A module describes itself in its own descriptor, which `mod avail` reads
+# **without calling its init** -- so name, version, ABI and description all
+# come out of the object, the same rule every other kind follows: the
+# catalogue says what the thing says.
+#
+# Scanned in a folder of its own so `mod avail` reads this one object and
+# not whatever else sits beside it.
+MOD_NM=; MOD_VER=; MOD_ABI=; MOD_DSC=
+fn modof(path) {
+	local d l nm ver abi st p prov bi dsc
+
+	MOD_NM=; MOD_VER=; MOD_ABI=; MOD_DSC=
+	d=${TMPDIR:-/tmp}/mkindex-mod-$$
+	rm -rf "$d"; mkdir -p "$d" || die "cannot make $d"
+	cp -- "$path" "$d/" || die "$path: cannot copy it to read it"
+	# Picked out by path: `mod avail` lists the whole search path and
+	# the install directory is always the last of it, so taking the
+	# last line read whichever module sorts last.
+	while IFS=$'\t' read -r nm ver abi st p prov bi dsc; do
+		case $p in "$d"/*) ;; *) continue ;; esac
+		MOD_NM=$nm; MOD_VER=$ver; MOD_ABI=$abi; MOD_DSC=$dsc
+	done <<< "$(HIBR_MODPATH=$d hibr -c 'mod avail' 2> /dev/null)"
+	rm -rf "$d"
+	[ -n "$MOD_NM" ] || return 1
+	return 0
+}
+
+# The machine a shared object is built for, spelled the way `uname -sm`
+# lowercased and joined spells it, which is what `apps` compares it
+# against. Read out of the file's own header rather than taken from the
+# machine running this, because the publisher is not always the builder.
+#
+# ELF is read as linux: hibr builds on Linux and macOS, and macOS is
+# Mach-O, so the two magics tell them apart. A third ELF platform would
+# need the EI_OSABI byte as well, and there is no bundle for one.
+fn archof(path) {
+	local b m
+
+	# od wraps at sixteen bytes, so the newline comes out as well as the
+	# spaces -- without that the slice below reads across the break and
+	# finds `03e0` where `3e00` is.
+	b := od -An -tx1 -N20 "$path"
+	b=${b// /}
+	b=${b//$'\n'/}
+	case $b in
+	7f454c46*)
+		m=${b:36:4}
+		case $m in
+		3e00) ret "linux-x86_64"; return 0 ;;
+		b700) ret "linux-aarch64"; return 0 ;;
+		esac
+		return 1 ;;
+	cffaedfe*)
+		m=${b:8:8}
+		case $m in
+		07000001) ret "darwin-x86_64"; return 0 ;;
+		0c000001) ret "darwin-arm64"; return 0 ;;
+		esac
+		return 1 ;;
+	esac
+	return 1
 }
 
 # Whether a file in a kind's folder is an entry of its own, or a **part** of
@@ -365,14 +443,35 @@ for kind in $KINDS; do
 		src := readable "$bundle" "$name" "$kind"
 		# Read before the fields are written, since whether this
 		# entry brings parts decides the `hibr` it declares.
-		pl0 := partsof "$src" "$kind"
-		ver := verof "$src" "$kind" ||
-			die "$kind/$name: it declares no version -- an app says so on its \`app\` line, a theme in its own \"version\""
+		pl0=
+		march=
+		if isnative "$kind"; then
+			# A module carries no parts and says everything about
+			# itself in its descriptor, which `mod avail` reads
+			# without running it.
+			modof "$src" ||
+				die "$kind/$name: hibr cannot read a module descriptor in it"
+			march := archof "$src" ||
+				die "$kind/$name: its header names no machine hibr builds for"
+			ver=$MOD_VER
+			[ -n "$ver" ] ||
+				die "$kind/$name: its descriptor declares no version"
+			title=$MOD_NM
+			about=$MOD_DSC
+			sum=$MOD_DSC
+		else
+			pl0 := partsof "$src" "$kind"
+			ver := verof "$src" "$kind" ||
+				die "$kind/$name: it declares no version -- an app says so on its \`app\` line, a theme in its own \"version\""
+		fi
 		# A script describes itself in its own header comment and
 		# its `app` line; a theme, a colour scheme or a language has
 		# no comments to hold either, so its words come from the
-		# fields it already carries (Gitea #224).
-		if isdata "$kind"; then
+		# fields it already carries (Gitea #224); and a module says
+		# it in the descriptor read above.
+		if isnative "$kind"; then
+			:
+		elif isdata "$kind"; then
 			dataof "$src" "$kind" "$name"
 			title=$D_TITLE
 			about=$D_ABOUT
@@ -453,7 +552,8 @@ for kind in $KINDS; do
 		# it with a reason instead, which is the difference between a
 		# catalogue that is honest about one thing it knows and one that
 		# guesses about everything (Gitea #224).
-		for f in title version kind bundle sha256 about licence author name hibr; do
+		for f in title version kind bundle sha256 about licence author \
+			 name hibr arch abi; do
 			case $f in
 			title) v=$title ;;
 			version) v=$ver ;;
@@ -466,10 +566,19 @@ for kind in $KINDS; do
 			name) v=$name ;;
 			hibr) v=; isdata "$kind" && v=$DATAHIBR
 			      [ -n "$pl0" ] && v=$PARTSHIBR
+			      isnative "$kind" && v=$MODSHIBR
 			      [ -n "${ENTHIBR["$id"]-}" ] &&
 				      v=${ENTHIBR["$id"]} ;;
+			# Only a module has either, and both are a refusal
+			# rather than a note: an object built for another
+			# machine or another ABI cannot be loaded at all, so
+			# `apps` declines it before the fetch (ADR 0044).
+			arch) v=$march ;;
+			abi) v=; isnative "$kind" && v=$MOD_ABI ;;
 			esac
-			[ -n "$v" ] || [ "$f" != hibr ] || continue
+			case $f in
+			hibr | arch | abi) [ -n "$v" ] || continue ;;
+			esac
 			IX["entries"]["$id"]["$f"]=$v
 			# A name that means two things cannot go in the older
 			# section at all: whichever was written last would be
@@ -585,14 +694,19 @@ application and a screen saver, so each is named by its id.</p>
 $rows</table>
 
 <h2>What you are trusting</h2>
-<p>Five of the eight kinds are hibr scripts and run with everything your own shell can
-do: there is no sandbox, and there are no signatures. The other three &mdash; themes,
-colour schemes and languages &mdash; are data, read rather than run, which is
-deliberate: they are the things people hand each other, and a theme that was a script
-would run as whoever applied it. TLS says which server the index came from, and the
-<code>sha256</code> in the index says the bundle was not changed on the way &mdash;
-neither says who wrote it. A bundle may not carry a <code>.so</code>: a module is
-native code and comes with hibr itself.</p>
+<p>Five of the nine kinds are hibr scripts and run with everything your own shell can
+do: there is no sandbox. Three &mdash; themes, colour schemes and languages &mdash;
+are data, read rather than run, which is deliberate: they are the things people hand
+each other, and a theme that was a script would run as whoever applied it. The ninth
+is <code>mods</code>, a hibr module: native code, with no sandbox at all, which is
+why <code>apps</code> refuses to install one from a catalogue it cannot verify.</p>
+<p>TLS says which server the index came from; the <code>sha256</code> in the index
+says the bundle was not changed on the way; and the detached signature beside the
+index (<code>index.json.asc</code>) says who published it &mdash; the same key that
+signs the <a href="https://github.com/osakka/hibr-apt">apt repository</a>,
+<code>A1E3CA78 8A8FB020 52DA22B4 13035BE1 B1674431</code>. Because the index carries
+every bundle's hash, that one signature covers every bundle. What it does not say is
+that an app is any good.</p>
 <p>The bundles are plain files in
 <a href="https://github.com/osakka/hibr-apps">this repository</a>: read one before you
 install it &mdash; that is the point of an app being a script. Every version ever
@@ -603,5 +717,31 @@ whole catalogue is one folder, so a mirror is a copy rather than a rewrite:
 </body>
 </html>
 HTML
+
+# Sign it. The apt repository's own key, because this project publishes two
+# things and one key is one key to keep rather than two to lose; the index
+# already holds every bundle's sha256, so a signature over it covers every
+# bundle without signing each. `apps` pins the fingerprint and refuses to
+# install a **module** from a catalogue it cannot verify -- a script it
+# installs with a warning, since the sha256 and TLS are its stated trust
+# model and a script is a file you can read (ADR 0044).
+#
+# Not having the secret key is not an error here: anyone may run mkindex
+# over their own copy, and what they get is an unsigned catalogue, which
+# is what the catalogue was until today.
+APTKEY=${APT_KEY:-A1E3CA788A8FB02052DA22B413035BE1B1674431}
+APTHOME=${APT_GNUPGHOME:-$HOME/.local/share/hibr-apt/gnupg}
+if GNUPGHOME=$APTHOME command gpg --list-secret-keys "$APTKEY" \
+   > /dev/null 2>&1; then
+	rm -f index.json.asc
+	GNUPGHOME=$APTHOME command gpg --batch --yes --local-user "$APTKEY" \
+		--armor --detach-sign -o index.json.asc index.json ||
+		die "the index could not be signed"
+	printf '== signed index.json.asc with %s\n' "$APTKEY"
+else
+	rm -f index.json.asc
+	printf '== no secret key %s here: index.json.asc not written\n' \
+		"$APTKEY"
+fi
 
 printf '\n== %d entries in index.json and index.html\n' "$n"

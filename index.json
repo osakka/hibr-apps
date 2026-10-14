@@ -339,11 +339,11 @@
       ]
     },
     "system/appstore": {
-      "title": "Applications Catalogue",
+      "title": "Catalogue",
       "version": "1.0",
       "kind": "system",
       "bundle": "bundles/system/appstore.hibr",
-      "sha256": "092498a61cbd154630325d84d64a05fadd9420ab93ffeb44d2cb3bde82a4e4a9",
+      "sha256": "921887f4f31e4111125f94899163088f01e8044c34e33edd51e546d1bc6505f8",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1344,11 +1344,11 @@
       "hibr": "0.99.189"
     },
     "appstore": {
-      "title": "Applications Catalogue",
+      "title": "Catalogue",
       "version": "1.0",
       "kind": "system",
       "bundle": "bundles/system/appstore.hibr",
-      "sha256": "092498a61cbd154630325d84d64a05fadd9420ab93ffeb44d2cb3bde82a4e4a9",
+      "sha256": "921887f4f31e4111125f94899163088f01e8044c34e33edd51e546d1bc6505f8",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "MIT",
       "author": "Omar Sakka",
