@@ -146,6 +146,25 @@ fn aboutof(path) {
 	ret "$out"
 }
 
+# The one-line description the app declares with the `app` builtin -- the
+# line the desktop's own About box reads (dt_appline), authored for exactly
+# this and better than anything derived from a comment. Two of the apps do
+# not carry one yet, and those fall back to the header.
+fn appline(path) {
+	local l
+
+	while read -r l; do
+		case $l in
+		"app "*)
+			if match "$l" '^app[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
+				ret "${M[1]}"
+				return 0
+			fi ;;
+		esac
+	done < "$path"
+	return 1
+}
+
 # One row of the page, escaped: a summary is prose from a file nobody here
 # wrote, so it cannot be put in HTML as it stands.
 fn htesc(s) {
@@ -172,7 +191,13 @@ for dir in "$HERE"/bundles/*; do
 	kind := kindof "$bundle" ||
 		die "$name: registers no dt_app, cp_pane, cs_module or sv_saver"
 	about := aboutof "$bundle"
-	sum=${about%%$'\n'*}
+	if sum := appline "$bundle"; [ -n "$sum" ]; then
+		about="$sum
+
+$about"
+	else
+		sum=${about%%$'\n'*}
+	fi
 
 	IX["apps"]["$name"]["title"]=$title
 	IX["apps"]["$name"]["version"]=$ver
