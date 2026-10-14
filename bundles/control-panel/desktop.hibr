@@ -1,0 +1,116 @@
+#!/usr/bin/env hibr
+#
+# desktop -- the Control Panel pane for the bare desktop: which icons sit
+# on it, how many workspaces it has, whether Cycle goes through this one's
+# windows or every one's, how often a busy screen is redrawn, and how
+# screenshots are taken and where they go.
+
+strict
+
+
+app desktop "The Control Panel pane for the bare desktop" 1.0
+command -v cp_pane > /dev/null && cp_pane desktop "Desktop" "▣"
+
+DK_CYCLES=(workspace all)
+
+fn cp_set_cycle(int? id = "", value = "") { DT_CYCLE=$value; cp_save; }
+
+fn desktop_rows(int w) {
+	local n=0 d=$DT_SHOTDIR sk
+
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Icons"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_ICONS" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_ICONS; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Disk Icons"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_DISKS" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_DISKS; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Workspaces ($DT_WSN)"
+	CP[$w][$n]["wtype"]=slider
+	CP[$w][$n]["val"]=$DT_WSN; CP[$w][$n]["min"]=1; CP[$w][$n]["max"]=9
+	CP[$w][$n]["key"]=wsn; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Cycle Windows On"
+	CP[$w][$n]["val"]="$DT_CYCLE"; CP[$w][$n]["key"]=cycle
+	n=$((n + 1))
+	# The number with what it counts, the same as Frames For Output's own
+	# `(70ms)` on the next row. `Redraw Skip (1)` cannot be read: 1 could
+	# be a count of frames skipped or a mode, and that is not a small
+	# thing here -- the ambiguity is what let its own off-by-one live (the
+	# loop compared against `DT_DRAWSKIP - 1`, so the shipped default of 1
+	# skipped none and the label was wrong rather than the mechanism), and
+	# it is what later made a saved 1 impossible to tell from a chosen one
+	# without reading the history of the default (Gitea #212).
+	case ${DT_DRAWSKIP:-0} in
+	0) sk=none ;;
+	1) sk="1 frame" ;;
+	*) sk="$DT_DRAWSKIP frames" ;;
+	esac
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Redraw Skip ($sk)"
+	CP[$w][$n]["wtype"]=slider
+	CP[$w][$n]["val"]=$DT_DRAWSKIP; CP[$w][$n]["min"]=0; CP[$w][$n]["max"]=9
+	CP[$w][$n]["key"]=drawskip; n=$((n + 1))
+	CP[$w][$n]["kind"]=set
+	CP[$w][$n]["text"]="Frames For Output (${DT_TERMMS}ms)"
+	CP[$w][$n]["wtype"]=slider
+	CP[$w][$n]["val"]=$DT_TERMMS; CP[$w][$n]["min"]=0; CP[$w][$n]["max"]=200
+	CP[$w][$n]["key"]=termms; n=$((n + 1))
+	[ "${d#"$HOME"/}" != "$d" ] && d="~/${d#"$HOME"/}"
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Screenshot Format"
+	CP[$w][$n]["val"]="$DT_SHOTFMT"; CP[$w][$n]["key"]=shotfmt
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Screenshot Starts On"
+	CP[$w][$n]["val"]="$DT_SHOTLAST"; CP[$w][$n]["key"]=shotlast
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Screenshots In: $d"
+	CP[$w][$n]["val"]=""; CP[$w][$n]["key"]=shotdir
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Open Screenshots"
+	CP[$w][$n]["val"]=""; CP[$w][$n]["key"]=shotopen
+	n=$((n + 1))
+	ret "$n"
+}
+
+fn desktop_do(int w, k, int dir) {
+	local v
+
+	case $k in
+	DT_ICONS | DT_DISKS)
+		cp_toggle "$k"
+		command -v dt_deskscan > /dev/null && dt_deskscan
+		;;
+	wsn) dt_wsset $((DT_WSN + dir)) ;;
+	cycle) v := cp_next "$DT_CYCLE" "$dir" "${DK_CYCLES[@]}"
+		DT_CYCLE=$v ;;
+	shotfmt) v := cp_next "$DT_SHOTFMT" "$dir" "${SH_FMTS[@]}"
+		DT_SHOTFMT=$v ;;
+	shotlast) v := cp_next "$DT_SHOTLAST" "$dir" "${SH_STARTS[@]}"
+		DT_SHOTLAST=$v ;;
+	shotdir) shd_dialog ;;
+	shotopen)
+		[ -d "$DT_SHOTDIR" ] || mkdir -p "$DT_SHOTDIR" 2> /dev/null
+		dt_has files_draw && dt_launch files "$DT_SHOTDIR"
+		;;
+	drawskip)
+		v=$((DT_DRAWSKIP + dir))
+		[ "$v" -lt 0 ] && v=0
+		[ "$v" -gt 9 ] && v=9
+		DT_DRAWSKIP=$v
+		;;
+	termms)
+		v=$((DT_TERMMS + dir * 10))
+		[ "$v" -lt 0 ] && v=0
+		[ "$v" -gt 200 ] && v=200
+		DT_TERMMS=$v
+		;;
+	esac
+	cp_save
+}
+
+fn desktop_drop(int w, int r, int c, k) {
+	case $k in
+	cycle) dt_droplist "$w" "$r" "$c" cp_set_cycle "${DK_CYCLES[@]}" ;;
+	shotfmt) dt_droplist "$w" "$r" "$c" cp_set_shotfmt "${SH_FMTS[@]}" ;;
+	shotlast) dt_droplist "$w" "$r" "$c" cp_set_shotlast "${SH_STARTS[@]}" ;;
+	esac
+}

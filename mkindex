@@ -17,11 +17,11 @@
 # both register with `dt_app`, so nothing inside the file can tell them
 # apart.
 #
-# The version is in the bundle's filename, which is what `addapp` put
-# there. Only the newest of each is offered, and the older bundles stay
-# where they are: an index is what to install now, and a pool is what was
-# ever published -- the apt repository beside this one works the same way,
-# for the same reason.
+# The version is the thing's own, declared where it says what it is, and
+# read out of the bundle like every other field (Gitea #218). A bundle's
+# path is stable and holds the current version only: git is where a
+# previous one lives, since nothing that installs has git and `apps
+# install` cannot ask for an older version anyway (Gitea #230).
 
 set -u
 
@@ -31,33 +31,57 @@ KINDS="apps system control-panel control-strip savers themes colours lang"
 # The release whose desktop first looks in `$XDG_DATA_HOME/hibr/<kind>` for
 # a theme, a colour scheme or a language. See the `hibr` field below.
 DATAHIBR=0.99.187
+# And the release whose `apps` reads an entry's **parts from the index**.
+# Before it, parts travelled inside a tarball and an `apps` that met this
+# index would fetch the bare file and place it **without its pane**, which
+# is the bug that let eight applications install half of themselves
+# (Gitea #217) arriving by a new route. An entry that brings parts says it
+# needs this, so an older client refuses it with a reason instead.
+PARTSHIBR=0.99.189
 
 fn die(...msg) {
 	printf 'mkindex: %s\n' "${msg[*]}" >&2
 	exit 1
 }
 
-# The newest bundle of one thing, by version: `sort -V` orders 0.99.93
-# before 0.99.168, where a plain sort does not.
-fn newest(dir) {
-	local f
+# A bundle's name, with whichever extension it carries taken off: one
+# stable path per thing now, overwritten when a new version is published,
+# so there is no version in it to parse (Gitea #230).
+fn nameof(path) {
+	local b=${path##*/}
 
-	f=$(command ls "$dir"/*.hibr "$dir"/*.json "$dir"/*.tar.gz 2> /dev/null |
-	    command sort -V | command tail -1)
-	[ -n "$f" ] || return 1
-	ret "$f"
-}
-
-# The version out of a bundle's own name: NAME-VERSION.hibr, .json or
-# .tar.gz -- three kinds are data and theirs is the .json.
-fn verof(path, name) {
-	local b
-
-	b=${path##*/}
+	b=${b%.tar.gz}
 	b=${b%.hibr}
 	b=${b%.json}
-	b=${b%.tar.gz}
-	ret "${b#$name-}"
+	ret "$b"
+}
+
+# The version the thing says it is: an app on its own `app` line, a theme,
+# a colour scheme or a language in its own `version` field. Read from the
+# bundle like every other field, rather than from a git log, so an app's
+# version is the app's own and not the hibr release it last changed in
+# (Gitea #218).
+fn verof(path, kind) {
+	local l
+	local -A j
+
+	case $kind in
+	themes | colours | lang)
+		if json parse j < "$path" 2> /dev/null; then
+			[ -n "${j["version"]-}" ] && { ret "${j["version"]}"; return 0; }
+		fi
+		return 1 ;;
+	esac
+	while read -r l; do
+		case $l in
+		"app "*)
+			if match "$l" '^app[ 	]+[A-Za-z0-9_]+[ 	]+"[^"]*"[ 	]+([0-9][0-9A-Za-z.+~-]*)'; then
+				ret "${M[1]}"
+				return 0
+			fi ;;
+		esac
+	done < "$path"
+	return 1
 }
 
 # What a kind calls its files. The five that are scripts are `.hibr`; a
@@ -68,6 +92,22 @@ fn kextof(kind) {
 	themes | colours | lang) ret ".json" ;;
 	*) ret ".hibr" ;;
 	esac
+}
+
+# Whether a file in a kind's folder is an entry of its own, or a **part** of
+# one. A theme brings a picture, and it lives beside the theme in the same
+# folder -- `themes/construction.png` is where `cp_themeread`'s own `image`
+# looks for it -- so the folder holds both. Only a file with the kind's own
+# extension is an entry; anything else is something an entry brings, named
+# in that entry's `parts` and fetched with it (Gitea #231).
+fn isentry(kind, path) {
+	local e
+
+	e := kextof "$kind"
+	case $path in
+	*"$e") return 0 ;;
+	esac
+	return 1
 }
 
 # Whether a kind is read rather than run.
@@ -86,32 +126,45 @@ fn shaof(path) {
 	ret "${line%% *}"
 }
 
-# The file to read a bundle's description out of: the bundle itself when it
-# is a bare .hibr, and the member app.json names when it is a tarball. A
-# copy, because `archive` presents a member and `read` wants a file.
+# The file to read a bundle's description, version and parts out of, which
+# is the bundle: every one is a plain file now. There were tarballs here
+# until 0.99.189 -- a .tar.gz carrying an app.json, for an entry that
+# brings a Control Panel pane or a picture with it -- and that was a binary
+# blob in git holding a manifest of files, which is what the index already
+# is (Gitea #231). The archive module is not needed to read this catalogue
+# any more.
 fn readable(bundle, name, kind) {
-	local j app out ext
-	local -A m
+	ret "$bundle"
+}
 
-	ext := kextof "$kind"
-	case $bundle in
-	*.hibr | *.json) ret "$bundle"; return 0 ;;
+# What an entry brings with it, as `kind/file` words. Read from the bundle
+# itself, exactly as `addapp` reads it from the source, so nothing is kept
+# in step by hand: a script says `# part: control-panel/mailset.hibr` in
+# its own header, and a theme cannot -- JSON has no comments -- so its
+# picture is read from its own `image` field.
+fn partsof(path, kind) {
+	local l out= img
+	local -A j
+
+	case $kind in
+	themes)
+		if json parse j < "$path" 2> /dev/null; then
+			img=${j["image"]-}
+			[ -n "$img" ] && out="themes/$img"
+		fi
+		ret "$out"
+		return 0 ;;
+	colours | lang)
+		ret ""
+		return 0 ;;
 	esac
-	need archive 2> /dev/null || die "the archive module is needed to read a tarball"
-	archive open mk "$bundle" 2> /dev/null ||
-		die "$name: $bundle does not open as a tarball"
-	app=
-	if j=$(archive cat mk app.json 2> /dev/null) &&
-	   json parse m <<< "$j" 2> /dev/null; then
-		app=${m["app"]}
-	fi
-	[ -n "$app" ] || app=$name$ext
-	out=$TMP/$name$ext
-	if ! archive cat mk "$app" > "$out" 2> /dev/null; then
-		archive close mk
-		die "$name: $bundle has no $app in it"
-	fi
-	archive close mk
+	while read -r l; do
+		case $l in
+		"# part: "*)
+			l=${l#"# part: "}
+			out="$out${out:+ }$l" ;;
+		esac
+	done < "$path"
 	ret "$out"
 }
 
@@ -278,9 +331,10 @@ n=0
 # entries out (Gitea #222).
 for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
-	for dir in "$HERE/bundles/$kind"/*; do
-		[ -d "$dir" ] || continue
-		name=${dir##*/}
+	for b in "$HERE/bundles/$kind"/*; do
+		[ -f "$b" ] || continue
+		isentry "$kind" "$b" || continue
+		name := nameof "$b"
 		if [ -n "${NSEEN["$name"]+x}" ]; then
 			DUP["$name"]=1
 			printf 'note: %s is %s and %s -- named by its id only\n' \
@@ -293,14 +347,17 @@ done
 for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
 	krows=
-	for dir in "$HERE/bundles/$kind"/*; do
-		[ -d "$dir" ] || continue
-		name=${dir##*/}
-		bundle := newest "$dir" || die "$kind/$name: no bundle in $dir"
-		ver := verof "$bundle" "$name"
-		[ -n "$ver" ] || die "$kind/$name: $bundle has no version in its name"
+	for bundle in "$HERE/bundles/$kind"/*; do
+		[ -f "$bundle" ] || continue
+		isentry "$kind" "$bundle" || continue
+		name := nameof "$bundle"
 		sha := shaof "$bundle"
 		src := readable "$bundle" "$name" "$kind"
+		# Read before the fields are written, since whether this
+		# entry brings parts decides the `hibr` it declares.
+		pl0 := partsof "$src" "$kind"
+		ver := verof "$src" "$kind" ||
+			die "$kind/$name: it declares no version -- an app says so on its \`app\` line, a theme in its own \"version\""
 		# A script describes itself in its own header comment and
 		# its `app` line; a theme, a colour scheme or a language has
 		# no comments to hold either, so its words come from the
@@ -359,13 +416,14 @@ $about"
 			title) v=$title ;;
 			version) v=$ver ;;
 			kind) v=$kind ;;
-			bundle) v="bundles/$kind/$name/${bundle##*/}" ;;
+			bundle) v="bundles/$kind/${bundle##*/}" ;;
 			sha256) v=$sha ;;
 			about) v=$about ;;
 			licence) v="MIT" ;;
 			author) v="Omar Sakka" ;;
 			name) v=$name ;;
-			hibr) v=; isdata "$kind" && v=$DATAHIBR ;;
+			hibr) v=; isdata "$kind" && v=$DATAHIBR
+			      [ -n "$pl0" ] && v=$PARTSHIBR ;;
 			esac
 			[ -n "$v" ] || [ "$f" != hibr ] || continue
 			IX["entries"]["$id"]["$f"]=$v
@@ -376,6 +434,36 @@ $about"
 			isdata "$kind" && continue
 			IX["apps"]["$name"]["$f"]=$v
 		done
+
+		# What this entry brings with it, each as a plain file of its
+		# own with its own sha256, where a tarball used to carry them
+		# with an app.json inside it (Gitea #231). `apps install`
+		# fetches every one and verifies them all before it places
+		# any, which is the promise the tarball made by being a single
+		# object.
+		#
+		# `as` is the filename a part lands as, not a name with its
+		# kind's extension appended: a theme's picture is a .png in
+		# the themes folder, which a name could not say (Gitea #224).
+		pl=$pl0
+		if [ -n "$pl" ]; then
+			pn=0
+			read -ra pws <<< "$pl"
+			for pw in "${pws[@]}"; do
+				pk=${pw%%/*}
+				pf=${pw#*/}
+				pp="bundles/$pk/$pf"
+				[ -r "$HERE/$pp" ] ||
+					die "$kind/$name says it brings $pw, and $pp is not in this catalogue -- publish it, or stop saying so"
+				psha := shaof "$HERE/$pp"
+				IX["entries"]["$id"]["parts"]["$pn"]["kind"]=$pk
+				IX["entries"]["$id"]["parts"]["$pn"]["as"]=$pf
+				IX["entries"]["$id"]["parts"]["$pn"]["path"]=$pp
+				IX["entries"]["$id"]["parts"]["$pn"]["sha256"]=$psha
+				pn=$((pn + 1))
+			done
+			printf '   %s brings %s\n' "$kind/$name" "$pl"
+		fi
 
 		t := htesc "$title"
 		s := htesc "$sum"
@@ -438,9 +526,11 @@ apps install snake</code></pre>
 time the desktop starts: an application under <code>\$XDG_DATA_HOME/hibr/apps</code>, a
 Control Panel pane under <code>control-panel/</code>, a theme under
 <code>themes/</code>, and so on for all eight kinds. Something that brings its own
-pane, Control Strip module or picture travels as a tarball and each part is placed in
-the root it names. <code>apps remove</code> takes it away again, keeping any part
-another installed app brings too.</p>
+pane, Control Strip module or picture brings it as a plain file of its own, named in
+this index with its own <code>sha256</code>, and each part is placed in the root it
+names &mdash; every one fetched and verified before any is written, so an entry with
+one bad part installs nothing at all. <code>apps remove</code> takes it away again,
+keeping any part another installed app brings too.</p>
 
 <h2>What is here</h2>
 <p>The first column is what you install: a name where it means one thing, and

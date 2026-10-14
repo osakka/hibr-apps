@@ -1,0 +1,502 @@
+#!/usr/bin/env hibr
+#
+# filetypes -- the Control Panel pane for dt_handler's own extension-to-
+# program table (DT_HANDLERS). Files' own Open With menu already reads it;
+# this is where a mapping is added, changed or removed, rather than only
+# through a dt_handler line in a script of your own -- which still works
+# exactly as before, and is what dt_save now writes these back out as.
+
+strict
+
+
+app filetypes "Which program opens which kind of file" 1.0
+command -v cp_pane > /dev/null && cp_pane filetypes "File Types" "◈"
+command -v dt_app > /dev/null && dt_app ft "File Type" 9 54 "" "" fixed hidden
+command -v dt_app > /dev/null && dt_app owt "Open With" 14 50 "" "" fixed hidden
+
+declare -gA FT
+declare -gA OWT
+
+# The command DT_HANDLERS[$ext] holds, back into one line, for the row's
+# own value column and the Edit dialog's own starting text.
+fn ft_summary(ext) {
+	local n i cmd=
+
+	n=${DT_HANDLERS[$ext]["n"]}
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		[ -n "$cmd" ] && cmd="$cmd "
+		cmd="$cmd${DT_HANDLERS[$ext][$i]}"
+		i=$((i + 1))
+	done
+	ret "$cmd"
+}
+
+fn filetypes_rows(int w) {
+	local n=0 ext v el
+	local -a all exts
+
+	all=("${!DT_HANDLERS[@]}")
+	arr sort all
+	for ext in "${all[@]}"; do
+		CP[$w][$n]["kind"]=action
+		CP[$w][$n]["text"]=$ext
+		v := ft_summary "$ext"
+		[ "${DT_HANDLERS[$ext]["term"]}" = 1 ] && v="$v (term)"
+		CP[$w][$n]["val"]=$v
+		CP[$w][$n]["key"]="edit:$ext"
+		n=$((n + 1))
+	done
+	CP[$w][$n]["kind"]=action
+	CP[$w][$n]["text"]="Add File Type…"
+	CP[$w][$n]["val"]=""
+	CP[$w][$n]["key"]=add
+	n=$((n + 1))
+	dt_has dt_openers || { ret "$n"; return 0; }
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Open With"
+	n=$((n + 1))
+	el := owt_exts
+	read -ra exts <<< "$el"
+	for ext in "${exts[@]}"; do
+		v := owt_summary "$ext"
+		CP[$w][$n]["kind"]=action
+		CP[$w][$n]["text"]=".$ext  $v"
+		CP[$w][$n]["val"]=""
+		CP[$w][$n]["key"]="ow:$ext"
+		n=$((n + 1))
+	done
+	ret "$n"
+}
+
+# Every extension Open With has a choice for: those an opener names, those
+# with a handler, and those already given a list.
+owt_exts() {
+	local n t e out=" "
+	local -a ty ow
+
+	for n in "${DT_OPENERORDER[@]}"; do
+		read -ra ty <<< "${DT_OPENERS[$n]["types"]}"
+		for t in "${ty[@]}"; do
+			case $t in "*" | x) continue ;; esac
+			case $out in *" $t "*) ;; *) out="$out$t " ;; esac
+		done
+	done
+	for t in "${!DT_HANDLERS[@]}"; do
+		case $out in *" $t "*) ;; *) out="$out$t " ;; esac
+	done
+	read -ra ow <<< "$DT_OPENWITH"
+	for e in "${ow[@]}"; do
+		t=${e%%:*}
+		case $out in *" $t "*) ;; *) out="$out$t " ;; esac
+	done
+	ret "${out# }"
+}
+
+# A type's Open With list as its row shows it: the default, and how many
+# others Open With offers.
+fn owt_summary(ext) {
+	local t k
+
+	dt_openers "x.$ext"
+	[ "${#DT_OWLIST[@]}" -gt 0 ] || { ret "nothing"; return 0; }
+	t := dt_openertitle "${DT_OWLIST[0]}" "$ext"
+	k=$((${#DT_OWLIST[@]} - 1))
+	[ "$k" -gt 0 ] && t="$t (+$k)"
+	ret "$t"
+}
+
+fn filetypes_do(int w, k, ...rest) {
+	case $k in
+	ow:*) owt_dialog "${k#ow:}" ;;
+	add) ft_dialog "" ;;
+	edit:*) ft_dialog "${k#edit:}" ;;
+	esac
+}
+
+# Open the Add/Edit dialog, blank for a new entry or filled in for an
+# existing one -- the same dt_new-with-no-app-registration a small dialog
+# of its own already uses elsewhere (Rename, Get Info): defining ft_draw,
+# ft_key etc. is all a prefix needs to become one, with no dt_app of its
+# own and nothing on the hibr menu. Named ft_dialog, not ft_open -- dt_new
+# already reserves "<prefix>_open" as the window's own lifecycle hook, ​
+# called *by* dt_new once a window exists; naming this one that instead
+# made dt_new call it a second time as that hook, which called dt_new
+# again, which called it again -- an unbounded recursion opening a new
+# window every single time, caught only because DT_HANDLERS' own "ext"
+# argument came back as 2, 3, 4… once logged, plainly a window count and
+# not an extension.
+fn ft_dialog(ext) {
+	local h=10 w=54 r c cmd rid
+
+	r=$((DT_ROWS / 2 - h / 2))
+	c=$(((DT_COLS - w) / 2))
+	rid := dt_new "File Type" "$h" "$w" "$r" "$c" ft
+	FT[$rid]["orig"]=$ext
+	FT[$rid]["extbuf"]=$ext
+	FT[$rid]["extcur"]=${#ext}
+	cmd=
+	FT[$rid]["term"]=0
+	if [ -n "$ext" ]; then
+		cmd := ft_summary "$ext"
+		[ "${DT_HANDLERS[$ext]["term"]}" = 1 ] && FT[$rid]["term"]=1
+	fi
+	FT[$rid]["cmdbuf"]=$cmd
+	FT[$rid]["cmdcur"]=${#cmd}
+	FT[$rid]["focus"]=ext
+}
+
+fn ft_draw(int id, int h, int w, int row, int col) {
+	local efoc cfoc
+
+	dt_wclear "$id"
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 1 2 "Extension:"
+	efoc=0; [ "${FT[$id]["focus"]}" = ext ] && efoc=1
+	dt_textdraw "$id" 1 13 10 "${FT[$id]["extbuf"]}" "${FT[$id]["extcur"]}" \
+		"$efoc"
+	dt_wreg "$id" 1 13 10 ext
+
+	console pen "$DT_INK" "$DT_FACE"
+	dt_tput "$id" 3 2 "Command:"
+	cfoc=0; [ "${FT[$id]["focus"]}" = cmd ] && cfoc=1
+	dt_textdraw "$id" 3 13 $((w - 15)) "${FT[$id]["cmdbuf"]}" \
+		"${FT[$id]["cmdcur"]}" "$cfoc"
+	dt_wreg "$id" 3 13 $((w - 15)) cmd
+
+	dt_check "$id" 5 2 "${FT[$id]["term"]}" "Run in a terminal" term
+
+	if [ -n "${FT[$id]["orig"]}" ]; then
+		dt_dlgbtns "$id" "$h" "$w" "${FT[$id]["focus"]}" \
+			ok Save del Delete cancel Cancel
+	else
+		dt_dlgbtns "$id" "$h" "$w" "${FT[$id]["focus"]}" \
+			ok Save cancel Cancel
+	fi
+}
+
+# Forget the extension being edited: Delete, or ctrl-d.
+fn ft_delete(int id) {
+	[ -n "${FT[$id]["orig"]}" ] || return 0
+	unset "DT_HANDLERS[${FT[$id]["orig"]}]"
+	command -v dt_save > /dev/null && dt_save
+	dt_del "$id"
+}
+
+# What tab moves through: the fields, then the buttons there are.
+fn ft_order(int id) {
+	if [ -n "${FT[$id]["orig"]}" ]; then
+		ret ext cmd ok del cancel
+	else
+		ret ext cmd ok cancel
+	fi
+}
+
+fn ft_click(int? id = "", int? r = "", int? c = "", btn = "") {
+	local tag cur
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	ok) ft_apply "$id" ;;
+	del) ft_delete "$id" ;;
+	cancel) dt_del "$id" ;;
+	ext)
+		FT[$id]["focus"]=ext
+		cur=$((c - 13))
+		[ "$cur" -gt "${#FT[$id]["extbuf"]}" ] && cur=${#FT[$id]["extbuf"]}
+		[ "$cur" -lt 0 ] && cur=0
+		FT[$id]["extcur"]=$cur
+		;;
+	cmd)
+		FT[$id]["focus"]=cmd
+		cur=$((c - 13))
+		[ "$cur" -gt "${#FT[$id]["cmdbuf"]}" ] && cur=${#FT[$id]["cmdbuf"]}
+		[ "$cur" -lt 0 ] && cur=0
+		FT[$id]["cmdcur"]=$cur
+		;;
+	term)
+		if [ "${FT[$id]["term"]}" = 1 ]; then
+			FT[$id]["term"]=0
+		else
+			FT[$id]["term"]=1
+		fi
+		;;
+	esac
+}
+
+fn ft_key(int id, k) {
+	local field=${FT[$id]["focus"]} buf cur res d onb=1 order
+
+	case $field in ext | cmd) onb=0 ;; esac
+	if d := dt_focuskey "$k" "$onb"; then
+		order := ft_order "$id"
+		FT[$id]["focus"] := dt_focus "$field" "$d" "${order[@]}"
+		return 0
+	fi
+	case $k in
+	escape) dt_del "$id"; return 0 ;;
+	enter)
+		case $field in
+		cancel) dt_del "$id" ;;
+		del) ft_delete "$id" ;;
+		*) ft_apply "$id" ;;
+		esac
+		return 0
+		;;
+	ctrl-d) ft_delete "$id"; return 0 ;;
+	esac
+	case $field in
+	ext) buf=${FT[$id]["extbuf"]}; cur=${FT[$id]["extcur"]} ;;
+	cmd) buf=${FT[$id]["cmdbuf"]}; cur=${FT[$id]["cmdcur"]} ;;
+	*) return 0 ;;
+	esac
+	res := dt_textkey "$buf" "$cur" "$k" || return 1
+	# ##* }, not #* }: the shortest-prefix form splits at the *first*
+	# space, which is wrong the moment the text itself has one in it (a
+	# command line typed here always will) -- dt_textkey's own "text cur"
+	# return has no other separator to tell them apart, so only the
+	# longest-prefix form, splitting at the *last* space, reliably lands
+	# on the cursor number rather than the middle of the text.
+	case $field in
+	ext) FT[$id]["extbuf"]=${res% *}; FT[$id]["extcur"]=${res##* } ;;
+	cmd) FT[$id]["cmdbuf"]=${res% *}; FT[$id]["cmdcur"]=${res##* } ;;
+	esac
+	return 0
+}
+
+fn ft_apply(int id) {
+	local ext orig cmd words
+
+	ext=${FT[$id]["extbuf"]}
+	ext=${ext#.}
+	if [ -z "$ext" ]; then
+		dt_notep low "Needs an extension"
+		return 0
+	fi
+	cmd=${FT[$id]["cmdbuf"]}
+	if [ -z "$cmd" ]; then
+		dt_notep low "Needs a command"
+		return 0
+	fi
+	orig=${FT[$id]["orig"]}
+	[ -n "$orig" ] && [ "$orig" != "$ext" ] && unset "DT_HANDLERS[$orig]"
+	# str split, not an unquoted $cmd expanded straight into an array --
+	# hibr's own globbing is always on, and a command typed here with a
+	# literal * in it (a real one: "grep foo *.log") would otherwise
+	# silently turn into whatever files happen to match in the directory
+	# this pane's own process is sitting in, nothing to do with what the
+	# user typed.
+	str split "$cmd" " " words
+	if [ "${FT[$id]["term"]}" = 1 ]; then
+		dt_handler "$ext" term "${words[@]}"
+	else
+		dt_handler "$ext" "${words[@]}"
+	fi
+	command -v dt_save > /dev/null && dt_save
+	dt_del "$id"
+}
+
+fn ft_close(int id) {
+	unset "FT[$id]"
+}
+
+# Copy, cut and paste reach the File Type dialog's two fields.
+fn ft_field(int id) {
+	case ${FT[$id]["focus"]} in
+	ext) ret "extbuf extcur" ;;
+	cmd) ret "cmdbuf cmdcur" ;;
+	*) return 1 ;;
+	esac
+}
+
+fn ft_copy(int id) {
+	local k
+
+	k := ft_field "$id" || return 1
+	ret "${FT[$id]["${k% *}"]}"
+}
+
+fn ft_cut(int id) {
+	local k t
+
+	k := ft_field "$id" || return 1
+	t=${FT[$id]["${k% *}"]}
+	FT[$id]["${k% *}"]=
+	FT[$id]["${k#* }"]=0
+	ret "$t"
+}
+
+fn ft_paste(int id, text, op = "") {
+	local k r
+
+	k := ft_field "$id" || return 0
+	r := dt_textpaste "${FT[$id]["${k% *}"]}" "${FT[$id]["${k#* }"]}" "$text"
+	FT[$id]["${k% *}"]=${r% *}
+	FT[$id]["${k#* }"]=${r##* }
+}
+
+# --- Open With, per type ---------------------------------------------------
+#
+# A list of every opener that can take the type, each ticked if Open With
+# shows it; the one marked default is what a double-click does. Space or a
+# click on the box ticks, d makes the selected one the default, Reset goes
+# back to every opener in its own order.
+fn owt_dialog(ext) {
+	local h=14 w=50 r c rid n i=0 o
+	local -a cand
+
+	dt_openers "x.$ext"
+	cand=("${DT_OWLIST[@]}")
+	r=$((DT_ROWS / 2 - h / 2))
+	c=$(((DT_COLS - w) / 2))
+	local wt
+	wt := dt_tr "Open With: .%s" "$ext"
+	rid := dt_new "$wt" "$h" "$w" "$r" "$c" owt
+	OWT[$rid]["ext"]=$ext
+	for o in "${cand[@]}"; do
+		OWT[$rid]["o$i"]=$o
+		OWT[$rid]["on$i"]=1
+		i=$((i + 1))
+	done
+	DT_OPENWITH_SAVE=$DT_OPENWITH
+	owt_without "$ext"
+	dt_openers "x.$ext"
+	DT_OPENWITH=$DT_OPENWITH_SAVE
+	for o in "${DT_OWLIST[@]}"; do
+		case " ${cand[*]} " in *" $o "*) continue ;; esac
+		OWT[$rid]["o$i"]=$o
+		OWT[$rid]["on$i"]=0
+		i=$((i + 1))
+	done
+	OWT[$rid]["n"]=$i
+	OWT[$rid]["def"]=${cand[0]}
+	OWT[$rid]["sel"]=0
+	OWT[$rid]["focus"]=list
+}
+DT_OPENWITH_SAVE=
+
+# DT_OPENWITH without the given type's entry.
+fn owt_without(ext) {
+	local e out=
+	local -a ow
+
+	read -ra ow <<< "$DT_OPENWITH"
+	for e in "${ow[@]}"; do
+		[ "${e%%:*}" = "$ext" ] || out="$out $e"
+	done
+	DT_OPENWITH=${out# }
+}
+
+fn owt_draw(int id, int h, int w, int row, int col) {
+	local i=0 n=${OWT[$id]["n"]} ext=${OWT[$id]["ext"]} t box f
+	local sel=${OWT[$id]["sel"]}
+
+	f=${OWT[$id]["focus"]}
+	dt_wclear "$id"
+	while [ "$i" -lt "$n" ]; do
+		t := dt_openertitle "${OWT[$id]["o$i"]}" "$ext"
+		box := dt_checkmark "${OWT[$id]["on$i"]:-0}"
+		[ "${OWT[$id]["o$i"]}" = "${OWT[$id]["def"]}" ] && t="$t  (default)"
+		if [ "$i" = "$sel" ] && [ "$f" = list ]; then
+			console pen "$DT_SELINK" "$DT_ACTIVE"
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		t := str pad "$box $t" $((w - 4))
+		console put -p "w$id" $((i + 1)) 2 "$t"
+		dt_wreg "$id" $((i + 1)) 2 "${#box}" "box$i"
+		dt_wreg "$id" $((i + 1)) 6 $((w - 8)) "row$i"
+		i=$((i + 1))
+	done
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((h - 3)) 2 "space ticks, d makes the default"
+	dt_dlgbtns "$id" "$h" "$w" "$f" ok Save reset Reset cancel Cancel
+}
+
+# Tick or untick a row; the default is always ticked.
+fn owt_toggle(int id, int i) {
+	[ "${OWT[$id]["o$i"]}" = "${OWT[$id]["def"]}" ] && return 0
+	if [ "${OWT[$id]["on$i"]}" = 1 ]; then
+		OWT[$id]["on$i"]=0
+	else
+		OWT[$id]["on$i"]=1
+	fi
+}
+
+fn owt_default(int id, int i) {
+	OWT[$id]["def"]=${OWT[$id]["o$i"]}
+	OWT[$id]["on$i"]=1
+}
+
+# Keep the list: the default first, then each ticked one in order.
+fn owt_save(int id) {
+	local i=0 n=${OWT[$id]["n"]} ext=${OWT[$id]["ext"]} out
+	local def=${OWT[$id]["def"]}
+
+	out=$def
+	while [ "$i" -lt "$n" ]; do
+		if [ "${OWT[$id]["on$i"]}" = 1 ] &&
+		   [ "${OWT[$id]["o$i"]}" != "$def" ]; then
+			out="$out,${OWT[$id]["o$i"]}"
+		fi
+		i=$((i + 1))
+	done
+	owt_without "$ext"
+	DT_OPENWITH="${DT_OPENWITH:+$DT_OPENWITH }$ext:$out"
+	cp_save
+	dt_del "$id"
+}
+
+fn owt_reset(int id) {
+	owt_without "${OWT[$id]["ext"]}"
+	cp_save
+	dt_del "$id"
+}
+
+fn owt_click(int id, int r, int c, btn = "") {
+	local tag
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	box*) OWT[$id]["sel"]=${tag#box}; OWT[$id]["focus"]=list
+		owt_toggle "$id" "${tag#box}" ;;
+	row*) OWT[$id]["sel"]=${tag#row}; OWT[$id]["focus"]=list ;;
+	ok) owt_save "$id" ;;
+	reset) owt_reset "$id" ;;
+	cancel) dt_del "$id" ;;
+	esac
+	return 0
+}
+
+fn owt_key(int id, key) {
+	local f=${OWT[$id]["focus"]} d sel=${OWT[$id]["sel"]} n=${OWT[$id]["n"]}
+
+	if [ "$f" = list ]; then
+		case $key in
+		up) [ "$sel" -gt 0 ] && OWT[$id]["sel"]=$((sel - 1)); return 0 ;;
+		down) [ "$sel" -lt $((n - 1)) ] && OWT[$id]["sel"]=$((sel + 1)); return 0 ;;
+		" ") owt_toggle "$id" "$sel"; return 0 ;;
+		d | D) owt_default "$id" "$sel"; return 0 ;;
+		enter) owt_save "$id"; return 0 ;;
+		esac
+	fi
+	if d := dt_focuskey "$key" 1; then
+		OWT[$id]["focus"] := dt_focus "$f" "$d" list ok reset cancel
+		return 0
+	fi
+	case $key in
+	escape) dt_del "$id" ;;
+	enter)
+		case $f in
+		cancel) dt_del "$id" ;;
+		reset) owt_reset "$id" ;;
+		*) owt_save "$id" ;;
+		esac
+		;;
+	esac
+	return 0
+}
+
+fn owt_close(int id) {
+	unset "OWT[$id]"
+}
+

@@ -1,0 +1,876 @@
+#!/usr/bin/env hibr
+#
+# panel -- Control Panel: a picker of panes down the left, the selected
+# pane's own content on the right, System 7's Control Panels folder shape.
+# Each pane is an ordinary hibr file that registers itself with cp_pane;
+# this file only hosts them and draws the window list, which is not a
+# pane, just always there.
+#
+# Run on its own it does nothing -- there is no pane to show without a
+# desktop around it, unlike calc or panel's own former self.
+
+strict
+
+app panel "Control Panel, a picker of panes, and the window list" 1.0
+
+command -v dt_app > /dev/null && dt_app panel "Control Panel" 26 70 once "≡"
+
+# Where to find panes beyond the bundled ones -- an array, so a session can
+# add its own the same way DT_APPDIRS already works for apps. The bundled
+# panes live in examples/desktop/control-panel and are added by the session that
+# wants them, the same way examples/desktop/apps is added to DT_APPDIRS: nothing
+# here reaches for them on its own.
+CP_PANEDIRS=("${XDG_CONFIG_HOME:-$HOME/.config}/hibr/control-panel"
+	     "${XDG_DATA_HOME:-$HOME/.local/share}/hibr/control-panel")
+
+declare -gA CP_PANES
+CP_PANE_LIST=()
+declare -gA CPSRC
+
+# Register a pane: name, title, icon, and which group it is listed under --
+# system (the default) for the desktop's own settings, app for one app's.
+# A pane defines either <name>_rows
+# (and usually <name>_do, and <name>_drop if any row is a dropdown) for
+# the common row-list shape every pane below uses, or a body of its own --
+# a world map does not fit two columns of text -- with <name>_draw id h w
+# bx (bx is the body's own left column, since it shares the window with
+# the pane list on its left) and <name>_click id row col, in the same
+# w$id coordinates _draw used, no translation to undo. Either shape may
+# also define <name>_key and, for the body shape, <name>_wheel. A body
+# pane whose content needs more than a click -- something dragged on a
+# canvas, not a row picked from a list -- also defines <name>_mouse id
+# act button row col: press, drag and release, the same w$id coordinates
+# and the same shape a window's own _mouse already has (displays.hibr's
+# rectangles are the first to use it). Return 1 from a press to decline
+# it -- panel_mouse then falls through to <name>_click for that same
+# press, exactly as if _mouse did not exist; only a press it actually
+# accepts (return 0) ever sees the drag or the release that follows it.
+fn cp_pane(pane, title, icon, group = "system") {
+	CP_PANES[$pane]["title"]="$title"
+	CP_PANES[$pane]["icon"]="${icon:-◆}"
+	CP_PANES[$pane]["group"]=$group
+	CP_PANE_LIST+=("$pane")
+}
+
+# Load every pane in the folders, then sort the list -- the desktop's own
+# panes first, then the apps', each by title without regard to case, the
+# same trick dt_appnames uses -- so the picker's own order does not depend
+# on load order or filenames, just on what a pane calls itself.
+cp_panes() {
+	local d f b l
+	local -a all
+
+	for d in "${CP_PANEDIRS[@]}"; do
+		for f in "$d"/*.hibr; do
+			[ -r "$f" ] || continue
+			b=${f##*/}
+			[ -n "${CPSRC["$b"]}" ] && continue
+			CPSRC["$b"]=$f
+			. "$f"
+		done
+	done
+	for b in "${CP_PANE_LIST[@]}"; do
+		l := str lower "${CP_PANES[$b]["title"]}"
+		case ${CP_PANES[$b]["group"]} in
+		hardware) all+=("0 $l	$b") ;;
+		app) all+=("2 $l	$b") ;;
+		*) all+=("1 $l	$b") ;;
+		esac
+	done
+	arr sort all
+	CP_PANE_LIST=()
+	for l in "${all[@]}"; do CP_PANE_LIST+=("${l#*	}"); done
+}
+
+# Per window: which pane is selected (an index into CP_PANE_LIST), and
+# whether the arrows move the pane list or the selected pane's own rows --
+# tab switches which, the same split dt_grab's move/resize already gives
+# one set of arrows two meanings by. CP holds the selected pane's own rows,
+# rebuilt every frame the same reason it always was: a pane showing a
+# window that closed a second ago is worse than no pane.
+declare -gA PW
+declare -gA CP
+
+# How wide the pane list is, and how much is left for the selected pane's
+# own content once the divider is taken out of it too. The divider can be
+# dragged (widgets/split.hibr), and where it was left is kept.
+CP_DIVCOL="${CP_DIVCOL-19}"
+command -v dt_keep > /dev/null && dt_keep CP_DIVCOL
+# How wide a slider's track is, in one place: the draw and the click that
+# works out which value a column means both read it, and a rule kept in two
+# places is a rule kept in one of them.
+CP_SLIDEW=11
+
+fn panel_open(int w, arg) {
+	PW[$w]["pane"]=0
+	PW[$w]["side"]=list
+	PW[$w]["sel"]=0
+	PW[$w]["top"]=0
+	PW[$w]["vis"]=1
+	PW[$w]["last"]=-1
+	PW[$w]["ltop"]=0
+	PW[$w]["lseen"]=-1
+	[ -n "$arg" ] && panel_goto "$w" "$arg"
+	return 0
+}
+
+# Show the pane named, as a click on it in the list would; one that is not
+# there leaves the selection where it is.
+fn panel_goto(int w, pane) {
+	local i=0 n
+
+	for n in "${CP_PANE_LIST[@]}"; do
+		if [ "$n" = "$pane" ]; then
+			PW[$w]["pane"]=$i
+			PW[$w]["side"]=pane
+			PW[$w]["sel"]=0
+			PW[$w]["top"]=0
+			PW[$w]["last"]=-1
+			return 0
+		fi
+		i=$((i + 1))
+	done
+	return 1
+}
+
+# The selected pane's name, clamped to what is actually registered -- a
+# pane can vanish between frames if whatever provided it stops (nothing
+# does today, but the window list already assumes apps can close under it).
+fn panel_pane(int w) {
+	local i
+
+	i=${PW[$w]["pane"]}
+	[ "${#CP_PANE_LIST[@]}" -eq 0 ] && { ret ""; return 0; }
+	[ "$i" -ge "${#CP_PANE_LIST[@]}" ] && i=0
+	ret "${CP_PANE_LIST[$i]}"
+}
+
+# The panes a search finds, as their indices: a pane whose title has the
+# text in it, or one with a row that does -- "wallpaper" finds Appearance.
+# Worked out again only when the text changes, since asking every pane
+# for its rows is not free; each pane's rows are built under a window id
+# no window has, and thrown away.
+fn panel_find(int id) {
+	local q=${PW[$id]["q"]} i=0 n k t hit out= scratch=999999
+
+	q=${q,,}
+	[ "${PW[$id]["mq"]}" = "$q" ] && [ -n "${PW[$id]["mq"]+x}" ] && return 0
+	PW[$id]["mq"]=$q
+	for n in "${CP_PANE_LIST[@]}"; do
+		hit=0
+		if [ -z "$q" ]; then
+			hit=1
+		else
+			t=${CP_PANES[$n]["title"]}
+			case $DT_LANG in ?*) t := dt_tr "$t" ;; esac
+			[[ ${t,,} == *"$q"* ]] && hit=1
+			if [ "$hit" = 0 ] && ! dt_has "${n}_draw" && dt_has "${n}_rows"; then
+				unset "CP[$scratch]"
+				k := "${n}_rows" "$scratch"
+				while [ "$k" -gt 0 ]; do
+					k=$((k - 1))
+					t=${CP[$scratch][$k]["text"]}
+					[[ ${t,,} == *"$q"* ]] && { hit=1; break; }
+				done
+				unset "CP[$scratch]"
+			fi
+		fi
+		[ "$hit" = 1 ] && out="$out $i"
+		i=$((i + 1))
+	done
+	PW[$id]["m"]=${out# }
+}
+
+# Whether pane index i is among what the search found.
+fn panel_shown(int id, int i) {
+	[[ " ${PW[$id]["m"]} " == *" $i "* ]]
+}
+
+fn panel_draw(int id, int h, int w, int row, int col) {
+	local i n r t lw side pane bx bw g sel at=0 lt vis on lx=0 dv
+	local -a lines m
+
+	dt_wclear "$id"
+	lw := dt_split CP_DIVCOL "$w" 8
+	PW[$id]["lw"]=$lw
+	# Mirrored, the pane is first and the list after the divider, at the right.
+	dv=$lw
+	case $DT_MIRRORON in 1) dv=$((w - lw + 1)); lx=$dv ;; esac
+	PW[$id]["dv"]=$dv
+	PW[$id]["w"]=$w
+	side=${PW[$id]["side"]}
+	pane := panel_pane "$id"
+
+	# The list is its rows -- a heading for each group, then its panes --
+	# scrolled on its own, apart from the pane beside it: the selected
+	# pane is brought into view when the selection moves, and otherwise
+	# the wheel puts the list where it likes.
+	panel_find "$id"
+	read -ra m <<< "${PW[$id]["m"]}"
+	if [ "${#m[@]}" -gt 0 ] && ! panel_shown "$id" "${PW[$id]["pane"]}"; then
+		PW[$id]["pane"]=${m[0]}
+		PW[$id]["sel"]=0
+		PW[$id]["top"]=0
+		PW[$id]["last"]=-1
+		pane := panel_pane "$id"
+	fi
+	on=0
+	[ "$side" = list ] && [ "$DT_FOCUS" = "$id" ] && on=1
+	if [ -z "${PW[$id]["q"]}" ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		t := str pad "Search${GL[ellipsis]}" $((lw - 3))
+		console put -p "w$id" 1 $((lx + 2)) "$t"
+		if [ "$on" = 1 ]; then
+			console pen "$DT_FACE" "$DT_INK"
+			console put -p "w$id" 1 $((lx + 2)) "S"
+		fi
+	else
+		dt_textdraw "$id" 1 $((lx + 2)) $((lw - 3)) "${PW[$id]["q"]}" \
+			"${#PW[$id]["q"]}" "$on"
+	fi
+	dt_wreg "$id" 1 $((lx + 1)) $((lw - 1)) search
+	sel=${PW[$id]["pane"]}
+	lt=${PW[$id]["ltop"]:-0}
+	vis=$((h - 1))
+	i=0
+	g=
+	for n in "${CP_PANE_LIST[@]}"; do
+		if ! panel_shown "$id" "$i"; then
+			i=$((i + 1))
+			continue
+		fi
+		if [ "${CP_PANES[$n]["group"]}" != "$g" ]; then
+			g=${CP_PANES[$n]["group"]}
+			lines+=("h:$g")
+		fi
+		[ "$i" = "$sel" ] && at=${#lines[@]}
+		lines+=("p:$i")
+		i=$((i + 1))
+	done
+	if [ "$sel" != "${PW[$id]["lseen"]}" ]; then
+		PW[$id]["lseen"]=$sel
+		lt := dt_scrollfit "$lt" "${#lines[@]}" "$vis" "$at"
+		# The first pane sits under a heading, so bringing its own
+		# line into view would leave that heading above the top.
+		[ "$sel" = 0 ] && lt=0
+	else
+		lt := dt_scrollfit "$lt" "${#lines[@]}" "$vis"
+	fi
+	PW[$id]["ltop"]=$lt
+	PW[$id]["lvis"]=$vis
+	PW[$id]["ln"]=${#lines[@]}
+	r=2
+	while [ "$r" -le "$h" ]; do
+		t=${lines[$((lt + r - 2))]}
+		case $t in
+		h:*)
+			console pen "$DT_DIM" "$DT_FACE" bold
+			case ${t#h:} in
+			hardware) t=Hardware ;;
+			app) t=Apps ;;
+			*) t=Desktop ;;
+			esac
+			t := str pad "$t" $((lw - 3))
+			t=${t:0:$((lw - 3))}
+			console put -p "w$id" "$r" $((lx + 2)) "$t"
+			;;
+		p:*)
+			i=${t#p:}
+			n=${CP_PANE_LIST[$i]}
+			if [ "$n" = "$pane" ]; then
+				if [ "$side" = list ]; then
+					console pen "$DT_SELINK" "$DT_ACTIVE" bold
+				else
+					console pen "$DT_ACTIVE" "$DT_FACE" bold
+				fi
+			else
+				console pen "$DT_INK" "$DT_FACE"
+			fi
+			t=${CP_PANES[$n]["title"]}
+			case $DT_LANG in ?*) t := dt_tr "$t" ;; esac
+			t := str pad " ${CP_PANES[$n]["icon"]} $t" \
+				$((lw - 3))
+			t=${t:0:$((lw - 3))}
+			console put -p "w$id" "$r" $((lx + 2)) "$t"
+			dt_wreg "$id" "$r" $((lx + 1)) $((lw - 1)) "pane:$i"
+			;;
+		*)
+			console pen "$DT_INK" "$DT_FACE"
+			t := str repeat " " "$lw"
+			console put -p "w$id" "$r" "$lx" "$t"
+			;;
+		esac
+		r=$((r + 1))
+	done
+	dt_splitbar "$id" "$dv" 1 "$h" "${PW[$id]["split"]:-0}"
+	# The list's own bar, on the divider rather than over the list, so the
+	# titles keep every column.
+	dt_scrollbar "$id" 2 "$dv" "$vis" "${#lines[@]}" "$vis" "$lt"
+	if [ "${#lines[@]}" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		t="Nothing found"
+		console put -p "w$id" 2 $((lx + 2)) "${t:0:$((lw - 3))}"
+		return 0
+	fi
+
+	[ -z "$pane" ] && return 0
+	bx=$((lw + 1))
+	bw=$((w - lw - 1))
+	case $DT_MIRRORON in 1) bx=2 ;; esac
+	if dt_has "${pane}_draw"; then
+		"${pane}_draw" "$id" $((h - 1)) "$bw" "$bx"
+	else
+		cp_rowsdraw "$id" "$pane" $((h - 1)) "$bw" "$bx"
+	fi
+}
+
+# The shared row-list renderer every ordinary pane uses: builds this
+# pane's own rows fresh every frame, then draws them exactly the single
+# list panel.hibr used to draw for everything, just offset into the
+# pane's own body at column bx.
+#
+# CP[$id] is unset first, not just overwritten: a row is a handful of
+# fields (kind, text, val, key, and wtype only for a checkbox), and a
+# pane that never sets wtype leaves whatever the previous pane shown in
+# this same window left there. Appearance's own Wallpaper row -- a
+# dropdown, no wtype -- drew as a checkbox once Behaviour's Icons row
+# (wtype=bool) had ever occupied the same row index first; it still
+# worked when clicked, since that only changes cp_rowsdraw's own choice
+# of widget, not what key a click reaches, which is what made it look
+# like a rendering glitch rather than the stale field it was.
+fn cp_rowsdraw(int id, pane, int h, int w, int bx) {
+	local i r t v n top sel kind wtype on kv
+	local wc=$((bx + w - 11))
+	local xc=$((bx + w - 4))
+	local sb=$((bx + w))
+
+	case $DT_MIRRORON in 1) wc=$bx; xc=$bx; sb=$((bx - 1)) ;; esac
+
+	unset "CP[$id]"
+	n := "${pane}_rows" "$id"
+	PW[$id]["n"]=$n
+	PW[$id]["vis"]=$h
+	sel=${PW[$id]["sel"]}
+	top=${PW[$id]["top"]}
+	while [ "$sel" -lt $((n - 1)) ] && [ "${CP[$id][$sel]["kind"]}" = head ]; do
+		sel=$((sel + 1))
+	done
+	[ "$sel" -ge "$n" ] && sel=$((n - 1))
+	[ "$sel" -lt 0 ] && sel=0
+	PW[$id]["sel"]=$sel
+	i=$top
+	r=1
+	while [ "$r" -le "$h" ]; do
+		t=""
+		v=""
+		kv=""
+		kind=""
+		wtype=""
+		if [ "$i" -lt "$n" ]; then
+			t=${CP[$id][$i]["text"]}
+			case $DT_LANG in ?*) t := dt_tr "$t" ;; esac
+			# A row that carries a number in its own label --
+			# a slider's percentage -- keeps it apart from the
+			# label, and it is appended after the catalogue has
+			# been asked: "Tiled Main ($DT_TILEMAIN%)" as one
+			# string is a string tools/strings.py cannot see
+			# and no catalogue can hold.
+			case ${CP[$id][$i]["after"]} in
+			?*) t="$t ${CP[$id][$i]["after"]}" ;;
+			esac
+			v=${CP[$id][$i]["val"]}
+			kind=${CP[$id][$i]["kind"]}
+			wtype=${CP[$id][$i]["wtype"]}
+		fi
+		if [ "$i" -ge "$n" ]; then
+			console pen "$DT_INK" "$DT_FACE"
+			t := str repeat " " "$w"
+		elif [ "$kind" = head ]; then
+			console pen "$DT_DIM" "$DT_FACE" bold
+			case $DT_MIRRORON in
+			1) t := cp_rowm "$t" head "" "$w" ;;
+			*) t := str pad "$t" "$w" ;;
+			esac
+		elif [ "$DT_MIRRORON" = 1 ]; then
+			if [ "$i" = "$sel" ] && [ "${PW[$id]["side"]}" != list ]; then
+				console pen "$DT_SELINK" "$DT_ACTIVE" bold
+			else
+				console pen "$DT_INK" "$DT_FACE"
+			fi
+			[ "$kind" = key ] && kv=$v
+			t := cp_rowm "$t" "$kind" "$v" "$w"
+		else
+			if [ "$i" = "$sel" ] && [ "${PW[$id]["side"]}" != list ]; then
+				console pen "$DT_SELINK" "$DT_ACTIVE" bold
+			else
+				console pen "$DT_INK" "$DT_FACE"
+			fi
+			t="  $t"
+			[ "${#t}" -gt $((w - 13)) ] && t="${t:0:$((w - 14))}${GL[ellipsis]}"
+			t := str pad "$t" $((w - 12))
+			# A "set" row's value is drawn as a widget below, in the
+			# same pen, rather than appended to this string -- a real
+			# checkbox or a dropdown caret instead of on/off text. A
+			# shortcut's leaves room for the ✕ that clears it.
+			if [ "$kind" = key ]; then
+				kv=$v
+				t="  $t"
+				[ "${#t}" -gt $((w - 16)) ] &&
+					t="${t:0:$((w - 17))}${GL[ellipsis]}"
+				t := str pad "$t" $((w - 15))
+				v := str pad "$v" 11
+				t="$t$v"
+			elif [ "$kind" != set ]; then
+				v := str pad "$v" 11
+				t="$t$v"
+			fi
+		fi
+		console put -p "w$id" "$r" "$bx" "$t"
+		if [ -n "${CP[$id][$i]["btns"]}" ] && [ "$i" -lt "$n" ]; then
+			case $DT_MIRRORON in
+			1) cp_rowbtns "$id" "$i" "$r" $((bx + 12)) $((bx + w - ${#CP[$id][$i]["text"]} - 4)) ;;
+			*) cp_rowbtns "$id" "$i" "$r" $((bx + ${#CP[$id][$i]["text"]} + 4)) $((bx + w - 12)) ;;
+			esac
+		fi
+		if [ "$kind" = key ] && [ -n "$kv" ]; then
+			console pen "$DT_INK" "$DT_IDLE"
+			console put -p "w$id" "$r" "$xc" " ${GL[cross]} "
+			dt_wreg "$id" "$r" "$xc" 3 "clear:$i"
+		fi
+		if [ "$kind" = set ]; then
+			if [ "$wtype" = bool ]; then
+				on=0
+				[ "$v" = on ] && on=1
+				dt_check "$id" "$r" "$wc" "$on" "" \
+					"${CP[$id][$i]["key"]}"
+			elif [ "$wtype" = slider ]; then
+				dt_slider "$id" "$r" "$wc" "$CP_SLIDEW" "$v" \
+					"${CP[$id][$i]["min"]:-0}" \
+					"${CP[$id][$i]["max"]:-10}" \
+					"${CP[$id][$i]["key"]}"
+			else
+				dt_wdrop "$id" "$r" "$wc" 11 "$v" \
+					"${CP[$id][$i]["key"]}"
+			fi
+		fi
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	# A pane longer than the window says so: Shortcuts outgrew it, and a
+	# row below the edge with nothing to show it was there is one nobody
+	# finds. The wheel and the arrows scroll it.
+	dt_scrollbar "$id" 1 "$sb" "$h" "$n" "$h" "$top"
+}
+
+# A pane's row mirrored: its value or widget at the left, its label right-aligned.
+fn cp_rowm(t, kind, v, int w) {
+	local n=$((w - 12)) lead="" pad
+	local -i tw
+
+	case $kind in
+	head) n=$w ;;
+	key) n=$((w - 15)); v := str pad "$v" 11; lead="   $v"; t="$t  " ;;
+	set) lead := str repeat " " 12 ;;
+	*) v := str pad "$v" 11; lead="$v " ;;
+	esac
+	[ "$kind" = head ] || t="$t  "
+	[ "${#t}" -gt "$n" ] && t="${GL[ellipsis]}${t:$((${#t} - n + 1))}"
+	tw := str width "$t"
+	pad=""
+	[ "$tw" -lt "$n" ] && pad := str repeat " " $((n - tw))
+	ret "$lead$pad$t"
+}
+
+# A row's own buttons, after its label: CP[w][i]["btns"] is "key:Label"
+# words, each a button whose click runs the pane's _do with that key, as
+# a dropdown's choice does -- Appearance's Save, Rename and Delete on the
+# Theme row. Drawn from column c, as many as fit before column e.
+fn cp_rowbtns(int id, int i, int r, int c, int e) {
+	local b k l
+	local -a bs
+
+	read -ra bs <<< "${CP[$id][$i]["btns"]}"
+	for b in "${bs[@]}"; do
+		k=${b%%:*}
+		l=${b#*:}
+		[ $((c + ${#l} + 2)) -le "$e" ] || break
+		console pen "$DT_INK" "$DT_WELL"
+		console put -p "w$id" "$r" "$c" " $l "
+		dt_wreg "$id" "$r" "$c" $((${#l} + 2)) "rbtn:$k"
+		c=$((c + ${#l} + 3))
+	done
+}
+
+# Move the selection within the pane list, or within the selected pane's
+# own rows, whichever has the arrows right now -- skipping headings in a
+# row list, and wrapping at either end in the pane list, the way the hibr
+# menu's own items already do.
+fn panel_move(int w, int d) {
+	local i n vis top k=0 pane
+
+	if [ "${PW[$w]["side"]}" = list ]; then
+		n=${#CP_PANE_LIST[@]}
+		[ "$n" -lt 1 ] && return 0
+		[ -n "${PW[$w]["m"]}" ] || return 0
+		i=${PW[$w]["pane"]}
+		while :; do
+			i=$(((i + d + n) % n))
+			panel_shown "$w" "$i" && break
+		done
+		PW[$w]["pane"]=$i
+		PW[$w]["sel"]=0
+		PW[$w]["top"]=0
+		PW[$w]["last"]=-1
+		return 0
+	fi
+	n=${PW[$w]["n"]}
+	vis=${PW[$w]["vis"]}
+	top=${PW[$w]["top"]}
+	i=${PW[$w]["sel"]}
+	[ "$n" -lt 1 ] && return 0
+	while [ "$k" -lt "$n" ]; do
+		i=$(((i + d + n) % n))
+		[ "${CP[$w][$i]["kind"]}" != head ] && break
+		k=$((k + 1))
+	done
+	PW[$w]["sel"]=$i
+	[ "$i" -lt "$top" ] && top=$i
+	[ "$i" -ge $((top + vis)) ] && top=$((i - vis + 1))
+	[ "$top" -lt 0 ] && top=0
+	PW[$w]["top"]=$top
+}
+
+# Step through a list, wrapping at either end -- shared by every ordinary
+# pane's own cycling, not just one.
+fn cp_next(cur, int dir, ...rest) {
+	local n=0 i=0 hit=-1 x
+
+	shift 2
+	for x in "$@"; do
+		[ "$x" = "$cur" ] && hit=$n
+		n=$((n + 1))
+	done
+	[ "$hit" -lt 0 ] && hit=0
+	i=$(((hit + dir + n) % n))
+	n=0
+	for x in "$@"; do
+		[ "$n" = "$i" ] && { ret "$x"; return 0; }
+		n=$((n + 1))
+	done
+}
+
+# Flip an on/off setting, named by var -- shared by every pane's checkboxes.
+fn cp_toggle(var) {
+	if [ "${!var}" = 1 ]; then
+		printf -v "$var" 0
+	else
+		printf -v "$var" 1
+	fi
+}
+
+# Change the selected row in the selected pane.
+fn cp_do(int w, int dir) {
+	local pane sel k
+
+	pane := panel_pane "$w"
+	[ -z "$pane" ] && return 0
+	sel=${PW[$w]["sel"]}
+	k=${CP[$w][$sel]["key"]}
+	case ${CP[$w][$sel]["kind"]} in
+	# action is a plain button: no value of its own to cycle, so the
+	# pane's own _do sees whatever dir a click or a key happened to
+	# give it, and ignores it -- the same call "set" already makes.
+	set | action) dt_has "${pane}_do" && "${pane}_do" "$w" "$k" "$dir" ;;
+	key) command -v dt_keycap > /dev/null && dt_keycap "$k" ;;
+	esac
+}
+
+# An app's pane with the app not loaded says so, rather than showing
+# nothing at all: one heading row, which nothing can select.
+fn cp_absent(int w, what) {
+	CP[$w][0]["kind"]=head
+	CP[$w][0]["text"]="$what is not loaded"
+}
+
+# Every change is kept at once: there is no Save to forget. Shared by
+# every pane, not redefined by each.
+cp_save() {
+	command -v dt_save > /dev/null && dt_save
+	return 0
+}
+
+fn panel_key(int w, key) {
+	local pane k q r
+
+	if [ "${PW[$w]["side"]}" = list ]; then
+		q=${PW[$w]["q"]}
+		case $key in
+		" ")
+			if [ -z "$q" ]; then
+				PW[$w]["side"]=pane
+			else
+				PW[$w]["q"]="$q "
+			fi
+			;;
+		tab | right | enter) [ -n "${PW[$w]["m"]}" ] && PW[$w]["side"]=pane ;;
+		up) panel_move "$w" -1 ;;
+		down) panel_move "$w" 1 ;;
+		escape)
+			[ -n "$q" ] || return 1
+			PW[$w]["q"]=
+			;;
+		backspace | ctrl-u)
+			[ -n "$q" ] || return 1
+			r := dt_textkey "$q" "${#q}" "$key"
+			PW[$w]["q"]=${r% *}
+			;;
+		*)
+			[ "${#key}" = 1 ] || return 1
+			for k in "${!DT_KEYS[@]}"; do
+				[ "${DT_KEYS["$k"]}" = "$key" ] && return 1
+			done
+			PW[$w]["q"]="$q$key"
+			;;
+		esac
+		return 0
+	fi
+
+	if [ "$key" = tab ]; then
+		PW[$w]["side"]=list
+		return 0
+	fi
+
+	pane := panel_pane "$w"
+	if [ -n "$pane" ] && dt_has "${pane}_draw"; then
+		if dt_has "${pane}_key"; then
+			"${pane}_key" "$w" "$key"
+			return $?
+		fi
+		return 1
+	fi
+
+	case $key in
+	up) panel_move "$w" -1 ;;
+	down) panel_move "$w" 1 ;;
+	right | enter | " ") cp_do "$w" 1 ;;
+	left) cp_do "$w" -1 ;;
+	delete | backspace)
+		k=${PW[$w]["sel"]}
+		[ "${CP[$w][$k]["kind"]}" = key ] || return 1
+		dt_keyclear "${CP[$w][$k]["key"]}"
+		;;
+	*)
+		if [ -n "$pane" ] && dt_has "${pane}_key"; then
+			"${pane}_key" "$w" "$key"
+			return $?
+		fi
+		return 1
+		;;
+	esac
+}
+
+# A click in the pane list selects a pane and moves focus there; a click
+# in the selected pane's own body works the way it always did -- select,
+# a second click (or enter) activates, and a click on a dropdown's own
+# cell opens the real popup, through the pane's own <name>_drop.
+# Whether column c of window w is in the pane list, on its side of the divider.
+fn panel_inlist(int w, int c) {
+	case $DT_MIRRORON in
+	1) [ "$c" -gt "${PW[$w]["dv"]:-$CP_DIVCOL}" ] ;;
+	*) [ "$c" -lt "${PW[$w]["lw"]:-$CP_DIVCOL}" ] ;;
+	esac
+}
+
+fn panel_click(int w, int r, int c, btn = "") {
+	local pane i n top tag k wc
+
+	if panel_inlist "$w" "$c"; then
+		tag := dt_hit "$w" "$r" "$c"
+		if [ "$tag" = search ]; then
+			PW[$w]["side"]=list
+			return 0
+		fi
+		case $tag in pane:*) ;; *) return 0 ;; esac
+		PW[$w]["pane"]=${tag#pane:}
+		PW[$w]["side"]=list
+		PW[$w]["sel"]=0
+		PW[$w]["top"]=0
+		PW[$w]["last"]=-1
+		return 0
+	fi
+	pane := panel_pane "$w"
+	[ -z "$pane" ] && return 0
+	PW[$w]["side"]=pane
+	if dt_has "${pane}_draw"; then
+		dt_has "${pane}_click" && "${pane}_click" "$w" "$r" "$c"
+		return 0
+	fi
+	n=${PW[$w]["n"]}
+	top=${PW[$w]["top"]}
+	i=$((top + r - 1))
+	[ "$r" -lt 1 ] || [ "$i" -ge "$n" ] && return 0
+	tag := dt_hit "$w" "$r" "$c"
+	# A slider is set where it is clicked, which is what a slider is for
+	# and what a dropdown of five chosen values could not do (Gitea
+	# #193). The value is the pane's to keep, so it goes through
+	# <pane>_slide; a pane without one is untouched -- its slider still
+	# selects on a click and steps on the arrows, exactly as before.
+	if [ "${CP[$w][$i]["kind"]}" = set ] &&
+	   [ "${CP[$w][$i]["wtype"]}" = slider ] && [ -n "$tag" ] &&
+	   dt_has "${pane}_slide"; then
+		wc := dt_wcol "$w" "$r" "$tag"
+		PW[$w]["sel"]=$i
+		PW[$w]["last"]=$i
+		CP_MSLIDE[$w]="$i $wc"
+		cp_slide "$w" "$c"
+		return 0
+	fi
+	case $tag in
+	clear:*)
+		dt_keyclear "${CP[$w][${tag#clear:}]["key"]}"
+		PW[$w]["sel"]=${tag#clear:}
+		return 0
+		;;
+	rbtn:*)
+		PW[$w]["sel"]=$i
+		dt_has "${pane}_do" && "${pane}_do" "$w" "${tag#rbtn:}" 1
+		return 0
+		;;
+	esac
+	[ "${CP[$w][$i]["kind"]}" = head ] && return 0
+	if [ "${CP[$w][$i]["kind"]}" = set ] &&
+	   [ "${CP[$w][$i]["wtype"]}" != bool ] &&
+	   [ "${CP[$w][$i]["wtype"]}" != slider ] &&
+	   dt_has "${pane}_drop"; then
+		tag := dt_hit "$w" "$r" "$c"
+		if [ -n "$tag" ]; then
+			k=${CP[$w][$i]["key"]}
+			wc := dt_wcol "$w" "$r" "$tag"
+			"${pane}_drop" "$w" "$r" "$wc" "$k"
+			PW[$w]["sel"]=$i
+			PW[$w]["last"]=$i
+			return 0
+		fi
+	fi
+	if [ "$i" = "${PW[$w]["sel"]}" ] && [ "$i" = "${PW[$w]["last"]}" ]; then
+		cp_do "$w" 1
+		return 0
+	fi
+	PW[$w]["sel"]=$i
+	PW[$w]["last"]=$i
+}
+
+# Forward press/drag/release to whichever pane is selected, when it has
+# its own _mouse -- for a pane whose content needs more than a click, a
+# rectangle dragged on a canvas rather than a row picked from a list.
+# dt_new wires up a window's own _mouse to take over every press for that
+# window, ahead of the plain click path this file has always used, so
+# without this an ordinary pane click would never reach panel_click again
+# the moment any one pane defined _mouse. A press is only ever offered to
+# the selected pane's own _mouse when it lands in the body, past the pane
+# list's own column, and only while it accepts -- return 1 (a miss, not
+# its own rectangle say) falls straight through to panel_click exactly as
+# if _mouse did not exist, so an ordinary pane is untouched either way.
+# Drag and release go only where a press was actually accepted, and only
+# for the one window that accepted it -- CP_MDRAG is keyed by window id,
+# never a bare global, for the same reason every other per-window pane
+# state here is.
+declare -gA CP_MDRAG
+# The slider a press landed on, as "row column", so a drag goes on setting
+# it: keyed by window id, never a bare global, for the same reason every
+# other per-window pane state here is -- two Control Panels are two
+# sliders.
+declare -gA CP_MSLIDE
+
+# Set the slider CP_MSLIDE names to whatever column c is over.
+fn cp_slide(int w, int c) {
+	local pane i wc v
+	local -a at
+
+	read -ra at <<< "${CP_MSLIDE[$w]}"
+	[ "${#at[@]}" -ge 2 ] || return 0
+	i=${at[0]}
+	wc=${at[1]}
+	pane := panel_pane "$w"
+	[ -n "$pane" ] && dt_has "${pane}_slide" || return 0
+	v := dt_slidepos "$c" "$wc" "$CP_SLIDEW" "${CP[$w][$i]["min"]:-0}" \
+		"${CP[$w][$i]["max"]:-10}"
+	"${pane}_slide" "$w" "${CP[$w][$i]["key"]}" "$v"
+	return 0
+}
+
+fn panel_mouse(int id, act, button, int r, int c, mods) {
+	local pane
+
+	if [ "${PW[$id]["split"]}" = 1 ]; then
+		case $DT_MIRRORON in 1) c=$((${PW[$id]["w"]:-40} - c + 1)) ;; esac
+		dt_splitmove CP_DIVCOL "$c" "${PW[$id]["w"]:-40}" 8
+		if [ "$act" = release ]; then
+			PW[$id]["split"]=
+			cp_save
+		fi
+		return 0
+	fi
+	if [ "$act" = press ]; then
+		CP_MDRAG[$id]=
+		CP_MSLIDE[$id]=
+		if [ "$c" = "${PW[$id]["dv"]:-${PW[$id]["lw"]}}" ] && [ "$r" -ge 1 ]; then
+			PW[$id]["split"]=1
+			return 0
+		fi
+		pane := panel_pane "$id"
+		if ! panel_inlist "$id" "$c" && [ -n "$pane" ] &&
+		   dt_has "${pane}_mouse" &&
+		   "${pane}_mouse" "$id" press "$button" "$r" "$c"; then
+			CP_MDRAG[$id]=$pane
+			return 0
+		fi
+		panel_click "$id" "$r" "$c"
+		return 0
+	fi
+	# A drag that began on a slider keeps setting it, which is the other
+	# half of clicking one: a value a person is choosing by eye is chosen
+	# by moving, not by pressing eleven times.
+	if [ -n "${CP_MSLIDE[$id]}" ]; then
+		cp_slide "$id" "$c"
+		[ "$act" = release ] && CP_MSLIDE[$id]=
+		return 0
+	fi
+	pane=${CP_MDRAG[$id]}
+	[ -n "$pane" ] && "${pane}_mouse" "$id" "$act" "$button" "$r" "$c"
+	[ "$act" = release ] && CP_MDRAG[$id]=
+}
+
+fn panel_wheel(int? w = "", dir = "", int? r = "", int? c = "") {
+	local top pane
+
+	# Each side scrolls on its own, whichever the pointer is over.
+	if [ -n "$c" ] && panel_inlist "$w" "$c"; then
+		top=${PW[$w]["ltop"]:-0}
+		top := dt_scrollmove "$dir" "$top" "${PW[$w]["ln"]:-0}" \
+			"${PW[$w]["lvis"]:-1}" "$DT_SCROLLWHEEL" || return 0
+		PW[$w]["ltop"]=$top
+		return 0
+	fi
+	pane := panel_pane "$w"
+	if [ -n "$pane" ] && dt_has "${pane}_draw"; then
+		dt_has "${pane}_wheel" && "${pane}_wheel" "$w" "$dir"
+		return 0
+	fi
+	top=${PW[$w]["top"]}
+	top := dt_scrollmove "$dir" "$top" "${PW[$w]["n"]}" "${PW[$w]["vis"]}" \
+		"$DT_SCROLLWHEEL" || return 0
+	PW[$w]["top"]=$top
+}
+
+# What it can show depends entirely on which panes got sourced before this
+# ran, which is nothing at all for the bare file -- an honest answer, not
+# a fabricated one, the same as calc's own CLI mode only working because
+# arithmetic is self-contained here and this is not.
+if [ -z "$DT_ROWS" ]; then
+	if [ "${#CP_PANE_LIST[@]}" -eq 0 ]; then
+		echo "no panes registered"
+	else
+		echo "panes: ${CP_PANE_LIST[*]}"
+	fi
+fi

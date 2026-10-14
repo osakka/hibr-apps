@@ -1,0 +1,188 @@
+#!/usr/bin/env hibr
+#
+# pictures -- the Control Panel pane for how a picture is drawn: half
+# blocks, the same in grey, the character ramp, or real pixels where the
+# terminal can place them. One setting reaches every picture the desktop
+# draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player
+# and the browser -- since each passes DT_IMGMODE to the module that draws
+# it.
+#
+# What the terminal can do is shown beside it, because the honest answer is
+# "it depends on your terminal", and it names the protocol in force: the
+# kitty graphics protocol or sixel, each needing the terminal to say what a
+# cell measures (ADR 0037). Which of the two is not a choice -- no terminal
+# does both well, and kitty does not do sixel at all -- so the setting says
+# Pixels and the console picks.
+
+strict
+
+
+app pictures "The Control Panel pane for how a picture is drawn" 1.0
+command -v cp_pane > /dev/null && cp_pane pictures "Pictures" "▦"
+
+CP_IMGMODES=("Automatic" "Half Blocks" "Grey Blocks" "Characters" "Pixels")
+# Three states, because the two kinds of picture want opposite answers: a
+# wallpaper sits behind text and is re-sent to every client that attaches,
+# where a film's frame and a page are the thing being looked at. Automatic
+# is each kind's own answer; the other two are one rule for everything, for
+# a link that cannot carry full frames (Gitea #228).
+CP_IMGDETAILS=("Automatic" "Full" "Half")
+CP_IMGCOMPS=("Zlib" "PNG" "Off")
+
+# Repeated here because a pane is loaded without its own app under the panel
+# tests, and a strict file may not create a global it has not declared.
+DT_IMGDETAIL="${DT_IMGDETAIL-auto}"
+command -v dt_keep > /dev/null && dt_keep DT_IMGDETAIL
+DT_IMGCOMP="${DT_IMGCOMP-zlib}"
+command -v dt_keep > /dev/null && dt_keep DT_IMGCOMP
+
+fn cp_set_imgdetail(int? id = "", value = "") {
+	case $value in
+	Full) DT_IMGDETAIL=full ;;
+	Half) DT_IMGDETAIL=half ;;
+	*) DT_IMGDETAIL=auto ;;
+	esac
+	command -v console > /dev/null && console imgdetail "$DT_IMGDETAIL"
+	cp_save
+}
+
+# What that setting is called in the list, with what it does rather than
+# only its name: "Automatic" alone says nothing about which pictures are
+# halved, and a value with no unit is what let Redraw Skip mean nothing
+# for 155 releases.
+fn cp_detailname(m) {
+	case $m in
+	full) ret "Full (every picture)" ;;
+	half) ret "Half (every picture)" ;;
+	*) ret "Automatic (wallpaper half, the rest full)" ;;
+	esac
+}
+
+# 0.99.187 and before had one flag, named for the wallpaper, that in fact
+# halved every picture whose caller had not chosen a palette -- which is
+# why a video read as blocks. A saved `full` meant "do not halve", so it
+# becomes `full`; a saved `half` was the default and meant "halve the
+# wallpaper", which is what `auto` does now (Gitea #228).
+fn cp_setver11() {
+	case ${DT_WALLDETAIL-} in
+	full) DT_IMGDETAIL=full ;;
+	half) DT_IMGDETAIL=auto ;;
+	esac
+	return 0
+}
+
+# How a still picture's payload is compressed before it is sent (Gitea
+# #129). Zlib is the default and PNG is smaller again -- see the note in
+# mods/console/cn.h for why the smaller one is not the default: a terminal
+# that takes f=24 and not f=100 draws nothing and cannot say so.
+fn cp_set_imgcomp(int? id = "", value = "") {
+	case $value in
+	PNG) DT_IMGCOMP=png ;;
+	Off) DT_IMGCOMP=off ;;
+	*) DT_IMGCOMP=zlib ;;
+	esac
+	command -v console > /dev/null && console imgcomp "$DT_IMGCOMP"
+	cp_save
+}
+
+# The name that setting has in the list.
+fn cp_compname(m) {
+	case $m in
+	png) ret "PNG" ;;
+	off) ret "Off" ;;
+	*) ret "Zlib" ;;
+	esac
+}
+
+# The name a mode has in the list, and the mode a name stands for.
+fn cp_imgname(m) {
+	case $m in
+	half) ret "Half Blocks" ;;
+	mono) ret "Grey Blocks" ;;
+	ascii) ret "Characters" ;;
+	pixels | sixel) ret "Pixels" ;;
+	*) ret "Automatic" ;;
+	esac
+}
+
+fn cp_set_imgmode(int? id = "", value = "") {
+	case $value in
+	"Half Blocks") DT_IMGMODE=half ;;
+	"Grey Blocks") DT_IMGMODE=mono ;;
+	Characters) DT_IMGMODE=ascii ;;
+	Pixels) DT_IMGMODE=pixels ;;
+	*) DT_IMGMODE=auto ;;
+	esac
+	cp_save
+}
+
+fn pictures_rows(int w) {
+	local n=0 v term g kind cw ch
+
+	v := cp_imgname "$DT_IMGMODE"
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Draw Pictures As"
+	CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]=mode; n=$((n + 1))
+	g := dt_imggfx
+	read -r kind cw ch <<< "$g"
+	# In its own variable, not in v: it used to be worked out into v and
+	# then overwritten by the detail row's value two lines later, so the
+	# This Terminal row read "Half" or "Full" -- what the terminal can
+	# actually do had never once been shown there.
+	if [ "$kind" = sixel ] || [ "$kind" = kitty ]; then
+		term := dt_tr "%s pixels, a cell is %s by %s" "$kind" "$cw" "$ch"
+	elif [ "$cw" = 0 ]; then
+		term := dt_tr "blocks only: it does not say what a cell measures"
+	else
+		term := dt_tr "blocks only: it does not draw pixels"
+	fi
+	v := cp_detailname "$DT_IMGDETAIL"
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Picture Detail"
+	CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]=imgdetail; n=$((n + 1))
+	v := cp_compname "$DT_IMGCOMP"
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Compress Pictures"
+	CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]=imgcomp; n=$((n + 1))
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="This Terminal"
+	CP[$w][$n]["val"]=$term; n=$((n + 1))
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Automatic Means"
+	v := cp_imgname half
+	dt_imgpix && v := cp_imgname pixels
+	CP[$w][$n]["val"]=$v; n=$((n + 1))
+	ret "$n"
+}
+
+fn pictures_do(int? w = "", k = "", int? dir = "") {
+	local v nm
+
+	case $k in
+	mode)
+		nm := cp_imgname "$DT_IMGMODE"
+		v := cp_next "$nm" "$dir" "${CP_IMGMODES[@]}"
+		cp_set_imgmode "" "$v"
+		;;
+	imgdetail)
+		case $DT_IMGDETAIL in
+		full) nm=Full ;;
+		half) nm=Half ;;
+		*) nm=Automatic ;;
+		esac
+		v := cp_next "$nm" "$dir" "${CP_IMGDETAILS[@]}"
+		cp_set_imgdetail "" "$v"
+		;;
+	imgcomp)
+		nm := cp_compname "$DT_IMGCOMP"
+		v := cp_next "$nm" "$dir" "${CP_IMGCOMPS[@]}"
+		cp_set_imgcomp "" "$v"
+		;;
+	esac
+	return 0
+}
+
+fn pictures_drop(int? w = "", int? r = "", int? c = "", k = "") {
+	case $k in
+	mode) dt_droplist "$w" "$r" "$c" cp_set_imgmode "${CP_IMGMODES[@]}" ;;
+	imgdetail) dt_droplist "$w" "$r" "$c" cp_set_imgdetail \
+		"${CP_IMGDETAILS[@]}" ;;
+	imgcomp) dt_droplist "$w" "$r" "$c" cp_set_imgcomp \
+		"${CP_IMGCOMPS[@]}" ;;
+	esac
+}

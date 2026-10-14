@@ -1,0 +1,21 @@
+{
+  "title": "Retro Car",
+  "about": "Neon on violet with no window frames, centred titles and every shadow on: eighties dashboard.",
+  "version": "1.0",
+  "colours": "neon",
+  "wallpaper": "+",
+  "image": "retro_car.png",
+  "mode": "zoom",
+  "frame": "none",
+  "titlebar": "line",
+  "buttons": "dashes",
+  "side": "right",
+  "align": "center",
+  "checks": "knob",
+  "dialog": "filled",
+  "glyphs": "unicode",
+  "windowshadow": true,
+  "menushadow": true,
+  "barshadow": true,
+  "buttonshadow": true
+}

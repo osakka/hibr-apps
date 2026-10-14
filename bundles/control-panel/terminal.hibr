@@ -1,0 +1,163 @@
+#!/usr/bin/env hibr
+#
+# terminal -- the Control Panel pane for how a terminal window behaves: its
+# scrollbar, whether its title follows what the program inside reports,
+# whether a mouse selection is copied as it is made, whether it closes when
+# the program in it ends,
+# whose colours its text and background are, and its cursor.
+
+strict
+
+
+app terminal "The Control Panel pane for how a terminal window behaves" 1.0
+command -v cp_pane > /dev/null && cp_pane terminal "Terminal" "▸" app
+
+CP_CURSORS=(block underline bar)
+fn cp_set_cursor(int? id = "", value = "") { DT_CURSOR=$value; cp_save; }
+
+# Theme or terminal colours for a terminal window -- see DT_TERMCOLOURS in
+# examples/desktop/apps/term.hibr.
+CP_TERMCOLOURS=(theme terminal)
+fn cp_set_termcolours(int? id = "", value = "") { DT_TERMCOLOURS=$value; cp_save; }
+# How much of a picture wallpaper shows through a terminal window -- see
+# DT_TERMTRANS in examples/desktop/apps/term.hibr. It is a percentage of
+# the picture's own brightness, so 0 is an opaque window and the small
+# numbers are dark and easy to read over a busy photograph.
+#
+# It was a dropdown of five values until 0.99.154 and is a slider, which is
+# what a percentage wants (Gitea #193): any of the hundred values rather
+# than five somebody chose, set where it is clicked, and -- since
+# panel_click never offers a slider to a pane's _drop -- with no second
+# place to forget, which is what #186 was.
+DT_TERMTRANS="${DT_TERMTRANS-0}"
+
+# A value saved by the dropdown is 85, 75 or 65, which would leave the dot
+# between two of the eleven positions for ever and make an arrow key look
+# as though it had done nothing. Snapped once, on the first load that knows
+# about the slider.
+fn cp_setver10() {
+	local v=${DT_TERMTRANS:-0}
+
+	[ "$v" != 0 ] && DT_TERMTRANS=$(((v + 5) / 10 * 10))
+	return 0
+}
+
+# Every tenth from 0 to 100, clamped: the step belongs to the setting, not
+# to the track, which has eleven positions whatever the range is.
+fn cp_termtrans(int v) {
+	[ "$v" -lt 0 ] && v=0
+	[ "$v" -gt 100 ] && v=100
+	DT_TERMTRANS=$(((v + 5) / 10 * 10))
+	cp_save
+	return 0
+}
+CP_TERMENDS=(success always never)
+fn cp_set_termend(int? id = "", value = "") { DT_TERMEND=$value; cp_save; }
+
+# Repeated from the app, as every pane must: the panel's own tests load a
+# pane without its app, and under strict vars a setter assigning a global
+# the file never declared is refused -- so the dropdown "chose" and nothing
+# changed. dt_keep skips a name it already has.
+DT_TERMASK="${DT_TERMASK-1}"
+command -v dt_keep > /dev/null && dt_keep DT_TERMASK
+CP_TERMROWS=(24 30 36 40 50)
+CP_TERMCOLS=(80 100 120 132)
+fn cp_set_termrows(int? id = "", value = "") { DT_TERMROWS=$value; cp_save; }
+fn cp_set_termcols(int? id = "", value = "") { DT_TERMCOLS=$value; cp_save; }
+
+fn terminal_rows(int w) {
+	local n=0
+
+	[ -n "$DT_TERMCLIP" ] || { cp_absent "$w" Terminal; ret 1; }
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Scrollbar"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_TERMBAR" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_TERMBAR; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Follow Program Title"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_TERMTITLE" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_TERMTITLE; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Ask Before Closing"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_TERMASK" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_TERMASK; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Programs Set Clipboard"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_TERMCLIP" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_TERMCLIP; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Copy on Select"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_TERMSELCOPY" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_TERMSELCOPY; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Close When a Program Ends"
+	CP[$w][$n]["val"]="$DT_TERMEND"; CP[$w][$n]["key"]=termend
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Rows"
+	CP[$w][$n]["val"]="$DT_TERMROWS"; CP[$w][$n]["key"]=termrows
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Columns"
+	CP[$w][$n]["val"]="$DT_TERMCOLS"; CP[$w][$n]["key"]=termcols
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Colours"
+	CP[$w][$n]["val"]="$DT_TERMCOLOURS"
+	CP[$w][$n]["key"]=termcolours; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Wallpaper Shows Through"
+	CP[$w][$n]["wtype"]=slider
+	CP[$w][$n]["val"]="${DT_TERMTRANS:-0}"
+	CP[$w][$n]["min"]=0; CP[$w][$n]["max"]=100
+	# The number lives beside the label rather than inside it, so the
+	# label itself is still one string a catalogue can hold. 0% is what
+	# "off" was: nothing shows through.
+	CP[$w][$n]["after"]="(${DT_TERMTRANS:-0}%)"
+	CP[$w][$n]["key"]=termtrans; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Cursor"
+	CP[$w][$n]["val"]="$DT_CURSOR"; CP[$w][$n]["key"]=cursor; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Cursor Blink"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$DT_CURSOR_BLINK" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=DT_CURSOR_BLINK; n=$((n + 1))
+	ret "$n"
+}
+
+fn terminal_do(int w, k, int dir) {
+	local v
+
+	case $k in
+	DT_TERMBAR | DT_TERMTITLE | DT_TERMCLIP | DT_TERMSELCOPY | DT_TERMASK | DT_CURSOR_BLINK) cp_toggle "$k" ;;
+	termcolours)
+		v := cp_next "$DT_TERMCOLOURS" "$dir" "${CP_TERMCOLOURS[@]}"
+		DT_TERMCOLOURS=$v
+		;;
+	cursor) v := cp_next "$DT_CURSOR" "$dir" "${CP_CURSORS[@]}"
+		DT_CURSOR=$v ;;
+	termend) v := cp_next "$DT_TERMEND" "$dir" "${CP_TERMENDS[@]}"
+		DT_TERMEND=$v ;;
+	termtrans) cp_termtrans $(((${DT_TERMTRANS:-0} + 5) / 10 * 10 + dir * 10)) ;;
+	termrows) v := cp_next "$DT_TERMROWS" "$dir" "${CP_TERMROWS[@]}"
+		DT_TERMROWS=$v ;;
+	termcols) v := cp_next "$DT_TERMCOLS" "$dir" "${CP_TERMCOLS[@]}"
+		DT_TERMCOLS=$v ;;
+	esac
+	cp_save
+}
+
+fn terminal_drop(int? w = "", int? r = "", int? c = "", k = "") {
+	case $k in
+	termcolours) dt_droplist "$w" "$r" "$c" cp_set_termcolours \
+		"${CP_TERMCOLOURS[@]}" ;;
+	cursor) dt_droplist "$w" "$r" "$c" cp_set_cursor "${CP_CURSORS[@]}" ;;
+	termend) dt_droplist "$w" "$r" "$c" cp_set_termend "${CP_TERMENDS[@]}" ;;
+	termrows) dt_droplist "$w" "$r" "$c" cp_set_termrows "${CP_TERMROWS[@]}" ;;
+	termcols) dt_droplist "$w" "$r" "$c" cp_set_termcols "${CP_TERMCOLS[@]}" ;;
+	esac
+}
+
+# Where a click on the shade's track lands, which panel_click works out
+# from the column and hands over: the pane keeps the value, the track only
+# says which one was pointed at.
+fn terminal_slide(int w, k, int value) {
+	case $k in
+	termtrans) cp_termtrans "$value" ;;
+	esac
+	return 0
+}

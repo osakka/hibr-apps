@@ -1,0 +1,103 @@
+#!/usr/bin/env hibr
+#
+# windows -- the Control Panel pane for how a window looks and where a new
+# one goes: its frame, which side its buttons dock to, where its title
+# sits, which glyphs the buttons are drawn with, Placement, and how wide a
+# tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the
+# Mouse pane's. Every value here is read by wm/frame.hibr; this pane only
+# ever changes the DT_* settings, never the drawing itself.
+
+strict
+
+
+app windows "The Control Panel pane for how a window looks and where it opens" 1.0
+command -v cp_pane > /dev/null && cp_pane windows "Windows" "▭"
+
+fn cp_set_frame(int? id = "", value = "") { DT_FRAME=$value; cp_save; }
+fn cp_set_titlebar(int? id = "", value = "") { DT_TITLEBAR=$value; cp_save; }
+fn cp_set_side(int? id = "", value = "") { DT_BTNSIDE=$value; cp_save; }
+fn cp_set_align(int? id = "", value = "") { DT_TITLEALIGN=$value; cp_save; }
+fn cp_set_btnstyle(int? id = "", value = "") { DT_BTNSTYLE=$value; cp_save; }
+fn cp_set_place(int? id = "", value = "") { DT_PLACE=$value; cp_save; }
+
+fn windows_rows(int w) {
+	local n=0
+
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Frame"
+	CP[$w][$n]["val"]="$DT_FRAME"; CP[$w][$n]["key"]=frame; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Title Bar"
+	CP[$w][$n]["val"]="$DT_TITLEBAR"; CP[$w][$n]["key"]=titlebar; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Buttons"
+	CP[$w][$n]["val"]="$DT_BTNSIDE"; CP[$w][$n]["key"]=side; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Title"
+	CP[$w][$n]["val"]="$DT_TITLEALIGN"; CP[$w][$n]["key"]=align
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Button Style"
+	CP[$w][$n]["val"]="$DT_BTNSTYLE"; CP[$w][$n]["key"]=btnstyle
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Placement"
+	CP[$w][$n]["val"]="$DT_PLACE"; CP[$w][$n]["key"]=place
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Tiled Main"
+	CP[$w][$n]["after"]="($DT_TILEMAIN%)"
+	CP[$w][$n]["wtype"]=slider
+	CP[$w][$n]["val"]=$((DT_TILEMAIN / 10)); CP[$w][$n]["min"]=3
+	CP[$w][$n]["max"]=7
+	CP[$w][$n]["key"]=tilemain; n=$((n + 1))
+	ret "$n"
+}
+
+fn windows_do(int w, k, int dir) {
+	local v
+
+	case $k in
+	frame) v := cp_next "$DT_FRAME" "$dir" "${WS_FRAMES[@]}"
+	       DT_FRAME=$v ;;
+	titlebar) v := cp_next "$DT_TITLEBAR" "$dir" "${DT_TITLEBARS[@]}"
+	          DT_TITLEBAR=$v ;;
+	side) v := cp_next "$DT_BTNSIDE" "$dir" "${WS_SIDES[@]}"
+	      DT_BTNSIDE=$v ;;
+	align) v := cp_next "$DT_TITLEALIGN" "$dir" "${WS_ALIGNS[@]}"
+	       DT_TITLEALIGN=$v ;;
+	btnstyle) v := cp_next "$DT_BTNSTYLE" "$dir" "${WS_STYLES[@]}"
+	          DT_BTNSTYLE=$v ;;
+	place) v := cp_next "$DT_PLACE" "$dir" "${DT_PLACES[@]}"
+	       DT_PLACE=$v ;;
+	tilemain)
+		v=$((DT_TILEMAIN + dir * 10))
+		[ "$v" -lt 30 ] && v=30
+		[ "$v" -gt 70 ] && v=70
+		DT_TILEMAIN=$v
+		dt_tile
+		;;
+	esac
+	cp_save
+}
+
+# The tiled main pane's share, set where its track is clicked. Its own
+# value is in tens, which is why this multiplies: the track has eleven
+# positions and this setting has five.
+fn windows_slide(int w, k, int value) {
+	case $k in
+	tilemain)
+		DT_TILEMAIN=$((value * 10))
+		[ "$DT_TILEMAIN" -lt 30 ] && DT_TILEMAIN=30
+		[ "$DT_TILEMAIN" -gt 70 ] && DT_TILEMAIN=70
+		dt_tile
+		cp_save
+		;;
+	esac
+	return 0
+}
+
+fn windows_drop(int w, int r, int c, k) {
+	case $k in
+	frame) dt_droplist "$w" "$r" "$c" cp_set_frame "${WS_FRAMES[@]}" ;;
+	titlebar) dt_droplist "$w" "$r" "$c" cp_set_titlebar "${DT_TITLEBARS[@]}" ;;
+	place) dt_droplist "$w" "$r" "$c" cp_set_place "${DT_PLACES[@]}" ;;
+	side) dt_droplist "$w" "$r" "$c" cp_set_side "${WS_SIDES[@]}" ;;
+	align) dt_droplist "$w" "$r" "$c" cp_set_align "${WS_ALIGNS[@]}" ;;
+	btnstyle) dt_droplist "$w" "$r" "$c" cp_set_btnstyle \
+		"${WS_STYLES[@]}" ;;
+	esac
+}

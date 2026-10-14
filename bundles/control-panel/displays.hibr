@@ -1,0 +1,405 @@
+#!/usr/bin/env hibr
+#
+# displays -- Control Panel's own picture of a multi-monitor arrangement:
+# a dropdown to choose which display is primary, and every attached
+# display drawn to scale below it from hold clients, dragged to
+# reposition (hold move on release). Right-click a rectangle for Detach
+# (hold drop) or Identify (flash its own name on its own screen, so
+# whoever is looking can tell which is which). The primary display is
+# the picture's own anchor -- every rectangle is positioned relative to
+# it, so switching which one is primary, or dragging a *different*
+# display, never moves where the primary itself draws -- but its own
+# rectangle cannot be dragged: the dropdown is the one reliable way to
+# change it, since a mouse click precise enough to land on a specific
+# terminal cell with *no* movement at all is not something to depend on,
+# over ssh least of all. Nothing else is kept that a fresh read of hold
+# clients cannot recompute -- the same as every other pane's row list is
+# rebuilt every frame -- except the drag itself, which is this window's
+# own gesture in progress and belongs nowhere else, and is frozen against
+# hold clients while it is happening: re-reading mid-drag would have the
+# dragged rectangle's own base position shift under the live preview the
+# moment the release this same drag ends in reaches the server.
+strict
+
+
+app displays "Control Panel's own picture of a multi-monitor arrangement" 1.0
+command -v cp_pane > /dev/null && cp_pane displays "Displays" "▦" hardware
+
+declare -gA DPY
+
+# This session's own name, or empty when there is none to show a picture
+# of -- not held, or held but the hold module is not to be had.
+displays_sess() {
+	[ -n "$HIBR_HOLD" ] && need hold && dt_holdsess
+}
+
+# One scale, in percent, applied to both axes: since a real display and
+# this pane's own canvas are both measured in the same unit -- terminal
+# cells -- a single uniform scale keeps a display's own proportions,
+# where a separate row-scale and column-scale would stretch it. Rounding
+# down and flooring at 1% keeps every display at least a sliver rather
+# than vanishing at zero width.
+fn displays_scale(int h, int w, int urows, int ucols) {
+	local s sc
+
+	s=$((h * 100 / urows))
+	sc=$((w * 100 / ucols))
+	[ "$sc" -lt "$s" ] && s=$sc
+	[ "$s" -lt 1 ] && s=1
+	ret "$s"
+}
+
+# The dropdown's own callback: choosing a name makes it primary.
+fn displays_setprimary(int id, value) {
+	local sess
+
+	sess := displays_sess
+	[ -n "$sess" ] && hold primary "$sess" "$value"
+}
+
+# Right-click on a rectangle: detach it, or flash its own name where it
+# actually is.
+fn displays_context(nm) {
+	local on=0
+
+	dt_menu "Display"
+	dt_item "Detach" d displays_detach "$nm"
+	dt_item "Identify" i displays_identify "$nm"
+	dt_isblank "$nm" && on=1
+	dt_mark "Blank" b "$on" dt_blank "$nm"
+}
+
+# Standby displays join on their own when the desktop is running, or wait
+# to be attached from here -- the row's own checkbox.
+fn displays_sbauto(int? id = "") {
+	if [ "$DT_STANDBYAUTO" = 1 ]; then DT_STANDBYAUTO=0; else DT_STANDBYAUTO=1; fi
+	command -v dt_save > /dev/null && dt_save
+	[ "$DT_STANDBYAUTO" = 1 ] && dt_sbauto
+	return 0
+}
+
+fn displays_detach(nm = "") {
+	local sess
+
+	sess := displays_sess
+	[ -n "$sess" ] && hold drop "$sess" "$nm"
+}
+
+# hold clients again, rather than trusting whatever the right-click that
+# opened this menu last saw: a frame can pass between opening the menu
+# and choosing an item from it, same as everything else here that reads
+# fresh rather than keeping what could be stale.
+fn displays_identify(nm) {
+	local sess lst n2 row col rows cols pri
+
+	sess := displays_sess
+	[ -z "$sess" ] && return 0
+	lst := hold clients "$sess"
+	while IFS=' ' read -r n2 row col rows cols pri; do
+		if [ "$n2" = "$nm" ]; then
+			dt_identify "$nm" "$row" "$col" "$rows" "$cols"
+			return 0
+		fi
+	done <<< "$lst"
+}
+
+fn displays_draw(int id, int h, int w, int bx) {
+	local sess lst nm row col rows cols pri i n s dropw pname
+	local br bc bh bw namew t r mr mc dragi prow pcol
+	local rr rc minr minc urows ucols
+
+	sess := displays_sess
+	if [ -z "$sess" ]; then
+		console pen "$DT_IDLE" "$DT_FACE"
+		t="Not held -- nothing to arrange"
+		[ "${#t}" -gt "$w" ] && t=${t:0:$w}
+		console put -p "w$id" 1 "$bx" "$t"
+		DPY[$id]["n"]=0
+		return 0
+	fi
+
+	console pen "$DT_INK" "$DT_FACE"
+	r=1
+	while [ "$r" -le "$h" ]; do
+		t := str repeat " " "$w"
+		console put -p "w$id" "$r" "$bx" "$t"
+		r=$((r + 1))
+	done
+
+	dragi=${DPY[$id]["drag"]}
+	if [ -z "$dragi" ]; then
+		# Not mid-drag: read fresh, same as every other pane's row list
+		# is rebuilt every frame. Mid-drag, deliberately not -- see the
+		# header.
+		lst := hold clients "$sess"
+		i=0
+		while IFS=' ' read -r nm row col rows cols pri; do
+			[ -z "$nm" ] && continue
+			DPY[$id][$i]["name"]=$nm
+			DPY[$id][$i]["row"]=$row
+			DPY[$id][$i]["col"]=$col
+			DPY[$id][$i]["rows"]=$rows
+			DPY[$id][$i]["cols"]=$cols
+			DPY[$id][$i]["primary"]=$pri
+			i=$((i + 1))
+		done <<< "$lst"
+		DPY[$id]["n"]=$i
+	fi
+	n=${DPY[$id]["n"]:-0}
+	[ "$n" -lt 1 ] && return 0
+
+	# The primary's own real row/col and name -- everything else draws
+	# relative to it -- read from whatever is currently stored, a fresh
+	# read just above or, mid-drag, exactly what the last one before
+	# this drag started left there.
+	prow=0
+	pcol=0
+	pname=
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		if [ "${DPY[$id][$i]["primary"]}" = 1 ]; then
+			prow=${DPY[$id][$i]["row"]}
+			pcol=${DPY[$id][$i]["col"]}
+			pname=${DPY[$id][$i]["name"]}
+		fi
+		i=$((i + 1))
+	done
+
+	t="Primary:"
+	dropw=$((w - ${#t} - 3))
+	[ "$dropw" -lt 12 ] && dropw=12
+	console pen "$DT_INK" "$DT_FACE"
+	console put -p "w$id" 1 "$bx" "$t"
+	dt_wdrop "$id" 1 $((bx + ${#t} + 1)) "$dropw" "$pname" primary
+
+	# Every display's own row/col relative to the primary's, which can
+	# be negative (a display positioned "before" the primary in hold's
+	# own absolute coordinates -- exactly what happens the moment the
+	# primary picked is not the leftmost one). minr/minc, never above 0,
+	# so the primary itself is always included in the box, shift the
+	# whole picture just enough that nothing draws to the left of or
+	# above this canvas's own top-left corner -- into the pane list, or
+	# under the dropdown just drawn -- rather than clamping each display
+	# to the same corner independently, which would draw two of them on
+	# top of each other instead.
+	urows=0
+	ucols=0
+	minr=0
+	minc=0
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		rr=$((${DPY[$id][$i]["row"]} - prow))
+		rc=$((${DPY[$id][$i]["col"]} - pcol))
+		DPY[$id][$i]["rr"]=$rr
+		DPY[$id][$i]["rc"]=$rc
+		[ "$rr" -lt "$minr" ] && minr=$rr
+		[ "$rc" -lt "$minc" ] && minc=$rc
+		i=$((i + 1))
+	done
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		rr=$((${DPY[$id][$i]["rr"]} - minr))
+		rc=$((${DPY[$id][$i]["rc"]} - minc))
+		rows=${DPY[$id][$i]["rows"]}
+		cols=${DPY[$id][$i]["cols"]}
+		[ $((rr + rows)) -gt "$urows" ] && urows=$((rr + rows))
+		[ $((rc + cols)) -gt "$ucols" ] && ucols=$((rc + cols))
+		i=$((i + 1))
+	done
+	[ "$urows" -lt 1 ] && urows=1
+	[ "$ucols" -lt 1 ] && ucols=1
+	s := displays_scale $((h - 4)) "$w" "$urows" "$ucols"
+	DPY[$id]["s"]=$s
+
+	i=0
+	while [ "$i" -lt "$n" ]; do
+		rr=$((${DPY[$id][$i]["rr"]} - minr))
+		rc=$((${DPY[$id][$i]["rc"]} - minc))
+		rows=${DPY[$id][$i]["rows"]}
+		cols=${DPY[$id][$i]["cols"]}
+		nm=${DPY[$id][$i]["name"]}
+		pri=${DPY[$id][$i]["primary"]}
+		br=$((rr * s / 100 + 3))
+		bc=$((rc * s / 100 + bx))
+		# One cell shaved off each box's own scaled size, a gap between
+		# two adjacent displays rather than their borders sharing (and
+		# fighting over) the same cell: real displays touch exactly at
+		# hold clients's own coordinates -- 0,0 and 0,80 for two 80-wide
+		# screens side by side -- and the uniform scale preserves that
+		# exactly, so without this a display's own right border is drawn
+		# over by its neighbour's left one, whichever is drawn second.
+		bh=$((rows * s / 100 - 1))
+		bw=$((cols * s / 100 - 1))
+		[ "$bh" -lt 2 ] && bh=2
+		[ "$bw" -lt 4 ] && bw=4
+		if [ "$i" = "$dragi" ]; then
+			mr=${DPY[$id]["mr"]:-0}
+			mc=${DPY[$id]["mc"]:-0}
+			br=$((br + mr))
+			bc=$((bc + mc))
+		fi
+		DPY[$id][$i]["br"]=$br
+		DPY[$id][$i]["bc"]=$bc
+		DPY[$id][$i]["bh"]=$bh
+		DPY[$id][$i]["bw"]=$bw
+
+		if [ "$pri" = 1 ]; then
+			console pen "$DT_ACTIVE" "$DT_FACE" bold
+		else
+			console pen "$DT_IDLE" "$DT_FACE"
+		fi
+		t := dt_rep $((bw - 2)) "${GL[hline]}"
+		console put -p "w$id" "$br" "$bc" "${GL[tl]}${t}${GL[tr]}"
+		r=1
+		while [ "$r" -lt $((bh - 1)) ]; do
+			console put -p "w$id" $((br + r)) "$bc" "${GL[vline]}"
+			console put -p "w$id" $((br + r)) $((bc + bw - 1)) "${GL[vline]}"
+			r=$((r + 1))
+		done
+		t := dt_rep $((bw - 2)) "${GL[hline]}"
+		console put -p "w$id" $((br + bh - 1)) "$bc" "${GL[bl]}${t}${GL[br]}"
+		namew=$((bw - 2))
+		[ "$namew" -lt 1 ] && namew=1
+		t=$nm
+		dt_isblank "$nm" && t="$t (blank)"
+		[ "${#t}" -gt "$namew" ] && t=${t:0:$namew}
+		if dt_isblank "$nm"; then
+			console pen "$DT_DIM" "$DT_FACE"
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" $((br + bh / 2)) $((bc + 1)) "$t"
+		i=$((i + 1))
+	done
+	displays_standby "$id" "$h" "$w" "$bx"
+}
+
+# The terminals waiting to join, along the bottom: a click on one attaches
+# it; and whether they join on their own.
+fn displays_standby(int id, int h, int w, int bx) {
+	local e nm st x t on=0
+
+	dt_sbscan
+	x=$bx
+	console pen "$DT_DIM" "$DT_FACE"
+	t="Standby:"
+	console put -p "w$id" $((h - 1)) "$x" "$t"
+	x=$((x + ${#t} + 1))
+	if [ "${#DT_SBLIST[@]}" = 0 ]; then
+		console put -p "w$id" $((h - 1)) "$x" "none waiting"
+	fi
+	for e in "${DT_SBLIST[@]}"; do
+		nm=${e%% *}
+		st=${e#* }
+		t="$nm"
+		[ "$st" = released ] && t="$t (let go)"
+		[ "$st" = joined ] && continue
+		[ $((x + ${#t})) -gt $((bx + w)) ] && break
+		console pen "$DT_INK" "$DT_WELL"
+		console put -p "w$id" $((h - 1)) "$x" "$t"
+		dt_wreg "$id" $((h - 1)) "$x" "${#t}" "sb:$nm"
+		x=$((x + ${#t} + 1))
+	done
+	[ "$DT_STANDBYAUTO" = 1 ] && on=1
+	dt_check "$id" "$h" "$bx" "$on" "Standby displays join on their own" sbauto
+}
+
+# Press: on the dropdown, open its own popup of every attached display's
+# name; right-click on any rectangle opens Detach/Identify; left-click
+# on a rectangle that is not the primary one starts dragging it -- the
+# primary's own rectangle cannot be dragged, only right-clicked, since
+# the dropdown above is the one way to change which display it is.
+# Nothing here declines a press that actually landed on a rectangle, so
+# a right-click or a drag on the primary's own body does not fall
+# through to panel_click; only a press that hit no rectangle at all
+# does (returns 1).
+fn displays_mouse(int id, act, button, int r, int c) {
+	local n i sess nm mr mc s row col nrow ncol amr amc tag wc vals
+
+	n=${DPY[$id]["n"]:-0}
+	if [ "$act" = press ]; then
+		tag := dt_hit "$id" "$r" "$c"
+		case $tag in
+		sbauto)
+			displays_sbauto "$id"
+			return 0
+			;;
+		sb:*)
+			dt_sbcall "${tag#sb:}"
+			dt_notep low "Asked %s to join" "${tag#sb:}"
+			return 0
+			;;
+		esac
+		if [ "$tag" = primary ]; then
+			wc := dt_wcol "$id" "$r" primary
+			vals=()
+			i=0
+			while [ "$i" -lt "$n" ]; do
+				vals+=("${DPY[$id][$i]["name"]}")
+				i=$((i + 1))
+			done
+			dt_droplist "$id" "$r" "$wc" displays_setprimary "${vals[@]}"
+			return 0
+		fi
+		i=0
+		while [ "$i" -lt "$n" ]; do
+			if [ "$r" -ge "${DPY[$id][$i]["br"]}" ] &&
+			   [ "$r" -lt $((${DPY[$id][$i]["br"]} + ${DPY[$id][$i]["bh"]})) ] &&
+			   [ "$c" -ge "${DPY[$id][$i]["bc"]}" ] &&
+			   [ "$c" -lt $((${DPY[$id][$i]["bc"]} + ${DPY[$id][$i]["bw"]})) ]; then
+				if [ "$button" = right ]; then
+					dt_context_open displays \
+						"${DPY[$id][$i]["name"]}" \
+						$((${DT[$id]["row"]} + r + 1)) \
+						$((${DT[$id]["col"]} + c))
+					return 0
+				fi
+				[ "${DPY[$id][$i]["primary"]}" = 1 ] && return 0
+				DPY[$id]["drag"]=$i
+				DPY[$id]["pr"]=$r
+				DPY[$id]["pc"]=$c
+				DPY[$id]["mr"]=0
+				DPY[$id]["mc"]=0
+				return 0
+			fi
+			i=$((i + 1))
+		done
+		return 1
+	fi
+
+	i=${DPY[$id]["drag"]}
+	[ -z "$i" ] && return 1
+	mr=$((r - ${DPY[$id]["pr"]}))
+	mc=$((c - ${DPY[$id]["pc"]}))
+	DPY[$id]["mr"]=$mr
+	DPY[$id]["mc"]=$mc
+	if [ "$act" = release ]; then
+		amr=$mr; [ "$amr" -lt 0 ] && amr=$((0 - amr))
+		amc=$mc; [ "$amc" -lt 0 ] && amc=$((0 - amc))
+		if [ "$amr" -gt 1 ] || [ "$amc" -gt 1 ]; then
+			# A one-cell jitter under a real mouse, over ssh especially,
+			# is not a real intent to move it -- anything past that is.
+			sess := displays_sess
+			nm=${DPY[$id][$i]["name"]}
+			s=${DPY[$id]["s"]}
+			row=${DPY[$id][$i]["row"]}
+			col=${DPY[$id][$i]["col"]}
+			# hold's own absolute coordinates, not the relative ones this
+			# pane draws in -- and, unlike those, never clamped to zero
+			# here. A display can legitimately need a negative row or
+			# column the moment it sits above or to the left of whatever
+			# is at hold's own (0,0), which is exactly the arrangement
+			# reported broken: dragging something left of the primary
+			# silently refused to move past column 0. The protocol
+			# itself has no such restriction (hd_conn in mods/hold/srv.c
+			# parses both as plain signed ints); this clamp was the bug.
+			nrow=$((row + mr * 100 / s))
+			ncol=$((col + mc * 100 / s))
+			hold move "$sess" "$nm" "$nrow" "$ncol"
+		fi
+		DPY[$id]["drag"]=
+		DPY[$id]["mr"]=0
+		DPY[$id]["mc"]=0
+	fi
+	return 0
+}

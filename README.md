@@ -31,16 +31,23 @@ of one folder rather than a rewrite of every entry.
 |---|---|
 | `index.json` | the catalogue: one object per entry under `entries`, keyed by `kind/name`, and the same again under `apps` keyed by name for an older `apps` |
 | `index.html` | the same thing as a page, at <https://osakka.github.io/hibr-apps> |
-| `bundles/KIND/NAME/NAME-VERSION.{hibr,json,tar.gz}` | every version ever published; the index offers the newest of each |
-| `addapp` | put a file in as a bundle, with the version it last changed in |
+| `bundles/KIND/NAME.{hibr,json}` | one plain file per entry, overwritten when a new version is published — git holds every previous one |
+| `addapp` | put a file in as a bundle, reading the version the thing declares |
 | `mkindex` | rebuild `index.json` and `index.html` from what is in `bundles/` |
 
 An entry says `title`, `version`, `kind`, `bundle`, `sha256`, `about`,
-`author` and `licence`. An **application** deliberately carries no `hibr`
-or `abi` field: which release it needs is whatever desktop API it calls,
-which is not written in the file, and the release it last changed in is a
-plausible-looking guess rather than an answer — `apps info` saying "needs
-hibr any" is the honest version of not knowing.
+`author` and `licence`, and `parts` where it brings other files with it. An
+**application** deliberately carries no `hibr` or `abi` field: which
+release it needs is whatever desktop API it calls, which is not written in
+the file, and the release it last changed in is a plausible-looking guess
+rather than an answer — `apps info` saying "needs hibr any" is the honest
+version of not knowing.
+
+**`version` is the thing's own**, declared where it says what it is: an app
+and a Control Panel pane on their `app` line, a theme, a colour scheme or a
+language in their own `version` field. It used to be the hibr release the
+file last changed in, which told you which shell you were running and
+nothing about the app.
 
 A **theme, colour scheme or language** does carry `hibr`, because there
 that requirement is known exactly rather than guessed: the desktop did not
@@ -70,10 +77,20 @@ that means one thing is still enough on its own.
 git add -A && git commit -m "snake 0.99.93" && git push
 ```
 
-`addapp` reads the version from the source tree's own git log — a commit
-subject in hibr is `0.99.181: what it did`, so a bundle's version moves
-when the *app* moves and not when anything else does. Give a version as a
-second argument to override it.
+`addapp` reads the version the thing declares, and **refuses to publish
+changed content under an unchanged version** — bump it where it is
+declared, or pass `--same` to replace what is there. Without that check a
+hand-kept version drifts and is worse than reading a git log. Give a
+version as a second argument to override it.
+
+A bundle's path is **stable**: it is overwritten when a new version is
+published, and git holds every previous one, which is where anybody
+reverting would look. The cost is named rather than hidden — a static host
+caches the index and each bundle independently, so for a few minutes after
+a publish a client can pair an old index with a new bundle and `apps
+install` refuses on the `sha256`, saying so. Measured on GitHub Pages: ten
+minutes each, a query string is not part of the cache key, and
+`Cache-Control: no-cache` is ignored, so no client can ask for a fresh one.
 
 Nothing in the index is written by hand. `mkindex` derives every field from
 the bundle it describes — the title from the app's own `dt_app` line, the
@@ -81,13 +98,20 @@ prose from the file's own header comment, the kind from its registration,
 the sha256 from the bytes as they will be fetched — so the catalogue cannot
 drift from the code it offers. Run it after every `addapp`.
 
-Something that brings other files with it travels as a tarball instead of a
-bare file: `app.json` inside it says which member is the thing itself and
-which root each part belongs in, and `apps install` checks every member
-before it writes anything. `addapp` reads the parts from the source — a
-script declares them in its header (`# part: control-panel/mailset.hibr`),
-and a theme cannot, having no comments, so its picture is read out of the
-theme's own `image` field.
+Something that brings other files with it brings them as **plain files of
+their own**, and the index says which parts belong to which entry — each
+with its kind, the filename it lands as, the path to fetch it from and its
+own `sha256`. `apps install` fetches every part and verifies them all
+**before it places any**, so an entry with one bad part installs nothing at
+all. There are no tarballs here: a `.tar.gz` carrying an `app.json` was a
+container for a manifest of files, which is what the index already is, and
+a binary nothing can diff.
+
+`addapp` reads the parts from the source — a script declares them in its
+header (`# part: control-panel/mailset.hibr`), and a theme cannot, having
+no comments, so its picture is read out of the theme's own `image` field.
+A part that is itself installable lands where its own publish would put it,
+so the two agree by construction.
 
 A part is counted rather than owned: two apps that bring the same Control
 Panel pane both install it, and `apps remove` leaves it alone until the last

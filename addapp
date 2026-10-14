@@ -21,22 +21,28 @@
 # A file that brings other files with it says so in its own header, under
 # the `app` line that gives its description:
 #
-#   app mail "Email, offline, labels and conversations as Gmail has them"
+#   app mail "Email, offline, labels and conversations as Gmail has them" 1.0
 #   # part: control-panel/mailset.hibr
 #
-# and then the bundle is a tarball carrying `app.json`, the file itself and
-# each part. A Control Panel pane is scanned from another root, so it cannot
-# travel as a resource under the app's own -- which is why eight of the
-# applications installed half of themselves until hibr 0.99.183 (Gitea
-# #217). Everything else is published as the bare `.hibr`, which `apps
-# install` places as the file itself.
+# and each part is published as a plain file of its own, at the path its own
+# kind gives it. A Control Panel pane is scanned from another root, so it
+# cannot travel as a resource under the app's own -- which is why eight of
+# the applications installed half of themselves until hibr 0.99.183 (Gitea
+# #217) -- and the index is what says which parts belong to which entry.
+# There are no tarballs here: a .tar.gz carrying an app.json was a container
+# for a manifest of files, which is what the index already is, and a binary
+# blob in git that nothing can diff (Gitea #231).
 #
-# The version, when it is not given, is the hibr release in which that file
-# last changed, read from the source tree's own git log.
+# The version is the thing's own, declared where it says what it is: an app
+# and a pane on their `app` line, a theme, a colour scheme or a language in
+# their own `version` field. Not the hibr release it last changed in, which
+# is what this read from a git log until 0.99.189 -- `0.99.126` said nothing
+# about whether Calculator was new, mature or abandoned (Gitea #218). Give
+# a version as the second argument to override it.
 #
-# Nothing is published here: this writes
-# bundles/KIND/NAME/NAME-VERSION.{hibr,tar.gz} and leaves the index alone.
-# `./mkindex` rebuilds the index, and `git push` is what publishes.
+# Nothing is published here: this writes bundles/KIND/NAME.{hibr,json} and
+# leaves the index alone. `./mkindex` rebuilds the index, and `git push` is
+# what publishes.
 
 set -u
 
@@ -49,9 +55,45 @@ fn die(...msg) {
 	exit 1
 }
 
+# The version the thing says it is -- an app on its own `app` line, a theme,
+# a colour scheme or a language in its own `version` field. Not the hibr
+# release it last changed in, which is what this read from a git log until
+# 0.99.189: nobody could tell from `0.99.126` whether Calculator was new,
+# mature or abandoned, and it read as hibr's version printed in an app's row
+# (Gitea #218). A thing that declares none is refused rather than given a
+# number nobody chose.
+fn verof(path, kind) {
+	local l v=
+	local -A j
+
+	case $kind in
+	themes | colours | lang)
+		json parse j < "$path" 2> /dev/null ||
+			die "$path: does not parse as JSON"
+		v=${j["version"]-}
+		[ -n "$v" ] ||
+			die "$path: no \"version\" in it -- add one, since the catalogue cannot invent it"
+		ret "$v"
+		return 0 ;;
+	esac
+	while read -r l; do
+		case $l in
+		"app "*)
+			if match "$l" '^app[ 	]+[A-Za-z0-9_]+[ 	]+"[^"]*"[ 	]+([0-9][0-9A-Za-z.+~-]*)'; then
+				ret "${M[1]}"
+				return 0
+			fi
+			die "$path: its \`app\` line declares no version -- app NAME \"what it is\" 1.0" ;;
+		esac
+	done < "$path"
+	die "$path: no \`app\` line, so it cannot say what version it is"
+}
+
 # The release a file last changed in, from the git log of the tree it lives
 # in: a commit subject in hibr is "0.99.183: what it did", so the version is
-# that subject's first word, less its colon.
+# that subject's first word, less its colon. Kept for `--built`, which
+# answers "when was this last touched" -- a different question from "which
+# version is this", and this codebase has paid for answering two with one.
 # The pathspec is the file's own name, resolved against `-C "$dir"` -- a
 # path relative to *this* process's directory means something else there,
 # and `git log` over nothing exits 0 with no output, so a relative source
@@ -136,9 +178,53 @@ fn kextof(kind) {
 	esac
 }
 
-[ $# -ge 1 ] || die "usage: addapp PATH-TO-FILE.hibr [VERSION]"
-src=$1
-ver=${2-}
+# A version nobody bumps is a lie, and the previous publish is right here to
+# compare against: the index records what version was published and the
+# sha256 of the bytes it was published as. Changed content under an
+# unchanged version is refused, because without this check a hand-kept
+# version is a worse scheme than reading a git log rather than a better one
+# (Gitea #218). `--same` is the deliberate override, for replacing a bundle
+# that went out wrong.
+fn samecheck(id, ver, int same, file) {
+	local got old oldsha
+	local -A ix
+
+	[ "$same" = 1 ] && return 0
+	[ -r "$HERE/index.json" ] || return 0
+	json parse ix < "$HERE/index.json" 2> /dev/null || return 0
+	old=${ix["entries"]["$id"]["version"]-}
+	oldsha=${ix["entries"]["$id"]["sha256"]-}
+	[ -n "$old" ] && [ -n "$oldsha" ] || return 0
+	[ "$old" = "$ver" ] || return 0
+	got := shaof "$file"
+	[ "$got" = "$oldsha" ] && return 0
+	die "$id $ver is already published and its content differs.
+  published $oldsha
+  this is   $got
+Bump the version where the thing declares it, or pass --same to replace
+what is there under the same version."
+}
+
+fn shaof(path) {
+	local line
+
+	line=$(command sha256sum "$path" 2> /dev/null) ||
+		die "sha256sum is needed to compare a bundle with the published one"
+	ret "${line%% *}"
+}
+
+[ $# -ge 1 ] || die "usage: addapp [--same] PATH-TO-FILE.hibr [VERSION]"
+same=0
+args=()
+for a in "$@"; do
+	case $a in
+	--same) same=1 ;;
+	*) args+=("$a") ;;
+	esac
+done
+[ "${#args[@]}" -ge 1 ] || die "usage: addapp [--same] PATH-TO-FILE.hibr [VERSION]"
+src=${args[0]}
+ver=${args[1]-}
 DESKTOP=
 
 [ -r "$src" ] || die "$src: cannot be read"
@@ -165,27 +251,53 @@ case $src in
 *"$ext") ;;
 *) die "$src: a $kind file is a $ext, and this is not one" ;;
 esac
-[ -n "$ver" ] || ver := relof "$src"
+[ -n "$ver" ] || ver := verof "$src" "$kind"
 
 parts := partsof "$src" "$kind"
-dir="$HERE/bundles/$kind/$name"
+# One stable path per thing, overwritten when a new version is published:
+# the version is the app's own now and lives in the index, not in a
+# filename, and git holds every previous version for whoever wants to
+# revert. The cost is named rather than hidden -- a static host caches the
+# index and the bundle independently, so for a few minutes after a publish
+# a client can pair an old index with a new bundle and `apps install`
+# refuses on the sha256. Measured on GitHub Pages: ten minutes each, a
+# query string is not part of the cache key, and `Cache-Control: no-cache`
+# is ignored, so no client can ask for a fresh one and a retry would fetch
+# the same bytes (Gitea #230).
+dir="$HERE/bundles/$kind"
 mkdir -p "$dir" || die "cannot make $dir"
 
 if [ -z "$parts" ]; then
-	out="$dir/$name-$ver$ext"
+	out="$dir/$name$ext"
+	# The published bytes of a bare bundle *are* the source file, so the
+	# comparison needs no temporary copy.
+	samecheck "$kind/$name" "$ver" "$same" "$src"
 	command cp -f "$src" "$out" || die "cannot write $out"
 	printf '== %-14s %-10s %s\n' "$kind/$name" "$ver" "${out#$HERE/}"
 	printf '   now ./mkindex, then commit and push\n'
 	exit 0
 fi
 
-# A tarball, because the parts land in other scan roots. app.json says
-# which member is the file itself and where each part goes; `apps install`
-# checks both before it writes anything.
-work=$(command mktemp -d) || die "cannot make a temporary folder"
-command cp -f "$src" "$work/$name$ext" || die "cannot copy $src"
-j="{\"app\": \"$name$ext\", \"kind\": \"$kind\", \"parts\": ["
-first=1
+# No tarball. A part is a plain file at its own stable path, and the index
+# says which parts belong to an entry -- a manifest of files is precisely
+# what the index already is, so a .tar.gz carrying an app.json was a
+# container for something that belongs there. What that buys: every file in
+# the catalogue is plain, diffable and readable in a browser, git holds the
+# history of each, no app.json exists to go wrong, and the reproducible-tar
+# dance this needed (--sort=name --mtime=@0 and gzip -n, so identical
+# content did not hash differently every run) is gone with it.
+#
+# `apps install` fetches each part and verifies every one of them *before*
+# it places any, which keeps the promise a tarball made structurally: a bad
+# bundle is refused whole rather than half-installed.
+#
+# A part that is itself an installable thing of another kind -- a Control
+# Panel pane -- lands at exactly the path its own `addapp` run would write,
+# because both copy the same source file. So the two agree by construction
+# rather than by being kept in step.
+samecheck "$kind/$name" "$ver" "$same" "$src"
+out="$dir/$name$ext"
+command cp -f "$src" "$out" || die "cannot write $out"
 read -ra plist <<< "$parts"
 for p in "${plist[@]}"; do
 	pk=${p%%/*}
@@ -193,25 +305,11 @@ for p in "${plist[@]}"; do
 	case $pf in
 	*/*) die "$name: part '$p' is not <kind>/<file>" ;;
 	esac
-	# `as`, the filename it lands as, rather than a name with the kind's
-	# extension appended: a theme's picture is a .png in the themes
-	# folder, which a name could not say (hibr 0.99.186, Gitea #224).
 	[ -r "$DESKTOP/$p" ] || die "$name: part $p is not in $DESKTOP"
-	command cp -f "$DESKTOP/$p" "$work/$pf" || die "cannot copy $DESKTOP/$p"
-	[ "$first" = 1 ] || j="$j,"
-	first=0
-	j="$j{\"file\": \"$pf\", \"kind\": \"$pk\", \"as\": \"$pf\"}"
+	mkdir -p "$HERE/bundles/$pk" || die "cannot make $HERE/bundles/$pk"
+	command cp -f "$DESKTOP/$p" "$HERE/bundles/$pk/$pf" ||
+		die "cannot copy $DESKTOP/$p"
 done
-j="$j]}"
-printf '%s\n' "$j" > "$work/app.json" || die "cannot write app.json"
-# Checked here rather than discovered by whoever installs it: this is the
-# one place that writes an app.json, so a typo in it is this script's.
-json parse CHECK < "$work/app.json" > /dev/null 2>&1 ||
-	die "$name: the app.json this made does not parse: $j"
-
-out="$dir/$name-$ver.tar.gz"
-command tar -czf "$out" -C "$work" . || die "cannot write $out"
-command rm -rf "$work"
 printf '== %-14s %-10s %s\n' "$kind/$name" "$ver" "${out#$HERE/}"
 printf '   parts: %s\n' "$parts"
 printf '   now ./mkindex, then commit and push\n'
