@@ -4,24 +4,24 @@
 #
 #   ./mkindex
 #
-# The index is derived, never written by hand: every field in it is read
-# out of the bundle it describes, so the catalogue cannot drift from the
-# code it offers. There is no `hibr` or `abi` field on purpose: what
-# release an app needs is whatever desktop API it calls, which is not in
-# the file, and the release it was last touched in is a plausible-looking
-# guess rather than an answer -- `apps info` saying "needs hibr any" is the
-# honest version of not knowing.
-# A title is the app's own `dt_app` line, the summary and
-# the paragraph under it are the file's own header comment -- the same
-# comment the desktop's About box derives from -- the kind is whichever
-# registration the app makes, and the sha256 is of the bundle as it will be
-# fetched. The version is in the bundle's filename, which is what `addapp`
-# put there.
+# The index is derived, never written by hand: every field in it is read out
+# of the bundle it describes, so the catalogue cannot drift from the code it
+# offers. The title is the file's own `dt_app`, `cp_pane`, `cs_module` or
+# `sv_saver` line, the summary is its `app` line, the prose under that is
+# its header comment -- the same words the desktop's About box derives
+# from -- and the sha256 is of the bundle as it will be fetched.
 #
-# Only the newest version of each app is offered, and the older bundles
-# stay where they are: an index is what to install now, and a pool is what
-# was ever published (the apt repository beside this one works the same
-# way, for the same reason -- somebody can still name an old one).
+# The **kind** is the folder the bundle sits in, which `addapp` took from
+# the scan root the source lived in. It is not guessed from what the file
+# registers: an application and one of the desktop's own `system/` apps
+# both register with `dt_app`, so nothing inside the file can tell them
+# apart.
+#
+# The version is in the bundle's filename, which is what `addapp` put
+# there. Only the newest of each is offered, and the older bundles stay
+# where they are: an index is what to install now, and a pool is what was
+# ever published -- the apt repository beside this one works the same way,
+# for the same reason.
 
 set -u
 
@@ -33,22 +33,24 @@ fn die(...msg) {
 	exit 1
 }
 
-# The newest bundle of one app, by version: `sort -V` orders 0.99.93 before
-# 0.99.168, where a plain sort does not.
+# The newest bundle of one thing, by version: `sort -V` orders 0.99.93
+# before 0.99.168, where a plain sort does not.
 fn newest(dir) {
 	local f
 
-	f=$(command ls "$dir"/*.hibr 2> /dev/null | command sort -V | command tail -1)
+	f=$(command ls "$dir"/*.hibr "$dir"/*.tar.gz 2> /dev/null |
+	    command sort -V | command tail -1)
 	[ -n "$f" ] || return 1
 	ret "$f"
 }
 
-# The version out of a bundle's own name: NAME-VERSION.hibr.
+# The version out of a bundle's own name: NAME-VERSION.hibr or .tar.gz.
 fn verof(path, name) {
 	local b
 
 	b=${path##*/}
 	b=${b%.hibr}
+	b=${b%.tar.gz}
 	ret "${b#$name-}"
 }
 
@@ -60,46 +62,76 @@ fn shaof(path) {
 	ret "${line%% *}"
 }
 
-# What the app calls itself: the first `dt_app PREFIX "Title"` line, which
-# is the window the app is opened as. A later one is a dialog of its own
-# (Write declares `wrfile` for its file box), so the first is the app.
+# The file to read a bundle's description out of: the bundle itself when it
+# is a bare .hibr, and the member app.json names when it is a tarball. A
+# copy, because `archive` presents a member and `read` wants a file.
+fn readable(bundle, name) {
+	local j app out
+	local -A m
+
+	case $bundle in
+	*.hibr) ret "$bundle"; return 0 ;;
+	esac
+	need archive 2> /dev/null || die "the archive module is needed to read a tarball"
+	archive open mk "$bundle" 2> /dev/null ||
+		die "$name: $bundle does not open as a tarball"
+	app=
+	if j=$(archive cat mk app.json 2> /dev/null) &&
+	   json parse m <<< "$j" 2> /dev/null; then
+		app=${m["app"]}
+	fi
+	[ -n "$app" ] || app=$name.hibr
+	out=$TMP/$name.hibr
+	if ! archive cat mk "$app" > "$out" 2> /dev/null; then
+		archive close mk
+		die "$name: $bundle has no $app in it"
+	fi
+	archive close mk
+	ret "$out"
+}
+
+# What the thing calls itself: its own registration line, whichever of the
+# four it is. A later `dt_app` is a dialog of its own (Write declares
+# `wrfile` for its file box), so the first is the thing. A Control Strip
+# module and a saver name themselves without quotes, which is why there are
+# two patterns rather than one.
 fn titleof(path, name) {
 	local l
 
 	while read -r l; do
-		case $l in
-		*dt_app*) ;;
-		*) continue ;;
-		esac
-		if match "$l" 'dt_app[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
-			ret "${M[1]}"
+		if match "$l" '(dt_app|cp_pane)[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
+			ret "${M[2]}"
+			return 0
+		fi
+		if match "$l" '(cs_module|sv_saver)[ 	]+[a-z0-9_]+[ 	]+"?([A-Za-z][A-Za-z ]*[A-Za-z])"?'; then
+			ret "${M[2]}"
 			return 0
 		fi
 	done < "$path"
 	ret "$name"
 }
 
-# Which scan root this installs into, from the registration it makes. An
-# app that registers nothing the desktop knows is refused rather than
-# guessed at: `apps install` would place it where nothing looks.
-fn kindof(path) {
+# The one-line description the file declares with the `app` builtin -- the
+# line the desktop's own About box reads (dt_appline), authored for exactly
+# this and better than anything derived from a comment.
+fn appline(path) {
 	local l
 
 	while read -r l; do
 		case $l in
-		*"dt_app "*) ret apps; return 0 ;;
-		*"cp_pane "*) ret control-panel; return 0 ;;
-		*"cs_module "*) ret control-strip; return 0 ;;
-		*"sv_saver "*) ret savers; return 0 ;;
+		"app "*)
+			if match "$l" '^app[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
+				ret "${M[1]}"
+				return 0
+			fi ;;
 		esac
 	done < "$path"
 	return 1
 }
 
-# The file's own header comment: the `# name -- what it is` line as the
-# summary, and the paragraph under it as the prose. Read as the About box
-# reads it, so what the catalogue says and what the app says are the same
-# words.
+# The file's own header comment: the `-- what it is` line's own paragraph,
+# and the one under it. Read as the About box reads it, so what the
+# catalogue says and what the thing says are the same words.
 fn aboutof(path) {
 	local l out= par= on=0 np=0
 
@@ -108,10 +140,6 @@ fn aboutof(path) {
 		"#!"*) continue ;;
 		esac
 		if [ "$on" = 0 ]; then
-			# The first comment line holding ` -- `, whatever is on
-			# the left of it: an app may call itself two words
-			# (`# Prayer Times -- ...`), which a pattern that
-			# wanted one token read as no header at all.
 			case $l in
 			"#"*" -- "*)
 				par=${l#*" -- "}
@@ -121,11 +149,6 @@ fn aboutof(path) {
 		fi
 		case $l in
 		"#")
-			# A blank comment line ends a paragraph, and the
-			# summary line's own paragraph *continues* on the
-			# lines under it -- without that, a header whose
-			# first sentence runs over two lines came out as two
-			# paragraphs with the sentence cut in half.
 			[ -z "$par" ] && continue
 			out="$out${out:+
 
@@ -146,25 +169,6 @@ fn aboutof(path) {
 	ret "$out"
 }
 
-# The one-line description the app declares with the `app` builtin -- the
-# line the desktop's own About box reads (dt_appline), authored for exactly
-# this and better than anything derived from a comment. Two of the apps do
-# not carry one yet, and those fall back to the header.
-fn appline(path) {
-	local l
-
-	while read -r l; do
-		case $l in
-		"app "*)
-			if match "$l" '^app[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
-				ret "${M[1]}"
-				return 0
-			fi ;;
-		esac
-	done < "$path"
-	return 1
-}
-
 # One row of the page, escaped: a summary is prose from a file nobody here
 # wrote, so it cannot be put in HTML as it stands.
 fn htesc(s) {
@@ -176,46 +180,112 @@ fn htesc(s) {
 	ret "$t"
 }
 
+# What a kind is called on the page, in the order the desktop presents them.
+fn kindname(k) {
+	case $k in
+	apps) ret "Applications" ;;
+	system) ret "The desktop's own" ;;
+	control-panel) ret "Control Panel panes" ;;
+	control-strip) ret "Control Strip modules" ;;
+	savers) ret "Screen savers" ;;
+	*) ret "$k" ;;
+	esac
+}
+
 declare -gA IX
+declare -gA SEEN
+declare -gA DUP
+declare -gA NSEEN
+TMP=$(command mktemp -d) || die "cannot make a temporary folder"
 rows=
 n=0
 
-for dir in "$HERE"/bundles/*; do
-	[ -d "$dir" ] || continue
-	name=${dir##*/}
-	bundle := newest "$dir" || die "$name: no bundle in $dir"
-	ver := verof "$bundle" "$name"
-	[ -n "$ver" ] || die "$name: $bundle has no version in its name"
-	sha := shaof "$bundle"
-	title := titleof "$bundle" "$name"
-	kind := kindof "$bundle" ||
-		die "$name: registers no dt_app, cp_pane, cs_module or sv_saver"
-	about := aboutof "$bundle"
-	if sum := appline "$bundle"; [ -n "$sum" ]; then
-		about="$sum
-
-$about"
-	else
-		sum=${about%%$'\n'*}
-	fi
-
-	IX["apps"]["$name"]["title"]=$title
-	IX["apps"]["$name"]["version"]=$ver
-	IX["apps"]["$name"]["kind"]=$kind
-	IX["apps"]["$name"]["bundle"]="bundles/$name/${bundle##*/}"
-	IX["apps"]["$name"]["sha256"]=$sha
-	IX["apps"]["$name"]["about"]=$about
-	IX["apps"]["$name"]["licence"]="MIT"
-	IX["apps"]["$name"]["author"]="Omar Sakka"
-
-	t := htesc "$title"
-	s := htesc "$sum"
-	rows="$rows<tr><td><code>$name</code></td><td>$t</td><td>$ver</td><td>$s</td></tr>
-"
-	n=$((n + 1))
-	printf '%-12s %-10s %-14s %s\n' "$name" "$ver" "$kind" "${bundle##*/}"
+# Which names mean more than one thing, found before anything is written: a
+# name is unique inside a scan root and nowhere else, so `clock` is an
+# application and a screen saver. Such a name cannot go in the older
+# `apps` section at all -- whichever was written last would be the only one
+# there, and that silent overwrite is how this was found: 54 bundles in, 53
+# entries out (Gitea #222).
+for kind in apps system control-panel control-strip savers; do
+	[ -d "$HERE/bundles/$kind" ] || continue
+	for dir in "$HERE/bundles/$kind"/*; do
+		[ -d "$dir" ] || continue
+		name=${dir##*/}
+		if [ -n "${NSEEN["$name"]+x}" ]; then
+			DUP["$name"]=1
+			printf 'note: %s is %s and %s -- named by its id only\n' \
+				"$name" "${NSEEN["$name"]}" "$kind"
+		fi
+		NSEEN["$name"]=$kind
+	done
 done
 
+for kind in apps system control-panel control-strip savers; do
+	[ -d "$HERE/bundles/$kind" ] || continue
+	krows=
+	for dir in "$HERE/bundles/$kind"/*; do
+		[ -d "$dir" ] || continue
+		name=${dir##*/}
+		bundle := newest "$dir" || die "$kind/$name: no bundle in $dir"
+		ver := verof "$bundle" "$name"
+		[ -n "$ver" ] || die "$kind/$name: $bundle has no version in its name"
+		sha := shaof "$bundle"
+		src := readable "$bundle" "$name"
+		title := titleof "$src" "$name"
+		about := aboutof "$src"
+		if sum := appline "$src"; [ -n "$sum" ]; then
+			about="$sum
+
+$about"
+		else
+			sum=${about%%$'\n'*}
+		fi
+
+		# Two sections, deliberately (Gitea #222). `entries` is keyed
+		# by the id, kind/name, because the desktop has five
+		# namespaces and a name is only unique inside one of them --
+		# `clock` is an application and a screen saver. `apps` is
+		# kept keyed by name for an `apps` older than 0.99.184, which
+		# then gets every entry whose name is unique and misses only
+		# the one it could not have named anyway.
+		id=$kind/$name
+		[ -z "${SEEN["$id"]+x}" ] ||
+			die "$id is in the catalogue twice: ${SEEN["$id"]} and $bundle"
+		SEEN["$id"]=$bundle
+		for f in title version kind bundle sha256 about licence author name; do
+			case $f in
+			title) v=$title ;;
+			version) v=$ver ;;
+			kind) v=$kind ;;
+			bundle) v="bundles/$kind/$name/${bundle##*/}" ;;
+			sha256) v=$sha ;;
+			about) v=$about ;;
+			licence) v="MIT" ;;
+			author) v="Omar Sakka" ;;
+			name) v=$name ;;
+			esac
+			IX["entries"]["$id"]["$f"]=$v
+			# A name that means two things cannot go in the older
+			# section at all: whichever was written last would be
+			# the only one there, which is the bug this fixes.
+			[ -z "${DUP["$name"]+x}" ] && IX["apps"]["$name"]["$f"]=$v
+		done
+
+		t := htesc "$title"
+		s := htesc "$sum"
+		krows="$krows<tr><td><code>$id</code></td><td>$t</td><td>$ver</td><td>$s</td></tr>
+"
+		n=$((n + 1))
+		printf '%-14s %-12s %-10s %s\n' "$kind" "$name" "$ver" "${bundle##*/}"
+	done
+	if [ -n "$krows" ]; then
+		kn := kindname "$kind"
+		rows="$rows<tr><th colspan=\"4\">$kn</th></tr>
+$krows"
+	fi
+done
+
+command rm -rf "$TMP"
 [ "$n" -gt 0 ] || die "bundles/ has nothing in it"
 
 j := json emit IX -p || die "cannot emit the index"
@@ -241,45 +311,53 @@ h2 { font-size: 1.1rem; margin-top: 2rem; }
 pre { background: var(--code); border: 1px solid var(--line); border-radius: 6px; padding: .8rem 1rem; overflow-x: auto; font-size: .88rem; }
 code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 a { color: inherit; }
-table { border-collapse: collapse; }
+table { border-collapse: collapse; width: 100%; }
 td, th { padding: .25rem 1rem .25rem 0; vertical-align: top; text-align: left; }
-th { border-bottom: 1px solid var(--line); font-weight: 600; }
+th[colspan] { padding-top: 1.4rem; border-bottom: 1px solid var(--line); font-size: .95rem; }
 td:nth-child(4) { color: var(--muted); }
 </style>
 </head>
 <body>
 <main>
 <h1>hibr apps</h1>
-<p class="lead">The application catalogue the <code>apps</code> command installs from &mdash;
-applications for the <a href="https://github.com/osakka/hibr">hibr</a> desktop, each one a
-script you can read before you run it.</p>
+<p class="lead">The catalogue the <code>apps</code> command installs from &mdash; everything
+the <a href="https://github.com/osakka/hibr">hibr</a> desktop scans for, each one a script
+you can read before you run it.</p>
 
 <h2>Use it</h2>
 <pre><code>apps list
 apps info snake
 apps install snake</code></pre>
-<p>Installing places the app where the desktop already looks
-(<code>\$XDG_DATA_HOME/hibr/apps</code>), so it is on the Applications menu the next
-time the desktop starts. <code>apps remove</code> takes it away again.</p>
+<p>Installing places a file where the desktop already looks, so it is there the next
+time the desktop starts: an application under <code>\$XDG_DATA_HOME/hibr/apps</code>, a
+Control Panel pane under <code>control-panel/</code>, and so on for all five kinds.
+Something that brings its own pane or Control Strip module travels as a tarball and
+each part is placed in the root it names. <code>apps remove</code> takes it away again,
+keeping any part another installed app brings too.</p>
 
 <h2>What is here</h2>
+<p>The first column is what you install: a name where it means one thing, and
+<code>kind/name</code> where it does not &mdash; <code>clock</code> is both an
+application and a screen saver, so each is named by its id.</p>
 <table>
-<tr><th>name</th><th>title</th><th>version</th><th>what it is</th></tr>
+<tr><th>install</th><th>title</th><th>version</th><th>what it is</th></tr>
 $rows</table>
 
 <h2>What you are trusting</h2>
-<p>An app is a hibr script and runs with everything your own shell can do: there
-is no sandbox, and there are no signatures here. TLS says which server the
-index came from, and the <code>sha256</code> in the index says the bundle was not
-changed on the way &mdash; neither says who wrote it. The bundles are plain files
-in <a href="https://github.com/osakka/hibr-apps">this repository</a>: read one
-before you install it.</p>
-<p>Every version ever published stays in <code>bundles/</code>, and the index offers
-the newest of each. The whole catalogue is one folder, so a mirror is a copy
-rather than a rewrite: <code>apps index URL</code> points at any copy of it.</p>
+<p>Everything here is a hibr script and runs with everything your own shell can do:
+there is no sandbox, and there are no signatures. TLS says which server the index came
+from, and the <code>sha256</code> in the index says the bundle was not changed on the
+way &mdash; neither says who wrote it. A bundle may not carry a <code>.so</code>: a
+module is native code and comes with hibr itself.</p>
+<p>The bundles are plain files in
+<a href="https://github.com/osakka/hibr-apps">this repository</a>: read one before you
+install it &mdash; that is the point of an app being a script. Every version ever
+published stays in <code>bundles/</code>, and the index offers the newest of each. The
+whole catalogue is one folder, so a mirror is a copy rather than a rewrite:
+<code>apps index URL</code> points at any copy of it.</p>
 </main>
 </body>
 </html>
 HTML
 
-printf '\n== %d app(s) in index.json and index.html\n' "$n"
+printf '\n== %d entries in index.json and index.html\n' "$n"
