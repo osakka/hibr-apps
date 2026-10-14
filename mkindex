@@ -38,6 +38,16 @@ DATAHIBR=0.99.187
 # (Gitea #217) arriving by a new route. An entry that brings parts says it
 # needs this, so an older client refuses it with a reason instead.
 PARTSHIBR=0.99.189
+# And what a particular thing needs, where the rules above cannot say it.
+# Both of those are derived from what an entry *is*; this is the
+# publisher's own knowledge about one entry, so it is written down with
+# its reason rather than inferred.
+declare -A ENTHIBR
+# The Applications Catalogue window reads `apps list -j`, which is 0.99.190.
+# An older `apps` takes `-j` for the text to search for and answers prose,
+# which the window names as the likely cause -- honest, and still a window
+# that lists nothing.
+ENTHIBR["system/appstore"]=0.99.190
 
 fn die(...msg) {
 	printf 'mkindex: %s\n' "${msg[*]}" >&2
@@ -455,7 +465,9 @@ for kind in $KINDS; do
 			author) v="Omar Sakka" ;;
 			name) v=$name ;;
 			hibr) v=; isdata "$kind" && v=$DATAHIBR
-			      [ -n "$pl0" ] && v=$PARTSHIBR ;;
+			      [ -n "$pl0" ] && v=$PARTSHIBR
+			      [ -n "${ENTHIBR["$id"]-}" ] &&
+				      v=${ENTHIBR["$id"]} ;;
 			esac
 			[ -n "$v" ] || [ "$f" != hibr ] || continue
 			IX["entries"]["$id"]["$f"]=$v

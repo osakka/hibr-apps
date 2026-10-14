@@ -347,7 +347,8 @@
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "appstore"
+      "name": "appstore",
+      "hibr": "0.99.190"
     },
     "system/clipboard": {
       "title": "Clipboard",
@@ -1351,7 +1352,8 @@
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "appstore"
+      "name": "appstore",
+      "hibr": "0.99.190"
     },
     "clipboard": {
       "title": "Clipboard",
