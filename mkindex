@@ -258,6 +258,62 @@ fn partsof(path, kind) {
 	ret "$out"
 }
 
+# The modules an entry needs before it can run: a `# modules:` line in its
+# own header, beside the `# part:` lines, naming them with blanks between.
+#
+# A **part** and a **module** are different relations and this is the one
+# that had no way to be said. A part is a file the entry *owns and brings*
+# -- a Control Panel pane, a Control Strip module, a theme's picture --
+# published here as a file of its own and removed with its owner,
+# refcounted so a pane two apps both bring survives the removal of one. A
+# module is owned by nobody: `pim` serves Calendar, Contacts and anybody's
+# script, and one that came with hibr is not an app's to delete. So a
+# module cannot be a part, and until now nothing in a bundle could say an
+# app needed one -- Contacts needs `pim` and `dav`, Mail needs `email`,
+# `html`, `img` and `db`, and the failure was a module error at the app's
+# first `need`, naming the module and never the app that wanted it.
+#
+# `apps` has read an index field called `modules` since it was written,
+# checks it in `ap_needs` and refuses by name with the right sentence --
+# and **nothing had ever written it**: 0 of 85 entries. This is the half
+# that was missing, which is why it is five lines rather than a mechanism.
+fn modsof(path, kind) {
+	local l out=
+
+	# Only a script has a header to say it in. A theme, a colour scheme
+	# or a language is data and runs nothing; a module's own
+	# requirements are its business and `hibr_require` resolves them.
+	case $kind in
+	themes | colours | lang | mods)
+		ret ""
+		return 0 ;;
+	esac
+	while read -r l; do
+		case $l in
+		"# modules: "*)
+			l=${l#"# modules: "}
+			out="$out${out:+ }$l" ;;
+		esac
+	done < "$path"
+	ret "$out"
+}
+
+# The folder a bundle sits in *inside* its kind, which `addapp` took from
+# where the thing lives in hibr's own tree: `bundles/apps/Internet/mail.hibr`
+# gives `Internet`, and `apps install` then places it as
+# `apps/Internet/mail.hibr` so `dt_apps` gives it the submenu a shipped
+# desktop has (Gitea #233). Derived from the path exactly as the kind is,
+# so the two cannot disagree.
+fn dirof(path, kind) {
+	local rel
+
+	rel=${path#"$HERE/bundles/$kind/"}
+	case $rel in
+	*/*) ret "${rel%/*}" ;;
+	*) ret "" ;;
+	esac
+}
+
 # What the thing calls itself: its own registration line, whichever of the
 # four it is. A later `dt_app` is a dialog of its own (Write declares
 # `wrfile` for its file box), so the first is the thing. A Control Strip
@@ -421,7 +477,7 @@ n=0
 # entries out (Gitea #222).
 for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
-	for b in "$HERE/bundles/$kind"/*; do
+	for b in "$HERE/bundles/$kind"/**; do
 		[ -f "$b" ] || continue
 		isentry "$kind" "$b" || continue
 		name := nameof "$b"
@@ -437,7 +493,7 @@ done
 for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
 	krows=
-	for bundle in "$HERE/bundles/$kind"/*; do
+	for bundle in "$HERE/bundles/$kind"/**; do
 		[ -f "$bundle" ] || continue
 		isentry "$kind" "$bundle" || continue
 		name := nameof "$bundle"
@@ -446,7 +502,11 @@ for kind in $KINDS; do
 		# Read before the fields are written, since whether this
 		# entry brings parts decides the `hibr` it declares.
 		pl0=
+		ml0=
 		march=
+		# A property of where the bundle sits, so it is read for
+		# every kind rather than inside the script branch below.
+		dr0 := dirof "$bundle" "$kind"
 		if isnative "$kind"; then
 			# A module carries no parts and says everything about
 			# itself in its descriptor, which `mod avail` reads
@@ -463,6 +523,7 @@ for kind in $KINDS; do
 			sum=$MOD_DSC
 		else
 			pl0 := partsof "$src" "$kind"
+			ml0 := modsof "$src" "$kind"
 			ver := verof "$src" "$kind" ||
 				die "$kind/$name: it declares no version -- an app says so on its \`app\` line, a theme in its own \"version\""
 		fi
@@ -555,12 +616,12 @@ for kind in $KINDS; do
 		# catalogue that is honest about one thing it knows and one that
 		# guesses about everything (Gitea #224).
 		for f in title version kind bundle sha256 about licence author \
-			 name hibr arch abi; do
+			 name hibr arch abi modules dir; do
 			case $f in
 			title) v=$title ;;
 			version) v=$ver ;;
 			kind) v=$kind ;;
-			bundle) v="bundles/$kind/${bundle##*/}" ;;
+			bundle) v="bundles/$kind${dr0:+/$dr0}/${bundle##*/}" ;;
 			sha256) v=$sha ;;
 			about) v=$about ;;
 			licence) v="MIT" ;;
@@ -577,9 +638,18 @@ for kind in $KINDS; do
 			# `apps` declines it before the fetch (ADR 0044).
 			arch) v=$march ;;
 			abi) v=; isnative "$kind" && v=$MOD_ABI ;;
+			# What this entry needs loaded before it can run,
+			# from its own `# modules:` line. `apps` has read
+			# this field and refused by name on it since it was
+			# written; nothing had ever filled it in.
+			modules) v=$ml0 ;;
+			# Where inside its kind it lands, from the bundle's
+			# own path (Gitea #233). Only `apps` has folders
+			# today; every other root is scanned flat.
+			dir) v=$dr0 ;;
 			esac
 			case $f in
-			hibr | arch | abi) [ -n "$v" ] || continue ;;
+			hibr | arch | abi | modules | dir) [ -n "$v" ] || continue ;;
 			esac
 			IX["entries"]["$id"]["$f"]=$v
 			# A name that means two things cannot go in the older
@@ -619,6 +689,8 @@ for kind in $KINDS; do
 			done
 			printf '   %s brings %s\n' "$kind/$name" "$pl"
 		fi
+		[ -n "$ml0" ] &&
+			printf '   %s needs %s\n' "$kind/$name" "$ml0"
 
 		t := htesc "$title"
 		s := htesc "$sum"

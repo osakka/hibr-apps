@@ -39,10 +39,15 @@ DESK=$TREE/examples/desktop
 
 n=0
 gone=0
-for b in "$HERE"/bundles/*/*; do
+# `**` rather than `*/*`: an application is published into the folder it
+# lives in -- `bundles/apps/Internet/mail.hibr` -- since 0.99.195
+# (Gitea #233), and a one-level glob reads those folders as entries and
+# reports four of them "gone".
+for b in "$HERE"/bundles/**; do
+	[ -f "$b" ] || continue
 	rel=${b#"$HERE"/bundles/}
 	kind=${rel%%/*}
-	file=${rel#*/}
+	file=${rel##*/}
 	[ "$kind" = mods ] && continue
 
 	# An application may live in a folder of its own inside the scan

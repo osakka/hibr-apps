@@ -285,7 +285,20 @@ parts := partsof "$src" "$kind"
 # query string is not part of the cache key, and `Cache-Control: no-cache`
 # is ignored, so no client can ask for a fresh one and a retry would fetch
 # the same bytes (Gitea #230).
-dir="$HERE/bundles/$kind"
+# The folder the thing sits in *inside* its scan root, carried into the
+# bundle's own path so `mkindex` can read it back the way it already
+# reads the kind. `kindof` set DESKTOP to the folder above the root
+# while it was walking up, which is what makes this two lines.
+#
+# Only `apps` has them -- the desktop scans every other root flat -- but
+# nothing here needs to know that: a kind with no subfolders simply
+# never produces one.
+sub=${src#"$DESKTOP/$kind/"}
+case $sub in
+*/*) sub=${sub%/*} ;;
+*) sub= ;;
+esac
+dir="$HERE/bundles/$kind${sub:+/$sub}"
 mkdir -p "$dir" || die "cannot make $dir"
 
 if [ -z "$parts" ]; then

@@ -31,7 +31,7 @@ of one folder rather than a rewrite of every entry.
 |---|---|
 | `index.json` | the catalogue: one object per entry under `entries`, keyed by `kind/name`, and the same again under `apps` keyed by name for an older `apps` |
 | `index.html` | the same thing as a page, at <https://osakka.github.io/hibr-apps> |
-| `bundles/KIND/NAME.{hibr,json}` | one plain file per entry, overwritten when a new version is published — git holds every previous one |
+| `bundles/KIND/[DIR/]NAME.{hibr,json}` | one plain file per entry, overwritten when a new version is published — git holds every previous one. An application keeps the folder it lives in (`bundles/apps/Internet/mail.hibr`), which is what puts it back in its own submenu when it is installed |
 | `addapp` | put a file in as a bundle, reading the version the thing declares |
 | `mkindex` | rebuild `index.json` and `index.html` from what is in `bundles/` |
 | `stale` | which bundles are behind the hibr tree they were copied from |
