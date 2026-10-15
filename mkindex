@@ -144,7 +144,24 @@ fn modof(path) {
 		MOD_NM=$nm; MOD_VER=$ver; MOD_ABI=$abi; MOD_DSC=$dsc
 	done <<< "$(HIBR_MODPATH=$d hibr -c 'mod avail' 2> /dev/null)"
 	rm -rf "$d"
+	# A name is not enough. `mod avail` lists a candidate it cannot
+	# open at all -- the name comes from the filename and every other
+	# column is `-` -- so an object built for another machine looks
+	# answered and is not. The ABI is the field that can only come
+	# from the descriptor, so that is the one to insist on.
+	#
+	# This is the real constraint of a per-architecture catalogue and
+	# it is worth stating plainly: reading a module's descriptor means
+	# `dlopen`ing it, which only works for objects built for the
+	# machine doing the reading. A catalogue that carries builds for
+	# several architectures has to have `mkindex` run **on** each of
+	# them, or by a pipeline that does; there is no way to learn a
+	# foreign object's ABI here, and writing `-` into the index would
+	# be recording a non-answer as an answer (ADR 0045).
 	[ -n "$MOD_NM" ] || return 1
+	case $MOD_ABI in
+	"" | *[!0-9]*) return 1 ;;
+	esac
 	return 0
 }
 
@@ -156,33 +173,8 @@ fn modof(path) {
 # ELF is read as linux: hibr builds on Linux and macOS, and macOS is
 # Mach-O, so the two magics tell them apart. A third ELF platform would
 # need the EI_OSABI byte as well, and there is no bundle for one.
-fn archof(path) {
-	local b m
-
-	# od wraps at sixteen bytes, so the newline comes out as well as the
-	# spaces -- without that the slice below reads across the break and
-	# finds `03e0` where `3e00` is.
-	b := od -An -tx1 -N20 "$path"
-	b=${b// /}
-	b=${b//$'\n'/}
-	case $b in
-	7f454c46*)
-		m=${b:36:4}
-		case $m in
-		3e00) ret "linux-x86_64"; return 0 ;;
-		b700) ret "linux-aarch64"; return 0 ;;
-		esac
-		return 1 ;;
-	cffaedfe*)
-		m=${b:8:8}
-		case $m in
-		07000001) ret "darwin-x86_64"; return 0 ;;
-		0c000001) ret "darwin-arm64"; return 0 ;;
-		esac
-		return 1 ;;
-	esac
-	return 1
-}
+# archof lives in archof.hibr, which addapp reads too.
+. "$HERE/archof.hibr"
 
 # Whether a file in a kind's folder is an entry of its own, or a **part** of
 # one. A theme brings a picture, and it lives beside the theme in the same
@@ -512,7 +504,10 @@ for kind in $KINDS; do
 			# itself in its descriptor, which `mod avail` reads
 			# without running it.
 			modof "$src" ||
-				die "$kind/$name: hibr cannot read a module descriptor in it"
+				die "$kind/$name: hibr here cannot read its descriptor.
+Reading one means dlopening the object, which works only for this
+machine's own architecture -- and this is $bundle. A catalogue with
+builds for several machines has mkindex run on each of them."
 			march := archof "$src" ||
 				die "$kind/$name: its header names no machine hibr builds for"
 			ver=$MOD_VER
@@ -600,9 +595,23 @@ for kind in $KINDS; do
 		# success and does nothing. Missing from an old client's list
 		# is the honest failure (Gitea #224).
 		id=$kind/$name
-		[ -z "${SEEN["$id"]+x}" ] ||
-			die "$id is in the catalogue twice: ${SEEN["$id"]} and $bundle"
-		SEEN["$id"]=$bundle
+		# A module is one entry with a build per machine, so the
+		# same id is reached once per architecture and that is not
+		# the duplicate this guard is for -- `mods/mermaid` built
+		# for linux-x86_64 and for darwin-arm64 is one thing a
+		# client chooses from, not two things with one name. The
+		# clash that matters is two files claiming the same id for
+		# the same machine, which is what the arch in the key
+		# catches (ADR 0045).
+		if isnative "$kind"; then
+			[ -z "${SEEN["$id/$march"]+x}" ] ||
+				die "$id for $march is in the catalogue twice: ${SEEN["$id/$march"]} and $bundle"
+			SEEN["$id/$march"]=$bundle
+		else
+			[ -z "${SEEN["$id"]+x}" ] ||
+				die "$id is in the catalogue twice: ${SEEN["$id"]} and $bundle"
+			SEEN["$id"]=$bundle
+		fi
 		# A data kind carries `hibr`, which an application deliberately
 		# does not. The README's reason for leaving it off stands for a
 		# script -- which release it needs is whatever desktop API it
@@ -651,6 +660,28 @@ for kind in $KINDS; do
 			case $f in
 			hibr | arch | abi | modules | dir) [ -n "$v" ] || continue ;;
 			esac
+			# A module's bundle, hash, machine and ABI belong to
+			# **one build** of it, not to the entry: the entry is
+			# `mods/mermaid` and it has one of these per machine
+			# it was built for. Everything else -- the title, the
+			# version, what it is -- is the same whichever build
+			# you take, so it stays where it was and is simply
+			# written again by each pass (ADR 0045).
+			#
+			# `dir` is dropped for a module outright: the folder
+			# in its bundle path is the architecture, which says
+			# where the *bundle* lives and nothing about where
+			# the module is installed, and a client reading it
+			# as a destination would put mermaid.so in
+			# `mods/linux-x86_64/`.
+			if isnative "$kind"; then
+				case $f in
+				dir) continue ;;
+				bundle | sha256 | arch | abi)
+					IX["entries"]["$id"]["builds"]["$march"]["$f"]=$v
+					continue ;;
+				esac
+			fi
 			IX["entries"]["$id"]["$f"]=$v
 			# A name that means two things cannot go in the older
 			# section at all: whichever was written last would be

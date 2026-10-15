@@ -1,0 +1,34 @@
+# archof -- the machine an object was built for, from its own header.
+#
+# Read by both `addapp`, which files a module under it, and `mkindex`,
+# which records it. One copy because it is a table of magic numbers that
+# decides where a file lands and which client may load it: two copies
+# are two that can disagree, and the disagreement would be silent.
+
+fn archof(path) {
+	local b m
+
+	# od wraps at sixteen bytes, so the newline comes out as well as the
+	# spaces -- without that the slice below reads across the break and
+	# finds `03e0` where `3e00` is.
+	b := od -An -tx1 -N20 "$path"
+	b=${b// /}
+	b=${b//$'\n'/}
+	case $b in
+	7f454c46*)
+		m=${b:36:4}
+		case $m in
+		3e00) ret "linux-x86_64"; return 0 ;;
+		b700) ret "linux-aarch64"; return 0 ;;
+		esac
+		return 1 ;;
+	cffaedfe*)
+		m=${b:8:8}
+		case $m in
+		07000001) ret "darwin-x86_64"; return 0 ;;
+		0c000001) ret "darwin-arm64"; return 0 ;;
+		esac
+		return 1 ;;
+	esac
+	return 1
+}

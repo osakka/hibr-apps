@@ -55,6 +55,19 @@ fn die(...msg) {
 	exit 1
 }
 
+# `archof`, the machine an object was built for, read from its own header
+# rather than from whoever is running this: ELF's e_machine, Mach-O's
+# cputype. A module is filed under it, so one catalogue can carry a build
+# per architecture and a client takes the one it can load (ADR 0045).
+# Only somebody else's module is ever published here -- hibr ships every
+# module it builds, in every packaging of it, because a module is bytes
+# and a source install compiles its own.
+#
+# Shared with mkindex through `archof.hibr` rather than written twice: a
+# second copy of a table of magic numbers is a second copy that can
+# disagree, and this one decides where a file lands.
+. "$HERE/archof.hibr"
+
 # The version the thing says it is -- an app on its own `app` line, a theme,
 # a colour scheme or a language in its own `version` field. Not the hibr
 # release it last changed in, which is what this read from a git log until
@@ -298,6 +311,15 @@ case $sub in
 */*) sub=${sub%/*} ;;
 *) sub= ;;
 esac
+# A module is filed under the machine it was built for, so the same name
+# can have a build per architecture and a client fetches the one it can
+# actually load. Nothing is ever compiled on the machine it runs on --
+# hibr needs libc and libdl, and a C compiler is not a dependency.
+if [ "$kind" = mods ]; then
+	march := archof "$src" ||
+		die "$src: its header names no machine hibr builds for"
+	sub=$march
+fi
 dir="$HERE/bundles/$kind${sub:+/$sub}"
 mkdir -p "$dir" || die "cannot make $dir"
 
