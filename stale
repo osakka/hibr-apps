@@ -1,0 +1,73 @@
+#!/usr/bin/env hibr
+#
+# stale -- which bundles here are behind the tree they were taken from.
+#
+#   ./stale [path/to/hibr]
+#
+# A bundle is a copy of a file in hibr's own tree, so the catalogue can
+# fall behind it silently: nothing fetches, nothing fails, and a person
+# who installs an app gets the version of it that was current whenever
+# `addapp` last ran. That cost nothing while hibr's package shipped the
+# applications as well -- most people never fetched one -- and it is the
+# whole story since 0.99.194 (Gitea #220), where the catalogue is the
+# only route and a restore from a stale catalogue is a downgrade.
+#
+# Ten were behind when this was first run, including the four apps the
+# search sweep had rewritten two releases earlier.
+#
+# The comparison is `cmp`: a bundle is published byte for byte, so
+# anything else would be a second opinion about what "the same" means.
+# Modules are skipped -- a `.so` is built, not copied -- and so is
+# anything the tree no longer has, which is a bundle to think about
+# rather than to refresh.
+#
+# A thing this reports needs more than `./addapp` on it: republishing at
+# the same version reaches nobody who already installed the old copy, so
+# bump the thing's own version in the tree first.
+
+set -u
+
+HERE=${BASH_SOURCE%/*}
+[ -n "$HERE" ] || HERE=.
+TREE=${1:-$HERE/../hibr}
+DESK=$TREE/examples/desktop
+
+[ -d "$DESK" ] || {
+	printf 'stale: %s is not a hibr tree\n' "$TREE" >&2
+	exit 1
+}
+
+n=0
+gone=0
+for b in "$HERE"/bundles/*/*; do
+	rel=${b#"$HERE"/bundles/}
+	kind=${rel%%/*}
+	file=${rel#*/}
+	[ "$kind" = mods ] && continue
+
+	# An application may live in a folder of its own inside the scan
+	# root -- Accessories, Office, Internet, Games -- so it is found
+	# by name rather than at a path. Every other kind is flat.
+	if [ "$kind" = apps ]; then
+		t := find "$DESK/apps" -name "$file"
+		t=${t%%$'\n'*}
+	else
+		t=$DESK/$kind/$file
+	fi
+
+	if [ -z "$t" ] || [ ! -f "$t" ]; then
+		printf 'gone     %-30s nothing in the tree is called this\n' "$rel"
+		gone=$((gone + 1))
+		continue
+	fi
+	cmp -s "$b" "$t" && continue
+	printf 'stale    %-30s %s\n' "$rel" "$t"
+	n=$((n + 1))
+done
+
+if [ "$n" = 0 ] && [ "$gone" = 0 ]; then
+	printf '== every bundle matches the tree\n'
+	exit 0
+fi
+printf '== %s behind, %s with no file in the tree\n' "$n" "$gone"
+exit 1

@@ -34,6 +34,7 @@ of one folder rather than a rewrite of every entry.
 | `bundles/KIND/NAME.{hibr,json}` | one plain file per entry, overwritten when a new version is published — git holds every previous one |
 | `addapp` | put a file in as a bundle, reading the version the thing declares |
 | `mkindex` | rebuild `index.json` and `index.html` from what is in `bundles/` |
+| `stale` | which bundles are behind the hibr tree they were copied from |
 
 An entry says `title`, `version`, `kind`, `bundle`, `sha256`, `about`,
 `author` and `licence`, and `parts` where it brings other files with it. An
