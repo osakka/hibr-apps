@@ -39,6 +39,7 @@ DESK=$TREE/examples/desktop
 
 n=0
 gone=0
+moved=0
 # `**` rather than `*/*`: an application is published into the folder it
 # lives in -- `bundles/apps/Internet/mail.hibr` -- since 0.99.195
 # (Gitea #233), and a one-level glob reads those folders as entries and
@@ -65,14 +66,37 @@ for b in "$HERE"/bundles/**; do
 		gone=$((gone + 1))
 		continue
 	fi
+
+	# Where an app lives is as much a part of it as what is inside it:
+	# the folder is its submenu, and `mkindex` takes the index's `dir`
+	# from the bundle's own path. Finding it by name matches it in any
+	# folder, so a comparison of bytes alone cannot see a **move** --
+	# an app shifted between submenus read as current while the index
+	# went on naming the folder it had left, and anybody installing it
+	# got it in the wrong place. That is the #233 class of bug the
+	# `dir` field exists to prevent, and this is the check that is
+	# supposed to catch it (Gitea #245).
+	bdir=${rel#"$kind"/}
+	bdir=${bdir%/*}
+	[ "$bdir" = "$file" ] && bdir=
+	tdir=${t#"$DESK/$kind/"}
+	tdir=${tdir%/*}
+	[ "$tdir" = "$file" ] && tdir=
+	if [ "$bdir" != "$tdir" ]; then
+		printf 'moved    %-30s now at %s\n' \
+			"$rel" "$kind/${tdir:+$tdir/}$file"
+		moved=$((moved + 1))
+		continue
+	fi
 	cmp -s "$b" "$t" && continue
 	printf 'stale    %-30s %s\n' "$rel" "$t"
 	n=$((n + 1))
 done
 
-if [ "$n" = 0 ] && [ "$gone" = 0 ]; then
-	printf '== every bundle matches the tree\n'
+if [ "$n" = 0 ] && [ "$gone" = 0 ] && [ "$moved" = 0 ]; then
+	printf '== every bundle matches the tree, and is where the tree keeps it\n'
 	exit 0
 fi
-printf '== %s behind, %s with no file in the tree\n' "$n" "$gone"
+printf '== %s behind, %s moved, %s with no file in the tree\n' \
+	"$n" "$moved" "$gone"
 exit 1
