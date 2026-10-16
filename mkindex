@@ -183,13 +183,22 @@ fn modof(path) {
 # extension is an entry; anything else is something an entry brings, named
 # in that entry's `parts` and fetched with it (Gitea #231).
 fn isentry(kind, path) {
-	local e
+	local e l
 
 	e := kextof "$kind"
 	case $path in
-	*"$e") return 0 ;;
+	*"$e") ;;
+	*) return 1 ;;
 	esac
-	return 1
+	# A file that says `# platform:` in its header is part of the
+	# desktop and never an entry (hibr ADR 0046) -- dropped here as well
+	# as refused by addapp, so a bundle published before the rule cannot
+	# linger in the index.
+	[ "$e" = .hibr ] || return 0
+	while IFS= read -r l; do
+		case $l in "# platform:"*) return 1 ;; "#"*) ;; *) break ;; esac
+	done < "$path"
+	return 0
 }
 
 # Whether a kind is read rather than run.

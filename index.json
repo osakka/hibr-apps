@@ -22,10 +22,10 @@
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "ba5ea6b368c68f264973c9f753836bbeeb4e7e398a14557ed9463e26c051d2a8",
+      "sha256": "ef7d9c5e8e051a74b6e811fa9285f0f254a59f64b68dafd751f617dd7bcc7bfa",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -37,7 +37,7 @@
           "kind": "control-panel",
           "as": "pimset.hibr",
           "path": "bundles/control-panel/pimset.hibr",
-          "sha256": "be87b74e2646bd7cac7131de4601e3dcf3bd7dcb38cd3c4b01a7d387af6c8165"
+          "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c"
         }
       ]
     },
@@ -57,16 +57,16 @@
           "kind": "control-panel",
           "as": "filesview.hibr",
           "path": "bundles/control-panel/filesview.hibr",
-          "sha256": "32bed629ae4fd4790195e05997ae4224ef542277248f470e5e0e66e85e726bd0"
+          "sha256": "d6687ebf0c9a9354dfbff8d49ccac538dd8fc47f40ec8da0c599ce20761c3a15"
         }
       ]
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "7bc1d26b015693b0c3083de8b75676d8139ed2e77530dd9bde2adc60b5e15081",
+      "sha256": "e22b883e6d3a742466402a9150b5c9fadb5447d2ce757e0b0a0629ccd0066461",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -78,16 +78,16 @@
           "kind": "control-panel",
           "as": "terminal.hibr",
           "path": "bundles/control-panel/terminal.hibr",
-          "sha256": "6b8987d44973100b129290db6a6e86c49ef7ea0b53f71fe49f283d1cbef10750"
+          "sha256": "82d6fb20818d79d37764a9c76b578a7e73ed9afc8a46c5d1477611f244eada9e"
         }
       ]
     },
     "apps/calendar": {
       "title": "Calendar",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "f8e81d24ee4871e97fc4f3abf9376b3949e234ae0312b35a2b35a6fe607f07e3",
+      "sha256": "641a1017aa9848d92d3c3337698ee9d68c5f7429cbdbed7bbbb8da57dddd7e12",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -99,7 +99,7 @@
           "kind": "control-panel",
           "as": "pimset.hibr",
           "path": "bundles/control-panel/pimset.hibr",
-          "sha256": "be87b74e2646bd7cac7131de4601e3dcf3bd7dcb38cd3c4b01a7d387af6c8165"
+          "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c"
         }
       ]
     },
@@ -120,7 +120,7 @@
           "kind": "control-panel",
           "as": "notes.hibr",
           "path": "bundles/control-panel/notes.hibr",
-          "sha256": "7b7cb4f670ca16c8332f08835dd2a525aa5e65ee1754ba97707a4a53a7f29010"
+          "sha256": "b3da9ea46a97d8e6a2e3e2b6b6ea219ef6cb6b4214ba0ad199bca4e9ac7fabf1"
         }
       ]
     },
@@ -239,10 +239,10 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "f03d6c4bdcae9801735d21e649ec69296c5188d8628528db83410906ef5cabd2",
+      "sha256": "15d97dd933159be7e92b521bec0865b75caccb558f1c83df950a2ace35dbe8dc",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -255,16 +255,16 @@
           "kind": "control-panel",
           "as": "mailset.hibr",
           "path": "bundles/control-panel/mailset.hibr",
-          "sha256": "7eb0fa640708a525e26f75b9ab374c0ce3253fc4f483babf8157ccd64c1f147a"
+          "sha256": "6f040710499c7691a97e0065a676b5e547627adf9444b0793a9ab6e38ff895eb"
         }
       ]
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "761897a6d8bb40a39b52a070b3b6ec1f3cb7f16b29175b29b400b36a741357b6",
+      "sha256": "30a0ae183c9ea29fd71bdff2b60512b6092fa995fe09344124d05592acbe8237",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -277,7 +277,7 @@
           "kind": "control-panel",
           "as": "tube.hibr",
           "path": "bundles/control-panel/tube.hibr",
-          "sha256": "7ac31b615de1d10571e1917adf2895f489b17161c48d56f6295770438fcca187"
+          "sha256": "5448c24d86f19c61dccc50efbab4e975826180b82f3097267c97ed25e055aeb9"
         }
       ]
     },
@@ -296,10 +296,10 @@
     },
     "apps/diagram": {
       "title": "Diagram",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/diagram.hibr",
-      "sha256": "7567715601e273c9309f3e65537abaee3eb5ded7320391a5cb53f246d28bbd90",
+      "sha256": "13aee7aae37db861ceda7e1801105a80e064ad27963e792c9b4d740707426cdc",
       "about": "A Mermaid diagram editor: the text, and the diagram\n\na Mermaid diagram editor: the text on one side, the drawing on the other, each following the other as it changes.\n\nThe editor half is widgets/textarea.hibr as it comes -- a buffer, a cursor, a selection, undo and the clipboard -- and the drawing half is mods/mermaid, which answers with the text of every row and the style of every character in it as runs. widgets/putruns.hibr draws those with a pen a letter, so the diagram is in the window's own theme colours and nothing here parses an escape sequence. See mods/mermaid/README.md for the three kinds of diagram this understands and what it says plainly that it does not.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -309,10 +309,10 @@
     },
     "apps/sheet": {
       "title": "Sheet",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "db74e27a42420ed46b51f438456d511c3319b4a8a260b88881cd044776adac3e",
+      "sha256": "8f346e62fd400dd97b7b1a78db05695cdba4f176e89fbc7614fc5571b5dfae94",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -335,10 +335,10 @@
     },
     "apps/write": {
       "title": "Write",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/write.hibr",
-      "sha256": "b7fb20fac5d0c0f73daf995ee87398ab46984532a0cdf636a45adb2f99bab568",
+      "sha256": "217be91d763966ba9c93f631fa43bbde7f550d2170b7010095f1e1dea556f0a4",
       "about": "A word processor for markdown, shown as it reads\n\na word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -356,17 +356,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "screenshot"
-    },
-    "system/panel": {
-      "title": "Control Panel",
-      "version": "1.2",
-      "kind": "system",
-      "bundle": "bundles/system/panel.hibr",
-      "sha256": "9406160adb7af300e4cd757263d5ee5fab47c865052b4731f35a9d656b56276d",
-      "about": "Control Panel, a picker of panes, and the window list\n\nControl Panel: a picker of panes down the left, the selected pane's own content on the right, System 7's Control Panels folder shape. Each pane is an ordinary hibr file that registers itself with cp_pane; this file only hosts them and draws the window list, which is not a pane, just always there.\n\nRun on its own it does nothing -- there is no pane to show without a desktop around it, unlike calc or panel's own former self.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "panel"
     },
     "system/modman": {
       "title": "Modules",
@@ -539,10 +528,10 @@
     },
     "control-panel/desktop": {
       "title": "Desktop",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "df4b7dc36059c15c5976c2fdced8b02ab6ab5725304cedda62a5ef609f575664",
+      "sha256": "ed2fdd0af86add2daa6b893c5499ef855a488b90c8ae8c835088b19e83cdc7e5",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -550,10 +539,10 @@
     },
     "control-panel/notes": {
       "title": "Stickies",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/notes.hibr",
-      "sha256": "7b7cb4f670ca16c8332f08835dd2a525aa5e65ee1754ba97707a4a53a7f29010",
+      "sha256": "b3da9ea46a97d8e6a2e3e2b6b6ea219ef6cb6b4214ba0ad199bca4e9ac7fabf1",
       "about": "The Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -572,10 +561,10 @@
     },
     "control-panel/tube": {
       "title": "YouTube",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/tube.hibr",
-      "sha256": "7ac31b615de1d10571e1917adf2895f489b17161c48d56f6295770438fcca187",
+      "sha256": "5448c24d86f19c61dccc50efbab4e975826180b82f3097267c97ed25e055aeb9",
       "about": "The Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -583,10 +572,10 @@
     },
     "control-panel/terminal": {
       "title": "Terminal",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/terminal.hibr",
-      "sha256": "6b8987d44973100b129290db6a6e86c49ef7ea0b53f71fe49f283d1cbef10750",
+      "sha256": "82d6fb20818d79d37764a9c76b578a7e73ed9afc8a46c5d1477611f244eada9e",
       "about": "The Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -661,10 +650,10 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "a9fc27f4ba80e07d051512edd65f8ee0906da348189ac0c32da40fa9c876820e",
+      "sha256": "1dce046142657f884cfbbdcf692e6f984b568d26974daf41b8f522dde76d97e4",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -694,10 +683,10 @@
     },
     "control-panel/pimset": {
       "title": "Calendar & Contacts",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pimset.hibr",
-      "sha256": "be87b74e2646bd7cac7131de4601e3dcf3bd7dcb38cd3c4b01a7d387af6c8165",
+      "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c",
       "about": "The Control Panel pane for calendars and contacts\n\nthe Control Panel pane called PIM: which of the Network Servers keep your calendars and contacts, and how often they are synced. A server is any CalDAV/CardDAV one -- Nextcloud, Fastmail, iCloud, Radicale -- set up in Network Servers with its address and an app password (one list, one login, for its files as well); each is asked once what it keeps, so a plain file server is shown as files only rather than offered. Switching a server on here starts its first sync.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -717,10 +706,10 @@
     },
     "control-panel/mailset": {
       "title": "Mail",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mailset.hibr",
-      "sha256": "7eb0fa640708a525e26f75b9ab374c0ce3253fc4f483babf8157ccd64c1f147a",
+      "sha256": "6f040710499c7691a97e0065a676b5e547627adf9444b0793a9ab6e38ff895eb",
       "about": "The Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -740,10 +729,10 @@
     },
     "control-panel/filesview": {
       "title": "Files",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filesview.hibr",
-      "sha256": "32bed629ae4fd4790195e05997ae4224ef542277248f470e5e0e66e85e726bd0",
+      "sha256": "d6687ebf0c9a9354dfbff8d49ccac538dd8fc47f40ec8da0c599ce20761c3a15",
       "about": "The Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -817,10 +806,10 @@
     },
     "control-strip/theme": {
       "title": "Theme",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-strip",
       "bundle": "bundles/control-strip/theme.hibr",
-      "sha256": "02283d3c9b2099ccbfb306fd62ad221046a030ef20553cf1b2eed2097b78c9ce",
+      "sha256": "fcbee47d1bbe945136ab3239df7c9e83200dfea914051cdd78503de733b532b5",
       "about": "A Control Strip module cycling the desktop's colour theme\n\na Control Strip module cycling the desktop's own colour theme, by its own name rather than a first letter or a swatch -- a click opens every theme as a dropdown, reusing Appearance's own cp_theme() and CP_THEMES rather than a second copy of the list of themes. If Control Panel is not loaded there is nothing to offer, so a click does nothing, honestly, rather than switching only some of the colours.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -828,10 +817,10 @@
     },
     "control-strip/cursor": {
       "title": "Cursor",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-strip",
       "bundle": "bundles/control-strip/cursor.hibr",
-      "sha256": "9d999f54ff9f2bfbda4a0686d2889475b48cccf1e79f1e84eaf9340f73d436ae",
+      "sha256": "598c6973e8c7891b310ad8fa2cd3f449ba8f2730d0e69575ac0ca4347eba815e",
       "about": "A Control Strip module for a new terminal's cursor style, the same DT_CURSOR setting Behaviour's own Cursor row changes. Its own name rather than a shape or a letter -- a click opens the three styles as a dropdown, the same as Behaviour's own Cursor row does from a click on its value, so the current style is seen and chosen in the same place.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1147,10 +1136,10 @@
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "ba5ea6b368c68f264973c9f753836bbeeb4e7e398a14557ed9463e26c051d2a8",
+      "sha256": "ef7d9c5e8e051a74b6e811fa9285f0f254a59f64b68dafd751f617dd7bcc7bfa",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1172,10 +1161,10 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "7bc1d26b015693b0c3083de8b75676d8139ed2e77530dd9bde2adc60b5e15081",
+      "sha256": "e22b883e6d3a742466402a9150b5c9fadb5447d2ce757e0b0a0629ccd0066461",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1185,10 +1174,10 @@
     },
     "calendar": {
       "title": "Calendar",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "f8e81d24ee4871e97fc4f3abf9376b3949e234ae0312b35a2b35a6fe607f07e3",
+      "sha256": "641a1017aa9848d92d3c3337698ee9d68c5f7429cbdbed7bbbb8da57dddd7e12",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1298,10 +1287,10 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "f03d6c4bdcae9801735d21e649ec69296c5188d8628528db83410906ef5cabd2",
+      "sha256": "15d97dd933159be7e92b521bec0865b75caccb558f1c83df950a2ace35dbe8dc",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1312,10 +1301,10 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "761897a6d8bb40a39b52a070b3b6ec1f3cb7f16b29175b29b400b36a741357b6",
+      "sha256": "30a0ae183c9ea29fd71bdff2b60512b6092fa995fe09344124d05592acbe8237",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1339,10 +1328,10 @@
     },
     "diagram": {
       "title": "Diagram",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/diagram.hibr",
-      "sha256": "7567715601e273c9309f3e65537abaee3eb5ded7320391a5cb53f246d28bbd90",
+      "sha256": "13aee7aae37db861ceda7e1801105a80e064ad27963e792c9b4d740707426cdc",
       "about": "A Mermaid diagram editor: the text, and the diagram\n\na Mermaid diagram editor: the text on one side, the drawing on the other, each following the other as it changes.\n\nThe editor half is widgets/textarea.hibr as it comes -- a buffer, a cursor, a selection, undo and the clipboard -- and the drawing half is mods/mermaid, which answers with the text of every row and the style of every character in it as runs. widgets/putruns.hibr draws those with a pen a letter, so the diagram is in the window's own theme colours and nothing here parses an escape sequence. See mods/mermaid/README.md for the three kinds of diagram this understands and what it says plainly that it does not.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1352,10 +1341,10 @@
     },
     "sheet": {
       "title": "Sheet",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "db74e27a42420ed46b51f438456d511c3319b4a8a260b88881cd044776adac3e",
+      "sha256": "8f346e62fd400dd97b7b1a78db05695cdba4f176e89fbc7614fc5571b5dfae94",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1378,10 +1367,10 @@
     },
     "write": {
       "title": "Write",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/write.hibr",
-      "sha256": "b7fb20fac5d0c0f73daf995ee87398ab46984532a0cdf636a45adb2f99bab568",
+      "sha256": "217be91d763966ba9c93f631fa43bbde7f550d2170b7010095f1e1dea556f0a4",
       "about": "A word processor for markdown, shown as it reads\n\na word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1399,17 +1388,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "screenshot"
-    },
-    "panel": {
-      "title": "Control Panel",
-      "version": "1.2",
-      "kind": "system",
-      "bundle": "bundles/system/panel.hibr",
-      "sha256": "9406160adb7af300e4cd757263d5ee5fab47c865052b4731f35a9d656b56276d",
-      "about": "Control Panel, a picker of panes, and the window list\n\nControl Panel: a picker of panes down the left, the selected pane's own content on the right, System 7's Control Panels folder shape. Each pane is an ordinary hibr file that registers itself with cp_pane; this file only hosts them and draws the window list, which is not a pane, just always there.\n\nRun on its own it does nothing -- there is no pane to show without a desktop around it, unlike calc or panel's own former self.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "panel"
     },
     "modman": {
       "title": "Modules",
@@ -1538,10 +1516,10 @@
     },
     "desktop": {
       "title": "Desktop",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "df4b7dc36059c15c5976c2fdced8b02ab6ab5725304cedda62a5ef609f575664",
+      "sha256": "ed2fdd0af86add2daa6b893c5499ef855a488b90c8ae8c835088b19e83cdc7e5",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1549,10 +1527,10 @@
     },
     "notes": {
       "title": "Stickies",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/notes.hibr",
-      "sha256": "7b7cb4f670ca16c8332f08835dd2a525aa5e65ee1754ba97707a4a53a7f29010",
+      "sha256": "b3da9ea46a97d8e6a2e3e2b6b6ea219ef6cb6b4214ba0ad199bca4e9ac7fabf1",
       "about": "The Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1571,10 +1549,10 @@
     },
     "tube": {
       "title": "YouTube",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/tube.hibr",
-      "sha256": "7ac31b615de1d10571e1917adf2895f489b17161c48d56f6295770438fcca187",
+      "sha256": "5448c24d86f19c61dccc50efbab4e975826180b82f3097267c97ed25e055aeb9",
       "about": "The Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1582,10 +1560,10 @@
     },
     "terminal": {
       "title": "Terminal",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/terminal.hibr",
-      "sha256": "6b8987d44973100b129290db6a6e86c49ef7ea0b53f71fe49f283d1cbef10750",
+      "sha256": "82d6fb20818d79d37764a9c76b578a7e73ed9afc8a46c5d1477611f244eada9e",
       "about": "The Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1660,10 +1638,10 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "a9fc27f4ba80e07d051512edd65f8ee0906da348189ac0c32da40fa9c876820e",
+      "sha256": "1dce046142657f884cfbbdcf692e6f984b568d26974daf41b8f522dde76d97e4",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1682,10 +1660,10 @@
     },
     "pimset": {
       "title": "Calendar & Contacts",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pimset.hibr",
-      "sha256": "be87b74e2646bd7cac7131de4601e3dcf3bd7dcb38cd3c4b01a7d387af6c8165",
+      "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c",
       "about": "The Control Panel pane for calendars and contacts\n\nthe Control Panel pane called PIM: which of the Network Servers keep your calendars and contacts, and how often they are synced. A server is any CalDAV/CardDAV one -- Nextcloud, Fastmail, iCloud, Radicale -- set up in Network Servers with its address and an app password (one list, one login, for its files as well); each is asked once what it keeps, so a plain file server is shown as files only rather than offered. Switching a server on here starts its first sync.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1705,10 +1683,10 @@
     },
     "mailset": {
       "title": "Mail",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mailset.hibr",
-      "sha256": "7eb0fa640708a525e26f75b9ab374c0ce3253fc4f483babf8157ccd64c1f147a",
+      "sha256": "6f040710499c7691a97e0065a676b5e547627adf9444b0793a9ab6e38ff895eb",
       "about": "The Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1728,10 +1706,10 @@
     },
     "filesview": {
       "title": "Files",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filesview.hibr",
-      "sha256": "32bed629ae4fd4790195e05997ae4224ef542277248f470e5e0e66e85e726bd0",
+      "sha256": "d6687ebf0c9a9354dfbff8d49ccac538dd8fc47f40ec8da0c599ce20761c3a15",
       "about": "The Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1805,10 +1783,10 @@
     },
     "theme": {
       "title": "Theme",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-strip",
       "bundle": "bundles/control-strip/theme.hibr",
-      "sha256": "02283d3c9b2099ccbfb306fd62ad221046a030ef20553cf1b2eed2097b78c9ce",
+      "sha256": "fcbee47d1bbe945136ab3239df7c9e83200dfea914051cdd78503de733b532b5",
       "about": "A Control Strip module cycling the desktop's colour theme\n\na Control Strip module cycling the desktop's own colour theme, by its own name rather than a first letter or a swatch -- a click opens every theme as a dropdown, reusing Appearance's own cp_theme() and CP_THEMES rather than a second copy of the list of themes. If Control Panel is not loaded there is nothing to offer, so a click does nothing, honestly, rather than switching only some of the colours.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1816,10 +1794,10 @@
     },
     "cursor": {
       "title": "Cursor",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-strip",
       "bundle": "bundles/control-strip/cursor.hibr",
-      "sha256": "9d999f54ff9f2bfbda4a0686d2889475b48cccf1e79f1e84eaf9340f73d436ae",
+      "sha256": "598c6973e8c7891b310ad8fa2cd3f449ba8f2730d0e69575ac0ca4347eba815e",
       "about": "A Control Strip module for a new terminal's cursor style, the same DT_CURSOR setting Behaviour's own Cursor row changes. Its own name rather than a shape or a letter -- a click opens the three styles as a dropdown, the same as Behaviour's own Cursor row does from a click on its value, so the current style is seen and chosen in the same place.",
       "licence": "MIT",
       "author": "Omar Sakka",

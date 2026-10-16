@@ -287,6 +287,22 @@ case $src in
 esac
 [ -n "$ver" ] || ver := verof "$src" "$kind"
 
+# A file that says `# platform:` in its header is part of the desktop and
+# not a thing to install: every pane runs on the Control Panel, every saver
+# on the saver framework, and a copy at another version installed into a
+# scope read before the shipped one would be the framework they all run on,
+# mismatched with them (hibr ADR 0046, Gitea #262). Refused here, at the
+# one place a file enters the catalogue, rather than left to anybody to
+# remember -- and mkindex drops an entry whose bundle says it, so one
+# published before this cannot linger in the index either.
+while IFS= read -r l; do
+	case $l in
+	"# platform:"*) die "$src: says \`# platform:\` -- it is part of the desktop, and is never installed apart from it" ;;
+	"#"*) ;;
+	*) break ;;
+	esac
+done < "$src"
+
 parts := partsof "$src" "$kind"
 # One stable path per thing, overwritten when a new version is published:
 # the version is the app's own now and lives in the index, not in a

@@ -122,8 +122,19 @@ for t in "$DESK"/apps/**/*.hibr "$DESK"/system/*.hibr \
 	# point of this direction: counting files in a folder and calling
 	# each one a pane is what made me report these two as missing.
 	case $rel in
-	savers/saver.hibr | lang/strings.txt | lang/xx.json | lang/xy.json)
+	lang/strings.txt | lang/xx.json | lang/xy.json)
 		continue ;;
+	esac
+	# A file that says `# platform:` in its header is part of the desktop
+	# -- the Control Panel, the savers' framework -- and is never
+	# published (hibr ADR 0046). Read from the file, so the next one needs
+	# no line here: this list used to name the savers' framework by hand.
+	case $rel in
+	*.hibr) plat=
+		while IFS= read -r l; do
+			case $l in "# platform:"*) plat=1; break ;; "#"*) ;; *) break ;; esac
+		done < "$t"
+		[ -n "$plat" ] && continue ;;
 	esac
 	case $rel in
 	*.hibr) grep -q '^app ' "$t" || continue ;;
