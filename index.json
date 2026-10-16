@@ -346,18 +346,6 @@
       "modules": "md mermaid",
       "dir": "Office"
     },
-    "system/appstore": {
-      "title": "Catalogue",
-      "version": "1.5",
-      "kind": "system",
-      "bundle": "bundles/system/appstore.hibr",
-      "sha256": "a0ff383df6f2348d7198dc289f7be3607799381feddd9831204c7e86c8557f3f",
-      "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "appstore",
-      "hibr": "0.99.193"
-    },
     "system/screenshot": {
       "title": "Screenshot…",
       "version": "1.0",
@@ -470,6 +458,17 @@
           "sha256": "540a4b81b55f5eb2164563f8c20bc5ea675e1981617a5a0312e3489ca3247de7"
         }
       ]
+    },
+    "system/catalogue": {
+      "title": "Catalogue",
+      "version": "2.0",
+      "kind": "system",
+      "bundle": "bundles/system/catalogue.hibr",
+      "sha256": "1357dfc2d107aefa8fad7f20bc61b5d63bf75a170411e8bb9595dadea68956ae",
+      "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "catalogue"
     },
     "control-panel/aboutme": {
       "title": "About Me",
@@ -1389,18 +1388,6 @@
       "modules": "md mermaid",
       "dir": "Office"
     },
-    "appstore": {
-      "title": "Catalogue",
-      "version": "1.5",
-      "kind": "system",
-      "bundle": "bundles/system/appstore.hibr",
-      "sha256": "a0ff383df6f2348d7198dc289f7be3607799381feddd9831204c7e86c8557f3f",
-      "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "appstore",
-      "hibr": "0.99.193"
-    },
     "screenshot": {
       "title": "Screenshot…",
       "version": "1.0",
@@ -1469,6 +1456,17 @@
       "author": "Omar Sakka",
       "name": "tasks",
       "hibr": "0.99.189"
+    },
+    "catalogue": {
+      "title": "Catalogue",
+      "version": "2.0",
+      "kind": "system",
+      "bundle": "bundles/system/catalogue.hibr",
+      "sha256": "1357dfc2d107aefa8fad7f20bc61b5d63bf75a170411e8bb9595dadea68956ae",
+      "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "catalogue"
     },
     "aboutme": {
       "title": "About Me",
