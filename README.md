@@ -100,7 +100,7 @@ that means one thing is still enough on its own.
 ## Publish
 
 ```text
-./addapp ../hibr/examples/desktop/apps/Games/snake.hibr
+./addapp ../hibr/programs/desktop/apps/Games/snake.hibr
 ./mkindex
 git add -A && git commit -m "snake 0.99.93" && git push
 ```

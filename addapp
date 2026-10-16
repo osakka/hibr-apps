@@ -2,9 +2,9 @@
 #
 # addapp -- put something installable into this catalogue as a bundle.
 #
-#   ./addapp ../hibr/examples/desktop/apps/Games/snake.hibr
-#   ./addapp ../hibr/examples/desktop/control-panel/keyboard.hibr
-#   ./addapp ../hibr/examples/desktop/apps/Internet/mail.hibr 0.99.177
+#   ./addapp ../hibr/programs/desktop/apps/Games/snake.hibr
+#   ./addapp ../hibr/programs/desktop/control-panel/keyboard.hibr
+#   ./addapp ../hibr/programs/desktop/apps/Internet/mail.hibr 0.99.177
 #
 # Anything the desktop scans for can be published: an application, one of
 # the desktop's own `system/` apps, a Control Panel pane, a Control Strip

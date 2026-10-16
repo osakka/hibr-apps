@@ -30,7 +30,7 @@ set -u
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
 TREE=${1:-$HERE/../hibr}
-DESK=$TREE/examples/desktop
+DESK=$TREE/programs/desktop
 
 [ -d "$DESK" ] || {
 	printf 'stale: %s is not a hibr tree\n' "$TREE" >&2
