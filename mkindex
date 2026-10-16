@@ -275,7 +275,7 @@ fn partsof(path, kind) {
 # first `need`, naming the module and never the app that wanted it.
 #
 # `apps` has read an index field called `modules` since it was written,
-# checks it in `ap_needs` and refuses by name with the right sentence --
+# checks it in `cat_needs` and refuses by name with the right sentence --
 # and **nothing had ever written it**: 0 of 85 entries. This is the half
 # that was missing, which is why it is five lines rather than a mechanism.
 fn modsof(path, kind) {
@@ -597,8 +597,8 @@ builds for several machines has mkindex run on each of them."
 		#
 		# A data kind is left out of that older section altogether,
 		# because an `apps` from before 0.99.186 would install one
-		# *wrongly* rather than not at all: its `ap_dest` is
-		# `$AP_DATA/$kind/$name.hibr` for every kind, so a theme
+		# *wrongly* rather than not at all: its `cat_dest` is
+		# `$CAT_DATA/$kind/$name.hibr` for every kind, so a theme
 		# would land as `themes/construction.hibr`, which nothing
 		# reading themes ever looks for -- an install that reports
 		# success and does nothing. Missing from an old client's list
@@ -629,7 +629,7 @@ builds for several machines has mkindex run on each of them."
 		# exactly: `catalogue install` could place a theme from 0.99.186 and
 		# the Appearance pane did not look in the data folder until
 		# **0.99.187**, so an older client would fetch it, verify it,
-		# put it where it belongs and show nothing. `ap_needs` refuses
+		# put it where it belongs and show nothing. `cat_needs` refuses
 		# it with a reason instead, which is the difference between a
 		# catalogue that is honest about one thing it knows and one that
 		# guesses about everything (Gitea #224).
