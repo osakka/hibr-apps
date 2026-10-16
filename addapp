@@ -293,7 +293,7 @@ parts := partsof "$src" "$kind"
 # filename, and git holds every previous version for whoever wants to
 # revert. The cost is named rather than hidden -- a static host caches the
 # index and the bundle independently, so for a few minutes after a publish
-# a client can pair an old index with a new bundle and `apps install`
+# a client can pair an old index with a new bundle and `catalogue install`
 # refuses on the sha256. Measured on GitHub Pages: ten minutes each, a
 # query string is not part of the cache key, and `Cache-Control: no-cache`
 # is ignored, so no client can ask for a fresh one and a retry would fetch
@@ -343,7 +343,7 @@ fi
 # dance this needed (--sort=name --mtime=@0 and gzip -n, so identical
 # content did not hash differently every run) is gone with it.
 #
-# `apps install` fetches each part and verifies every one of them *before*
+# `catalogue install` fetches each part and verifies every one of them *before*
 # it places any, which keeps the promise a tarball made structurally: a bad
 # bundle is refused whole rather than half-installed.
 #

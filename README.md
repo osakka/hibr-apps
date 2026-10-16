@@ -20,8 +20,13 @@ Installing places the app where the desktop already looks
 time the desktop starts; `catalogue remove` takes it away again, and
 `catalogue update` offers whatever has a newer version here than on disk.
 
-`catalogue --system install` puts it in `/var/lib/hibr` instead, for every
-user of the machine. Each scan root is read `~/.config/hibr`, then the
+`catalogue --system install` puts it in the machine's own scope instead,
+for every user of it: `$HIBR_SYSDIR`, which the shell is built with, so
+the place a thing is installed to and the place it is looked for in
+cannot drift apart. That is `/var/lib/hibr` where hibr is installed the
+way a distribution installs one, and `<prefix>/var/lib/hibr` for a
+prefixed install such as Homebrew's — a prefixed install creates nothing
+outside its own prefix (hibr 0.99.215). Each scan root is read `~/.config/hibr`, then the
 system scope, then your own, then the shipped copy — so an administrator's
 install is authoritative and a copy of your own cannot override it, while a
 file you wrote by hand still wins over both (ADR 0045, hibr 0.99.197).
@@ -40,7 +45,7 @@ of one folder rather than a rewrite of every entry.
 | `bundles/KIND/[DIR/]NAME.{hibr,json}` | one plain file per entry, overwritten when a new version is published — git holds every previous one. An application keeps the folder it lives in (`bundles/apps/Internet/mail.hibr`), which is what puts it back in its own submenu when it is installed |
 | `addapp` | put a file in as a bundle, reading the version the thing declares |
 | `mkindex` | rebuild `index.json` and `index.html` from what is in `bundles/` |
-| `stale` | which bundles are behind the hibr tree they were copied from |
+| `stale` | both directions: which bundles are behind the hibr tree they were copied from, which have moved folder, which have no file there any more — and, since it only ever looked at what was published, which files in the tree were **never** published at all. A `.hibr` with no `app` line declares no version and is not a thing the catalogue can carry, so it is exempt: `control-panel/screenshots` is rows of the Desktop pane and `control-panel/wallpaper` is a dialog Appearance opens |
 | `archof.hibr` | the machine an object was built for, read from its header — shared by `addapp` and `mkindex` so one table of magic numbers decides both where a module lands and what the index says about it |
 
 An entry says `title`, `version`, `kind`, `bundle`, `sha256`, `about`,

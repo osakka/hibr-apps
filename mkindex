@@ -43,13 +43,13 @@ PARTSHIBR=0.99.189
 # publisher's own knowledge about one entry, so it is written down with
 # its reason rather than inferred.
 declare -A ENTHIBR
-# The Catalogue window reads `apps list -j`, which is 0.99.190 -- and
+# The Catalogue window reads `catalogue list -j`, which is 0.99.190 -- and
 # since 0.99.192 it draws its tree through `widgets/tree.hibr`, which an
 # older desktop does not have: `dt_treepre` would be a command not found
-# on every row. An older `apps` also takes `-j` for the text to search
+# on every row. An older `apps` -- the command this was called before 0.99.195 -- also takes `-j` for the text to search
 # for and answers prose, which the window names as the likely cause --
 # honest, and still a window that lists nothing.
-ENTHIBR["system/appstore"]=0.99.193
+ENTHIBR["system/catalogue"]=0.99.193
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
@@ -292,7 +292,7 @@ fn modsof(path, kind) {
 
 # The folder a bundle sits in *inside* its kind, which `addapp` took from
 # where the thing lives in hibr's own tree: `bundles/apps/Internet/mail.hibr`
-# gives `Internet`, and `apps install` then places it as
+# gives `Internet`, and `catalogue install` then places it as
 # `apps/Internet/mail.hibr` so `dt_apps` gives it the submenu a shipped
 # desktop has (Gitea #233). Derived from the path exactly as the kind is,
 # so the two cannot disagree.
@@ -617,7 +617,7 @@ builds for several machines has mkindex run on each of them."
 		# script -- which release it needs is whatever desktop API it
 		# calls, which is written nowhere, so a number there would be a
 		# guess -- and does not stand here, because this one is known
-		# exactly: `apps install` could place a theme from 0.99.186 and
+		# exactly: `catalogue install` could place a theme from 0.99.186 and
 		# the Appearance pane did not look in the data folder until
 		# **0.99.187**, so an older client would fetch it, verify it,
 		# put it where it belongs and show nothing. `ap_needs` refuses
@@ -693,7 +693,7 @@ builds for several machines has mkindex run on each of them."
 
 		# What this entry brings with it, each as a plain file of its
 		# own with its own sha256, where a tarball used to carry them
-		# with an app.json inside it (Gitea #231). `apps install`
+		# with an app.json inside it (Gitea #231). `catalogue install`
 		# fetches every one and verifies them all before it places
 		# any, which is the promise the tarball made by being a single
 		# object.
@@ -777,9 +777,9 @@ the <a href="https://github.com/osakka/hibr">hibr</a> desktop scans for, each on
 you can read before you run it.</p>
 
 <h2>Use it</h2>
-<pre><code>apps list
-apps info snake
-apps install snake</code></pre>
+<pre><code>catalogue list
+catalogue info snake
+catalogue install snake</code></pre>
 <p>Installing places a file where the desktop already looks, so it is there the next
 time the desktop starts: an application under <code>\$XDG_DATA_HOME/hibr/apps</code>, a
 Control Panel pane under <code>control-panel/</code>, a theme under
@@ -787,7 +787,7 @@ Control Panel pane under <code>control-panel/</code>, a theme under
 pane, Control Strip module or picture brings it as a plain file of its own, named in
 this index with its own <code>sha256</code>, and each part is placed in the root it
 names &mdash; every one fetched and verified before any is written, so an entry with
-one bad part installs nothing at all. <code>apps remove</code> takes it away again,
+one bad part installs nothing at all. <code>catalogue remove</code> takes it away again,
 keeping any part another installed app brings too.</p>
 
 <h2>What is here</h2>

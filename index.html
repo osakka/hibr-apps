@@ -31,9 +31,9 @@ the <a href="https://github.com/osakka/hibr">hibr</a> desktop scans for, each on
 you can read before you run it.</p>
 
 <h2>Use it</h2>
-<pre><code>apps list
-apps info snake
-apps install snake</code></pre>
+<pre><code>catalogue list
+catalogue info snake
+catalogue install snake</code></pre>
 <p>Installing places a file where the desktop already looks, so it is there the next
 time the desktop starts: an application under <code>$XDG_DATA_HOME/hibr/apps</code>, a
 Control Panel pane under <code>control-panel/</code>, a theme under
@@ -41,7 +41,7 @@ Control Panel pane under <code>control-panel/</code>, a theme under
 pane, Control Strip module or picture brings it as a plain file of its own, named in
 this index with its own <code>sha256</code>, and each part is placed in the root it
 names &mdash; every one fetched and verified before any is written, so an entry with
-one bad part installs nothing at all. <code>apps remove</code> takes it away again,
+one bad part installs nothing at all. <code>catalogue remove</code> takes it away again,
 keeping any part another installed app brings too.</p>
 
 <h2>What is here</h2>
