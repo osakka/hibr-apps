@@ -93,10 +93,52 @@ for b in "$HERE"/bundles/**; do
 	n=$((n + 1))
 done
 
-if [ "$n" = 0 ] && [ "$gone" = 0 ] && [ "$moved" = 0 ]; then
-	printf '== every bundle matches the tree, and is where the tree keeps it\n'
+# And the direction this never looked: a file in the tree that was never
+# published at all. Every check above walks `bundles/**`, so the
+# catalogue could only ever be wrong about something it already had --
+# a pane added to the desktop and never added here was invisible, which
+# is how `control-panel/screenshots` and `control-panel/wallpaper` sat
+# unpublished while this printed "every bundle matches the tree".
+#
+# What is deliberately not publishable, each with its reason, because a
+# list like this is the thing that silently grows wrong: the savers'
+# shared library is not a saver; `strings.txt` is the string catalogue
+# rather than a language; `xx` and `xy` are tools/strings.py's
+# pseudo-locales, a translator's instrument; and a theme's picture is
+# carried as part of that theme's own bundle rather than as an entry.
+never=0
+for t in "$DESK"/apps/**/*.hibr "$DESK"/system/*.hibr \
+	 "$DESK"/control-panel/*.hibr "$DESK"/control-strip/*.hibr \
+	 "$DESK"/savers/*.hibr "$DESK"/themes/*.json \
+	 "$DESK"/colours/*.json "$DESK"/lang/*.json; do
+	[ -f "$t" ] || continue
+	rel=${t#"$DESK"/}
+	# Something with no `app` line declares no version, so it is not a
+	# thing the catalogue can carry at all -- it is a part of
+	# something else. control-panel/screenshots is rows of the Desktop
+	# pane, and control-panel/wallpaper is a dialog Appearance opens;
+	# both say so in their own first lines. Reading the file is what
+	# tells them apart from a pane somebody forgot, which is the whole
+	# point of this direction: counting files in a folder and calling
+	# each one a pane is what made me report these two as missing.
+	case $rel in
+	savers/saver.hibr | lang/strings.txt | lang/xx.json | lang/xy.json)
+		continue ;;
+	esac
+	case $rel in
+	*.hibr) grep -q '^app ' "$t" || continue ;;
+	esac
+	[ -f "$HERE/bundles/$rel" ] && continue
+	printf 'never    %-30s in the tree, never published\n' "$rel"
+	never=$((never + 1))
+done
+
+if [ "$n" = 0 ] && [ "$gone" = 0 ] && [ "$moved" = 0 ] && [ "$never" = 0 ]; then
+	printf '== every bundle matches the tree, and the tree has nothing unpublished\n'
 	exit 0
 fi
+[ "$never" -gt 0 ] &&
+	printf '== %s in the tree that was never published\n' "$never"
 printf '== %s behind, %s moved, %s with no file in the tree\n' \
 	"$n" "$moved" "$gone"
 exit 1
