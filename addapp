@@ -303,6 +303,23 @@ while IFS= read -r l; do
 	esac
 done < "$src"
 
+# A file another installable brings is that one's part, and goes where its
+# owner goes: published on its own it would be an entry that installs a
+# pane with no app behind it, which mkindex would then drop without a word
+# (hibr ADR 0047, Gitea #271). Asked of the owners' own `# part:` lines,
+# read the way partsof reads them.
+rel=${src#"$DESKTOP/"}
+for k in $KINDS; do
+	for o in "$DESKTOP/$k"/**; do
+		case $o in *.hibr) ;; *) continue ;; esac
+		[ -f "$o" ] || continue
+		while read -r l; do
+			[ "$l" = "# part: $rel" ] &&
+				die "$src: is a part of ${o#"$DESKTOP/"}, and goes where its owner goes -- publish that, which brings it"
+		done < "$o"
+	done
+done
+
 parts := partsof "$src" "$kind"
 # One stable path per thing, overwritten when a new version is published:
 # the version is the app's own now and lives in the index, not in a

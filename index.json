@@ -482,17 +482,6 @@
       "author": "Omar Sakka",
       "name": "displays"
     },
-    "control-panel/taskmgr": {
-      "title": "Task Manager",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/taskmgr.hibr",
-      "sha256": "2594f9fe7fe57a84111dfda152e120fedb5e3d9181da616db83391ad5b55108b",
-      "about": "The Control Panel pane for Task Manager: how often it rescans, whether its list has a scrollbar, and the order a new window starts in. Its rows appear only once Task Manager itself is loaded, the same way the Terminal pane's wait for the terminal.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "taskmgr"
-    },
     "control-panel/shortcuts": {
       "title": "Shortcuts",
       "version": "1.0",
@@ -537,17 +526,6 @@
       "author": "Omar Sakka",
       "name": "desktop"
     },
-    "control-panel/notes": {
-      "title": "Stickies",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/notes.hibr",
-      "sha256": "b3da9ea46a97d8e6a2e3e2b6b6ea219ef6cb6b4214ba0ad199bca4e9ac7fabf1",
-      "about": "The Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "notes"
-    },
     "control-panel/mouse": {
       "title": "Mouse",
       "version": "1.0",
@@ -558,39 +536,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mouse"
-    },
-    "control-panel/tube": {
-      "title": "YouTube",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/tube.hibr",
-      "sha256": "5448c24d86f19c61dccc50efbab4e975826180b82f3097267c97ed25e055aeb9",
-      "about": "The Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "tube"
-    },
-    "control-panel/terminal": {
-      "title": "Terminal",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/terminal.hibr",
-      "sha256": "82d6fb20818d79d37764a9c76b578a7e73ed9afc8a46c5d1477611f244eada9e",
-      "about": "The Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "terminal"
-    },
-    "control-panel/cliphist": {
-      "title": "Clipboard",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/cliphist.hibr",
-      "sha256": "9642dd6264cebaa8d38b5f03e43f3b73290d4bb6406973f6cffeecbd73940f6f",
-      "about": "The Control Panel pane for the clipboard's history (wm/clip.hibr): whether it is kept on disk between desktops, how many entries it keeps besides the pinned ones, and the way to it and to emptying it. Named cliphist, not clipboard, which is the desk accessory's own prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "cliphist"
     },
     "control-panel/windows": {
       "title": "Windows",
@@ -614,18 +559,6 @@
       "author": "Omar Sakka",
       "name": "datetime"
     },
-    "control-panel/prayerset": {
-      "title": "Prayer Times",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/prayerset.hibr",
-      "sha256": "02a2fc2fa842ba86795ed5c85932448763d008336befbf0e1269aec9936ae1b1",
-      "about": "The Control Panel pane for prayer times (Gitea #70, ADR 0035): where they show, how they are worked out, where the person is, and the athan. The settings are wm/prayer.hibr's; the methods are the salat module's, read from its folders.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "prayerset",
-      "modules": "salat"
-    },
     "control-panel/filetypes": {
       "title": "File Types",
       "version": "1.0",
@@ -636,17 +569,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "filetypes"
-    },
-    "control-panel/vaultset": {
-      "title": "Vault",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/vaultset.hibr",
-      "sha256": "65a587757eadebc21426e93051c346eb99269bced59a1e70505d42e23a938d67",
-      "about": "The Control Panel pane for the Bitwarden or Vaultwarden vault (Gitea #71, ADR 0036): the server and account, whether it is unlocked, when it locks itself, the PIN, syncing, and how long a copied password stays on the clipboard. The vault's own settings -- the lock timeout, the PIN -- are vw's, kept with the account; the rest are the desktop's (wm/vault.hibr).",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "vaultset"
     },
     "control-panel/appearance": {
       "title": "Appearance",
@@ -670,29 +592,6 @@
       "author": "Omar Sakka",
       "name": "versions"
     },
-    "control-panel/notifications": {
-      "title": "Notifications",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/notifications.hibr",
-      "sha256": "540a4b81b55f5eb2164563f8c20bc5ea675e1981617a5a0312e3489ca3247de7",
-      "about": "The Control Panel pane for the corner-stacked notes dt_note/dt_notify draw, and the read-only history behind them.\n\nThe pane's own id is \"notify\", not \"notifications\" -- the hidden app that opens the history window (apps/notifications.hibr) is already \"notifications\", and dt_new looks up its lifecycle hooks purely by name (<id>_draw, <id>_open, <id>_drop...); sharing one id between a pane and a window would make this pane's own dropdown handler, <id>_drop, answer to dt_new's drag-and-drop hook for that window instead -- same trap as ft_open once was, from the other direction. wallpaper.hibr's own pane id (wallpick, not wallpaper) is this same choice made before.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "notifications"
-    },
-    "control-panel/pimset": {
-      "title": "Calendar & Contacts",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/pimset.hibr",
-      "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c",
-      "about": "The Control Panel pane for calendars and contacts\n\nthe Control Panel pane called PIM: which of the Network Servers keep your calendars and contacts, and how often they are synced. A server is any CalDAV/CardDAV one -- Nextcloud, Fastmail, iCloud, Radicale -- set up in Network Servers with its address and an app password (one list, one login, for its files as well); each is asked once what it keeps, so a plain file server is shown as files only rather than offered. Switching a server on here starts its first sync.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "pimset",
-      "modules": "dav"
-    },
     "control-panel/keyboard": {
       "title": "Keyboard",
       "version": "1.0",
@@ -703,18 +602,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "keyboard"
-    },
-    "control-panel/mailset": {
-      "title": "Mail",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/mailset.hibr",
-      "sha256": "6f040710499c7691a97e0065a676b5e547627adf9444b0793a9ab6e38ff895eb",
-      "about": "The Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "mailset",
-      "modules": "email"
     },
     "control-panel/language": {
       "title": "Language",
@@ -727,17 +614,6 @@
       "author": "Omar Sakka",
       "name": "language"
     },
-    "control-panel/filesview": {
-      "title": "Files",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/filesview.hibr",
-      "sha256": "d6687ebf0c9a9354dfbff8d49ccac538dd8fc47f40ec8da0c599ce20761c3a15",
-      "about": "The Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "filesview"
-    },
     "control-panel/screensaver": {
       "title": "Screen Saver",
       "version": "1.0",
@@ -748,17 +624,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "screensaver"
-    },
-    "control-panel/abouthibr": {
-      "title": "About This Computer",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/abouthibr.hibr",
-      "sha256": "610e34ebb8c668fcf42380851e59a1c5f6bac3bf4e2f1ef202946f9e4eeeaa97",
-      "about": "The Control Panel pane for About This Computer: how often its CPU and memory figures are read again. Named abouthibr, not about, because the app's own about_draw would otherwise be taken for this pane's body.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "abouthibr"
     },
     "control-panel/control-strip": {
       "title": "Control Strip",
@@ -792,17 +657,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "wallpaper"
-    },
-    "control-strip/nextprayer": {
-      "title": "Prayer",
-      "version": "1.0",
-      "kind": "control-strip",
-      "bundle": "bundles/control-strip/nextprayer.hibr",
-      "sha256": "d18e2eb40f2160bc1ecfe1d6d427ae1b20196997497d37feab22b45756ee09fb",
-      "about": "A Control Strip module: the next prayer and its time, from the same dt_pnext the bar and Prayer Times use (Gitea #70). A click opens the Prayer Times window. Not named prayer: that is the desk accessory's prefix, and a strip module's draw would answer for it.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "nextprayer"
     },
     "control-strip/theme": {
       "title": "Theme",
@@ -1436,6 +1290,18 @@
       "name": "tasks",
       "hibr": "0.99.189"
     },
+    "notifications": {
+      "title": "Notifications",
+      "version": "1.0",
+      "kind": "system",
+      "bundle": "bundles/system/notifications.hibr",
+      "sha256": "f5bc7ebbd9b580f87690f75f088ce3df8bf8c714f38367a0371df769798f29fc",
+      "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "notifications",
+      "hibr": "0.99.189"
+    },
     "catalogue": {
       "title": "Catalogue",
       "version": "2.3",
@@ -1469,17 +1335,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "displays"
-    },
-    "taskmgr": {
-      "title": "Task Manager",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/taskmgr.hibr",
-      "sha256": "2594f9fe7fe57a84111dfda152e120fedb5e3d9181da616db83391ad5b55108b",
-      "about": "The Control Panel pane for Task Manager: how often it rescans, whether its list has a scrollbar, and the order a new window starts in. Its rows appear only once Task Manager itself is loaded, the same way the Terminal pane's wait for the terminal.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "taskmgr"
     },
     "shortcuts": {
       "title": "Shortcuts",
@@ -1525,17 +1380,6 @@
       "author": "Omar Sakka",
       "name": "desktop"
     },
-    "notes": {
-      "title": "Stickies",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/notes.hibr",
-      "sha256": "b3da9ea46a97d8e6a2e3e2b6b6ea219ef6cb6b4214ba0ad199bca4e9ac7fabf1",
-      "about": "The Control Panel pane for Stickies: the colour a new note starts in, whether every note opens with the desktop, whether notes are on every workspace, and the way to a new note or to all of them. Named notes, not stickies, which is the desk accessory's own prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "notes"
-    },
     "mouse": {
       "title": "Mouse",
       "version": "1.0",
@@ -1546,39 +1390,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mouse"
-    },
-    "tube": {
-      "title": "YouTube",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/tube.hibr",
-      "sha256": "5448c24d86f19c61dccc50efbab4e975826180b82f3097267c97ed25e055aeb9",
-      "about": "The Control Panel pane for the YouTube app: how the picture is drawn, the quality YouTube's player is asked to fetch, and how many frames a second the window draws and how finely, both of which decide how much a terminal is sent; whether the next video plays by itself, and forgetting what was watched. Named tube, not youtube, because the app owns the youtube_ prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "tube"
-    },
-    "terminal": {
-      "title": "Terminal",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/terminal.hibr",
-      "sha256": "82d6fb20818d79d37764a9c76b578a7e73ed9afc8a46c5d1477611f244eada9e",
-      "about": "The Control Panel pane for how a terminal window behaves: its scrollbar, whether its title follows what the program inside reports, whether a mouse selection is copied as it is made, whether it closes when the program in it ends, whose colours its text and background are, and its cursor.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "terminal"
-    },
-    "cliphist": {
-      "title": "Clipboard",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/cliphist.hibr",
-      "sha256": "9642dd6264cebaa8d38b5f03e43f3b73290d4bb6406973f6cffeecbd73940f6f",
-      "about": "The Control Panel pane for the clipboard's history (wm/clip.hibr): whether it is kept on disk between desktops, how many entries it keeps besides the pinned ones, and the way to it and to emptying it. Named cliphist, not clipboard, which is the desk accessory's own prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "cliphist"
     },
     "windows": {
       "title": "Windows",
@@ -1602,18 +1413,6 @@
       "author": "Omar Sakka",
       "name": "datetime"
     },
-    "prayerset": {
-      "title": "Prayer Times",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/prayerset.hibr",
-      "sha256": "02a2fc2fa842ba86795ed5c85932448763d008336befbf0e1269aec9936ae1b1",
-      "about": "The Control Panel pane for prayer times (Gitea #70, ADR 0035): where they show, how they are worked out, where the person is, and the athan. The settings are wm/prayer.hibr's; the methods are the salat module's, read from its folders.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "prayerset",
-      "modules": "salat"
-    },
     "filetypes": {
       "title": "File Types",
       "version": "1.0",
@@ -1624,17 +1423,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "filetypes"
-    },
-    "vaultset": {
-      "title": "Vault",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/vaultset.hibr",
-      "sha256": "65a587757eadebc21426e93051c346eb99269bced59a1e70505d42e23a938d67",
-      "about": "The Control Panel pane for the Bitwarden or Vaultwarden vault (Gitea #71, ADR 0036): the server and account, whether it is unlocked, when it locks itself, the PIN, syncing, and how long a copied password stays on the clipboard. The vault's own settings -- the lock timeout, the PIN -- are vw's, kept with the account; the rest are the desktop's (wm/vault.hibr).",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "vaultset"
     },
     "appearance": {
       "title": "Appearance",
@@ -1658,18 +1446,6 @@
       "author": "Omar Sakka",
       "name": "versions"
     },
-    "pimset": {
-      "title": "Calendar & Contacts",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/pimset.hibr",
-      "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c",
-      "about": "The Control Panel pane for calendars and contacts\n\nthe Control Panel pane called PIM: which of the Network Servers keep your calendars and contacts, and how often they are synced. A server is any CalDAV/CardDAV one -- Nextcloud, Fastmail, iCloud, Radicale -- set up in Network Servers with its address and an app password (one list, one login, for its files as well); each is asked once what it keeps, so a plain file server is shown as files only rather than offered. Switching a server on here starts its first sync.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "pimset",
-      "modules": "dav"
-    },
     "keyboard": {
       "title": "Keyboard",
       "version": "1.0",
@@ -1680,18 +1456,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "keyboard"
-    },
-    "mailset": {
-      "title": "Mail",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/mailset.hibr",
-      "sha256": "6f040710499c7691a97e0065a676b5e547627adf9444b0793a9ab6e38ff895eb",
-      "about": "The Control Panel pane for Mail (apps/Internet/mail.hibr): the accounts -- each opening a dialog to change it, and one to add another -- how much is kept offline, how often mail is checked for, whether attached pictures are drawn, and a signature. Accounts are the email module's own list, readable only by you; this pane never shows a password.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "mailset",
-      "modules": "email"
     },
     "language": {
       "title": "Language",
@@ -1704,17 +1468,6 @@
       "author": "Omar Sakka",
       "name": "language"
     },
-    "filesview": {
-      "title": "Files",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/filesview.hibr",
-      "sha256": "d6687ebf0c9a9354dfbff8d49ccac538dd8fc47f40ec8da0c599ce20761c3a15",
-      "about": "The Control Panel pane for Files: the view a folder opens in until it is given one of its own, and forgetting every folder's; whether its right-click menu offers Open With and Open Terminal Here, and what shell the second starts. Named filesview, not files, because the app already owns the files_ prefix.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "filesview"
-    },
     "screensaver": {
       "title": "Screen Saver",
       "version": "1.0",
@@ -1725,17 +1478,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "screensaver"
-    },
-    "abouthibr": {
-      "title": "About This Computer",
-      "version": "1.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/abouthibr.hibr",
-      "sha256": "610e34ebb8c668fcf42380851e59a1c5f6bac3bf4e2f1ef202946f9e4eeeaa97",
-      "about": "The Control Panel pane for About This Computer: how often its CPU and memory figures are read again. Named abouthibr, not about, because the app's own about_draw would otherwise be taken for this pane's body.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "abouthibr"
     },
     "control-strip": {
       "title": "Control Strip",
@@ -1769,17 +1511,6 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "wallpaper"
-    },
-    "nextprayer": {
-      "title": "Prayer",
-      "version": "1.0",
-      "kind": "control-strip",
-      "bundle": "bundles/control-strip/nextprayer.hibr",
-      "sha256": "d18e2eb40f2160bc1ecfe1d6d427ae1b20196997497d37feab22b45756ee09fb",
-      "about": "A Control Strip module: the next prayer and its time, from the same dt_pnext the bar and Prayer Times use (Gitea #70). A click opens the Prayer Times window. Not named prayer: that is the desk accessory's prefix, and a strip module's draw would answer for it.",
-      "licence": "MIT",
-      "author": "Omar Sakka",
-      "name": "nextprayer"
     },
     "theme": {
       "title": "Theme",

@@ -190,6 +190,12 @@ fn isentry(kind, path) {
 	*"$e") ;;
 	*) return 1 ;;
 	esac
+	# A file some entry brings is that entry's part, never an entry of its
+	# own: installing it alone puts a pane in place with no app behind it
+	# (hibr Gitea #271, ADR 0047). Every bundle is in the folder of the kind
+	# it lands as, so being in bundles/control-panel/ says where a file
+	# goes, not who it belongs to.
+	[ -z "${CLAIMED["${path#"$HERE/bundles/"}"]+x}" ] || return 1
 	# A file that says `# platform:` in its header is part of the
 	# desktop and never an entry (hibr ADR 0046) -- dropped here as well
 	# as refused by addapp, so a bundle published before the rule cannot
@@ -466,6 +472,7 @@ declare -gA IX
 declare -gA SEEN
 declare -gA DUP
 declare -gA NSEEN
+declare -gA CLAIMED
 TMP=$(command mktemp -d) || die "cannot make a temporary folder"
 rows=
 n=0
@@ -476,6 +483,22 @@ n=0
 # `apps` section at all -- whichever was written last would be the only one
 # there, and that silent overwrite is how this was found: 54 bundles in, 53
 # entries out (Gitea #222).
+#
+# And which files are some entry's parts, before either: isentry asks. A
+# module brings nothing, and is not text to read for `# part:` lines.
+for kind in $KINDS; do
+	[ -d "$HERE/bundles/$kind" ] || continue
+	[ "$kind" = mods ] && continue
+	ke := kextof "$kind"
+	for b in "$HERE/bundles/$kind"/**; do
+		[ -f "$b" ] || continue
+		case $b in *"$ke") ;; *) continue ;; esac
+		pl := partsof "$b" "$kind"
+		for p in $pl; do
+			CLAIMED["$p"]=1
+		done
+	done
+done
 for kind in $KINDS; do
 	[ -d "$HERE/bundles/$kind" ] || continue
 	for b in "$HERE/bundles/$kind"/**; do
