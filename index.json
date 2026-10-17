@@ -261,10 +261,10 @@
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "cac43f8a54576ae36f899a322dc4e53aa23e7c6275822366b35d609f967e45fa",
+      "sha256": "04b08f3c8a0367c6021ae5220ec50ba50b91e12cb90a9ef80a24a51d5f38589e",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -283,16 +283,25 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "bdf3d1067026e2062c0d8bfb6030c7e9d14367acbd07955f2821438c17b0afcf",
+      "sha256": "d021312b4dff38d67dbb1922a5e70428f67a93653b3ca18c841ea3c3ac3ff9b7",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser",
+      "hibr": "0.99.189",
       "modules": "web",
-      "dir": "Internet"
+      "dir": "Internet",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "browserset.hibr",
+          "path": "bundles/control-panel/browserset.hibr",
+          "sha256": "56473bb4af365a2f9db5b9d12a16a82e69287b517e0d7b84a6b39f39998359dc"
+        }
+      ]
     },
     "apps/diagram": {
       "title": "Diagram",
@@ -964,11 +973,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "2.0",
+      "version": "2.1",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "c1c88c9c80735ed7daaa3ac1979b6213f93af6d6442cf7b4652e93051257870b",
-      "about": "The desktop's own words in العربية (ar): 984 strings, read right to left.",
+      "sha256": "7376ec05572e8476342cf38f9bf309435821f081b1677e1c9f79a08bb478e1a6",
+      "about": "The desktop's own words in العربية (ar): 1015 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1155,10 +1164,10 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "cac43f8a54576ae36f899a322dc4e53aa23e7c6275822366b35d609f967e45fa",
+      "sha256": "04b08f3c8a0367c6021ae5220ec50ba50b91e12cb90a9ef80a24a51d5f38589e",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1169,14 +1178,15 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "bdf3d1067026e2062c0d8bfb6030c7e9d14367acbd07955f2821438c17b0afcf",
+      "sha256": "d021312b4dff38d67dbb1922a5e70428f67a93653b3ca18c841ea3c3ac3ff9b7",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser",
+      "hibr": "0.99.189",
       "modules": "web",
       "dir": "Internet"
     },
