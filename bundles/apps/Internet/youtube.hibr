@@ -31,7 +31,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 1.2
+app youtube "YouTube, in a window" 1.4
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -52,7 +52,10 @@ YT_QUALITY="${YT_QUALITY-tiny}"
 YT_FPS="${YT_FPS-24}"
 YT_DETAIL="${YT_DETAIL-2}"
 YT_AUTONEXT="${YT_AUTONEXT-1}"
-command -v dt_keep > /dev/null && dt_keep YT_MODE YT_QUALITY YT_FPS YT_DETAIL YT_AUTONEXT
+# Whether a playing video keeps the screen saver, and the lock with it,
+# away: on unless chosen otherwise, the owner's choice (Gitea #277).
+YT_SAVERHOLD="${YT_SAVERHOLD-1}"
+command -v dt_keep > /dev/null && dt_keep YT_MODE YT_QUALITY YT_FPS YT_DETAIL YT_AUTONEXT YT_SAVERHOLD
 YT_MODES=(follow half ascii mono pixels)
 YT_DATA="${YT_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/youtube}"
 YT_HIST="$YT_DATA/history.tsv"
@@ -757,6 +760,22 @@ fn youtube_resume(int id) {
 
 # A window not drawn still carries what the page fetches, or the pipes and
 # the page would fall behind; it is drawn again when it is seen.
+# Whether this window is keeping the screen awake: a video playing, not
+# paused or finished, in a window that is not minimised, with Control Panel
+# > YouTube's Keep the Screen Saver Away While Playing on (Gitea #277). The
+# desktop asks only at the moment its screen saver would start, so this
+# reads the player once then, rather than every frame, and holds nothing
+# that could be left behind.
+fn youtube_awake(int id) {
+	local i
+
+	[ "${YT_SAVERHOLD:-1}" = 1 ] || return 1
+	[ "${YT[$id]["state"]}" = playing ] && [ -n "${YT[$id]["p"]}" ] || return 1
+	dt_hidden "$id" && return 1
+	i := media info "${YT[$id]["p"]}" 2> /dev/null
+	[ "${i["paused"]}" != 1 ] && [ "${i["ended"]}" != 1 ]
+}
+
 fn youtube_idle(int id) {
 	[ "${YT[$id]["view"]}" = play ] && yt_tick "$id"
 	return 0
