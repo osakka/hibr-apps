@@ -430,10 +430,10 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "f5bc7ebbd9b580f87690f75f088ce3df8bf8c714f38367a0371df769798f29fc",
+      "sha256": "9d6764eb29316a4768dd7090f0e66c391f972e28f1a97859486f0a8e5fafa3f5",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -444,7 +444,7 @@
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "540a4b81b55f5eb2164563f8c20bc5ea675e1981617a5a0312e3489ca3247de7"
+          "sha256": "6ba746b049a86965a0bfc99823cbb048dcd6cf79d1a413d48fa1e7e58b1fba86"
         }
       ]
     },
@@ -964,11 +964,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "1.8",
+      "version": "1.9",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "f965cba25a3949589ab6709486cdab62037e33367c5139dcbcb717aa59e309c8",
-      "about": "The desktop's own words in العربية (ar): 977 strings, read right to left.",
+      "sha256": "ea59f9a7efc5974073ae77451db14cd6f0e16815761bffc619a860448fdd1a7e",
+      "about": "The desktop's own words in العربية (ar): 983 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1292,10 +1292,10 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "f5bc7ebbd9b580f87690f75f088ce3df8bf8c714f38367a0371df769798f29fc",
+      "sha256": "9d6764eb29316a4768dd7090f0e66c391f972e28f1a97859486f0a8e5fafa3f5",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "MIT",
       "author": "Omar Sakka",
