@@ -1,6 +1,6 @@
 # ADR 0004: Blit Mouse shares the canonical Blit controller
 
-- Status: implementation in progress, pane0.1.5
+- Status: implemented and catalogue-published, pane0.1.5; physical acceptance pending
 - Date: 2026-10-18
 - Issues: itdlabs/blit#102, hibr-apps#1
 

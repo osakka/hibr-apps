@@ -5,10 +5,12 @@ and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
-Use Blit0.1.546 or newer for durable startup migration. Pane0.1.4 uses the
-independent-grid API introduced in0.1.545, Hibr0.99.244's Control Panel framework,
-and `curl`. Callback/API acceptance includes Hibr0.99.241 and0.99.244, ABI16;
-the latter is retested against the0.1.546 server binary. The default
+Pane0.1.5 registers **Blit** and **Blit Mouse** under Hardware in the same
+catalogue bundle. Use Blit0.1.549 for pointer appearance;0.1.546 introduced
+durable independent-grid startup migration. Requirements remain Hibr0.99.244
+or newer (ABI16) and `curl`. Actual callbacks, private credential/native
+preference restoration, Mouse slider/save and isolated catalogue lifecycle
+were retested with installed Hibr0.99.250 against the0.1.549 candidate. The default
 server is `http://127.0.0.1:8080`; set Server and API Token in the pane for a
 network server. The token is masked and remembered in a user-private0600
 JSON file at `$XDG_CONFIG_HOME/hibr/blit/connection.json` (default
@@ -32,6 +34,22 @@ Hibr Displays owns subsequent native placement. Live rows show the server's
 effective states and reasons. **Retry stopped auxiliaries** explicitly permits
 a new attempt. The pane runs no reconnect controller and saves no second
 configuration file.
+
+## Blit Mouse
+
+Choose arrow, hand or precision; pearl, obsidian, neon or amber; pixel size
+24–64 and optional shadow. Size is independent of font scale. The same artwork
+is cached by SDL and direct KMS, with matching hotspots. The pane also exposes
+present pointer devices, including mixed keyboard/pointer devices, and stages
+sensitivity, flat/adaptive acceleration, natural scrolling and wheel steps.
+Other devices and unedited fields are preserved.
+
+**Save all staged Blit settings** applies and saves the shared draft from both
+Blit panes with the original revision guard. This is not a separate mouse
+preferences file or polling worker. Appearance requires the server's
+`settings.effective.pointer`; older servers show an upgrade notice. Hibr's
+existing Mouse pane still owns window-manager behaviour. Appearance is not a
+claim that the physical pointer performance issue is resolved.
 
 ## Additional physical displays
 
