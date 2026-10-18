@@ -65,9 +65,9 @@ ENTHIBR["apps/browser"]=0.99.247
 # Windows 1.1's Zoom Fills row reads DT_ZOOMFILL and DT_ZOOMFILLS, which the
 # window manager has from 0.99.248 (hibr Gitea #286).
 ENTHIBR["control-panel/windows"]=0.99.248
-# X Screen runs on the xscr module, which hibr ships from 0.99.250 (hibr
+# X Screen 1.1 needs the xscr module of 0.99.251, which gained manage, fit and title (hibr
 # Gitea #290); on an older hibr the window would say the module is missing.
-ENTHIBR["apps/xscreen"]=0.99.250
+ENTHIBR["apps/xscreen"]=0.99.251
 ENTHIBR["control-panel/wallset"]=0.99.246
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
