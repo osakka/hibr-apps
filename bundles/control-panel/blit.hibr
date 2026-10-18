@@ -1,0 +1,393 @@
+#!/usr/bin/env hibr
+# blit -- API configuration and diagnostics for the Blit display server.
+#
+# Auxiliary Apply
+# changes the running policy; Save as Default writes Blit's existing settings
+# resource with revision protection. Login preferences take effect at restart.
+# Font changes use Blit's live-and-saved font API. Hibr Displays continues to
+# own native desktop arrangement after initial attachment.
+# Every network request runs in a bounded background job. The connection token
+# lives only in this desktop's memory, is masked in its editor, and is excluded
+# from configuration exports. The privileged updater token is never requested.
+strict
+app blit "API configuration and diagnostics for the Blit display server" 0.1.0
+command -v cp_pane > /dev/null && cp_pane blit "Blit Displays" "▦" hardware
+
+BCP_URL=${BLIT_CP_URL:-http://127.0.0.1:8080}
+BCP_TOKEN=
+BCP_DIR=
+BCP_BUSY=0
+BCP_STATUS="Connect to read the server"
+BCP_LAST=0
+BCP_DIRTY=0
+BCP_BASE_REV=-1
+BCP_OPERATION=
+BCP_HTTP_CODE=000
+declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_DIALOG BCP_HTTP
+json parse BCP_SNAPSHOT '{}'
+json parse BCP_LIVE '{}'
+json parse BCP_DRAFT '{}'
+
+fn blit_cp_ready() {
+    [ -n "$BCP_DIR" ] && return 0
+    umask 077
+    BCP_DIR=$(command mktemp -d "${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-blit-XXXXXX") || return 1
+}
+
+# Worker-only HTTP. Credentials travel through curl's stdin configuration,
+# never its argv, request files, logs, or exported configuration.
+fn blit_cp_auth() {
+    [ -z "$BCP_TOKEN" ] || printf 'header = "Authorization: Bearer %s"\n' "$BCP_TOKEN"
+    return 0
+}
+fn blit_cp_http(method, path, body = "", revision = "") {
+    local code rc raw
+    local -a argv
+    argv=(--silent --show-error --connect-timeout 2 --max-time 6
+        --max-filesize 5242880 --proto '=http,https' --config -
+        --request "$method" --header 'Content-Type: application/json'
+        --output "$BCP_DIR/body" --write-out '%{http_code}' "$BCP_URL$path")
+    [ -z "$revision" ] || argv+=(--header "If-Match: $revision")
+    if [ -n "$body" ]; then
+        printf '%s' "$body" > "$BCP_DIR/request.json"
+        argv+=(--data-binary "@$BCP_DIR/request.json")
+    fi
+    if [ "$method" = POST ]; then
+        argv+=(--header "Idempotency-Key: blit-panel-$$-$EPOCHREALTIME")
+    fi
+    code=$(blit_cp_auth | command curl "${argv[@]}" 2> "$BCP_DIR/error")
+    rc=$?
+    BCP_HTTP_CODE=${code:-000}
+    [ "$rc" = 0 ] || { BCP_HTTP_CODE=000; return 1; }
+    json parse BCP_HTTP < "$BCP_DIR/body" 2> /dev/null || return 1
+    case $code in 2??) return 0 ;; *) return 1 ;; esac
+}
+
+fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "") {
+    [ "$BCP_BUSY" = 0 ] || return 1
+    if ! command -v curl > /dev/null; then BCP_STATUS="curl is required"; return 1; fi
+    BCP_URL=${BCP_URL%/}
+    if ! match "$BCP_URL" '^https?://([A-Za-z0-9._-]+|\[[0-9A-Fa-f:]+\])(:[0-9]+)?$'; then
+        BCP_STATUS="Use an http(s) server URL without a path"; return 1
+    fi
+    case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_STATUS="Invalid bearer token characters"; return 1 ;; esac
+    blit_cp_ready || { BCP_STATUS="Cannot create private job directory"; return 1; }
+    command rm -f "$BCP_DIR/done"
+    BCP_BUSY=1
+    BCP_OPERATION=$what
+    BCP_STATUS="Working: $what"
+    (
+        command -v dt_jobname > /dev/null && dt_jobname blit "$what"
+        local ok=0 raw
+        local -A envelope
+        if [ "$what" = refresh ]; then
+            json parse envelope '{}'
+            if blit_cp_http GET /v1/diagnostics/observation; then
+                raw := json emit BCP_HTTP
+                json parse 'envelope[snapshot]' "$raw"
+                if blit_cp_http GET /v1/auxiliary-displays; then
+                    raw := json emit BCP_HTTP
+                    json parse 'envelope[auxiliary]' "$raw"
+                    json emit envelope > "$BCP_DIR/reply"
+                    ok=1
+                fi
+            fi
+        elif blit_cp_http "$method" "$path" "$body" "$revision"; then
+            json emit BCP_HTTP > "$BCP_DIR/reply"
+            ok=1
+        fi
+        if [ "$ok" = 0 ]; then
+            if [ -s "$BCP_DIR/body" ]; then command cp "$BCP_DIR/body" "$BCP_DIR/reply";
+            else printf '{}' > "$BCP_DIR/reply"; fi
+        fi
+        printf '%s %s\n' "$ok" "${BCP_HTTP_CODE:-000}" > "$BCP_DIR/done"
+    ) &
+    command -v dt_want > /dev/null && dt_want 150
+    return 0
+}
+
+fn blit_cp_poll() {
+    local ok code raw
+    local -A reply
+    [ "$BCP_BUSY" = 1 ] || return 0
+    command -v dt_want > /dev/null && dt_want 150
+    [ -s "$BCP_DIR/done" ] || return 0
+    read -r ok code < "$BCP_DIR/done"
+    BCP_BUSY=0
+    BCP_LAST=$EPOCHSECONDS
+    if ! json parse reply < "$BCP_DIR/reply" 2> /dev/null; then
+        BCP_STATUS="HTTP $code: invalid JSON response"; return 0
+    fi
+    if [ "$ok" != 1 ]; then
+        if [ "$code" = 000 ]; then BCP_STATUS="Offline or request timed out";
+        else BCP_STATUS="HTTP $code: ${reply[code]:-${reply[title]:-request failed}}"; fi
+        return 0
+    fi
+    case $BCP_OPERATION in
+    refresh)
+        raw := json get reply .snapshot
+        json parse BCP_SNAPSHOT "$raw"
+        raw := json get reply .auxiliary
+        json parse BCP_LIVE "$raw"
+        if [ "$BCP_DIRTY" = 0 ]; then
+            raw := json get BCP_SNAPSHOT .settings.document
+            json parse BCP_DRAFT "$raw"
+            BCP_BASE_REV=${BCP_SNAPSHOT[settings][revision]}
+        fi
+        BCP_STATUS="Connected: ${BCP_SNAPSHOT[version][server_version]}"
+        if [ "$BCP_DIRTY" = 1 ] && [ "$BCP_BASE_REV" != "${BCP_SNAPSHOT[settings][revision]}" ]; then
+            BCP_STATUS="Settings changed elsewhere; reload before saving"
+        fi
+        ;;
+    apply | retry)
+        raw := json emit reply
+        json parse BCP_LIVE "$raw"
+        BCP_STATUS="Apply accepted; inspect auxiliary state"
+        BCP_LAST=0
+        ;;
+    save)
+        raw := json emit reply
+        json parse 'BCP_SNAPSHOT[settings]' "$raw"
+        raw := json get reply .document
+        json parse BCP_DRAFT "$raw"
+        BCP_BASE_REV=${reply[revision]}
+        BCP_DIRTY=0
+        BCP_STATUS="Save: ${reply[storage][state]} (revision ${reply[storage][saved_revision]})"
+        ;;
+    font)
+        raw := json emit reply
+        json parse 'BCP_SNAPSHOT[fonts]' "$raw"
+        BCP_STATUS="Font applied; settings save queued"
+        BCP_LAST=0
+        ;;
+    esac
+    return 0
+}
+
+fn blit_cp_auxiliary_json() {
+    local raw
+    raw := json get BCP_DRAFT .auxiliary_displays 2> /dev/null || raw='[]'
+    [ -n "$raw" ] && [ "$raw" != null ] || raw='[]'
+    ret "$raw"
+}
+
+fn blit_cp_toggle(output, ordinal) {
+    local i=0 raw n=0 found=0
+    local -A old fresh
+    raw := blit_cp_auxiliary_json
+    json parse old "$raw"
+    json parse fresh '[]'
+    while [ -n "${old[$i][output]}" ]; do
+        if [ "${old[$i][output]}" = "$output" ] && [ "${old[$i][pane_ordinal]}" = "$ordinal" ]; then
+            found=1
+        else
+            raw := json get old ".[$i]"
+            json parse "fresh[$n]" "$raw"
+            n=$((n + 1))
+        fi
+        i=$((i + 1))
+    done
+    if [ "$found" = 0 ]; then
+        json set fresh ".[$n].output" "$output" -s
+        json set fresh ".[$n].pane_ordinal" "$ordinal"
+    fi
+    raw := json emit fresh
+    json parse 'BCP_DRAFT[auxiliary_displays]' "$raw"
+    BCP_DIRTY=1
+}
+
+fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
+    CP[$w][$n][kind]=$kind; CP[$w][$n][text]=$text
+    CP[$w][$n][val]=$value; CP[$w][$n][key]=$key; CP[$w][$n][wtype]=$wtype
+}
+
+fn blit_rows(int w) {
+    local n=0 i=0 j output ordinal pane on state raw
+    local -A desired
+    blit_cp_poll
+    if [ "$BCP_BUSY" = 0 ] && [ $((EPOCHSECONDS - BCP_LAST)) -ge 3 ]; then blit_cp_start refresh; fi
+    command -v dt_want > /dev/null && dt_want 1000
+    blit_cp_row "$w" "$n" head Connection; n=$((n + 1))
+    blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
+    state=unset; [ -n "$BCP_TOKEN" ] && state=set
+    blit_cp_row "$w" "$n" action "API Token (memory only)" "$state" token; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
+    [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
+    blit_cp_row "$w" "$n" head "Startup Login (save, then restart)"; n=$((n + 1))
+    on=off; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && on=on
+    blit_cp_row "$w" "$n" set "Login enabled" "$on" enabled bool; n=$((n + 1))
+    blit_cp_row "$w" "$n" set "Preferred primary pane" "${BCP_DRAFT[login][preferred_pane_id]:-auto}" primary; n=$((n + 1))
+    blit_cp_row "$w" "$n" set Fallback "${BCP_DRAFT[login][fallback]:-first_available}" fallback; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Native desktop" "${BCP_SNAPSHOT[login][desktop][state]}"; n=$((n + 1))
+    blit_cp_row "$w" "$n" head "Auxiliary panes (staged)"; n=$((n + 1))
+    raw := blit_cp_auxiliary_json; json parse desired "$raw"
+    while [ -n "${BCP_SNAPSHOT[topology][panes][$i][id]}" ]; do
+        pane=${BCP_SNAPSHOT[topology][panes][$i][id]}
+        ordinal=${pane##*-}
+        output=
+        j=0
+        while [ -n "${BCP_SNAPSHOT[displays][displays][$j][id]}" ]; do
+            if [ "${BCP_SNAPSHOT[displays][displays][$j][id]}" = "${BCP_SNAPSHOT[topology][panes][$i][display_id]}" ]; then
+                output=${BCP_SNAPSHOT[displays][displays][$j][state][connector]:-${BCP_SNAPSHOT[displays][displays][$j][name]}}
+                break
+            fi
+            j=$((j + 1))
+        done
+        on=off; j=0
+        while [ -n "${desired[$j][output]}" ]; do
+            [ "${desired[$j][output]}" = "$output" ] && [ "${desired[$j][pane_ordinal]}" = "$ordinal" ] && on=on
+            j=$((j + 1))
+        done
+        blit_cp_row "$w" "$n" set "$output pane $ordinal (${BCP_SNAPSHOT[topology][panes][$i][bounds][width]}x${BCP_SNAPSHOT[topology][panes][$i][bounds][height]})" "$on" "aux:$output:$ordinal" bool
+        n=$((n + 1)); i=$((i + 1))
+    done
+    blit_cp_row "$w" "$n" action "Apply auxiliaries now" "" apply; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Retry stopped auxiliaries" "" retry; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Save as Default" "rev $BCP_BASE_REV" save; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Storage" "${BCP_SNAPSHOT[settings][storage][state]}"; n=$((n + 1))
+    blit_cp_row "$w" "$n" head "Live auxiliary status"; n=$((n + 1))
+    i=0
+    while [ -n "${BCP_LIVE[bindings][$i][output]}" ]; do
+        blit_cp_row "$w" "$n" info "${BCP_LIVE[bindings][$i][output]}/${BCP_LIVE[bindings][$i][pane_ordinal]}: ${BCP_LIVE[bindings][$i][state]}" "${BCP_LIVE[bindings][$i][reason]}"
+        n=$((n + 1)); i=$((i + 1))
+    done
+    blit_cp_row "$w" "$n" head "Font (live with automatic save)"; n=$((n + 1))
+    blit_cp_row "$w" "$n" set Font "${BCP_SNAPSHOT[fonts][active][id]}" font; n=$((n + 1))
+    blit_cp_row "$w" "$n" set Scale "${BCP_SNAPSHOT[fonts][active][scale]}" scale; n=$((n + 1))
+    blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
+    blit_cp_row "$w" "$n" info Backend "${BCP_SNAPSHOT[server][display_backend][name]}"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Export staged configuration" "" export; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Import configuration (stage only)" "" import; n=$((n + 1))
+    ret "$n"
+}
+
+fn blit_do(int w, key, int dir) {
+    local raw body pane=auto i=0 value tenths output ordinal
+    local -a choices
+    local -A payload
+    [ "$BCP_BUSY" = 0 ] || return 0
+    case $key in
+    url | token) blit_cp_edit "$key"; return 0 ;;
+    reload) BCP_DIRTY=0; BCP_BASE_REV=-1; blit_cp_start refresh; return 0 ;;
+    enabled)
+        value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
+        json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
+    primary)
+        choices=(auto)
+        while [ -n "${BCP_SNAPSHOT[topology][panes][$i][id]}" ]; do choices+=("${BCP_SNAPSHOT[topology][panes][$i][id]}"); i=$((i + 1)); done
+        value=${BCP_DRAFT[login][preferred_pane_id]:-auto}; [ "$value" = null ] && value=auto
+        value := cp_next "$value" "$dir" "${choices[@]}"
+        if [ "$value" = auto ]; then json set BCP_DRAFT .login.preferred_pane_id null;
+        else json set BCP_DRAFT .login.preferred_pane_id "$value" -s; fi
+        BCP_DIRTY=1 ;;
+    fallback)
+        value := cp_next "${BCP_DRAFT[login][fallback]:-first_available}" "$dir" first_available wait
+        json set BCP_DRAFT .login.fallback "$value" -s; BCP_DIRTY=1 ;;
+    aux:*) output=${key#aux:}; ordinal=${output##*:}; output=${output%:*}; blit_cp_toggle "$output" "$ordinal" ;;
+    apply | retry)
+        raw := blit_cp_auxiliary_json
+        json parse payload '{}'; json parse 'payload[bindings]' "$raw"
+        [ "$key" != retry ] || json set payload .retry_stopped true
+        body := json emit payload
+        blit_cp_start "$key" POST /v1/auxiliary-displays/apply "$body" "${BCP_LIVE[revision]}" ;;
+    save)
+        raw := json emit BCP_DRAFT
+        json parse payload '{}'; json parse 'payload[document]' "$raw"
+        body := json emit payload
+        blit_cp_start save PUT /v1/settings "$body" "$BCP_BASE_REV" ;;
+    font)
+        while [ -n "${BCP_SNAPSHOT[fonts][profiles][$i][id]}" ]; do
+            [ "${BCP_SNAPSHOT[fonts][profiles][$i][available]}" != true ] || choices+=("${BCP_SNAPSHOT[fonts][profiles][$i][id]}")
+            i=$((i + 1))
+        done
+        value := cp_next "${BCP_SNAPSHOT[fonts][active][id]}" "$dir" "${choices[@]}"
+        json parse payload '{}'; json set payload .font_id "$value" -s
+        body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
+    scale)
+        value=${BCP_SNAPSHOT[fonts][active][scale]}
+        match "$value" '^([123])([.]([0-9]))?$' || return 1
+        tenths=$((M[1] * 10 + ${M[3]:-0} + dir))
+        [ "$tenths" -ge 10 ] && [ "$tenths" -le 30 ] || return 0
+        value="$((tenths / 10)).$((tenths % 10))"
+        json parse payload '{}'; json set payload .scale "$value"
+        body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
+    export) dt_filepick save "Export Blit Configuration" "JSON:*.json" "$HOME" blit.json blit_cp_exported "" ;;
+    import) dt_filepick open "Import Blit Configuration" "JSON:*.json" "$HOME" "" blit_cp_imported "" ;;
+    esac
+    return 0
+}
+
+fn blit_cp_exported(path, context = "") {
+    [ -n "$path" ] || return 0
+    umask 077
+    if json emit BCP_DRAFT -p > "$path"; then BCP_STATUS="Exported configuration (no connection secrets)";
+    else BCP_STATUS="Export failed"; fi
+}
+fn blit_cp_imported(path, context = "") {
+    local -A doc
+    [ -n "$path" ] || return 0
+    if ! json parse doc < "$path" 2> /dev/null || [ "${doc[version]}" != 1 ]; then
+        BCP_STATUS="Import needs a version 1 Blit settings document"; return 0
+    fi
+    local raw
+    raw := json emit doc; json parse BCP_DRAFT "$raw"
+    BCP_DIRTY=1
+    BCP_STATUS="Imported draft; Apply auxiliaries or Save as Default"
+}
+
+# One ordinary Hibr text dialog, also used for the masked token field.
+fn blit_cp_edit(key) {
+    local id value
+    value=$BCP_URL; [ "$key" != token ] || value=$BCP_TOKEN
+    id := dt_new "Blit Connection" 9 64 $(((DT_ROWS - 9) / 2)) $(((DT_COLS - 64) / 2)) blitconn
+    BCP_DIALOG[$id][key]=$key; BCP_DIALOG[$id][value]=$value
+    BCP_DIALOG[$id][cursor]=${#value}; BCP_DIALOG[$id][focus]=value
+}
+fn blitconn_draw(int id, int h, int w, int row, int col) {
+    local value=${BCP_DIALOG[$id][value]} focus=${BCP_DIALOG[$id][focus]} active=0
+    dt_wclear "$id"
+    console pen "$DT_INK" "$DT_FACE"
+    dt_tput "$id" 1 2 "${BCP_DIALOG[$id][key]} (connection only, not exported)"
+    [ "${BCP_DIALOG[$id][key]}" != token ] || value := str repeat '*' "${#value}"
+    [ "$focus" != value ] || active=1
+    dt_textdraw "$id" 3 2 $((w - 4)) "$value" "${BCP_DIALOG[$id][cursor]}" "$active"
+    dt_wreg "$id" 3 2 $((w - 4)) value
+    dt_dlgbtns "$id" "$h" "$w" "$focus" ok Connect cancel Cancel
+}
+fn blitconn_key(int id, key) {
+    local focus=${BCP_DIALOG[$id][focus]} direction result onbutton=1
+    [ "$focus" != value ] || onbutton=0
+    if direction := dt_focuskey "$key" "$onbutton"; then
+        BCP_DIALOG[$id][focus] := dt_focus "$focus" "$direction" value ok cancel; return 0
+    fi
+    case $key in escape) dt_del "$id"; return 0 ;; enter) blitconn_do "$id" "$focus"; return 0 ;; esac
+    [ "$focus" = value ] || return 1
+    result := dt_textkey "${BCP_DIALOG[$id][value]}" "${BCP_DIALOG[$id][cursor]}" "$key" || return 1
+    BCP_DIALOG[$id][value]=${result% *}; BCP_DIALOG[$id][cursor]=${result##* }
+}
+fn blitconn_click(int id, int r, int c, button = "") {
+    local tag
+    tag := dt_hit "$id" "$r" "$c" || return 0
+    BCP_DIALOG[$id][focus]=$tag
+    if [ "$tag" = value ]; then
+        BCP_DIALOG[$id][cursor]=$((c - 2))
+        [ "${BCP_DIALOG[$id][cursor]}" -ge 0 ] || BCP_DIALOG[$id][cursor]=0
+        [ "${BCP_DIALOG[$id][cursor]}" -le "${#BCP_DIALOG[$id][value]}" ] || BCP_DIALOG[$id][cursor]=${#BCP_DIALOG[$id][value]}
+    else blitconn_do "$id" "$tag"; fi
+}
+fn blitconn_do(int id, what) {
+    if [ "$what" = cancel ]; then dt_del "$id"; return 0; fi
+    [ "$BCP_BUSY" = 0 ] || return 0
+    if [ "${BCP_DIALOG[$id][key]}" = token ]; then BCP_TOKEN=${BCP_DIALOG[$id][value]};
+    else
+        BCP_URL=${BCP_DIALOG[$id][value]}; BCP_DIRTY=0; BCP_BASE_REV=-1
+        json parse BCP_SNAPSHOT '{}'; json parse BCP_DRAFT '{}'; json parse BCP_LIVE '{}'
+    fi
+    BCP_LAST=0
+    dt_del "$id"
+    blit_cp_start refresh
+}
+fn blitconn_close(int id) { unset "BCP_DIALOG[$id]"; }

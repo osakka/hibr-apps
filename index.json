@@ -601,6 +601,17 @@
       "author": "Omar Sakka",
       "name": "versions"
     },
+    "control-panel/blit": {
+      "title": "Blit Displays",
+      "version": "0.1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/blit.hibr",
+      "sha256": "98f50445fc82c37aeda2012a577a84d5f41f13c67d135d2bbaba22a4cd460342",
+      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token lives only in this desktop's memory, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "blit"
+    },
     "control-panel/keyboard": {
       "title": "Keyboard",
       "version": "1.0",
@@ -1455,6 +1466,17 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "versions"
+    },
+    "blit": {
+      "title": "Blit Displays",
+      "version": "0.1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/blit.hibr",
+      "sha256": "98f50445fc82c37aeda2012a577a84d5f41f13c67d135d2bbaba22a4cd460342",
+      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token lives only in this desktop's memory, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "blit"
     },
     "keyboard": {
       "title": "Keyboard",

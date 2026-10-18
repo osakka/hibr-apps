@@ -15,6 +15,10 @@ catalogue info snake
 catalogue install snake
 ```
 
+`catalogue install control-panel/blit` adds **Blit Displays** to Control Panel.
+It configures Blit's API-owned display policy, fonts and login defaults, with
+live state and diagnostics. See [Blit setup and behavior](docs/blit.md).
+
 Installing places the app where the desktop already looks
 (`$XDG_DATA_HOME/hibr/apps`), so it is on the Applications menu the next
 time the desktop starts; `catalogue remove` takes it away again, and

@@ -589,7 +589,8 @@ builds for several machines has mkindex run on each of them."
 				# `name --` in the file and is written in lower
 				# case for that. Where the two genuinely
 				# differ, both are kept, declaration first.
-				local first rest a b
+				# This catalogue loop is at file scope, not inside a function.
+				first=; rest=; a=; b=
 				first=${about%%$'\n'*}
 				rest=${about#"$first"}
 				rest=${rest#$'\n'}
