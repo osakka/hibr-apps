@@ -5,9 +5,10 @@ and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
-Pane0.1.3 requires Blit0.1.545's independent-grid API, Hibr0.99.244's Control Panel framework,
+Use Blit0.1.546 or newer for durable startup migration. Pane0.1.3 uses the
+independent-grid API introduced in0.1.545, Hibr0.99.244's Control Panel framework,
 and `curl`. Callback/API acceptance includes Hibr0.99.241 and0.99.244, ABI16;
-the latter is retested against the0.1.545 server binary. The default
+the latter is retested against the0.1.546 server binary. The default
 server is `http://127.0.0.1:8080`; set Server and API Token in the pane for a
 network server. The token is masked and remembered in a user-private0600
 JSON file at `$XDG_CONFIG_HOME/hibr/blit/connection.json` (default
