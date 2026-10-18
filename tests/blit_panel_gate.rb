@@ -43,7 +43,12 @@ Dir.mktmpdir('blit-panel') do |root|
       source /usr/share/hibr/desktop/system/panel.hibr
       source '#{ROOT}/bundles/control-panel/blit.hibr'
       [ "${CP_PANES[blit][title]}" = Blit ] || { echo 'pane title is not Blit' >&2; exit 1; }
-      fn dt_want(...args) { return 0; }
+      BCP_TEST_WAKE=0
+      fn dt_want(int ms) {
+          [ "$BCP_TEST_WAKE" = 0 ] || [ "$ms" -ge "$BCP_TEST_WAKE" ] || BCP_TEST_WAKE=$ms
+          [ "$BCP_TEST_WAKE" != 0 ] || BCP_TEST_WAKE=$ms
+          return 0
+      }
       fn finish() {
           local i=0
           while [ "$BCP_BUSY" = 1 ]; do
@@ -60,6 +65,26 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "$BCP_BASE_REV" -ge 0 ] || { echo "refresh failed: $BCP_STATUS" >&2; exit 1; }
       n := blit_rows 44
       [ "$n" -gt 20 ] || { echo 'pane rows missing' >&2; exit 1; }
+      # Old three-second polling launches here even though a quiet refresh
+      # is not due. Actual API worker and callbacks, not source inspection.
+      BCP_LAST=$((EPOCHSECONDS - 4))
+      BCP_NEXT=$((EPOCHSECONDS + 15))
+      BCP_TEST_WAKE=0
+      before=$BCP_STATUS
+      n := blit_rows 44
+      [ "$BCP_BUSY" = 0 ] || { echo 'idle redraw launched early refresh' >&2; exit 20; }
+      [ "$BCP_TEST_WAKE" -ge 14000 ] || { echo "idle wake too aggressive: $BCP_TEST_WAKE" >&2; exit 21; }
+      BCP_NEXT=0
+      BCP_TEST_WAKE=0
+      n := blit_rows 44
+      [ "$BCP_BUSY" = 1 ] && [ "$BCP_STATUS" = "$before" ] || { echo 'automatic refresh changed visible status' >&2; exit 22; }
+      [ "$BCP_TEST_WAKE" = 250 ] || { echo 'busy wake differs from bounded polling' >&2; exit 23; }
+      finish
+      [ $((BCP_NEXT - EPOCHSECONDS)) -ge 14 ] || { echo 'refresh completion did not schedule idle deadline' >&2; exit 24; }
+      BCP_NEXT=0
+      n := blit_rows 999999
+      [ "$BCP_BUSY" = 0 ] || { echo 'search scratch rows launched a request' >&2; exit 25; }
+      BCP_NEXT=$((EPOCHSECONDS + 15))
       base=$BCP_BASE_REV
       output=${BCP_SNAPSHOT[displays][displays][0][name]}
       blit_cp_toggle "$output" 1
@@ -95,10 +120,24 @@ Dir.mktmpdir('blit-panel') do |root|
       command chmod 0700 '#{root}'
       case "$BCP_STATUS" in 'HTTP 503:'*) ;; *) echo "save failure hidden: $BCP_STATUS" >&2; exit 12 ;; esac
       [ "$BCP_DIRTY" = 1 ] || { echo 'save failure discarded draft' >&2; exit 13; }
+      BCP_FAILURES=0
       BCP_TOKEN=wrong-token
       blit_cp_start refresh
       finish
       case "$BCP_STATUS" in 'HTTP 401:'*) ;; *) echo "auth hidden: $BCP_STATUS" >&2; exit 10 ;; esac
+      [ $((BCP_NEXT - EPOCHSECONDS)) -ge 14 ] || { echo 'first read failure lacks backoff' >&2; exit 26; }
+      blit_cp_start refresh
+      finish
+      [ $((BCP_NEXT - EPOCHSECONDS)) -ge 29 ] || { echo 'second read failure lacks backoff' >&2; exit 27; }
+      blit_cp_start refresh
+      finish
+      [ $((BCP_NEXT - EPOCHSECONDS)) -ge 59 ] || { echo 'third read failure lacks capped backoff' >&2; exit 28; }
+      BCP_URL=invalid-url
+      BCP_NEXT=0
+      n := blit_rows 44
+      count=$BCP_FAILURES
+      n := blit_rows 44
+      [ "$BCP_BUSY" = 0 ] && [ "$BCP_FAILURES" = "$count" ] || { echo 'invalid connection retries every redraw' >&2; exit 29; }
       BCP_URL='http://127.0.0.1:1'
       blit_cp_start refresh
       finish
@@ -132,7 +171,7 @@ Dir.mktmpdir('blit-panel') do |root|
     abort('token leaked through export') if File.read(File.join(root,'export.json')).include?('panel-test-token')
     document=JSON.parse(File.read(File.join(root,'export.json')))
     abort('export is not structured settings') unless document['auxiliary_displays'].is_a?(Array)
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit apply_save=separate conflict=preserved auth=reported offline=reported scale=1.1 token=masked export=no_secrets'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported scale=1.1 token=masked export=no_secrets'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil

@@ -10,7 +10,7 @@
 # lives only in this desktop's memory, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.1
+app blit "API configuration and diagnostics for the Blit display server" 0.1.2
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 
 BCP_URL=${BLIT_CP_URL:-http://127.0.0.1:8080}
@@ -19,6 +19,9 @@ BCP_DIR=
 BCP_BUSY=0
 BCP_STATUS="Connect to read the server"
 BCP_LAST=0
+BCP_NEXT=0
+BCP_FAILURES=0
+BCP_REFRESH_SECONDS=15
 BCP_DIRTY=0
 BCP_BASE_REV=-1
 BCP_OPERATION=
@@ -63,19 +66,30 @@ fn blit_cp_http(method, path, body = "", revision = "") {
     case $code in 2??) return 0 ;; *) return 1 ;; esac
 }
 
-fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "") {
+fn blit_cp_schedule(failed = "0") {
+    local seconds=$BCP_REFRESH_SECONDS i=1
+    if [ "$failed" = 1 ]; then
+        [ "$BCP_FAILURES" -ge 3 ] || BCP_FAILURES=$((BCP_FAILURES + 1))
+        while [ "$i" -lt "$BCP_FAILURES" ]; do seconds=$((seconds * 2)); i=$((i + 1)); done
+    else BCP_FAILURES=0; fi
+    BCP_NEXT=$((EPOCHSECONDS + seconds))
+}
+
+fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "", quiet = "0") {
     [ "$BCP_BUSY" = 0 ] || return 1
-    if ! command -v curl > /dev/null; then BCP_STATUS="curl is required"; return 1; fi
+    # Schedule before validation too: a failed start must not retry per draw.
+    BCP_NEXT=$((EPOCHSECONDS + BCP_REFRESH_SECONDS))
+    if ! command -v curl > /dev/null; then BCP_STATUS="curl is required"; blit_cp_schedule 1; return 1; fi
     BCP_URL=${BCP_URL%/}
     if ! match "$BCP_URL" '^https?://([A-Za-z0-9._-]+|\[[0-9A-Fa-f:]+\])(:[0-9]+)?$'; then
-        BCP_STATUS="Use an http(s) server URL without a path"; return 1
+        BCP_STATUS="Use an http(s) server URL without a path"; blit_cp_schedule 1; return 1
     fi
-    case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_STATUS="Invalid bearer token characters"; return 1 ;; esac
-    blit_cp_ready || { BCP_STATUS="Cannot create private job directory"; return 1; }
+    case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_STATUS="Invalid bearer token characters"; blit_cp_schedule 1; return 1 ;; esac
+    blit_cp_ready || { BCP_STATUS="Cannot create private job directory"; blit_cp_schedule 1; return 1; }
     command rm -f "$BCP_DIR/done"
     BCP_BUSY=1
     BCP_OPERATION=$what
-    BCP_STATUS="Working: $what"
+    [ "$quiet" = 1 ] || BCP_STATUS="Working: $what"
     (
         command -v dt_jobname > /dev/null && dt_jobname blit "$what"
         local ok=0 raw
@@ -102,7 +116,7 @@ fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "") {
         fi
         printf '%s %s\n' "$ok" "${BCP_HTTP_CODE:-000}" > "$BCP_DIR/done"
     ) &
-    command -v dt_want > /dev/null && dt_want 150
+    command -v dt_want > /dev/null && dt_want 250
     return 0
 }
 
@@ -110,19 +124,22 @@ fn blit_cp_poll() {
     local ok code raw
     local -A reply
     [ "$BCP_BUSY" = 1 ] || return 0
-    command -v dt_want > /dev/null && dt_want 150
+    command -v dt_want > /dev/null && dt_want 250
     [ -s "$BCP_DIR/done" ] || return 0
     read -r ok code < "$BCP_DIR/done"
     BCP_BUSY=0
     BCP_LAST=$EPOCHSECONDS
     if ! json parse reply < "$BCP_DIR/reply" 2> /dev/null; then
+        blit_cp_schedule 1
         BCP_STATUS="HTTP $code: invalid JSON response"; return 0
     fi
     if [ "$ok" != 1 ]; then
+        blit_cp_schedule 1
         if [ "$code" = 000 ]; then BCP_STATUS="Offline or request timed out";
         else BCP_STATUS="HTTP $code: ${reply[code]:-${reply[title]:-request failed}}"; fi
         return 0
     fi
+    blit_cp_schedule
     case $BCP_OPERATION in
     refresh)
         raw := json get reply .snapshot
@@ -144,6 +161,7 @@ fn blit_cp_poll() {
         json parse BCP_LIVE "$raw"
         BCP_STATUS="Apply accepted; inspect auxiliary state"
         BCP_LAST=0
+        BCP_NEXT=0
         ;;
     save)
         raw := json emit reply
@@ -159,6 +177,7 @@ fn blit_cp_poll() {
         json parse 'BCP_SNAPSHOT[fonts]' "$raw"
         BCP_STATUS="Font applied; settings save queued"
         BCP_LAST=0
+        BCP_NEXT=0
         ;;
     esac
     return 0
@@ -202,11 +221,22 @@ fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
 }
 
 fn blit_rows(int w) {
-    local n=0 i=0 j output ordinal pane on state raw
+    local n=0 i=0 j output ordinal pane on state raw left
     local -A desired
-    blit_cp_poll
-    if [ "$BCP_BUSY" = 0 ] && [ $((EPOCHSECONDS - BCP_LAST)) -ge 3 ]; then blit_cp_start refresh; fi
-    command -v dt_want > /dev/null && dt_want 1000
+    # Hibr asks every pane for scratch rows during search; that is not a
+    # visible pane and must not start I/O or wake the desktop.
+    if [ "$w" != 999999 ]; then
+        blit_cp_poll
+        if [ "$BCP_BUSY" = 0 ] && [ "$EPOCHSECONDS" -ge "$BCP_NEXT" ]; then
+            blit_cp_start refresh GET "" "" "" 1
+        fi
+        if [ "$BCP_BUSY" = 1 ]; then left=250;
+        else
+            left=$(((BCP_NEXT - EPOCHSECONDS) * 1000))
+            [ "$left" -gt 0 ] || left=1000
+        fi
+        command -v dt_want > /dev/null && dt_want "$left"
+    fi
     blit_cp_row "$w" "$n" head Connection; n=$((n + 1))
     blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
     state=unset; [ -n "$BCP_TOKEN" ] && state=set

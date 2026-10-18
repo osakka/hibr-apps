@@ -28,7 +28,7 @@ With Blit0.1.543's SDL backend, display discovery runs at server startup;
 live display add/remove reconciliation is not implemented. Plugging in another
 monitor while the service is running is therefore not promised to add its
 panes to the API or this panel. The panel refreshes server observations every
-three seconds, but it cannot discover hardware independently of Blit.
+15 seconds while selected, but it cannot discover hardware independently of Blit.
 
 For monitors detected at startup, the panel lists their panes. Select the
 desired auxiliary panes, **Apply auxiliaries now**, and **Save as Default**
@@ -51,7 +51,12 @@ Requests run in one background job with a two-second connection timeout,
 six-second per-request deadline and bounded response size. Callbacks poll
 completed files in a private temporary directory. Measured frame rate, render
 duration, backend and native readiness come from Blit's observation resource.
-They do not establish a monitor-wide performance guarantee.
+Those measurements do not establish a monitor-wide performance guarantee.
+Automatic refresh does not replace the visible status with `Working`; explicit
+actions still show progress. Successful reads schedule the next refresh after
+15 seconds, failures back off to15/30/60 seconds, and only an in-flight job
+requests250ms completion checks. There is no permanent one-second desktop wake.
+Search scratch rows perform no I/O. See[ADR0002](adr/0002-quiet-bounded-background-refresh.md).
 
 Run `ruby tests/blit_panel_gate.rb` with `BLIT_ROOT` pointing to Blit's checkout
 to test actual Hibr callbacks against a local Blit binary. Catalogue lifecycle
