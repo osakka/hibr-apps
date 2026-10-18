@@ -10,6 +10,7 @@ require 'open3'
 ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
+EXPECTED_VERSION=File.read(File.join(BLIT,'packaging/VERSION')).strip
 PORT=Integer(ENV.fetch('BLIT_PANEL_UI_PORT','19496'))
 BASE=URI("http://127.0.0.1:#{PORT}")
 def req(method,path,body=nil)
@@ -65,7 +66,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       cells=req('GET',surface)['cells']
       cells.group_by{|c|c['y']}.sort.map{|_,row|row.sort_by{|c|c['x']}.map{|c|c['text']}.join}.join("\n")
     end
-    snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?('Connected: 0.1.543') && t.include?('Apply auxiliaries')}
+    snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?("Connected: #{EXPECTED_VERSION}") && t.include?('Apply auxiliaries')}
     capture=->(name) do
       File.write(File.join(output,"#{name}.txt"),text.call)
       bmp=Net::HTTP.get(BASE+'/v1/diagnostics/screenshots/display-1')

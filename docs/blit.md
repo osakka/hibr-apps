@@ -24,6 +24,17 @@ configuration file.
 
 ## Additional physical displays
 
+With direct KMS Blit0.1.544 or newer, the backend reconciles live monitor
+connections on its selected DRM device. The pane exposes new panes on its
+next quiet refresh (up to15 seconds after the preceding read); it does not
+restart the server or become a separate hardware watcher. Select auxiliaries,
+Apply and Save as Default as usual. Saved bindings wait for absent connectors
+and may provision new standbys after they return and native ownership is
+authenticated. Primary migration is not automatic. Inspect the API's
+`diagnostics.render.hotplug` for observer status and activation/teardown errors.
+Actual physical multi-output/unplug/replug acceptance is separate from the
+server's deterministic mocked-DRM lifecycle tests.
+
 With Blit0.1.543's SDL backend, display discovery runs at server startup;
 live display add/remove reconciliation is not implemented. Plugging in another
 monitor while the service is running is therefore not promised to add its
