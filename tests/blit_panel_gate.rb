@@ -42,6 +42,7 @@ Dir.mktmpdir('blit-panel') do |root|
       strict
       source /usr/share/hibr/desktop/system/panel.hibr
       source '#{ROOT}/bundles/control-panel/blit.hibr'
+      [ "${CP_PANES[blit][title]}" = Blit ] || { echo 'pane title is not Blit' >&2; exit 1; }
       fn dt_want(...args) { return 0; }
       fn finish() {
           local i=0

@@ -15,7 +15,7 @@ catalogue info snake
 catalogue install snake
 ```
 
-`catalogue install control-panel/blit` adds **Blit Displays** to Control Panel.
+`catalogue install control-panel/blit` adds **Blit** to Control Panel.
 It configures Blit's API-owned display policy, fonts and login defaults, with
 live state and diagnostics. See [Blit setup and behavior](docs/blit.md).
 

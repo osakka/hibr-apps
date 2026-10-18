@@ -8,7 +8,9 @@ ROOT=File.expand_path('..',__dir__)
 source=File.binread(File.join(ROOT,'bundles/control-panel/blit.hibr'))
 entry=JSON.parse(File.read(File.join(ROOT,'index.json'))).fetch('entries').fetch('control-panel/blit')
 abort('generated bundle checksum disagrees') unless entry['sha256']==Digest::SHA256.hexdigest(source)
-older=source.sub('server" 0.1.0','server" 0.0.9')
+abort('catalogue title is not Blit') unless entry['title']=='Blit'
+current=entry.fetch('version')
+older=source.sub("server\" #{current}",'server" 0.0.9')
 abort('older-version fixture did not change') if older==source
 phase=:older
 server=WEBrick::HTTPServer.new(BindAddress:'127.0.0.1',Port:0,Logger:WEBrick::Log.new(File::NULL),AccessLog:[])
@@ -48,7 +50,7 @@ begin
     abort('catalogue update did not install canonical pane bytes') unless File.binread(installed)==source
     run.call('remove','control-panel/blit')
     abort('catalogue removal left the pane behind') if File.exist?(installed)
-    puts 'BLIT_CATALOGUE_PASS install=0.0.9 update=0.1.0 canonical_sha256=verified remove=clean isolated_scope=yes'
+    puts "BLIT_CATALOGUE_PASS title=Blit install=0.0.9 update=#{current} canonical_sha256=verified remove=clean isolated_scope=yes"
   end
 ensure
   server.shutdown;thread.join

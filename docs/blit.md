@@ -1,7 +1,7 @@
-# Blit Displays Control Panel
+# Blit Control Panel
 
 Install with `catalogue install control-panel/blit`, then open Control Panel
-and select **Blit Displays** under Hardware. Remove it with
+and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
@@ -21,6 +21,24 @@ Hibr Displays owns subsequent native placement. Live rows show the server's
 effective states and reasons. **Retry stopped auxiliaries** explicitly permits
 a new attempt. The pane runs no reconnect controller and saves no second
 configuration file.
+
+## Additional physical displays
+
+With Blit0.1.543's SDL backend, display discovery runs at server startup;
+live display add/remove reconciliation is not implemented. Plugging in another
+monitor while the service is running is therefore not promised to add its
+panes to the API or this panel. The panel refreshes server observations every
+three seconds, but it cannot discover hardware independently of Blit.
+
+For monitors detected at startup, the panel lists their panes. Select the
+desired auxiliary panes, **Apply auxiliaries now**, and **Save as Default**
+if that selection should survive restart. A new monitor is not automatically
+authorized as a desktop client merely because it is connected. A saved
+connector/pane binding can provision its standby once the output is discovered
+and authenticated native desktop ownership is ready. Hibr Displays owns later
+arrangement. Current pane layout and font controls are global, not separate
+per-monitor layout/font editors. Physical multi-output and unplug/replug
+acceptance remain separate from the local controller tests.
 
 Font/profile and tenth-step scale controls use Blit's live font API, which
 queues its own automatic settings save. Storage status reports the server's

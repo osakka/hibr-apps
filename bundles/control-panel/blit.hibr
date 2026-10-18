@@ -10,8 +10,8 @@
 # lives only in this desktop's memory, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.0
-command -v cp_pane > /dev/null && cp_pane blit "Blit Displays" "▦" hardware
+app blit "API configuration and diagnostics for the Blit display server" 0.1.1
+command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 
 BCP_URL=${BLIT_CP_URL:-http://127.0.0.1:8080}
 BCP_TOKEN=
