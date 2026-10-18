@@ -62,6 +62,7 @@ Dir.mktmpdir('blit-panel') do |root|
       }
       BCP_URL='http://127.0.0.1:#{PORT}'
       BCP_TOKEN=panel-test-token
+      blit_cp_credentials 0 || exit 40
       blit_cp_start refresh
       finish
       [ "$BCP_BASE_REV" -ge 0 ] || { echo "refresh failed: $BCP_STATUS" >&2; exit 1; }
@@ -213,12 +214,17 @@ Dir.mktmpdir('blit-panel') do |root|
     File.write(reload_script, <<~HIBR)
       strict
       source /usr/share/hibr/desktop/wm/settings.hibr
-      source "$DT_CONF"
       source '#{BUNDLE}'
+      # Match the installed session: cp_panes sources bundles first,
+      # dt_open loads preferences afterwards, and only then a pane runs.
+      source "$DT_CONF"
       [ "$BCP_URL" = 'http://127.0.0.1:#{PORT}' ] || exit 2
+      blit_cp_start refresh
       [ "$BCP_TOKEN" = panel-test-token ] || exit 1
+      while [ "$BCP_BUSY" = 1 ]; do blit_cp_poll; /bin/sleep 0.02; done
+      [ "$BCP_BASE_REV" -ge 0 ] || exit 3
     HIBR
-    _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config')},'/usr/bin/hibr',reload_script)
+    _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
     puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported scale=1.1 token=masked export=no_secrets'

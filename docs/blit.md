@@ -5,7 +5,7 @@ and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
-Use Blit0.1.546 or newer for durable startup migration. Pane0.1.3 uses the
+Use Blit0.1.546 or newer for durable startup migration. Pane0.1.4 uses the
 independent-grid API introduced in0.1.545, Hibr0.99.244's Control Panel framework,
 and `curl`. Callback/API acceptance includes Hibr0.99.241 and0.99.244, ABI16;
 the latter is retested against the0.1.546 server binary. The default
@@ -17,6 +17,9 @@ Hibr's normal `dt_keep`/`cp_save` settings. The token is bound to that exact
 URL and is not sent to another host after changing Server. Unsafe ownership,
 permissions or symlinks are refused; save failures appear in the pane. This
 is filesystem-protected plaintext, not encrypted storage.
+The credential is loaded on first use after Hibr restores the saved URL, not
+while panes are initially sourced. **Reload** rereads it after any filesystem
+permission repair. This fixes custom-network-URL restoration in pane0.1.3.
 The privileged updater token is not used. Configuration exports omit the
 connection credentials.
 

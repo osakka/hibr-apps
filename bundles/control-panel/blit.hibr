@@ -10,13 +10,15 @@
 # is kept in a private user file, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.3
+app blit "API configuration and diagnostics for the Blit display server" 0.1.4
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 
 BCP_URL=${BCP_URL:-${BLIT_CP_URL:-http://127.0.0.1:8080}}
 command -v dt_keep > /dev/null && dt_keep BCP_URL
 BCP_TOKEN=
 BCP_CREDENTIAL_STATUS=
+BCP_CONNECTION_READY=0
+BCP_CREDENTIAL_URL=
 BCP_SCALE_PENDING=
 BCP_DIR=
 BCP_BUSY=0
@@ -41,6 +43,8 @@ fn blit_cp_credentials(load = "1") {
     local -A saved
     file=$dir/connection.json
     BCP_CREDENTIAL_STATUS=
+    BCP_CONNECTION_READY=1
+    BCP_CREDENTIAL_URL=$BCP_URL
     if [ "$load" = 1 ]; then
         BCP_TOKEN=
         [ -e "$file" ] || return 0
@@ -68,7 +72,8 @@ fn blit_cp_credentials(load = "1") {
     BCP_CREDENTIAL_STATUS="API token saved privately"
     return 0
 }
-blit_cp_credentials
+# cp_panes loads this bundle before dt_open calls dt_load. Read credentials
+# on first use, after the saved URL exists, never against a guessed default.
 
 fn blit_cp_ready() {
     [ -n "$BCP_DIR" ] && return 0
@@ -120,6 +125,9 @@ fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "", quie
     BCP_NEXT=$((EPOCHSECONDS + BCP_REFRESH_SECONDS))
     if ! command -v curl > /dev/null; then BCP_STATUS="curl is required"; blit_cp_schedule 1; return 1; fi
     BCP_URL=${BCP_URL%/}
+    if [ "$BCP_CONNECTION_READY" != 1 ] || [ "$BCP_CREDENTIAL_URL" != "$BCP_URL" ]; then
+        blit_cp_credentials
+    fi
     if ! match "$BCP_URL" '^https?://([A-Za-z0-9._-]+|\[[0-9A-Fa-f:]+\])(:[0-9]+)?$'; then
         BCP_STATUS="Use an http(s) server URL without a path"; blit_cp_schedule 1; return 1
     fi
@@ -369,7 +377,7 @@ fn blit_do(int w, key, int dir) {
     [ "$BCP_BUSY" = 0 ] || return 0
     case $key in
     url | token) blit_cp_edit "$key"; return 0 ;;
-    reload) BCP_DIRTY=0; BCP_BASE_REV=-1; blit_cp_start refresh; return 0 ;;
+    reload) BCP_CONNECTION_READY=0; BCP_DIRTY=0; BCP_BASE_REV=-1; blit_cp_start refresh; return 0 ;;
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
@@ -515,7 +523,7 @@ fn blitconn_do(int id, what) {
         case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_CREDENTIAL_STATUS="Invalid bearer token characters"; return 1 ;; esac
         blit_cp_credentials 0 || return 1
     else
-        BCP_URL=${BCP_DIALOG[$id][value]}; BCP_DIRTY=0; BCP_BASE_REV=-1
+        BCP_URL=${BCP_DIALOG[$id][value]}; BCP_URL=${BCP_URL%/}; BCP_DIRTY=0; BCP_BASE_REV=-1
         blit_cp_credentials
         json parse BCP_SNAPSHOT '{}'; json parse BCP_DRAFT '{}'; json parse BCP_LIVE '{}'
     fi

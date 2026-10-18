@@ -1,6 +1,6 @@
 # ADR 0003: remembered Blit connection and native sliders
 
-- Status: implemented; pane0.1.3
+- Status: implemented; pane0.1.4
 - Date: 2026-10-18
 - Issue: hibr-apps#1
 
@@ -26,3 +26,9 @@ existing Blit settings draft, with revision-protected Save and visible errors.
 Callback/API tests use native `dt_keep`/`cp_save`, restore the URL/token in a
 new process and reject origin/permission mistakes. Native UI tests drag the
 actual widgets through Blit pointer input, including live font reflow.
+
+The installed session sources panes before `dt_open` calls `dt_load`.
+Pane0.1.4 therefore defers credential loading until first use, after the saved
+URL is restored, and reloads whenever the connection origin changes. Explicit
+Reload also retries the private file (for example after fixing permissions).
+The native-order regression is red against0.1.3 and green against0.1.4.
