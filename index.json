@@ -283,15 +283,15 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "d021312b4dff38d67dbb1922a5e70428f67a93653b3ca18c841ea3c3ac3ff9b7",
+      "sha256": "e2cea103b12d30f92c7dd27341886074ce75ec60afc692707e19b61fc3b54757",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser",
-      "hibr": "0.99.189",
+      "hibr": "0.99.247",
       "modules": "web",
       "dir": "Internet",
       "parts": [
@@ -299,7 +299,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "56473bb4af365a2f9db5b9d12a16a82e69287b517e0d7b84a6b39f39998359dc"
+          "sha256": "afc626c0c9409db0a98e21d1461bab4edd41fc46074eb7fe869898c58a1f22be"
         }
       ]
     },
@@ -998,11 +998,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "2.3",
+      "version": "2.4",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "22865b629f49b0208393d605e409e8a829ff187e4c44bd79a02421262926e314",
-      "about": "The desktop's own words in العربية (ar): 1018 strings, read right to left.",
+      "sha256": "72a4f44f5607c800166e3f7c3af84fb2d74436e0f79474e895135c911276c01b",
+      "about": "The desktop's own words in العربية (ar): 1046 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1203,15 +1203,15 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "d021312b4dff38d67dbb1922a5e70428f67a93653b3ca18c841ea3c3ac3ff9b7",
+      "sha256": "e2cea103b12d30f92c7dd27341886074ce75ec60afc692707e19b61fc3b54757",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser",
-      "hibr": "0.99.189",
+      "hibr": "0.99.247",
       "modules": "web",
       "dir": "Internet"
     },
