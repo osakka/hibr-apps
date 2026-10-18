@@ -419,10 +419,10 @@
     },
     "system/tasks": {
       "title": "Task Manager",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "f71a5ef99f8959b7a900efdbe315490cb2001b4d397244ba3aab2c6cb2d2fd5e",
+      "sha256": "abae90460d0d51197f4c41f78836ceedaa566a41f80d2d5696cf77e577f26c87",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -439,10 +439,10 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "9d6764eb29316a4768dd7090f0e66c391f972e28f1a97859486f0a8e5fafa3f5",
+      "sha256": "5fec5199f5c8f786de6191c79387ba919b3352238b33754b69f8bb2a21ad007b",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -453,7 +453,7 @@
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "6ba746b049a86965a0bfc99823cbb048dcd6cf79d1a413d48fa1e7e58b1fba86"
+          "sha256": "07b003545ec431f02ba69639b9183b9aebf215896fa7324b9f56bf00363f4e71"
         }
       ]
     },
@@ -984,11 +984,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "2.1",
+      "version": "2.2",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "7376ec05572e8476342cf38f9bf309435821f081b1677e1c9f79a08bb478e1a6",
-      "about": "The desktop's own words in العربية (ar): 1015 strings, read right to left.",
+      "sha256": "3018d786f5a5f0f17980591847ae8d025e1379ce6fdd111b1a4d607ac867ab06",
+      "about": "The desktop's own words in العربية (ar): 1016 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1301,10 +1301,10 @@
     },
     "tasks": {
       "title": "Task Manager",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "f71a5ef99f8959b7a900efdbe315490cb2001b4d397244ba3aab2c6cb2d2fd5e",
+      "sha256": "abae90460d0d51197f4c41f78836ceedaa566a41f80d2d5696cf77e577f26c87",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1313,10 +1313,10 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "9d6764eb29316a4768dd7090f0e66c391f972e28f1a97859486f0a8e5fafa3f5",
+      "sha256": "5fec5199f5c8f786de6191c79387ba919b3352238b33754b69f8bb2a21ad007b",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "MIT",
       "author": "Omar Sakka",
