@@ -6,7 +6,8 @@ and select **Blit** under Hardware. Remove it with
 Hibr core and the Blit Debian package do not carry another copy.
 
 Pane0.1.5 registers **Blit** and **Blit Mouse** under Hardware in the same
-catalogue bundle. Use Blit0.1.549 for pointer appearance;0.1.546 introduced
+catalogue bundle. Use Blit0.1.550 for pointer appearance (549 was superseded
+before deployment);0.1.546 introduced
 durable independent-grid startup migration. Requirements remain Hibr0.99.244
 or newer (ABI16) and `curl`. Actual callbacks, private credential/native
 preference restoration, Mouse slider/save and isolated catalogue lifecycle
