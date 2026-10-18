@@ -603,14 +603,15 @@
     },
     "control-panel/blit": {
       "title": "Blit",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "ddb2bd97fe1f0bc89f5a797a24407fb78b2523911c291ad437a8730cb256cd0d",
-      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token lives only in this desktop's memory, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
+      "sha256": "ca2ea4a94c789873c81bc16d3f19a14259df04b50c5d066a6e937564b0338359",
+      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "blit"
+      "name": "blit",
+      "hibr": "0.99.244"
     },
     "control-panel/keyboard": {
       "title": "Keyboard",
@@ -1469,14 +1470,15 @@
     },
     "blit": {
       "title": "Blit",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "ddb2bd97fe1f0bc89f5a797a24407fb78b2523911c291ad437a8730cb256cd0d",
-      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token lives only in this desktop's memory, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
+      "sha256": "ca2ea4a94c789873c81bc16d3f19a14259df04b50c5d066a6e937564b0338359",
+      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "blit"
+      "name": "blit",
+      "hibr": "0.99.244"
     },
     "keyboard": {
       "title": "Keyboard",

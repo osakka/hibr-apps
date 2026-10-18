@@ -5,11 +5,17 @@ and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
-The pane requires Blit0.1.543's auxiliary API, Hibr's Control Panel framework,
+Pane0.1.3 requires Blit0.1.545's independent-grid API, Hibr0.99.244's Control Panel framework,
 and `curl`. Callback/API acceptance includes Hibr0.99.241 and0.99.244, ABI16;
-the latter is retested against the0.1.544 server binary. The default
+the latter is retested against the0.1.545 server binary. The default
 server is `http://127.0.0.1:8080`; set Server and API Token in the pane for a
-network server. The token is masked and kept only in this desktop's memory.
+network server. The token is masked and remembered in a user-private0600
+JSON file at `$XDG_CONFIG_HOME/hibr/blit/connection.json` (default
+`~/.config/hibr/blit/connection.json`), within a0700 directory. The URL uses
+Hibr's normal `dt_keep`/`cp_save` settings. The token is bound to that exact
+URL and is not sent to another host after changing Server. Unsafe ownership,
+permissions or symlinks are refused; save failures appear in the pane. This
+is filesystem-protected plaintext, not encrypted storage.
 The privileged updater token is not used. Configuration exports omit the
 connection credentials.
 
@@ -48,13 +54,21 @@ if that selection should survive restart. A new monitor is not automatically
 authorized as a desktop client merely because it is connected. A saved
 connector/pane binding can provision its standby once the output is discovered
 and authenticated native desktop ownership is ready. Hibr Displays owns later
-arrangement. Current pane layout and font controls are global, not separate
-per-monitor layout/font editors. Physical multi-output and unplug/replug
+arrangement. Per-display **Columns** and **Rows** sliders stage independent
+1–8 by1–8 grids; **Save as Default** applies and persists them. For example,
+1column/2rows is stacked,2columns/1row is side-by-side. Newly hotplugged
+unconfigured monitors default to1x1; your existing split survives upgrade.
+Blit permits64 live panes but16 simultaneous terminals. Removing an occupied
+pane reports409: detach it explicitly rather than losing its process. Font
+selection/scale remain global. Physical multi-output and unplug/replug
 acceptance remain separate from the local controller tests.
 
-Font/profile and tenth-step scale controls use Blit's live font API, which
+Font/profile and native horizontal scale-slider controls use Blit's live font API, which
 queues its own automatic settings save. Storage status reports the server's
-durability receipt. Export writes the staged document; Import stages a draft
+durability receipt. The native11-position track offers0.2 scale increments;
+keyboard arrows retain every0.1 step from1.0 to3.0. A drag coalesces its
+latest requested scale behind the one bounded worker instead of dropping
+the final value or starting parallel requests. Export writes the staged document; Import stages a draft
 and performs no network mutation. A stale Save reports409 and retains the
 draft. Reload explicitly discards it. Offline, authentication, timeout and
 save failures remain visible; mutations are not silently retried.
@@ -77,6 +91,7 @@ and UI capture acceptance are separate from callback tests.
 `ruby tests/blit_catalogue_gate.rb` tests install/update/remove through the
 installed catalogue client in an isolated scope. `ruby tests/blit_ui_gate.rb`
 uses Hibr's installed desktop UI libraries and Blit SDL software, opens/closes
-dialogs with keyboard input, and verifies masking in terminal cells. Set
+dialogs with keyboard input, verifies masking in terminal cells and drags the
+layout sliders through actual Blit pointer input. Set
 `BLIT_PANEL_UI_OUTPUT` to retain its screenshots. These local tests do not
 claim physical-monitor acceptance.

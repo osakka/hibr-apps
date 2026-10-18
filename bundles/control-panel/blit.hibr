@@ -7,14 +7,17 @@
 # Font changes use Blit's live-and-saved font API. Hibr Displays continues to
 # own native desktop arrangement after initial attachment.
 # Every network request runs in a bounded background job. The connection token
-# lives only in this desktop's memory, is masked in its editor, and is excluded
+# is kept in a private user file, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.2
+app blit "API configuration and diagnostics for the Blit display server" 0.1.3
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 
-BCP_URL=${BLIT_CP_URL:-http://127.0.0.1:8080}
+BCP_URL=${BCP_URL:-${BLIT_CP_URL:-http://127.0.0.1:8080}}
+command -v dt_keep > /dev/null && dt_keep BCP_URL
 BCP_TOKEN=
+BCP_CREDENTIAL_STATUS=
+BCP_SCALE_PENDING=
 BCP_DIR=
 BCP_BUSY=0
 BCP_STATUS="Connect to read the server"
@@ -30,6 +33,42 @@ declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_DIALOG BCP_HTTP
 json parse BCP_SNAPSHOT '{}'
 json parse BCP_LIVE '{}'
 json parse BCP_DRAFT '{}'
+
+# Desktop settings use executable text and no secret permissions. Keep only
+# the URL there; this data-only credential is scoped to that exact URL.
+fn blit_cp_credentials(load = "1") {
+    local dir=${XDG_CONFIG_HOME:-$HOME/.config}/hibr/blit file tmp mode raw
+    local -A saved
+    file=$dir/connection.json
+    BCP_CREDENTIAL_STATUS=
+    if [ "$load" = 1 ]; then
+        BCP_TOKEN=
+        [ -e "$file" ] || return 0
+        if [ -L "$dir" ] || [ -L "$file" ] || [ ! -O "$dir" ] || [ ! -O "$file" ]; then
+            BCP_CREDENTIAL_STATUS="Unsafe credential owner or symlink"; return 1
+        fi
+        mode=$(command stat -c %a "$dir" "$file")
+        [ "$mode" = $'700\n600' ] || { BCP_CREDENTIAL_STATUS="Credential permissions must be 0700/0600"; return 1; }
+        json parse saved < "$file" 2> /dev/null || { BCP_CREDENTIAL_STATUS="Invalid connection credential file"; return 1; }
+        [ "${saved[url]}" != "$BCP_URL" ] || BCP_TOKEN=${saved[token]}
+        return 0
+    fi
+    (
+        umask 077
+        [ ! -L "$dir" ] && [ ! -L "$file" ] || exit 1
+        command mkdir -p "$dir" && [ -O "$dir" ] && command chmod 0700 "$dir" || exit 1
+        tmp=$(command mktemp "$dir/.connection-XXXXXX") || exit 1
+        json parse saved '{}'
+        json set saved .url "$BCP_URL" -s
+        json set saved .token "$BCP_TOKEN" -s
+        if json emit saved > "$tmp" && command chmod 0600 "$tmp" && command mv -f "$tmp" "$file"; then exit 0; fi
+        command rm -f "$tmp"
+        exit 1
+    ) || { BCP_CREDENTIAL_STATUS="Could not save API token"; return 1; }
+    BCP_CREDENTIAL_STATUS="API token saved privately"
+    return 0
+}
+blit_cp_credentials
 
 fn blit_cp_ready() {
     [ -n "$BCP_DIR" ] && return 0
@@ -134,6 +173,7 @@ fn blit_cp_poll() {
         BCP_STATUS="HTTP $code: invalid JSON response"; return 0
     fi
     if [ "$ok" != 1 ]; then
+        BCP_SCALE_PENDING=
         blit_cp_schedule 1
         if [ "$code" = 000 ]; then BCP_STATUS="Offline or request timed out";
         else BCP_STATUS="HTTP $code: ${reply[code]:-${reply[title]:-request failed}}"; fi
@@ -180,6 +220,11 @@ fn blit_cp_poll() {
         BCP_NEXT=0
         ;;
     esac
+    if [ -n "$BCP_SCALE_PENDING" ]; then
+        local wanted=$BCP_SCALE_PENDING
+        BCP_SCALE_PENDING=
+        blit_slide 0 scale "$wanted"
+    fi
     return 0
 }
 
@@ -240,10 +285,29 @@ fn blit_rows(int w) {
     blit_cp_row "$w" "$n" head Connection; n=$((n + 1))
     blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
     state=unset; [ -n "$BCP_TOKEN" ] && state=set
-    blit_cp_row "$w" "$n" action "API Token (memory only)" "$state" token; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "API Token (remembered)" "$state" token; n=$((n + 1))
+    if [ -n "$BCP_CREDENTIAL_STATUS" ]; then
+        blit_cp_row "$w" "$n" info "$BCP_CREDENTIAL_STATUS"; n=$((n + 1))
+    fi
     blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
     blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
     [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
+    blit_cp_row "$w" "$n" head "Per-display grid (Save applies)"; n=$((n + 1))
+    i=0
+    if [ -z "${BCP_SNAPSHOT[topology][outputs][0][layout][columns]}" ]; then
+        blit_cp_row "$w" "$n" info "Independent grids require Blit 0.1.545"; n=$((n + 1))
+    fi
+    while [ -n "${BCP_SNAPSHOT[topology][outputs][0][layout][columns]}" ] &&
+          [ -n "${BCP_SNAPSHOT[displays][displays][$i][id]}" ]; do
+        output=${BCP_SNAPSHOT[displays][displays][$i][state][connector]:-${BCP_SNAPSHOT[displays][displays][$i][name]}}
+        blit_cp_row "$w" "$n" info "$output"; n=$((n + 1))
+        blit_cp_row "$w" "$n" set Columns "${BCP_DRAFT[display_layouts][$output][columns]:-1}" "columns:$output" slider
+        CP[$w][$n][after]="(${BCP_DRAFT[display_layouts][$output][columns]:-1})"
+        CP[$w][$n][min]=1; CP[$w][$n][max]=8; n=$((n + 1))
+        blit_cp_row "$w" "$n" set Rows "${BCP_DRAFT[display_layouts][$output][rows]:-1}" "rows:$output" slider
+        CP[$w][$n][after]="(${BCP_DRAFT[display_layouts][$output][rows]:-1})"
+        CP[$w][$n][min]=1; CP[$w][$n][max]=8; n=$((n + 1)); i=$((i + 1))
+    done
     blit_cp_row "$w" "$n" head "Startup Login (save, then restart)"; n=$((n + 1))
     on=off; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && on=on
     blit_cp_row "$w" "$n" set "Login enabled" "$on" enabled bool; n=$((n + 1))
@@ -284,7 +348,11 @@ fn blit_rows(int w) {
     done
     blit_cp_row "$w" "$n" head "Font (live with automatic save)"; n=$((n + 1))
     blit_cp_row "$w" "$n" set Font "${BCP_SNAPSHOT[fonts][active][id]}" font; n=$((n + 1))
-    blit_cp_row "$w" "$n" set Scale "${BCP_SNAPSHOT[fonts][active][scale]}" scale; n=$((n + 1))
+    local scale=${BCP_SNAPSHOT[fonts][active][scale]} tenths=10
+    if match "$scale" '^([123])([.]([0-9]))?$'; then tenths=$((M[1] * 10 + ${M[3]:-0})); fi
+    [ -z "$BCP_SCALE_PENDING" ] || tenths=$BCP_SCALE_PENDING
+    blit_cp_row "$w" "$n" set Scale "$tenths" scale slider
+    CP[$w][$n][min]=10; CP[$w][$n][max]=30; CP[$w][$n][after]="($scale)"; n=$((n + 1))
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
@@ -342,10 +410,41 @@ fn blit_do(int w, key, int dir) {
         tenths=$((M[1] * 10 + ${M[3]:-0} + dir))
         [ "$tenths" -ge 10 ] && [ "$tenths" -le 30 ] || return 0
         value="$((tenths / 10)).$((tenths % 10))"
-        json parse payload '{}'; json set payload .scale "$value"
-        body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
+        blit_slide "$w" scale "$tenths" ;;
+    columns:* | rows:*)
+        output=${key#*:}; value=${key%%:*}
+        tenths=$(( ${BCP_DRAFT[display_layouts][$output][$value]:-1} + dir ))
+        blit_slide "$w" "$key" "$tenths" ;;
     export) dt_filepick save "Export Blit Configuration" "JSON:*.json" "$HOME" blit.json blit_cp_exported "" ;;
     import) dt_filepick open "Import Blit Configuration" "JSON:*.json" "$HOME" "" blit_cp_imported "" ;;
+    esac
+    return 0
+}
+
+fn blit_slide(int w, key, int value) {
+    local body output field
+    local -A payload grid
+    case $key in
+    scale)
+        [ "$value" -ge 10 ] && [ "$value" -le 30 ] || return 0
+        if [ "$BCP_BUSY" = 1 ]; then BCP_SCALE_PENDING=$value; return 0; fi
+        json parse payload '{}'
+        json set payload .scale "$((value / 10)).$((value % 10))"
+        body := json emit payload
+        blit_cp_start font PUT /v1/fonts "$body" ;;
+    columns:* | rows:*)
+        [ -n "${BCP_SNAPSHOT[topology][outputs][0][layout][columns]}" ] || {
+            BCP_STATUS="Independent grids require Blit 0.1.545"; return 0
+        }
+        [ "$value" -ge 1 ] && [ "$value" -le 8 ] || return 0
+        output=${key#*:}; field=${key%%:*}
+        json parse grid '{}'
+        json set grid .columns "${BCP_DRAFT[display_layouts][$output][columns]:-1}"
+        json set grid .rows "${BCP_DRAFT[display_layouts][$output][rows]:-1}"
+        json set grid ".$field" "$value"
+        body := json emit grid
+        json parse "BCP_DRAFT[display_layouts][$output]" "$body"
+        BCP_DIRTY=1 ;;
     esac
     return 0
 }
@@ -411,11 +510,16 @@ fn blitconn_click(int id, int r, int c, button = "") {
 fn blitconn_do(int id, what) {
     if [ "$what" = cancel ]; then dt_del "$id"; return 0; fi
     [ "$BCP_BUSY" = 0 ] || return 0
-    if [ "${BCP_DIALOG[$id][key]}" = token ]; then BCP_TOKEN=${BCP_DIALOG[$id][value]};
+    if [ "${BCP_DIALOG[$id][key]}" = token ]; then
+        BCP_TOKEN=${BCP_DIALOG[$id][value]}
+        case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_CREDENTIAL_STATUS="Invalid bearer token characters"; return 1 ;; esac
+        blit_cp_credentials 0 || return 1
     else
         BCP_URL=${BCP_DIALOG[$id][value]}; BCP_DIRTY=0; BCP_BASE_REV=-1
+        blit_cp_credentials
         json parse BCP_SNAPSHOT '{}'; json parse BCP_DRAFT '{}'; json parse BCP_LIVE '{}'
     fi
+    command -v cp_save > /dev/null && cp_save
     BCP_LAST=0
     dt_del "$id"
     blit_cp_start refresh

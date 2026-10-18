@@ -75,6 +75,21 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       Open3.capture3('ffmpeg','-hide_banner','-loglevel','error','-y','-i',File.join(output,"#{name}.bmp"),File.join(output,"#{name}.png"))
     end
     capture.call('panel')
+    # Real pointer press/held motion/release through Blit into the installed
+    # Control Panel drag handler, not a direct call to the pane callback.
+    drag=->(label,position) do
+      cells=req('GET',surface)['cells']
+      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?(label)}
+      raise "missing slider #{label}" unless row
+      y=row[0]; track=row[1].select{|c|['●','─'].include?(c['text'])}.map{|c|c['x']}.min
+      raise 'missing native slider track' unless track
+      grid=req('GET','/v1/topology')['panes'][0]['cell_grid']
+      move=->(column){req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+column*grid['cell_width']+grid['cell_width']/2,y:grid['origin_y']+y*grid['cell_height']+grid['cell_height']/2})}
+      move.call(track)
+      req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
+      move.call(track+position)
+      req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+    end
     input=->(bytes){req('POST',"/v1/terminal-sessions/#{session['id']}/input",{'data'=>bytes})}
     input.call("\r")
     await('connection dialog from real keyboard input'){text.call.include?('Blit Connection')}
@@ -88,7 +103,17 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     await('masked UI text'){text.call.include?('********************')}
     raise 'token visible in terminal cells' if text.call.include?('secret-must-be-masked')
     capture.call('token-masked')
-    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software panel=connected keyboard=open_close token=masked screenshots=#{output}"
+    input.call("\e")
+    await('masked dialog close'){!text.call.include?('Blit Connection')}
+    drag.call('Columns',10)
+    await('native columns drag'){text.call.include?('Columns (8)')}
+    drag.call('Rows (',3)
+    await('native rows drag'){text.call.include?('Rows (3)')}
+    capture.call('grid-sliders-dragged')
+    drag.call('Scale (',1)
+    await('native scale drag and font reflow'){req('GET','/v1/fonts').dig('active','scale')==1.2 && text.call.include?('Scale (1.2)')}
+    capture.call('scale-slider-dragged')
+    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software panel=connected drag=actual_pointer_columns8_rows3_scale1.2 keyboard=open_close token=masked screenshots=#{output}"
   rescue Exception
     warn File.read(log) if File.exist?(log)
     warn File.read(File.join(root,'desktop.log')) if File.exist?(File.join(root,'desktop.log'))

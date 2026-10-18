@@ -7,6 +7,7 @@ require 'open3'
 require 'timeout'
 require 'socket'
 ROOT=File.expand_path('..',__dir__)
+BUNDLE=ENV.fetch('BLIT_PANEL_BUNDLE',File.join(ROOT,'bundles/control-panel/blit.hibr'))
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
 PORT=Integer(ENV.fetch('BLIT_PANEL_GATE_PORT','19495'))
@@ -40,8 +41,9 @@ Dir.mktmpdir('blit-panel') do |root|
     script=File.join(root,'test.hibr')
     File.write(script,<<~HIBR)
       strict
+      source /usr/share/hibr/desktop/wm/settings.hibr
       source /usr/share/hibr/desktop/system/panel.hibr
-      source '#{ROOT}/bundles/control-panel/blit.hibr'
+      source '#{BUNDLE}'
       [ "${CP_PANES[blit][title]}" = Blit ] || { echo 'pane title is not Blit' >&2; exit 1; }
       BCP_TEST_WAKE=0
       fn dt_want(int ms) {
@@ -65,6 +67,37 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "$BCP_BASE_REV" -ge 0 ] || { echo "refresh failed: $BCP_STATUS" >&2; exit 1; }
       n := blit_rows 44
       [ "$n" -gt 20 ] || { echo 'pane rows missing' >&2; exit 1; }
+      i=0; sliders=0
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[44][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
+          i=$((i + 1))
+      done
+      [ "$sliders" = 3 ] || { echo 'scale/columns/rows must use native sliders' >&2; exit 30; }
+      output=${BCP_SNAPSHOT[displays][displays][0][name]}
+      blit_slide 44 "columns:$output" 3
+      blit_slide 44 "rows:$output" 2
+      [ "${BCP_DRAFT[display_layouts][$output][columns]}" = 3 ] &&
+      [ "${BCP_DRAFT[display_layouts][$output][rows]}" = 2 ] || exit 31
+      blit_do 44 save 1
+      finish
+      [ "${BCP_SNAPSHOT[settings][document][display_layouts][$output][columns]}" = 3 ] || exit 32
+      BCP_TOKEN=panel-test-token
+      blit_cp_credentials 0 || { echo 'credential save failed' >&2; exit 33; }
+      cp_save
+      BCP_TOKEN=
+      blit_cp_credentials || exit 34
+      [ "$BCP_TOKEN" = panel-test-token ] || { echo 'token not restored' >&2; exit 35; }
+      original=$BCP_URL
+      BCP_URL=http://other-host:8080
+      blit_cp_credentials
+      [ -z "$BCP_TOKEN" ] || { echo 'credential crossed origins' >&2; exit 36; }
+      BCP_URL=$original
+      blit_cp_credentials
+      command chmod 0644 "$XDG_CONFIG_HOME/hibr/blit/connection.json"
+      blit_cp_credentials && { echo 'insecure token accepted' >&2; exit 37; }
+      [ -z "$BCP_TOKEN" ] || exit 38
+      command chmod 0600 "$XDG_CONFIG_HOME/hibr/blit/connection.json"
+      blit_cp_credentials
       # Old three-second polling launches here even though a quiet refresh
       # is not due. Actual API worker and callbacks, not source inspection.
       BCP_LAST=$((EPOCHSECONDS - 4))
@@ -110,6 +143,11 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_do 44 scale 1
       finish
       [ "${BCP_SNAPSHOT[fonts][active][scale]}" = 1.1 ] || { echo "scale failed: $BCP_STATUS" >&2; exit 9; }
+      blit_slide 44 scale 12
+      blit_slide 44 scale 17
+      blit_slide 44 scale 23
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][scale]}" = 2.3 ] || { echo 'drag lost its final value' >&2; exit 39; }
       /bin/sleep 0.7
       blit_cp_start refresh
       finish
@@ -163,7 +201,7 @@ Dir.mktmpdir('blit-panel') do |root|
       blitconn_draw 9 9 64 0 0
       echo BLIT_PANEL_PASS
     HIBR
-    out,err,st=Open3.capture3({'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',script)
+    out,err,st=Open3.capture3({'XDG_RUNTIME_DIR'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config')},'/usr/bin/hibr',script)
     abort("panel callbacks failed #{st}:\n#{out}\n#{err}\n#{File.read(log)}") unless st.success? && out.include?('BLIT_PANEL_PASS')
     abort('token leaked through dialog') if out.include?('secret-must-be-masked')
     timing=out.lines.find { |l| l.start_with?('CALLBACK_LATENCY:') }.split(':')[1,2].map(&:to_f)
@@ -171,6 +209,18 @@ Dir.mktmpdir('blit-panel') do |root|
     abort('token leaked through export') if File.read(File.join(root,'export.json')).include?('panel-test-token')
     document=JSON.parse(File.read(File.join(root,'export.json')))
     abort('export is not structured settings') unless document['auxiliary_displays'].is_a?(Array)
+    reload_script=File.join(root,'reload.hibr')
+    File.write(reload_script, <<~HIBR)
+      strict
+      source /usr/share/hibr/desktop/wm/settings.hibr
+      source "$DT_CONF"
+      source '#{BUNDLE}'
+      [ "$BCP_URL" = 'http://127.0.0.1:#{PORT}' ] || exit 2
+      [ "$BCP_TOKEN" = panel-test-token ] || exit 1
+    HIBR
+    _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config')},'/usr/bin/hibr',reload_script)
+    abort("credential not restored in a new process:#{err}") unless st.success?
+    abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
     puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported scale=1.1 token=masked export=no_secrets'
   ensure
     File.chmod(0700,root)
