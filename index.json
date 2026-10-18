@@ -581,14 +581,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "deb42fe129808a2eaf8020dd2906448194d8809e757b833b14a829e988040321",
-      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
+      "sha256": "56dd6b788b2881764cfc040c6961a2aaf54ad62eda3de97460c591d5bb2ef5d9",
+      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "appearance"
+      "name": "appearance",
+      "hibr": "0.99.246"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -612,6 +613,18 @@
       "author": "Omar Sakka",
       "name": "blit",
       "hibr": "0.99.244"
+    },
+    "control-panel/wallset": {
+      "title": "Wallpaper",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/wallset.hibr",
+      "sha256": "0a16a55f0e0f814848ca260f7ddae5898c43db240924a1a105a92e966b1e4912",
+      "about": "The Control Panel pane for the wallpaper of each display\n\nthe Control Panel pane for the wallpaper: the pattern, or an image chosen in a picker of its own (control-panel/wallpaper.hibr), how it fills the screen, and how it is drawn -- for every display at once, or for one display by its name (Gitea #284). It was a section of Appearance until then; it is a pane of its own because a Display row choosing what every row below it applies to reads plainly here, and would not among Appearance's rows, which all apply everywhere.\n\nA display is known by the name it attached under: --name if it was given one, otherwise the machine it connects from (dt_dispname), so a reattach finds it again. One with a wallpaper of its own keeps it in DT_WALLDIMG, DT_WALLDMODE and DT_WALLDPIC (wm/wallpaper.hibr); one with none follows All Displays, which is DT_WALLIMG, DT_WALLMODE and DT_WALLIMGMODE as before -- so a settings file written before this pane existed means exactly what it did. The pattern is one for the whole desktop, and is only offered under All Displays.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "wallset",
+      "hibr": "0.99.246"
     },
     "control-panel/keyboard": {
       "title": "Keyboard",
@@ -985,11 +998,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "2.2",
+      "version": "2.3",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "3018d786f5a5f0f17980591847ae8d025e1379ce6fdd111b1a4d607ac867ab06",
-      "about": "The desktop's own words in العربية (ar): 1016 strings, read right to left.",
+      "sha256": "22865b629f49b0208393d605e409e8a829ff187e4c44bd79a02421262926e314",
+      "about": "The desktop's own words in العربية (ar): 1018 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1448,14 +1461,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "deb42fe129808a2eaf8020dd2906448194d8809e757b833b14a829e988040321",
-      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the wallpaper (a glyph, or an image chosen in a picker of its own), the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
+      "sha256": "56dd6b788b2881764cfc040c6961a2aaf54ad62eda3de97460c591d5bb2ef5d9",
+      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "appearance"
+      "name": "appearance",
+      "hibr": "0.99.246"
     },
     "versions": {
       "title": "Versions",
@@ -1479,6 +1493,18 @@
       "author": "Omar Sakka",
       "name": "blit",
       "hibr": "0.99.244"
+    },
+    "wallset": {
+      "title": "Wallpaper",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/wallset.hibr",
+      "sha256": "0a16a55f0e0f814848ca260f7ddae5898c43db240924a1a105a92e966b1e4912",
+      "about": "The Control Panel pane for the wallpaper of each display\n\nthe Control Panel pane for the wallpaper: the pattern, or an image chosen in a picker of its own (control-panel/wallpaper.hibr), how it fills the screen, and how it is drawn -- for every display at once, or for one display by its name (Gitea #284). It was a section of Appearance until then; it is a pane of its own because a Display row choosing what every row below it applies to reads plainly here, and would not among Appearance's rows, which all apply everywhere.\n\nA display is known by the name it attached under: --name if it was given one, otherwise the machine it connects from (dt_dispname), so a reattach finds it again. One with a wallpaper of its own keeps it in DT_WALLDIMG, DT_WALLDMODE and DT_WALLDPIC (wm/wallpaper.hibr); one with none follows All Displays, which is DT_WALLIMG, DT_WALLMODE and DT_WALLIMGMODE as before -- so a settings file written before this pane existed means exactly what it did. The pattern is one for the whole desktop, and is only offered under All Displays.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "wallset",
+      "hibr": "0.99.246"
     },
     "keyboard": {
       "title": "Keyboard",
