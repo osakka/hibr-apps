@@ -6,7 +6,8 @@ and select **Blit** under Hardware. Remove it with
 Hibr core and the Blit Debian package do not carry another copy.
 
 The pane requires Blit0.1.543's auxiliary API, Hibr's Control Panel framework,
-and `curl`. Callback/API tests use installed Hibr0.99.241, ABI16. The default
+and `curl`. Callback/API acceptance includes Hibr0.99.241 and0.99.244, ABI16;
+the latter is retested against the0.1.544 server binary. The default
 server is `http://127.0.0.1:8080`; set Server and API Token in the pane for a
 network server. The token is masked and kept only in this desktop's memory.
 The privileged updater token is not used. Configuration exports omit the
