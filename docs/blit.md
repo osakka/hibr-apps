@@ -11,7 +11,9 @@ before deployment);0.1.546 introduced
 durable independent-grid startup migration. Requirements remain Hibr0.99.244
 or newer (ABI16) and `curl`. Actual callbacks, private credential/native
 preference restoration, Mouse slider/save and isolated catalogue lifecycle
-were retested with installed Hibr0.99.250 against the0.1.549 candidate. The default
+were retested with installed Hibr0.99.250 against final0.1.550/source a1ce53d.
+The server package is API-deployed on10.54; catalogue publication is not an
+assertion that the user's installed app has been updated. The default
 server is `http://127.0.0.1:8080`; set Server and API Token in the pane for a
 network server. The token is masked and remembered in a user-private0600
 JSON file at `$XDG_CONFIG_HOME/hibr/blit/connection.json` (default
