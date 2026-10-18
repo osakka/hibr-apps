@@ -10,8 +10,9 @@
 # is kept in a private user file, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.4
+app blit "API configuration and diagnostics for the Blit display server" 0.1.5
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
+command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
 BCP_URL=${BCP_URL:-${BLIT_CP_URL:-http://127.0.0.1:8080}}
 command -v dt_keep > /dev/null && dt_keep BCP_URL
@@ -20,6 +21,7 @@ BCP_CREDENTIAL_STATUS=
 BCP_CONNECTION_READY=0
 BCP_CREDENTIAL_URL=
 BCP_SCALE_PENDING=
+BCP_POINTER_ID=
 BCP_DIR=
 BCP_BUSY=0
 BCP_STATUS="Connect to read the server"
@@ -273,9 +275,8 @@ fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
     CP[$w][$n][val]=$value; CP[$w][$n][key]=$key; CP[$w][$n][wtype]=$wtype
 }
 
-fn blit_rows(int w) {
-    local n=0 i=0 j output ordinal pane on state raw left
-    local -A desired
+fn blit_cp_tick(int w) {
+    local left
     # Hibr asks every pane for scratch rows during search; that is not a
     # visible pane and must not start I/O or wake the desktop.
     if [ "$w" != 999999 ]; then
@@ -290,6 +291,13 @@ fn blit_rows(int w) {
         fi
         command -v dt_want > /dev/null && dt_want "$left"
     fi
+    return 0
+}
+
+fn blit_rows(int w) {
+    local n=0 i=0 j output ordinal pane on state raw left
+    local -A desired
+    blit_cp_tick "$w"
     blit_cp_row "$w" "$n" head Connection; n=$((n + 1))
     blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
     state=unset; [ -n "$BCP_TOKEN" ] && state=set
@@ -453,6 +461,143 @@ fn blit_slide(int w, key, int value) {
         body := json emit grid
         json parse "BCP_DRAFT[display_layouts][$output]" "$body"
         BCP_DIRTY=1 ;;
+    esac
+    return 0
+}
+
+# A second native pane in the same bundle, sharing the existing connection,
+# worker, snapshot and revision-protected settings draft. Hibr's own Mouse
+# pane continues to own window-manager behaviour, not physical Blit devices.
+fn blit_mouse_is_pointer(int i) {
+    local j=0
+    [ "${BCP_SNAPSHOT[input_devices][devices][$i][state][present]}" = true ] || return 1
+    while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][kinds][$j]}" ]; do
+        [ "${BCP_SNAPSHOT[input_devices][devices][$i][kinds][$j]}" != pointer ] || return 0
+        j=$((j + 1))
+    done
+    return 1
+}
+fn blit_mouse_index() {
+    local i=0 first=-1
+    while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" ]; do
+        if blit_mouse_is_pointer "$i"; then
+            [ "$first" -ge 0 ] || first=$i
+            [ "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" != "$BCP_POINTER_ID" ] || { ret "$i"; return 0; }
+        fi
+        i=$((i + 1))
+    done
+    [ "$first" -lt 0 ] || BCP_POINTER_ID=${BCP_SNAPSHOT[input_devices][devices][$first][id]}
+    ret "$first"
+}
+
+fn blit_mouse_rows(int w) {
+    local n=0 i value raw
+    local -A cfg
+    blit_cp_tick "$w"
+    blit_cp_row "$w" "$n" head "Blit pointer and devices"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "API Token (remembered)" "" token; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
+    [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
+    if [ -z "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ]; then
+        blit_cp_row "$w" "$n" info "Pointer appearance requires Blit 0.1.549"; n=$((n + 1))
+    else
+        blit_cp_row "$w" "$n" head "Appearance (staged until Save)"; n=$((n + 1))
+        blit_cp_row "$w" "$n" set Shape "${BCP_DRAFT[pointer][shape]:-arrow}" shape; n=$((n + 1))
+        blit_cp_row "$w" "$n" set Palette "${BCP_DRAFT[pointer][palette]:-pearl}" palette; n=$((n + 1))
+        value=${BCP_DRAFT[pointer][size_px]:-24}
+        blit_cp_row "$w" "$n" set "Pointer Size" "$value" size slider
+        CP[$w][$n][min]=24; CP[$w][$n][max]=64; CP[$w][$n][after]="($value px)"; n=$((n + 1))
+        value=on; [ "${BCP_DRAFT[pointer][shadow]:-true}" != false ] || value=off
+        blit_cp_row "$w" "$n" set Shadow "$value" shadow bool; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "Pointer size is independent of font scale"; n=$((n + 1))
+    fi
+    blit_cp_row "$w" "$n" head "Physical pointer (staged until Save)"; n=$((n + 1))
+    i := blit_mouse_index
+    if [ "$i" -lt 0 ]; then
+        blit_cp_row "$w" "$n" info "No present pointer device"; n=$((n + 1))
+    else
+        blit_cp_row "$w" "$n" set Device "${BCP_SNAPSHOT[input_devices][devices][$i][name]}" device; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "$BCP_POINTER_ID"; n=$((n + 1))
+        raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
+        if [ "$raw" = null ] || [ -z "$raw" ]; then
+            raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"
+        fi
+        json parse cfg "$raw"
+        value=${cfg[sensitivity_percent]:-100}
+        blit_cp_row "$w" "$n" set Sensitivity "$value" sensitivity slider
+        CP[$w][$n][min]=10; CP[$w][$n][max]=1000; CP[$w][$n][after]="($value%)"; n=$((n + 1))
+        blit_cp_row "$w" "$n" set Acceleration "${cfg[acceleration][profile]:-flat}" acceleration; n=$((n + 1))
+        value=off; [ "${cfg[natural_scroll]:-false}" != true ] || value=on
+        blit_cp_row "$w" "$n" set "Natural Scroll" "$value" natural bool; n=$((n + 1))
+        value=${cfg[scroll_step]:-1}
+        blit_cp_row "$w" "$n" set "Wheel Step" "$value" wheel slider
+        CP[$w][$n][min]=1; CP[$w][$n][max]=10; CP[$w][$n][after]="($value)"; n=$((n + 1))
+    fi
+    blit_cp_row "$w" "$n" action "Save all staged Blit settings" "rev $BCP_BASE_REV" save; n=$((n + 1))
+    blit_cp_row "$w" "$n" info Storage "${BCP_SNAPSHOT[settings][storage][state]}"; n=$((n + 1))
+    ret "$n"
+}
+
+fn blit_mouse_slide(int w, key, int value) {
+    local i raw field flag
+    local -A cfg
+    if [ "$key" = size ]; then
+        [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ] || return 0
+        [ "$value" -ge 24 ] && [ "$value" -le 64 ] || return 0
+        json set BCP_DRAFT .pointer.size_px "$value"
+    else
+        i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
+        raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
+        if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
+        json parse cfg "$raw"
+        case $key in
+        sensitivity) [ "$value" -ge 10 ] && [ "$value" -le 1000 ] || return 0; json set cfg .sensitivity_percent "$value" ;;
+        wheel) [ "$value" -ge 1 ] && [ "$value" -le 10 ] || return 0; json set cfg .scroll_step "$value" ;;
+        natural) flag=false; [ "$value" != 1 ] || flag=true; json set cfg .natural_scroll "$flag" ;;
+        acceleration) field=flat; [ "$value" != 1 ] || field=adaptive; json set cfg .acceleration.profile "$field" -s ;;
+        *) return 0 ;;
+        esac
+        raw := json emit cfg
+        json parse "BCP_DRAFT[input_devices][$BCP_POINTER_ID]" "$raw"
+    fi
+    BCP_DIRTY=1
+    return 0
+}
+
+fn blit_mouse_do(int w, key, int dir) {
+    local value raw i j=0 current
+    local -a choices
+    case $key in
+    shape | palette)
+        [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ] || return 0
+        if [ "$key" = shape ]; then choices=(arrow hand precision); current=${BCP_DRAFT[pointer][shape]:-arrow};
+        else choices=(pearl obsidian neon amber); current=${BCP_DRAFT[pointer][palette]:-pearl}; fi
+        value := cp_next "$current" "$dir" "${choices[@]}"
+        json set BCP_DRAFT ".pointer.$key" "$value" -s; BCP_DIRTY=1 ;;
+    shadow) value=true; [ "${BCP_DRAFT[pointer][shadow]:-true}" != true ] || value=false
+        json set BCP_DRAFT .pointer.shadow "$value"; BCP_DIRTY=1 ;;
+    size) blit_mouse_slide "$w" size "$(( ${BCP_DRAFT[pointer][size_px]:-24} + dir ))" ;;
+    device)
+        while [ -n "${BCP_SNAPSHOT[input_devices][devices][$j][id]}" ]; do
+            if blit_mouse_is_pointer "$j"; then choices+=("${BCP_SNAPSHOT[input_devices][devices][$j][id]}"); fi
+            j=$((j + 1))
+        done
+        [ "${#choices[@]}" -eq 0 ] || { BCP_POINTER_ID := cp_next "$BCP_POINTER_ID" "$dir" "${choices[@]}"; } ;;
+    sensitivity | wheel | natural | acceleration)
+        i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
+        raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
+        if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
+        local -A cfg; json parse cfg "$raw"
+        case $key in
+        sensitivity) value=$(( ${cfg[sensitivity_percent]:-100} + dir * 5 )) ;;
+        wheel) value=$(( ${cfg[scroll_step]:-1} + dir )) ;;
+        natural) value=1; [ "${cfg[natural_scroll]:-false}" != true ] || value=0 ;;
+        acceleration) value=1; [ "${cfg[acceleration][profile]:-flat}" != adaptive ] || value=0 ;;
+        esac
+        blit_mouse_slide "$w" "$key" "$value" ;;
+    *) blit_do "$w" "$key" "$dir" ;;
     esac
     return 0
 }

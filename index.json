@@ -548,14 +548,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "ae7c7dc231983de50d892cf472541a8ea2dfe9f69e226de729bb545f84e9722e",
-      "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
+      "sha256": "44fc2bb385ef3166ecb4533979b54611416870b64a8327b63f8547f1308b418c",
+      "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "windows"
+      "name": "windows",
+      "hibr": "0.99.248"
     },
     "control-panel/datetime": {
       "title": "Date & Time",
@@ -604,10 +605,10 @@
     },
     "control-panel/blit": {
       "title": "Blit",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "b1ab211aed4df3508241d4785e472768d26a1111d668cfada55f12f334b61bc5",
+      "sha256": "9052b5d91c655103582bcc42cbb9fac2f0dee936f152c6bee0bd44e05387c06c",
       "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -998,11 +999,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "72a4f44f5607c800166e3f7c3af84fb2d74436e0f79474e895135c911276c01b",
-      "about": "The desktop's own words in العربية (ar): 1046 strings, read right to left.",
+      "sha256": "299a24bbb4220716fa3e2f5bb987589f74c68be0ad39ff12090c7f970d2b9f39",
+      "about": "The desktop's own words in العربية (ar): 1047 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1428,14 +1429,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "ae7c7dc231983de50d892cf472541a8ea2dfe9f69e226de729bb545f84e9722e",
-      "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
+      "sha256": "44fc2bb385ef3166ecb4533979b54611416870b64a8327b63f8547f1308b418c",
+      "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "windows"
+      "name": "windows",
+      "hibr": "0.99.248"
     },
     "datetime": {
       "title": "Date & Time",
@@ -1484,10 +1486,10 @@
     },
     "blit": {
       "title": "Blit",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "b1ab211aed4df3508241d4785e472768d26a1111d668cfada55f12f334b61bc5",
+      "sha256": "9052b5d91c655103582bcc42cbb9fac2f0dee936f152c6bee0bd44e05387c06c",
       "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
       "licence": "MIT",
       "author": "Omar Sakka",

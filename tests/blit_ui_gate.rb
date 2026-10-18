@@ -11,6 +11,8 @@ ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
 EXPECTED_VERSION=File.read(File.join(BLIT,'packaging/VERSION')).strip
+PANE=ENV.fetch('BLIT_PANEL_UI_PANE','blit')
+raise 'unsupported panel fixture' unless %w[blit blit_mouse].include?(PANE)
 PORT=Integer(ENV.fetch('BLIT_PANEL_UI_PORT','19496'))
 BASE=URI("http://127.0.0.1:#{PORT}")
 def req(method,path,body=nil)
@@ -44,7 +46,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     source '#{ROOT}/bundles/control-panel/blit.hibr'
     DT_TERMMS=0
     dt_open || exit 1
-    id := dt_launch panel blit
+    id := dt_launch panel #{PANE}
     dt_run
     dt_close
   HIBR
@@ -66,7 +68,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       cells=req('GET',surface)['cells']
       cells.group_by{|c|c['y']}.sort.map{|_,row|row.sort_by{|c|c['x']}.map{|c|c['text']}.join}.join("\n")
     end
-    snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?("Connected: #{EXPECTED_VERSION}") && t.include?('Apply auxiliaries')}
+    snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?("Connected: #{EXPECTED_VERSION}") && t.include?(PANE=='blit_mouse' ? 'Pointer Size' : 'Apply auxiliaries')}
     capture=->(name) do
       File.write(File.join(output,"#{name}.txt"),text.call)
       bmp=Net::HTTP.get(BASE+'/v1/diagnostics/screenshots/display-1')
@@ -91,6 +93,25 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
     end
     input=->(bytes){req('POST',"/v1/terminal-sessions/#{session['id']}/input",{'data'=>bytes})}
+    if PANE=='blit_mouse'
+      drag.call('Pointer Size',10)
+      await('native pointer size drag'){text.call.include?('Pointer Size (64 px)')}
+      capture.call('pointer-size-dragged')
+      cells=req('GET',surface)['cells']
+      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?('Save all staged Blit')}
+      raise 'save action missing' unless row
+      label=row[1].sort_by{|c|c['x']}; x=label.find{|c|c['text']=='S'}['x']
+      grid=req('GET','/v1/topology')['panes'][0]['cell_grid']
+      req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+(x+5)*grid['cell_width'],y:grid['origin_y']+row[0]*grid['cell_height']+grid['cell_height']/2})
+      # Native actions select on the first click and activate on the next.
+      2.times do
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+      end
+      await('mouse pane actual save action'){req('GET','/v1/settings').dig('effective','pointer','size_px')==64}
+      capture.call('mouse-saved')
+      puts "BLIT_MOUSE_UI_PASS library=installed_hibr renderer=sdl_software pane=shared_bundle size=actual_pointer64 save=actual_click screenshots=#{output}"
+    else
     input.call("\r")
     await('connection dialog from real keyboard input'){text.call.include?('Blit Connection')}
     capture.call('connection')
@@ -114,6 +135,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     await('native scale drag and font reflow'){req('GET','/v1/fonts').dig('active','scale')==1.2 && text.call.include?('Scale (1.2)')}
     capture.call('scale-slider-dragged')
     puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software panel=connected drag=actual_pointer_columns8_rows3_scale1.2 keyboard=open_close token=masked screenshots=#{output}"
+    end
   rescue Exception
     warn File.read(log) if File.exist?(log)
     warn File.read(File.join(root,'desktop.log')) if File.exist?(File.join(root,'desktop.log'))
