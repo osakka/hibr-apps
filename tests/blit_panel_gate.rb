@@ -80,6 +80,30 @@ Dir.mktmpdir('blit-panel') do |root|
           i=$((i + 1))
       done
       [ "$font_size_found" = 1 ] || { echo 'pixel font size control missing' >&2; exit 41; }
+      expected_source=${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_source]:-"Not reported by server"}
+      i=0; source_found=0; driver_found=0
+      while [ "$i" -lt "$n" ]; do
+          if [ "${CP[44][$i][text]}" = "Backend source" ]; then
+              [ "${CP[44][$i][val]}" = "$expected_source" ] || exit 51
+              source_found=1
+          fi
+          [ "${CP[44][$i][text]}" != "SDL video driver" ] || driver_found=1
+          i=$((i + 1))
+      done
+      [ "$source_found" = 1 ] && [ "$driver_found" = 1 ] || exit 52
+      provenance := json get BCP_SNAPSHOT .settings.effective.presentation_configuration
+      json parse 'BCP_SNAPSHOT[settings][effective][presentation_configuration]' '{"backend_source":"saved-settings","backend_environment_valid":false,"backend_environment_overridden":true}'
+      n := blit_rows 999999
+      i=0; invalid_found=0
+      while [ "$i" -lt "$n" ]; do
+          if [ "${CP[999999][$i][text]}" = "Startup default" ]; then
+              [ "${CP[999999][$i][val]}" = "Invalid; saved settings win" ] || exit 53
+              invalid_found=1
+          fi
+          i=$((i + 1))
+      done
+      [ "$invalid_found" = 1 ] || exit 54
+      json parse 'BCP_SNAPSHOT[settings][effective][presentation_configuration]' "$provenance"
       output=${BCP_SNAPSHOT[displays][displays][0][name]}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2

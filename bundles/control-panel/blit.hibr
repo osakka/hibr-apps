@@ -10,7 +10,7 @@
 # is kept in a private user file, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.6
+app blit "API configuration and diagnostics for the Blit display server" 0.1.7
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -392,7 +392,29 @@ fn blit_rows(int w) {
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
-    blit_cp_row "$w" "$n" info Backend "${BCP_SNAPSHOT[server][display_backend][name]}"; n=$((n + 1))
+    blit_cp_row "$w" "$n" head "Presentation (API settings own intent)"; n=$((n + 1))
+    local backend=${BCP_SNAPSHOT[settings][effective][display_backend_active]}
+    [ -n "$backend" ] || backend=${BCP_SNAPSHOT[server][display_backend][name]}
+    blit_cp_row "$w" "$n" info "Active backend" "$backend"; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Requested backend" "${BCP_SNAPSHOT[settings][effective][display_backend_requested]}"; n=$((n + 1))
+    local source=${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_source]:-"Not reported by server"}
+    blit_cp_row "$w" "$n" info "Backend source" "$source"; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Active renderer" "${BCP_SNAPSHOT[settings][effective][renderer_active]}"; n=$((n + 1))
+    local driver=${BCP_SNAPSHOT[settings][effective][presentation_configuration][video_driver_active]}
+    [ -n "$driver" ] || driver=${BCP_SNAPSHOT[diagnostics][render][video_driver]:-"Not reported by server"}
+    [ "$backend" != drm-kms ] || driver=not-applicable
+    blit_cp_row "$w" "$n" info "SDL video driver" "$driver"; n=$((n + 1))
+    local startup="Not reported by server"
+    if [ "${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_environment_valid]}" = false ]; then
+        startup="Invalid; display disabled"
+        [ "${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_environment_overridden]}" != true ] || startup="Invalid; saved settings win"
+    elif [ "${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_environment_valid]}" = true ]; then
+        startup=${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_environment]}
+        [ -n "$startup" ] && [ "$startup" != null ] || startup=unset
+        [ "${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_environment_overridden]}" != true ] || startup="$startup (fallback only)"
+    fi
+    blit_cp_row "$w" "$n" info "Startup default" "$startup"; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "Restart required" "${BCP_SNAPSHOT[settings][effective][presentation_restart_required]}"; n=$((n + 1))
     blit_cp_row "$w" "$n" action "Export staged configuration" "" export; n=$((n + 1))
     blit_cp_row "$w" "$n" action "Import configuration (stage only)" "" import; n=$((n + 1))
     ret "$n"

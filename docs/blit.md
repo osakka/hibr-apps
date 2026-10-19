@@ -1,11 +1,25 @@
 # Blit Control Panel
 
+## Presentation source (pane0.1.7)
+
+With Blit0.1.563+, the read-only Presentation section distinguishes requested
+and active backends, configuration source, active renderer/video driver,
+startup-default validity and pending restart. Older servers show `Not reported
+by server` where provenance is unavailable, rather than guessing.
+
+Saved API settings own presentation intent. `BLIT_DISPLAY_BACKEND=kms` is a
+startup fallback, not an override; `kmsdrm` is only an SDL video-driver value.
+The panel does not create a competing backend preference store. On native KMS,
+an SDL renderer preference can remain saved without being active.
+See [ADR0006](adr/0006-blit-presentation-source-is-read-only.md).
+
+
 Install with `catalogue install control-panel/blit`, then open Control Panel
 and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
-Pane0.1.6 registers **Blit** and **Blit Mouse** under Hardware in the same
+Pane0.1.7 registers **Blit** and **Blit Mouse** under Hardware in the same
 catalogue bundle. Use Blit0.1.550 for pointer appearance (549 was superseded
 before deployment), and Blit0.1.561+ for pixel font sizing;0.1.546 introduced
 durable independent-grid startup migration. Requirements remain Hibr0.99.244
