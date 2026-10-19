@@ -101,6 +101,8 @@ ENTHIBR["apps/dbase"]=0.99.260
 ENTHIBR["apps/write"]=0.99.260
 ENTHIBR["control-panel/datetime"]=0.99.260
 ENTHIBR["control-panel/filetypes"]=0.99.260
+# It sets DT_LOCKWHERE, which an older desktop never declares (Gitea #303).
+ENTHIBR["control-panel/screensaver"]=0.99.261
 # They clear DT_WALLBAD, which an older desktop never declares (Gitea #301).
 ENTHIBR["apps/imgview"]=0.99.259
 ENTHIBR["control-panel/appearance"]=0.99.259
