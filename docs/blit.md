@@ -116,6 +116,13 @@ capability handling, native UI pointer/keyboard interaction, and Mouse
 regressions. Catalogue publication does not update an already installed pane:
 run `catalogue refresh` then `catalogue update control-panel/blit`.
 
+The native UI gate also accepts `BLIT_GATE_FONT` for renderer integration
+checks. Candidate Blit0.1.562 with the new `blit-modern` native antialiased
+profile passes the actual slider/+1/-1 interaction at19/20px with installed
+Hibr0.99.259/ABI16. This is isolated UI evidence, not a physical deployment
+claim. The panel still uses the same profile and pixel-size APIs; there is
+no extra modern-font configuration path or Hibr core modification.
+
 Requests run in one background job with a two-second connection timeout,
 six-second per-request deadline and bounded response size. Callbacks poll
 completed files in a private temporary directory. Measured frame rate, render

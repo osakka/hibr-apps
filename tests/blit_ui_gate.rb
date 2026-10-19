@@ -51,7 +51,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     dt_close
   HIBR
   env={'SDL_VIDEODRIVER'=>'dummy','BLIT_RENDERER'=>'software','BLIT_LOGIN_AUTOSTART'=>'0','BLIT_AUTH_TOKEN'=>'',
-       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf'),
+       'BLIT_PSF_FONT'=>ENV.fetch('BLIT_GATE_FONT',File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf')),
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input'),
        'LD_LIBRARY_PATH'=>File.join(BLIT,'build/sdl3-kms')}
   log=File.join(root,'server.log')
