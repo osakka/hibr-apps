@@ -506,14 +506,15 @@
     },
     "control-panel/displays": {
       "title": "Displays",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/displays.hibr",
-      "sha256": "f6230f5a111de0f70505126870d8d2a1541a9bff373822d3881f15bf4b3c1712",
+      "sha256": "7ed9e9cbdfd5a728c1dc63d1149bf44f5ec187be441d79944ab5fc0ef0e7ddfb",
       "about": "Control Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "displays"
+      "name": "displays",
+      "hibr": "0.99.256"
     },
     "control-panel/shortcuts": {
       "title": "Shortcuts",
@@ -1405,14 +1406,15 @@
     },
     "displays": {
       "title": "Displays",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/displays.hibr",
-      "sha256": "f6230f5a111de0f70505126870d8d2a1541a9bff373822d3881f15bf4b3c1712",
+      "sha256": "7ed9e9cbdfd5a728c1dc63d1149bf44f5ec187be441d79944ab5fc0ef0e7ddfb",
       "about": "Control Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "displays"
+      "name": "displays",
+      "hibr": "0.99.256"
     },
     "shortcuts": {
       "title": "Shortcuts",

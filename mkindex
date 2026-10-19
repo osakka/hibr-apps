@@ -87,6 +87,8 @@ ENTHIBR["system/tasks"]=0.99.253
 ENTHIBR["control-panel/aboutme"]=0.99.253
 ENTHIBR["control-panel/datetime"]=0.99.253
 ENTHIBR["control-panel/filetypes"]=0.99.253
+# hold move counts from the primary display since 0.99.256 (Gitea #297).
+ENTHIBR["control-panel/displays"]=0.99.256
 ENTHIBR["apps/youtube"]=0.99.248
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
