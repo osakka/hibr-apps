@@ -63,14 +63,31 @@ ENTHIBR["control-panel/appearance"]=0.99.246
 # #289). 1.2 told each tab its languages, Do Not Track, blocked addresses,
 # position and notifications, and the browser its permissions and downloads,
 # through web module verbs that are 0.99.247's (hibr Gitea #285).
-ENTHIBR["apps/browser"]=0.99.252
+ENTHIBR["apps/browser"]=0.99.253
 # Windows 1.1's Zoom Fills row reads DT_ZOOMFILL and DT_ZOOMFILLS, which the
 # window manager has from 0.99.248 (hibr Gitea #286).
 ENTHIBR["control-panel/windows"]=0.99.248
 # X Screen 1.1 needs the xscr module of 0.99.251, which gained manage, fit
 # and title, and the window manager's dt_appvia (hibr Gitea #290, #291).
-ENTHIBR["apps/xscreen"]=0.99.251
+ENTHIBR["apps/xscreen"]=0.99.253
 ENTHIBR["control-panel/wallset"]=0.99.246
+# Every dialog these open is placed with the window manager's dt_dlgat,
+# over the focused window on its own display, which is 0.99.253's (hibr
+# Gitea #293) -- Browser 1.4 and X Screen 1.2 through their panes. Their
+# older needs above are kept by these. YouTube 1.7's mini player goes to
+# its own display's corner through dt_windisp, 0.99.248's.
+ENTHIBR["apps/contacts"]=0.99.253
+ENTHIBR["apps/files"]=0.99.253
+ENTHIBR["apps/calendar"]=0.99.253
+ENTHIBR["apps/prayer"]=0.99.253
+ENTHIBR["apps/mail"]=0.99.253
+ENTHIBR["apps/sheet"]=0.99.253
+ENTHIBR["apps/write"]=0.99.253
+ENTHIBR["system/tasks"]=0.99.253
+ENTHIBR["control-panel/aboutme"]=0.99.253
+ENTHIBR["control-panel/datetime"]=0.99.253
+ENTHIBR["control-panel/filetypes"]=0.99.253
+ENTHIBR["apps/youtube"]=0.99.248
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

@@ -22,15 +22,15 @@
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "ef7d9c5e8e051a74b6e811fa9285f0f254a59f64b68dafd751f617dd7bcc7bfa",
+      "sha256": "9a8e2f3e017e3bb0d9260e61396f7d24de7dbbd95c355622e9505b8f7055a6e4",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "dav db pim",
       "parts": [
         {
@@ -43,36 +43,36 @@
     },
     "apps/xscreen": {
       "title": "X Screen",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "fcf9cf4e12c794f926c82b24e2870d7d318a8b6619905475433d44e64937bbe0",
+      "sha256": "565ac8dfc45dd6d355ecfe21588578841744a03252f8abe8fb72890a1cce7375",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "xscreen",
-      "hibr": "0.99.251",
+      "hibr": "0.99.253",
       "modules": "xscr",
       "parts": [
         {
           "kind": "control-panel",
           "as": "xscreenset.hibr",
           "path": "bundles/control-panel/xscreenset.hibr",
-          "sha256": "c3de913bbca583236c492c8b6d5692cb2ef88c1422cdf6eeaf5d224edc447c5f"
+          "sha256": "ec70ee775d78e9bf6ef835064c2093f9f0b1ea5c01debf64c06eca05ef02239e"
         }
       ]
     },
     "apps/files": {
       "title": "Files",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "c585f07be2adfa6dc53afb5ec60a8a96d06169a438150b2fb0ca69727f46e267",
+      "sha256": "85209727bbd6e5cff98cf5375c5e5e76e3cc9fc8b3d3c5cfcad41e9caf9b6ae9",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "parts": [
         {
           "kind": "control-panel",
@@ -105,15 +105,15 @@
     },
     "apps/calendar": {
       "title": "Calendar",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "641a1017aa9848d92d3c3337698ee9d68c5f7429cbdbed7bbbb8da57dddd7e12",
+      "sha256": "4d6dad35cecc0b771ee161840cabc1475fe70f634218b5d57fd83ab88ce19698",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "dav db email pim",
       "parts": [
         {
@@ -196,15 +196,15 @@
     },
     "apps/prayer": {
       "title": "Prayer Times",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/prayer.hibr",
-      "sha256": "c8e4782e0cf471463c5d20a9f68390adab0bfe536c86bedbfc91ed8fef7ffca4",
+      "sha256": "5735baed5062c2bb2f4fd025310220450fe7c3cb631777edeeb15a02bbeb9654",
       "about": "Today's prayer times for where you are, the next one lit\n\na desk accessory (Gitea #70): today's times for where the person is, by the method chosen in Control Panel > Prayer Times, the next one lit with how long until it. The times come from wm/prayer.hibr's dt_ptimes, so the window, the bar and the notes always agree.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "prayer",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "salat",
       "dir": "Accessories",
       "parts": [
@@ -260,15 +260,15 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "15d97dd933159be7e92b521bec0865b75caccb558f1c83df950a2ace35dbe8dc",
+      "sha256": "3e34163995bd819fa1c0c1bd2f0bcc7f29ffe8d3c0339642b677648c74b70e99",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "db email html img",
       "dir": "Internet",
       "parts": [
@@ -276,21 +276,21 @@
           "kind": "control-panel",
           "as": "mailset.hibr",
           "path": "bundles/control-panel/mailset.hibr",
-          "sha256": "6f040710499c7691a97e0065a676b5e547627adf9444b0793a9ab6e38ff895eb"
+          "sha256": "13f2b2073d7cd8954e8404066be8da865a5511c1e35f279e38e3685682401f8f"
         }
       ]
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "1f3c77707bb293309bd831ad74da9528a4622e7ca79c9159bb13a6f160413bf6",
+      "sha256": "5255bc271c8a202a2fc4a5c563acd3394b740e332d3a98ac1e55760629ac307b",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "youtube",
-      "hibr": "0.99.189",
+      "hibr": "0.99.248",
       "modules": "media web",
       "dir": "Internet",
       "parts": [
@@ -304,15 +304,15 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "10a59dc148836ed2375194a2f7afcb6e7b89635c0634bd7c0688ca42a3d78593",
+      "sha256": "5acfe12367f7bc94e7a1de530386ed04d0a4d72a8d16117a0ff3653d977680a9",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser",
-      "hibr": "0.99.252",
+      "hibr": "0.99.253",
       "modules": "web",
       "dir": "Internet",
       "parts": [
@@ -320,7 +320,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "afc626c0c9409db0a98e21d1461bab4edd41fc46074eb7fe869898c58a1f22be"
+          "sha256": "c452a7263cd1c294b369b670d1bafc0f2e64303207e29109dce2ac0c2cbe103d"
         }
       ]
     },
@@ -339,14 +339,15 @@
     },
     "apps/sheet": {
       "title": "Sheet",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "8f346e62fd400dd97b7b1a78db05695cdba4f176e89fbc7614fc5571b5dfae94",
+      "sha256": "49d71f70d875984c49adcccf5c0ee6084c8ea12c66a07be36791f9ae2c0c93c6",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "sheet",
+      "hibr": "0.99.253",
       "modules": "csv db math",
       "dir": "Office"
     },
@@ -365,14 +366,15 @@
     },
     "apps/write": {
       "title": "Write",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/write.hibr",
-      "sha256": "217be91d763966ba9c93f631fa43bbde7f550d2170b7010095f1e1dea556f0a4",
+      "sha256": "a492d7782759f580852414c4901190ed3c5df50bc177406fbe502f6866576c4a",
       "about": "A word processor for markdown, shown as it reads\n\na word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "write",
+      "hibr": "0.99.253",
       "modules": "md mermaid",
       "dir": "Office"
     },
@@ -400,10 +402,10 @@
     },
     "system/about": {
       "title": "About This Computer",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "system",
       "bundle": "bundles/system/about.hibr",
-      "sha256": "4e6bb0fb680e998eb0108f5bfeab5e30e7d3fcbff0767135f4981d3b6fbc252b",
+      "sha256": "50ee2a970c5219eb7e8658a8c2c6e5a991794473e280101237cf55fe078c7d08",
       "about": "About this computer: the machine, and the desktop running on it\n\nwhat this is, and what it is running on.\n\nOn Linux the machine's own numbers come from /proc, read directly and costing no fork, the same way mods/sysinfo does in C. Nothing else keeps a /proc, so everywhere else forks a system command instead -- vm_stat and sysctl for memory, top for CPU, both throttled to AB_SLOWMS since forking a command every frame is not something to do at DT_TICK's pace. A window rather than the one-line note it used to be, because a bar that means something has to keep being redrawn, and a note fades on its own.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -440,15 +442,15 @@
     },
     "system/tasks": {
       "title": "Task Manager",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "abae90460d0d51197f4c41f78836ceedaa566a41f80d2d5696cf77e577f26c87",
+      "sha256": "5ee7bfb40ae6305fa6ed409e135928930a90b3db5d71354d87f737d9b921ad63",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "tasks",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "parts": [
         {
           "kind": "control-panel",
@@ -492,14 +494,15 @@
     },
     "control-panel/aboutme": {
       "title": "About Me",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/aboutme.hibr",
-      "sha256": "540570d047bd4eb717956256687d248717f3ad20a69a1671e1d4a522601c09c3",
+      "sha256": "45484ec429908dfde2c406371f1c6bed46ff9237ee6ccae24b1a9558dcf1ca48",
       "about": "The Control Panel pane for About Me: the name, the line under it and the picture the login screen shows for you (programs/desktop/login/), and which session it starts. They live in ~/.config/hibr/me.json -- data, never run, since the login screen reads it before anyone has logged in (as you, never as root). The picture is a PNG or JPEG anywhere you can read it; the file keeps its path.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "aboutme"
+      "name": "aboutme",
+      "hibr": "0.99.253"
     },
     "control-panel/displays": {
       "title": "Displays",
@@ -581,25 +584,27 @@
     },
     "control-panel/datetime": {
       "title": "Date & Time",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/datetime.hibr",
-      "sha256": "2155d8950cf0b0181a66ae6c70ee3dbaf64b8d2358c504eeb672bf8a8dc12781",
+      "sha256": "0ccf167865d51b14e609af4795192ae1237f7a63f07b010118805d54bfba0a86",
       "about": "The Control Panel pane for the time, the date and the time zone\n\nthe Control Panel pane for the time, the date, and a small world map with a mark near the machine's own time zone, System 7's Date & Time control panel. A custom pane, since a map needs a body of its own rather than two columns of text.\n\nThe map data, its scoring, and the zone1970.tab lookup are all copied from examples/traceroute.hibr rather than redone: CLAUDE.md's own trap about that map says not to adjust one by eye, and the same is true of drawing a second one. What is copied is copied unchanged; only the projection's target size differs, since this map is a corner of a settings pane and not a full screen.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "datetime"
+      "name": "datetime",
+      "hibr": "0.99.253"
     },
     "control-panel/filetypes": {
       "title": "File Types",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "afef6b406480de7753597e605c8c062af5e808453df00f34de894241e2be09bb",
+      "sha256": "7c3aca25a38c3bef30d8863b17658ac7a8add0da5a0aaba20ee893beeb374561",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "filetypes"
+      "name": "filetypes",
+      "hibr": "0.99.253"
     },
     "control-panel/appearance": {
       "title": "Appearance",
@@ -1046,41 +1051,41 @@
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "ef7d9c5e8e051a74b6e811fa9285f0f254a59f64b68dafd751f617dd7bcc7bfa",
+      "sha256": "9a8e2f3e017e3bb0d9260e61396f7d24de7dbbd95c355622e9505b8f7055a6e4",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "dav db pim"
     },
     "xscreen": {
       "title": "X Screen",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "fcf9cf4e12c794f926c82b24e2870d7d318a8b6619905475433d44e64937bbe0",
+      "sha256": "565ac8dfc45dd6d355ecfe21588578841744a03252f8abe8fb72890a1cce7375",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "xscreen",
-      "hibr": "0.99.251",
+      "hibr": "0.99.253",
       "modules": "xscr"
     },
     "files": {
       "title": "Files",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "c585f07be2adfa6dc53afb5ec60a8a96d06169a438150b2fb0ca69727f46e267",
+      "sha256": "85209727bbd6e5cff98cf5375c5e5e76e3cc9fc8b3d3c5cfcad41e9caf9b6ae9",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.189"
+      "hibr": "0.99.253"
     },
     "term": {
       "title": "Terminal",
@@ -1097,15 +1102,15 @@
     },
     "calendar": {
       "title": "Calendar",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "641a1017aa9848d92d3c3337698ee9d68c5f7429cbdbed7bbbb8da57dddd7e12",
+      "sha256": "4d6dad35cecc0b771ee161840cabc1475fe70f634218b5d57fd83ab88ce19698",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "dav db email pim"
     },
     "stickies": {
@@ -1160,15 +1165,15 @@
     },
     "prayer": {
       "title": "Prayer Times",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/prayer.hibr",
-      "sha256": "c8e4782e0cf471463c5d20a9f68390adab0bfe536c86bedbfc91ed8fef7ffca4",
+      "sha256": "5735baed5062c2bb2f4fd025310220450fe7c3cb631777edeeb15a02bbeb9654",
       "about": "Today's prayer times for where you are, the next one lit\n\na desk accessory (Gitea #70): today's times for where the person is, by the method chosen in Control Panel > Prayer Times, the next one lit with how long until it. The times come from wm/prayer.hibr's dt_ptimes, so the window, the bar and the notes always agree.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "prayer",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "salat",
       "dir": "Accessories"
     },
@@ -1210,43 +1215,43 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "15d97dd933159be7e92b521bec0865b75caccb558f1c83df950a2ace35dbe8dc",
+      "sha256": "3e34163995bd819fa1c0c1bd2f0bcc7f29ffe8d3c0339642b677648c74b70e99",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.189",
+      "hibr": "0.99.253",
       "modules": "db email html img",
       "dir": "Internet"
     },
     "youtube": {
       "title": "YouTube",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "1f3c77707bb293309bd831ad74da9528a4622e7ca79c9159bb13a6f160413bf6",
+      "sha256": "5255bc271c8a202a2fc4a5c563acd3394b740e332d3a98ac1e55760629ac307b",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "youtube",
-      "hibr": "0.99.189",
+      "hibr": "0.99.248",
       "modules": "media web",
       "dir": "Internet"
     },
     "browser": {
       "title": "Browser",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "10a59dc148836ed2375194a2f7afcb6e7b89635c0634bd7c0688ca42a3d78593",
+      "sha256": "5acfe12367f7bc94e7a1de530386ed04d0a4d72a8d16117a0ff3653d977680a9",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "browser",
-      "hibr": "0.99.252",
+      "hibr": "0.99.253",
       "modules": "web",
       "dir": "Internet"
     },
@@ -1265,14 +1270,15 @@
     },
     "sheet": {
       "title": "Sheet",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "8f346e62fd400dd97b7b1a78db05695cdba4f176e89fbc7614fc5571b5dfae94",
+      "sha256": "49d71f70d875984c49adcccf5c0ee6084c8ea12c66a07be36791f9ae2c0c93c6",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "sheet",
+      "hibr": "0.99.253",
       "modules": "csv db math",
       "dir": "Office"
     },
@@ -1291,14 +1297,15 @@
     },
     "write": {
       "title": "Write",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/write.hibr",
-      "sha256": "217be91d763966ba9c93f631fa43bbde7f550d2170b7010095f1e1dea556f0a4",
+      "sha256": "a492d7782759f580852414c4901190ed3c5df50bc177406fbe502f6866576c4a",
       "about": "A word processor for markdown, shown as it reads\n\na word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "write",
+      "hibr": "0.99.253",
       "modules": "md mermaid",
       "dir": "Office"
     },
@@ -1326,10 +1333,10 @@
     },
     "about": {
       "title": "About This Computer",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "system",
       "bundle": "bundles/system/about.hibr",
-      "sha256": "4e6bb0fb680e998eb0108f5bfeab5e30e7d3fcbff0767135f4981d3b6fbc252b",
+      "sha256": "50ee2a970c5219eb7e8658a8c2c6e5a991794473e280101237cf55fe078c7d08",
       "about": "About this computer: the machine, and the desktop running on it\n\nwhat this is, and what it is running on.\n\nOn Linux the machine's own numbers come from /proc, read directly and costing no fork, the same way mods/sysinfo does in C. Nothing else keeps a /proc, so everywhere else forks a system command instead -- vm_stat and sysctl for memory, top for CPU, both throttled to AB_SLOWMS since forking a command every frame is not something to do at DT_TICK's pace. A window rather than the one-line note it used to be, because a bar that means something has to keep being redrawn, and a note fades on its own.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1350,15 +1357,15 @@
     },
     "tasks": {
       "title": "Task Manager",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "abae90460d0d51197f4c41f78836ceedaa566a41f80d2d5696cf77e577f26c87",
+      "sha256": "5ee7bfb40ae6305fa6ed409e135928930a90b3db5d71354d87f737d9b921ad63",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "tasks",
-      "hibr": "0.99.189"
+      "hibr": "0.99.253"
     },
     "notifications": {
       "title": "Notifications",
@@ -1386,14 +1393,15 @@
     },
     "aboutme": {
       "title": "About Me",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/aboutme.hibr",
-      "sha256": "540570d047bd4eb717956256687d248717f3ad20a69a1671e1d4a522601c09c3",
+      "sha256": "45484ec429908dfde2c406371f1c6bed46ff9237ee6ccae24b1a9558dcf1ca48",
       "about": "The Control Panel pane for About Me: the name, the line under it and the picture the login screen shows for you (programs/desktop/login/), and which session it starts. They live in ~/.config/hibr/me.json -- data, never run, since the login screen reads it before anyone has logged in (as you, never as root). The picture is a PNG or JPEG anywhere you can read it; the file keeps its path.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "aboutme"
+      "name": "aboutme",
+      "hibr": "0.99.253"
     },
     "displays": {
       "title": "Displays",
@@ -1475,25 +1483,27 @@
     },
     "datetime": {
       "title": "Date & Time",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/datetime.hibr",
-      "sha256": "2155d8950cf0b0181a66ae6c70ee3dbaf64b8d2358c504eeb672bf8a8dc12781",
+      "sha256": "0ccf167865d51b14e609af4795192ae1237f7a63f07b010118805d54bfba0a86",
       "about": "The Control Panel pane for the time, the date and the time zone\n\nthe Control Panel pane for the time, the date, and a small world map with a mark near the machine's own time zone, System 7's Date & Time control panel. A custom pane, since a map needs a body of its own rather than two columns of text.\n\nThe map data, its scoring, and the zone1970.tab lookup are all copied from examples/traceroute.hibr rather than redone: CLAUDE.md's own trap about that map says not to adjust one by eye, and the same is true of drawing a second one. What is copied is copied unchanged; only the projection's target size differs, since this map is a corner of a settings pane and not a full screen.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "datetime"
+      "name": "datetime",
+      "hibr": "0.99.253"
     },
     "filetypes": {
       "title": "File Types",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "afef6b406480de7753597e605c8c062af5e808453df00f34de894241e2be09bb",
+      "sha256": "7c3aca25a38c3bef30d8863b17658ac7a8add0da5a0aaba20ee893beeb374561",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "filetypes"
+      "name": "filetypes",
+      "hibr": "0.99.253"
     },
     "appearance": {
       "title": "Appearance",
