@@ -30,6 +30,14 @@ rasterization;564 passes native slider drag19px and keyboard+1/-1, with captures
 under the Blit build's `font564-panel-evidence/`. This is local software/UI
 evidence, not physical-display acceptance.
 
+Blit564 is now API-deployed on10.54/native KMS. Both profiles are discovered
+by the unchanged0.1.7 pane. Both pass17/19/23px physical geometry/capture
+checks; a sampled actual native menu glyph has11 intermediate coverage levels
+on Modern versus0 on Retro. A later external22px selection was preserved and
+saved. The operator confirmed restarting Hibr during previews; observed
+session replacement is not attributed to Blit. This is representative raster
+evidence, not a claim of every glyph or whole-desktop resize acceptance.
+
 
 Install with `catalogue install control-panel/blit`, then open Control Panel
 and select **Blit** under Hardware. Remove it with
