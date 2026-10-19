@@ -10,7 +10,7 @@
 # is kept in a private user file, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.5
+app blit "API configuration and diagnostics for the Blit display server" 0.1.6
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -20,7 +20,8 @@ BCP_TOKEN=
 BCP_CREDENTIAL_STATUS=
 BCP_CONNECTION_READY=0
 BCP_CREDENTIAL_URL=
-BCP_SCALE_PENDING=
+BCP_FONT_SIZE_PENDING=
+BCP_FONT_SIZE_REQUESTED=
 BCP_POINTER_ID=
 BCP_DIR=
 BCP_BUSY=0
@@ -180,10 +181,13 @@ fn blit_cp_poll() {
     BCP_LAST=$EPOCHSECONDS
     if ! json parse reply < "$BCP_DIR/reply" 2> /dev/null; then
         blit_cp_schedule 1
+        BCP_FONT_SIZE_PENDING=
+        BCP_FONT_SIZE_REQUESTED=
         BCP_STATUS="HTTP $code: invalid JSON response"; return 0
     fi
     if [ "$ok" != 1 ]; then
-        BCP_SCALE_PENDING=
+        BCP_FONT_SIZE_PENDING=
+        BCP_FONT_SIZE_REQUESTED=
         blit_cp_schedule 1
         if [ "$code" = 000 ]; then BCP_STATUS="Offline or request timed out";
         else BCP_STATUS="HTTP $code: ${reply[code]:-${reply[title]:-request failed}}"; fi
@@ -203,7 +207,7 @@ fn blit_cp_poll() {
         fi
         BCP_STATUS="Connected: ${BCP_SNAPSHOT[version][server_version]}"
         if [ "$BCP_DIRTY" = 1 ] && [ "$BCP_BASE_REV" != "${BCP_SNAPSHOT[settings][revision]}" ]; then
-            BCP_STATUS="Settings changed elsewhere; reload before saving"
+            BCP_STATUS="Saved settings changed; reload before saving"
         fi
         ;;
     apply | retry)
@@ -223,17 +227,29 @@ fn blit_cp_poll() {
         BCP_STATUS="Save: ${reply[storage][state]} (revision ${reply[storage][saved_revision]})"
         ;;
     font)
+        BCP_FONT_SIZE_REQUESTED=
         raw := json emit reply
         json parse 'BCP_SNAPSHOT[fonts]' "$raw"
+        # Update only the font in the shared draft. Never rebase unrelated edits.
+        local -A font_draft
+        json parse font_draft '{}'
+        json set font_draft .font_id "${reply[active][id]}" -s
+        if [ "${reply[active][sizing]}" = pixels ]; then
+            json set font_draft .size_px "${reply[active][size_px]}"
+        else
+            json set font_draft .scale "${reply[active][scale]}"
+        fi
+        raw := json emit font_draft
+        json parse 'BCP_DRAFT[font]' "$raw"
         BCP_STATUS="Font applied; settings save queued"
         BCP_LAST=0
         BCP_NEXT=0
         ;;
     esac
-    if [ -n "$BCP_SCALE_PENDING" ]; then
-        local wanted=$BCP_SCALE_PENDING
-        BCP_SCALE_PENDING=
-        blit_slide 0 scale "$wanted"
+    if [ -n "$BCP_FONT_SIZE_PENDING" ]; then
+        local wanted=$BCP_FONT_SIZE_PENDING
+        BCP_FONT_SIZE_PENDING=
+        blit_slide 0 font_size "$wanted"
     fi
     return 0
 }
@@ -364,11 +380,15 @@ fn blit_rows(int w) {
     done
     blit_cp_row "$w" "$n" head "Font (live with automatic save)"; n=$((n + 1))
     blit_cp_row "$w" "$n" set Font "${BCP_SNAPSHOT[fonts][active][id]}" font; n=$((n + 1))
-    local scale=${BCP_SNAPSHOT[fonts][active][scale]} tenths=10
-    if match "$scale" '^([123])([.]([0-9]))?$'; then tenths=$((M[1] * 10 + ${M[3]:-0})); fi
-    [ -z "$BCP_SCALE_PENDING" ] || tenths=$BCP_SCALE_PENDING
-    blit_cp_row "$w" "$n" set Scale "$tenths" scale slider
-    CP[$w][$n][min]=10; CP[$w][$n][max]=30; CP[$w][$n][after]="($scale)"; n=$((n + 1))
+    local size=${BCP_SNAPSHOT[fonts][active][size_px]}
+    if [ -n "$size" ] && [ "$size" != null ]; then
+        [ -z "$BCP_FONT_SIZE_PENDING" ] || size=$BCP_FONT_SIZE_PENDING
+        blit_cp_row "$w" "$n" set "Font size" "$size" font_size slider
+        CP[$w][$n][min]=8; CP[$w][$n][max]=64; CP[$w][$n][after]="($size px)"
+    else
+        blit_cp_row "$w" "$n" info "Font size" "Requires Blit 0.1.561+"
+    fi
+    n=$((n + 1))
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
@@ -382,7 +402,7 @@ fn blit_do(int w, key, int dir) {
     local raw body pane=auto i=0 value tenths output ordinal
     local -a choices
     local -A payload
-    [ "$BCP_BUSY" = 0 ] || return 0
+    [ "$BCP_BUSY" = 0 ] || [ "$key" = font_size ] || return 0
     case $key in
     url | token) blit_cp_edit "$key"; return 0 ;;
     reload) BCP_CONNECTION_READY=0; BCP_DIRTY=0; BCP_BASE_REV=-1; blit_cp_start refresh; return 0 ;;
@@ -420,13 +440,10 @@ fn blit_do(int w, key, int dir) {
         value := cp_next "${BCP_SNAPSHOT[fonts][active][id]}" "$dir" "${choices[@]}"
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
-    scale)
-        value=${BCP_SNAPSHOT[fonts][active][scale]}
-        match "$value" '^([123])([.]([0-9]))?$' || return 1
-        tenths=$((M[1] * 10 + ${M[3]:-0} + dir))
-        [ "$tenths" -ge 10 ] && [ "$tenths" -le 30 ] || return 0
-        value="$((tenths / 10)).$((tenths % 10))"
-        blit_slide "$w" scale "$tenths" ;;
+    font_size)
+        value=${BCP_FONT_SIZE_PENDING:-${BCP_FONT_SIZE_REQUESTED:-${BCP_SNAPSHOT[fonts][active][size_px]}}}
+        [ -n "$value" ] && [ "$value" != null ] || return 0
+        blit_slide "$w" font_size "$((value + dir))" ;;
     columns:* | rows:*)
         output=${key#*:}; value=${key%%:*}
         tenths=$(( ${BCP_DRAFT[display_layouts][$output][$value]:-1} + dir ))
@@ -441,11 +458,13 @@ fn blit_slide(int w, key, int value) {
     local body output field
     local -A payload grid
     case $key in
-    scale)
-        [ "$value" -ge 10 ] && [ "$value" -le 30 ] || return 0
-        if [ "$BCP_BUSY" = 1 ]; then BCP_SCALE_PENDING=$value; return 0; fi
+    font_size)
+        [ -n "${BCP_SNAPSHOT[fonts][active][size_px]}" ] && [ "${BCP_SNAPSHOT[fonts][active][size_px]}" != null ] || return 0
+        [ "$value" -ge 8 ] && [ "$value" -le 64 ] || return 0
+        if [ "$BCP_BUSY" = 1 ]; then BCP_FONT_SIZE_PENDING=$value; return 0; fi
+        BCP_FONT_SIZE_REQUESTED=$value
         json parse payload '{}'
-        json set payload .scale "$((value / 10)).$((value % 10))"
+        json set payload .size_px "$value"
         body := json emit payload
         blit_cp_start font PUT /v1/fonts "$body" ;;
     columns:* | rows:*)

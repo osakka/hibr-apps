@@ -10,7 +10,7 @@ require 'open3'
 ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
-EXPECTED_VERSION=File.read(File.join(BLIT,'packaging/VERSION')).strip
+EXPECTED_VERSION=ENV.fetch('BLIT_EXPECTED_VERSION'){File.read(File.join(BLIT,'packaging/VERSION')).strip}
 PANE=ENV.fetch('BLIT_PANEL_UI_PANE','blit')
 raise 'unsupported panel fixture' unless %w[blit blit_mouse].include?(PANE)
 PORT=Integer(ENV.fetch('BLIT_PANEL_UI_PORT','19496'))
@@ -131,10 +131,15 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     drag.call('Rows (',3)
     await('native rows drag'){text.call.include?('Rows (3)')}
     capture.call('grid-sliders-dragged')
-    drag.call('Scale (',1)
-    await('native scale drag and font reflow'){req('GET','/v1/fonts').dig('active','scale')==1.2 && text.call.include?('Scale (1.2)')}
-    capture.call('scale-slider-dragged')
-    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software panel=connected drag=actual_pointer_columns8_rows3_scale1.2 keyboard=open_close token=masked screenshots=#{output}"
+    drag.call('Font size (',2)
+    await('native pixel size drag and font reflow'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
+    capture.call('font-size-slider-dragged')
+    input.call("\e[C")
+    await('one pixel keyboard increase'){req('GET','/v1/fonts').dig('active','size_px')==20 && text.call.include?('Font size (20 px)')}
+    input.call("\e[D")
+    await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
+    capture.call('font-size-keyboard-step')
+    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception
     warn File.read(log) if File.exist?(log)

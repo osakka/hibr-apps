@@ -16,7 +16,8 @@ catalogue install snake
 ```
 
 `catalogue install control-panel/blit` adds **Blit** to Control Panel.
-It configures Blit's API-owned display policy, fonts and login defaults, with
+It configures Blit's API-owned display policy, fonts (including live8–64px
+font size with one-pixel keyboard steps) and login defaults, with
 live state and diagnostics. See [Blit setup and behavior](docs/blit.md).
 
 Installing places the app where the desktop already looks
@@ -160,9 +161,9 @@ where Pages serves it. Push to the first one only.
 ## What you are trusting
 
 An app is a hibr script and runs with everything your own shell can do:
-there is no sandbox, and there are no signatures here. TLS says which
-server the index came from, and the `sha256` in the index says the bundle
-was not changed on the way — neither says who wrote it. `catalogue install`
+there is no sandbox. The published index has a detached signature using the
+Hibr apt signing key, and includes each bundle's `sha256`. Signature and hash
+verification establish catalogue origin and integrity, not code safety. `catalogue install`
 refuses a bundle whose sha256 does not match, one holding a symbolic link,
 a `.so`, an absolute path or a path that climbs with `..`, and it refuses
 the whole bundle rather than skipping the bad member.

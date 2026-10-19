@@ -73,7 +73,13 @@ Dir.mktmpdir('blit-panel') do |root|
           [ "${CP[44][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
           i=$((i + 1))
       done
-      [ "$sliders" = 3 ] || { echo 'scale/columns/rows must use native sliders' >&2; exit 30; }
+      [ "$sliders" = 3 ] || { echo 'font size/columns/rows must use native sliders' >&2; exit 30; }
+      i=0; font_size_found=0
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[44][$i][key]}" != font_size ] || font_size_found=1
+          i=$((i + 1))
+      done
+      [ "$font_size_found" = 1 ] || { echo 'pixel font size control missing' >&2; exit 41; }
       output=${BCP_SNAPSHOT[displays][displays][0][name]}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2
@@ -141,16 +147,49 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "$BCP_DIRTY" = 1 ] || { echo 'failed save destroyed draft' >&2; exit 8; }
       blit_do 44 reload 1
       finish
-      blit_do 44 scale 1
+      blit_do 44 font_size 1
       finish
-      [ "${BCP_SNAPSHOT[fonts][active][scale]}" = 1.1 ] || { echo "scale failed: $BCP_STATUS" >&2; exit 9; }
-      blit_slide 44 scale 12
-      blit_slide 44 scale 17
-      blit_slide 44 scale 23
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 17 ] || { echo "pixel size failed: $BCP_STATUS" >&2; exit 9; }
+      json set BCP_DRAFT .login.fallback wait -s
+      BCP_DIRTY=1
+      old_base=$BCP_BASE_REV
+      blit_slide 44 font_size 18
+      blit_slide 44 font_size 23
+      blit_slide 44 font_size 31
       finish
-      [ "${BCP_SNAPSHOT[fonts][active][scale]}" = 2.3 ] || { echo 'drag lost its final value' >&2; exit 39; }
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 31 ] || { echo 'drag lost its final value' >&2; exit 39; }
+      [ "${BCP_DRAFT[font][size_px]}" = 31 ] && [ -z "${BCP_DRAFT[font][scale]}" ] || exit 42
+      [ "${BCP_DRAFT[login][fallback]}" = wait ] && [ "$BCP_DIRTY" = 1 ] && [ "$BCP_BASE_REV" = "$old_base" ] || exit 43
+      blit_do 44 font_size -1
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 30 ] || exit 44
+      blit_do 44 font_size 1
+      blit_do 44 font_size 1
+      blit_do 44 font_size 1
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 33 ] || exit 48
+      blit_slide 44 font_size 8
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 8 ] || exit 45
+      blit_slide 44 font_size 64
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 64 ] || exit 46
+      blit_slide 44 font_size 7
+      blit_slide 44 font_size 65
+      [ "$BCP_BUSY" = 0 ] || exit 47
+      font_snapshot := json get BCP_SNAPSHOT .fonts
+      json parse 'BCP_SNAPSHOT[fonts]' '{"active":{"id":"legacy","scale":1.0}}'
+      n := blit_rows 999999
+      i=0
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[999999][$i][key]}" != font_size ] || exit 49
+          i=$((i + 1))
+      done
+      blit_slide 44 font_size 20
+      [ "$BCP_BUSY" = 0 ] || exit 50
+      json parse 'BCP_SNAPSHOT[fonts]' "$font_snapshot"
       /bin/sleep 0.7
-      blit_cp_start refresh
+      blit_do 44 reload 1
       finish
       BCP_DIRTY=1
       command chmod 0555 '#{root}'
@@ -227,7 +266,7 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported scale=1.1 token=masked export=no_secrets'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value draft=preserved token=masked export=no_secrets'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil

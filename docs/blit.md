@@ -5,9 +5,9 @@ and select **Blit** under Hardware. Remove it with
 `catalogue remove control-panel/blit`. The canonical bundle belongs here;
 Hibr core and the Blit Debian package do not carry another copy.
 
-Pane0.1.5 registers **Blit** and **Blit Mouse** under Hardware in the same
+Pane0.1.6 registers **Blit** and **Blit Mouse** under Hardware in the same
 catalogue bundle. Use Blit0.1.550 for pointer appearance (549 was superseded
-before deployment);0.1.546 introduced
+before deployment), and Blit0.1.561+ for pixel font sizing;0.1.546 introduced
 durable independent-grid startup migration. Requirements remain Hibr0.99.244
 or newer (ABI16) and `curl`. Actual callbacks, private credential/native
 preference restoration, Mouse slider/save and isolated catalogue lifecycle
@@ -85,18 +85,36 @@ arrangement. Per-display **Columns** and **Rows** sliders stage independent
 unconfigured monitors default to1x1; your existing split survives upgrade.
 Blit permits64 live panes but16 simultaneous terminals. Removing an occupied
 pane reports409: detach it explicitly rather than losing its process. Font
-selection/scale remain global. Physical multi-output and unplug/replug
+selection/size remain global. Physical multi-output and unplug/replug
 acceptance remain separate from the local controller tests.
 
-Font/profile and native horizontal scale-slider controls use Blit's live font API, which
-queues its own automatic settings save. Storage status reports the server's
-durability receipt. The native11-position track offers0.2 scale increments;
-keyboard arrows retain every0.1 step from1.0 to3.0. A drag coalesces its
-latest requested scale behind the one bounded worker instead of dropping
-the final value or starting parallel requests. Export writes the staged document; Import stages a draft
+**Font size** is the terminal cell height in pixels, not screen scaling or
+display resolution. Its native horizontal slider covers8–64px. Keyboard
+arrows change exactly1px; the11-position drag track samples that range in
+5–6px steps. The current value is labelled in pixels. **Font** selects the
+profile independently, preserving its sizing policy. These controls use
+`PUT /v1/fonts` with either `size_px` or `font_id`; the panel never sends a
+competing legacy `scale`. Older servers without `active.size_px` show an
+upgrade notice rather than an approximate scale conversion.
+
+Blit owns automatic durable saving; Storage reports its receipt. Repeated
+keyboard steps and drags coalesce the latest requested size behind the one
+bounded worker, without parallel mutations. A successful font change updates
+only the font in the shared draft, preserving other edits and the revision
+guard. If an automatic save changes that revision while edits are staged,
+Reload is required before saving; it explicitly discards those edits.
+See[ADR0005](adr/0005-blit-font-pixel-size-control.md).
+Export writes the staged document; Import stages a draft
 and performs no network mutation. A stale Save reports409 and retains the
 draft. Reload explicitly discards it. Offline, authentication, timeout and
 save failures remain visible; mutations are not silently retried.
+
+Pane0.1.6 is tested with installed Hibr0.99.258/ABI16 and the released
+Blit0.1.561 binary: actual callbacks,8/64px boundaries, one-pixel keyboard
+steps, latest-value drag coalescing, staged-edit preservation, older-server
+capability handling, native UI pointer/keyboard interaction, and Mouse
+regressions. Catalogue publication does not update an already installed pane:
+run `catalogue refresh` then `catalogue update control-panel/blit`.
 
 Requests run in one background job with a two-second connection timeout,
 six-second per-request deadline and bounded response size. Callbacks poll
