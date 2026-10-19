@@ -116,6 +116,8 @@ ENTHIBR["system/modman"]=0.99.258
 ENTHIBR["system/about"]=0.99.258
 ENTHIBR["system/clipboard"]=0.99.258
 ENTHIBR["system/notifications"]=0.99.258
+# It calls `web sound`, which an older web module does not have (Gitea #305).
+ENTHIBR["apps/browser"]=0.99.263
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
