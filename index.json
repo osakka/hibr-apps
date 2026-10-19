@@ -43,10 +43,10 @@
     },
     "apps/xscreen": {
       "title": "X Screen",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "565ac8dfc45dd6d355ecfe21588578841744a03252f8abe8fb72890a1cce7375",
+      "sha256": "ce5326b8718acc2d54168e824103ab7e9976201985d3882cc65d38295b3ca590",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -58,7 +58,7 @@
           "kind": "control-panel",
           "as": "xscreenset.hibr",
           "path": "bundles/control-panel/xscreenset.hibr",
-          "sha256": "ec70ee775d78e9bf6ef835064c2093f9f0b1ea5c01debf64c06eca05ef02239e"
+          "sha256": "f4f00d715136a5aeb68c184b69b02eb3af3ed7d49b19664553ceb2d0b7e4ea96"
         }
       ]
     },
@@ -282,10 +282,10 @@
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "5255bc271c8a202a2fc4a5c563acd3394b740e332d3a98ac1e55760629ac307b",
+      "sha256": "ebb53e1e22f8953a9b7a10c189ce18e138698d7710515a17b760267c5e23f05f",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1064,10 +1064,10 @@
     },
     "xscreen": {
       "title": "X Screen",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "565ac8dfc45dd6d355ecfe21588578841744a03252f8abe8fb72890a1cce7375",
+      "sha256": "ce5326b8718acc2d54168e824103ab7e9976201985d3882cc65d38295b3ca590",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1229,10 +1229,10 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "5255bc271c8a202a2fc4a5c563acd3394b740e332d3a98ac1e55760629ac307b",
+      "sha256": "ebb53e1e22f8953a9b7a10c189ce18e138698d7710515a17b760267c5e23f05f",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's headless Chromium -- its player fetching the video, at the lowest quality (YT_QUALITY), muted -- and the web module's tap copies every chunk the player hands the browser's media source. Those chunks go down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here: the page does the fetching, hibr does the watching. A search, a playlist or a channel is read from the page's own data the same way.",
       "licence": "MIT",
       "author": "Omar Sakka",
