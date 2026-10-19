@@ -13,6 +13,13 @@ The panel does not create a competing backend preference store. On native KMS,
 an SDL renderer preference can remain saved without being active.
 See [ADR0006](adr/0006-blit-presentation-source-is-read-only.md).
 
+2026-10-19 verification: actual callbacks pass against563 and561 fallback;
+actual panel UI, Mouse callbacks and signed catalogue install/update/remove
+pass. Panel0.1.7 is catalogue-updated on10.54 as osakka; its installed SHA256
+matches the signed index. Server563 reports ready native KMS, saved-settings
+ownership, validkms environment fallback and SDL not applicable. This records
+configuration/API evidence, not visual acceptance of every desktop mode.
+
 
 Install with `catalogue install control-panel/blit`, then open Control Panel
 and select **Blit** under Hardware. Remove it with
