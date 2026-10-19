@@ -16,7 +16,7 @@ raise 'unsupported panel fixture' unless %w[blit blit_mouse].include?(PANE)
 PORT=Integer(ENV.fetch('BLIT_PANEL_UI_PORT','19496'))
 BASE=URI("http://127.0.0.1:#{PORT}")
 def req(method,path,body=nil)
-  q={'GET'=>Net::HTTP::Get,'POST'=>Net::HTTP::Post,'DELETE'=>Net::HTTP::Delete}.fetch(method).new(BASE+path)
+  q={'GET'=>Net::HTTP::Get,'POST'=>Net::HTTP::Post,'PUT'=>Net::HTTP::Put,'DELETE'=>Net::HTTP::Delete}.fetch(method).new(BASE+path)
   q['Content-Type']='application/json';q.body=JSON.generate(body) if body
   r=Net::HTTP.start(BASE.host,BASE.port,read_timeout:5){|h|h.request(q)}
   raise "HTTP #{r.code}:#{r.body}" unless r.code.start_with?('2')
@@ -59,6 +59,10 @@ Dir.mktmpdir('blit-panel-ui') do |root|
   session=nil
   begin
     await('server'){req('GET','/v1/version')}
+    if ENV['BLIT_PANEL_UI_FONT']
+      active=req('PUT','/v1/fonts',{font_id:ENV['BLIT_PANEL_UI_FONT'],size_px:16}).fetch('active')
+      raise 'requested UI font was not selected' unless active['id']==ENV['BLIT_PANEL_UI_FONT']
+    end
     session=req('POST','/v1/terminal-sessions',{'command'=>'/usr/bin/hibr','arguments'=>[script],
       'pane_id'=>'pane-display-1-1','environment'=>{'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),
        'XDG_DATA_HOME'=>File.join(root,'data'),'TMPDIR'=>root,'XDG_RUNTIME_DIR'=>root,
@@ -139,7 +143,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     input.call("\e[D")
     await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
     capture.call('font-size-keyboard-step')
-    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
+    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception
     warn File.read(log) if File.exist?(log)

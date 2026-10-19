@@ -20,6 +20,16 @@ matches the signed index. Server563 reports ready native KMS, saved-settings
 ownership, validkms environment fallback and SDL not applicable. This records
 configuration/API evidence, not visual acceptance of every desktop mode.
 
+Font-capable Blit0.1.564 adds `blit-modern` (native antialiased text/colour
+glyphs) and `blit-hibr-spleen16` (intentional retro pixel-art). Both appear in
+the existing Font selector from API discovery; no panel-specific font list is
+maintained. The pixel-size slider continues to use the same API. Config-only
+563 does not have these profiles. `BLIT_PANEL_UI_FONT=blit-modern` and
+`BLIT_FONT_ROOT=/path/to/blit/assets/fonts` run the actual UI gate with modern
+rasterization;564 passes native slider drag19px and keyboard+1/-1, with captures
+under the Blit build's `font564-panel-evidence/`. This is local software/UI
+evidence, not physical-display acceptance.
+
 
 Install with `catalogue install control-panel/blit`, then open Control Panel
 and select **Blit** under Hardware. Remove it with
