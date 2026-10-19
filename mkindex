@@ -49,7 +49,7 @@ declare -A ENTHIBR
 # on every row. An older `apps` -- the command this was called before 0.99.195 -- also takes `-j` for the text to search
 # for and answers prose, which the window names as the likely cause --
 # honest, and still a window that lists nothing.
-ENTHIBR["system/catalogue"]=0.99.193
+ENTHIBR["system/catalogue"]=0.99.258
 # Blit's native Control Panel drag callbacks are validated against this release.
 ENTHIBR["control-panel/blit"]=0.99.244
 # Appearance 1.7 checks a theme's pattern against WP_GLYPHS, which the
@@ -63,7 +63,7 @@ ENTHIBR["control-panel/appearance"]=0.99.246
 # #289). 1.2 told each tab its languages, Do Not Track, blocked addresses,
 # position and notifications, and the browser its permissions and downloads,
 # through web module verbs that are 0.99.247's (hibr Gitea #285).
-ENTHIBR["apps/browser"]=0.99.253
+ENTHIBR["apps/browser"]=0.99.258
 # Windows 1.1's Zoom Fills row reads DT_ZOOMFILL and DT_ZOOMFILLS, which the
 # window manager has from 0.99.248 (hibr Gitea #286).
 ENTHIBR["control-panel/windows"]=0.99.248
@@ -76,20 +76,28 @@ ENTHIBR["control-panel/wallset"]=0.99.246
 # Gitea #293) -- Browser 1.4 and X Screen 1.2 through their panes. Their
 # older needs above are kept by these. YouTube 1.7's mini player goes to
 # its own display's corner through dt_windisp, 0.99.248's.
-ENTHIBR["apps/contacts"]=0.99.253
-ENTHIBR["apps/files"]=0.99.253
-ENTHIBR["apps/calendar"]=0.99.253
+ENTHIBR["apps/contacts"]=0.99.258
+ENTHIBR["apps/files"]=0.99.258
+ENTHIBR["apps/calendar"]=0.99.258
 ENTHIBR["apps/prayer"]=0.99.253
-ENTHIBR["apps/mail"]=0.99.253
-ENTHIBR["apps/sheet"]=0.99.253
+ENTHIBR["apps/mail"]=0.99.258
+ENTHIBR["apps/sheet"]=0.99.258
 ENTHIBR["apps/write"]=0.99.253
-ENTHIBR["system/tasks"]=0.99.253
+ENTHIBR["system/tasks"]=0.99.258
 ENTHIBR["control-panel/aboutme"]=0.99.253
 ENTHIBR["control-panel/datetime"]=0.99.253
 ENTHIBR["control-panel/filetypes"]=0.99.253
 # hold move counts from the primary display since 0.99.256 (Gitea #297).
 ENTHIBR["control-panel/displays"]=0.99.256
-ENTHIBR["apps/youtube"]=0.99.248
+ENTHIBR["apps/youtube"]=0.99.258
+# A scrollbar drawn with a key, and dt_scrollview: refused by an older
+# widget library (Gitea #298). The 0.99.258 lines above are the same.
+ENTHIBR["apps/term"]=0.99.258
+ENTHIBR["apps/diagram"]=0.99.258
+ENTHIBR["system/modman"]=0.99.258
+ENTHIBR["system/about"]=0.99.258
+ENTHIBR["system/clipboard"]=0.99.258
+ENTHIBR["system/notifications"]=0.99.258
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
