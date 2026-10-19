@@ -58,10 +58,12 @@ ENTHIBR["control-panel/blit"]=0.99.244
 # on an older desktop the first would refuse every theme and the second
 # would fail on its first change.
 ENTHIBR["control-panel/appearance"]=0.99.246
-# Browser 1.2 tells each tab its languages, Do Not Track, blocked addresses,
+# Browser 1.3 turns a tab live and asks how far it is scrolled, through the
+# web module's `live` and `scroll`, which are 0.99.252's (hibr Gitea #292,
+# #289). 1.2 told each tab its languages, Do Not Track, blocked addresses,
 # position and notifications, and the browser its permissions and downloads,
 # through web module verbs that are 0.99.247's (hibr Gitea #285).
-ENTHIBR["apps/browser"]=0.99.247
+ENTHIBR["apps/browser"]=0.99.252
 # Windows 1.1's Zoom Fills row reads DT_ZOOMFILL and DT_ZOOMFILLS, which the
 # window manager has from 0.99.248 (hibr Gitea #286).
 ENTHIBR["control-panel/windows"]=0.99.248
