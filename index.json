@@ -272,6 +272,28 @@
       "name": "bricks",
       "dir": "Games"
     },
+    "apps/boxer": {
+      "title": "Boxer",
+      "version": "0.1",
+      "kind": "apps",
+      "bundle": "bundles/apps/Games/boxer.hibr",
+      "sha256": "031816790246030a36f78e305bb2f124fcc4a93a4afd813c105fc89651639494",
+      "about": "DOS games on a shelf\n\na shelf of DOS games, one box to a game, in the way Boxer shelves them on a Mac. A game lives in a folder of its own, NAME.gamebox, holding the game's drive C, its box art (cover.png), the person's DOSBox settings and the game's saves; the shelf is a folder of them, and this window shows it as a grid of covers. Clicking one selects it, a double click or Enter plays it, in a window of its own (boxerplay).\n\nNothing registers a game: the shelf is scanned, so a box copied in, rsync'd or untarred is on the shelf the next time it is refreshed, and a box taken out is gone. The default shelf is $XDG_DATA_HOME/hibr/shelf; BX_SHELF names another.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "boxer",
+      "hibr": "0.99.189",
+      "modules": "img retro",
+      "dir": "Games",
+      "parts": [
+        {
+          "kind": "apps",
+          "as": "boxerplay.hibr",
+          "path": "bundles/apps/boxerplay.hibr",
+          "sha256": "c1a28d5ff4e1c565f1398b348ee55477e452f43b684fad68b11d762d742db078"
+        }
+      ]
+    },
     "apps/mail": {
       "title": "Mail",
       "version": "1.5",
@@ -1268,6 +1290,20 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "bricks",
+      "dir": "Games"
+    },
+    "boxer": {
+      "title": "Boxer",
+      "version": "0.1",
+      "kind": "apps",
+      "bundle": "bundles/apps/Games/boxer.hibr",
+      "sha256": "031816790246030a36f78e305bb2f124fcc4a93a4afd813c105fc89651639494",
+      "about": "DOS games on a shelf\n\na shelf of DOS games, one box to a game, in the way Boxer shelves them on a Mac. A game lives in a folder of its own, NAME.gamebox, holding the game's drive C, its box art (cover.png), the person's DOSBox settings and the game's saves; the shelf is a folder of them, and this window shows it as a grid of covers. Clicking one selects it, a double click or Enter plays it, in a window of its own (boxerplay).\n\nNothing registers a game: the shelf is scanned, so a box copied in, rsync'd or untarred is on the shelf the next time it is refreshed, and a box taken out is gone. The default shelf is $XDG_DATA_HOME/hibr/shelf; BX_SHELF names another.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "boxer",
+      "hibr": "0.99.189",
+      "modules": "img retro",
       "dir": "Games"
     },
     "mail": {
