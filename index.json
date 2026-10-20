@@ -22,11 +22,11 @@
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "6cae498ce37aefd5e1ee0d3a317ca319cdc371769c4357266c167c2d7d3b152a",
-      "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
+      "sha256": "04450c817eac64502193398bc31b9055680f9082f6c4475dc7f848135ef8f5e1",
+      "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "contacts",
@@ -37,7 +37,7 @@
           "kind": "control-panel",
           "as": "pimset.hibr",
           "path": "bundles/control-panel/pimset.hibr",
-          "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c"
+          "sha256": "fa22511fc55055869a4d94fe279d9954dabd22236df6011e02ed9e648ba3a665"
         }
       ]
     },
@@ -105,10 +105,10 @@
     },
     "apps/calendar": {
       "title": "Calendar",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "ba2a0fcf73f9ba3a9afa4c939af94fc352adf4f26c77b0bded2dbc527f5580fd",
+      "sha256": "f67a91cbb858a6072606d70ec07841468adebd26d8761012e3996ee2016e5b04",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -120,7 +120,7 @@
           "kind": "control-panel",
           "as": "pimset.hibr",
           "path": "bundles/control-panel/pimset.hibr",
-          "sha256": "e779fdc991488a89f0eb39da8d4341be4c312c5c474f17e488f41969ac1e4e6c"
+          "sha256": "fa22511fc55055869a4d94fe279d9954dabd22236df6011e02ed9e648ba3a665"
         }
       ]
     },
@@ -545,11 +545,11 @@
       "name": "shortcuts"
     },
     "control-panel/network": {
-      "title": "Network Servers",
-      "version": "1.0",
+      "title": "Servers",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/network.hibr",
-      "sha256": "ed0a5855a594b2bb23d26fd40e0cd52b681b7c70fd6e2021fdd90ff9a9969251",
+      "sha256": "d6a1f9e96291513375cff20163966e75ae8d9ca8ef888439c5019befa5987674",
       "about": "The Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -565,6 +565,18 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "pictures"
+    },
+    "control-panel/networks": {
+      "title": "Network",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/networks.hibr",
+      "sha256": "1fc8015df358915eff6936c7dc48a0b3c44e2990ea6f8a31fcba24c4a763e3c5",
+      "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through wm/net.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "networks",
+      "hibr": "0.99.270"
     },
     "control-panel/desktop": {
       "title": "Desktop",
@@ -1056,11 +1068,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.7",
+      "version": "3.8",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "0dce5d837793f0eb1d01c17195240e394732722a91689e0c3d2341155531ef06",
-      "about": "The desktop's own words in العربية (ar): 1118 strings, read right to left.",
+      "sha256": "6a790d1b67e4166875a7ee772270d95ffc0050483aa4db590bb50c7ec33c237f",
+      "about": "The desktop's own words in العربية (ar): 1174 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1082,11 +1094,11 @@
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "6cae498ce37aefd5e1ee0d3a317ca319cdc371769c4357266c167c2d7d3b152a",
-      "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Network Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
+      "sha256": "04450c817eac64502193398bc31b9055680f9082f6c4475dc7f848135ef8f5e1",
+      "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "contacts",
@@ -1133,10 +1145,10 @@
     },
     "calendar": {
       "title": "Calendar",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "ba2a0fcf73f9ba3a9afa4c939af94fc352adf4f26c77b0bded2dbc527f5580fd",
+      "sha256": "f67a91cbb858a6072606d70ec07841468adebd26d8761012e3996ee2016e5b04",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1475,11 +1487,11 @@
       "name": "shortcuts"
     },
     "network": {
-      "title": "Network Servers",
-      "version": "1.0",
+      "title": "Servers",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/network.hibr",
-      "sha256": "ed0a5855a594b2bb23d26fd40e0cd52b681b7c70fd6e2021fdd90ff9a9969251",
+      "sha256": "d6a1f9e96291513375cff20163966e75ae8d9ca8ef888439c5019befa5987674",
       "about": "The Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1495,6 +1507,18 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "pictures"
+    },
+    "networks": {
+      "title": "Network",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/networks.hibr",
+      "sha256": "1fc8015df358915eff6936c7dc48a0b3c44e2990ea6f8a31fcba24c4a763e3c5",
+      "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through wm/net.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "networks",
+      "hibr": "0.99.270"
     },
     "desktop": {
       "title": "Desktop",
