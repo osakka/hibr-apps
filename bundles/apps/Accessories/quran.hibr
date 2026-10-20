@@ -1,0 +1,1387 @@
+#!/usr/bin/env hibr
+#
+# Quran -- the Quran in a window, in Arabic only and with every mark of
+# tashkeel, laid out a word at a time so that a word can be heard: click it
+# for that word, enter for the ayah, s for the sura from there on.
+#
+# The text is read from Quran.com's public API once, on first use, by a job
+# in the background, and kept as plain files under
+# ~/.local/share/hibr/quran/ -- after that the Quran reads and searches
+# offline, and only the sound needs the network. Nothing is translated: the
+# window draws the Quran in Arabic whatever language the desktop speaks.
+# Words are the API's own, each with the number of the clip the word-by-word
+# recitation (audio.qurancdn.com) holds for it -- a word and the sign of
+# stopping after it are one word here, as they are there. An ayah's
+# recitation is everyayah.com's, in the reciter chosen on the Reciter menu.
+#
+# The sound plays through the media module. A sura is played ayah by ayah,
+# the next opened paused a moment before the one before ends so there is no
+# wait between them, and the window follows along.
+#
+# Reading: up and down are the ayah, left and right the word (left is the
+# next, as Arabic reads), page keys a page, home and end the ends of the
+# sura, ] and [ the next sura and the one before, g the list of suras.
+# Hearing: enter plays the ayah, w the word, s the sura from this ayah,
+# space pauses, escape stops. Searching: / and type in Arabic, with or
+# without the marks; 2:255 goes straight there.
+
+strict
+
+app quran "The Quran in Arabic, with tashkeel, to read, search and hear" 1.0
+# modules: media dav
+
+command -v dt_app > /dev/null && dt_app quran "Quran" 28 70 once "☪"
+
+declare -gA QR QRL QRF QRE QRU QRI QRA QRR
+declare -gA QRWW
+declare -ga QRNAME QRCOUNT QRPLACE QS_K QS_T QS_D
+command -v dt_keepstate > /dev/null && dt_keepstate quran QR
+
+QR_DATA="${QR_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/quran}"
+QR_API="${QR_API-https://api.quran.com/api/v4}"
+QR_AYAH="${QR_AYAH-https://everyayah.com/data}"
+QR_WORD="${QR_WORD-https://audio.qurancdn.com/wbw}"
+QR_RECITER="${QR_RECITER-Alafasy_128kbps}"
+QR_SCRIPT="${QR_SCRIPT-uthmani}"
+QR_LAST="${QR_LAST-1:1}"
+QR_REPEAT="${QR_REPEAT-0}"
+QR_SAVERHOLD="${QR_SAVERHOLD-1}"
+command -v dt_keep > /dev/null && dt_keep QR_RECITER QR_SCRIPT QR_LAST QR_REPEAT QR_SAVERHOLD
+
+DAV_CODE=
+QR_JOB=
+QR_CHOK=
+QR_SEARCHOK=
+QR_MARKRE=
+
+# The reciters everyayah.com keeps whole, by the folder it keeps them in.
+QR_RIDS=(Alafasy_128kbps Husary_128kbps Husary_Muallim_128kbps Minshawy_Murattal_128kbps
+	Abdul_Basit_Murattal_192kbps Abdul_Basit_Mujawwad_128kbps Abdurrahmaan_As-Sudais_192kbps
+	Saood_ash-Shuraym_128kbps Hudhaify_128kbps Ghamadi_40kbps Abu_Bakr_Ash-Shaatree_128kbps
+	Muhammad_Ayyoub_128kbps)
+QR_RNAMES=("Mishary Alafasy" "Mahmoud Khalil Al-Husary" "Al-Husary, teaching" "Mohamed Siddiq Al-Minshawi"
+	"Abdul Basit, murattal" "Abdul Basit, mujawwad" "Abdul Rahman Al-Sudais"
+	"Saud Al-Shuraim" "Ali Al-Hudhaify" "Saad Al-Ghamdi" "Abu Bakr Al-Shatri"
+	"Muhammad Ayyub")
+
+# --- the text and what it is made of ----------------------------------------
+
+# A number in Arabic-Indic digits, which is how the text itself numbers its ayat.
+fn qr_ind(n) {
+	local t=$n
+
+	t=${t//0/$'٠'}; t=${t//1/$'١'}; t=${t//2/$'٢'}
+	t=${t//3/$'٣'}; t=${t//4/$'٤'}; t=${t//5/$'٥'}
+	t=${t//6/$'٦'}; t=${t//7/$'٧'}; t=${t//8/$'٨'}
+	t=${t//9/$'٩'}
+	ret "$t"
+}
+
+# Arabic-Indic digits back to ordinary ones, for a reference typed either way.
+fn qr_wdig(n) {
+	local t=$n
+
+	t=${t//$'٠'/0}; t=${t//$'١'/1}; t=${t//$'٢'/2}
+	t=${t//$'٣'/3}; t=${t//$'٤'/4}; t=${t//$'٥'/5}
+	t=${t//$'٦'/6}; t=${t//$'٧'/7}; t=${t//$'٨'/8}
+	t=${t//$'٩'/9}
+	ret "$t"
+}
+
+# The pattern for every mark that is not a letter: the harakat and shadda and
+# sukun (U+064B to U+065F), the dagger alef (U+0670), the tatweel (U+0640)
+# and the Quranic signs of stopping and reciting (U+06D6 to U+06ED), written
+# out as the characters themselves since rsub's classes work in bytes.
+qr_marks() {
+	[ -n "$QR_MARKRE" ] && return 0
+	QR_MARKRE='(ً|ٌ|ٍ|َ|ُ|ِ|ّ|ْ|ٓ|ٔ|ٕ|ٖ|ٗ|٘|ٙ|ٚ|ٛ|ٜ|ٝ|ٞ|ٟ|ٰ|ـ|ۖ|ۗ|ۘ|ۙ|ۚ|ۛ|ۜ|۝|۞|۟|۠|ۡ|ۢ|ۣ|ۤ|ۥ|ۦ|ۧ|ۨ|۩|۪|۫|۬|ۭ)'
+}
+
+# Text as it is searched: no marks, the alefs one alef, and the few letters people spell two ways one.
+fn qr_norm(t) {
+	qr_marks
+	t := rsub -g "$t" "$QR_MARKRE" ''
+	t := rsub -g "$t" '(أ|إ|آ|ٱ)' 'ا'
+	t := rsub -g "$t" '(ى)' 'ي'
+	t := rsub -g "$t" '(ة)' 'ه'
+	t := rsub -g "$t" '(ؤ)' 'و'
+	t := rsub -g "$t" '(ئ)' 'ي'
+	t := rsub -g "$t" '  +' ' '
+	ret "$t"
+}
+
+# The columns a word takes, remembered since a sura asks the same words again and again.
+fn qr_wid(t) {
+	local w=${QRWW["$t"]}
+
+	if [ -z "$w" ]; then
+		w := str width "$t"
+		QRWW["$t"]=$w
+	fi
+	ret "$w"
+}
+
+# Whether the Quran is on disk: the chapters, every sura, and the index to search.
+qr_ready() {
+	[ -f "$QR_DATA/ready" ]
+}
+
+# The names, ayah counts and places of the 114 suras, read once from disk.
+qr_chload() {
+	local n nm c pl
+
+	[ -n "$QR_CHOK" ] && return 0
+	[ -s "$QR_DATA/chapters.tsv" ] || return 1
+	while IFS=$'\t' read -r n nm c pl; do
+		QRNAME[$n]=$nm
+		QRCOUNT[$n]=$c
+		QRPLACE[$n]=$pl
+	done < "$QR_DATA/chapters.tsv"
+	QR_CHOK=1
+	return 0
+}
+
+# The searchable text of every ayah, read once from disk: key, plain text, text with its marks.
+qr_searchload() {
+	local k t d i=0
+
+	[ -n "$QR_SEARCHOK" ] && return 0
+	[ -s "$QR_DATA/search.tsv" ] || return 1
+	while IFS=$'\t' read -r k t d; do
+		QS_K[$i]=$k
+		QS_T[$i]=$t
+		QS_D[$i]=$d
+		i=$((i + 1))
+	done < "$QR_DATA/search.tsv"
+	QR_SEARCHOK=1
+	return 0
+}
+
+# --- getting the text -------------------------------------------------------
+
+# One sura from the API into its file: aya, the words with their marks, the words in plain spelling.
+fn qr_getsura(int n) {
+	local js i j nv nw a u m k wt f t try x ax
+	local -A r
+
+	printf -v f '%s/s/%03d.tsv' "$QR_DATA" "$n"
+	[ -s "$f" ] && return 0
+	for try in 1 2 3; do
+		js := dav request -H 'Accept: application/json' GET "$QR_API/verses/by_chapter/$n?words=true&word_fields=text_uthmani,text_imlaei&per_page=300" 2> /dev/null
+		[ "$DAV_CODE" = 200 ] && break
+		sleep 2
+	done
+	[ "$DAV_CODE" = 200 ] || { echo "sura $n: the server answered $DAV_CODE"; return 1; }
+	json parse r <<< "$js" 2> /dev/null || { echo "sura $n: not JSON"; return 1; }
+	nv := json len r .verses
+	[ "$nv" -gt 0 ] || { echo "sura $n: no ayat"; return 1; }
+	t=
+	for ((i = 0; i < nv; i++)); do
+		a=${r["verses"][$i]["verse_number"]}
+		nw := json len r ".verses[$i].words"
+		u=
+		m=
+		ax=
+		for ((j = 0; j < nw; j++)); do
+			[ "${r["verses"][$i]["words"][$j]["char_type_name"]}" = word ] || continue
+			wt=${r["verses"][$i]["words"][$j]["text_uthmani"]}
+			k=${r["verses"][$i]["words"][$j]["text_imlaei"]}
+			x=${r["verses"][$i]["words"][$j]["audio_url"]}
+			x=${x##*_}
+			x=${x%.mp3}
+			[[ $x =~ ^[0-9]+$ ]] && x=$((10#$x)) || x=0
+			u+="${u:+|}$wt"
+			m+="${m:+|}$k"
+			ax+="${ax:+ }$x"
+		done
+		t+="$a"$'\t'"$u"$'\t'"$m"$'\t'"$ax"$'\n'
+	done
+	printf '%s' "$t" > "$f.tmp" && mv "$f.tmp" "$f"
+	return 0
+}
+
+# The index to search, made from the suras once all are here: a line to an ayah.
+qr_mkindex() {
+	local n f a u m ax blob nb p
+	local -a kk dd nn
+
+	: > "$QR_DATA/search.tmp"
+	for ((n = 1; n <= 114; n++)); do
+		printf -v f '%s/s/%03d.tsv' "$QR_DATA" "$n"
+		blob=
+		kk=()
+		dd=()
+		while IFS=$'\t' read -r a u m ax; do
+			kk+=("$n:$a")
+			dd+=("${m//|/ }")
+			blob+="${m//|/ }"$'\n'
+		done < "$f"
+		nb := qr_norm "$blob"
+		mapfile -t nn <<< "${nb%$'\n'}"
+		for p in "${!kk[@]}"; do
+			printf '%s\t%s\t%s\n' "${kk[$p]}" "${nn[$p]}" "${dd[$p]}" >> "$QR_DATA/search.tmp"
+		done
+	done
+	mv "$QR_DATA/search.tmp" "$QR_DATA/search.tsv"
+}
+
+# What the job does, in the background: the chapters, each sura, the index; ready only at the end.
+qr_job() {
+	local js i n c nm pl
+	local -A r
+
+	need dav 2> /dev/null || { echo "the dav module is not installed"; return 1; }
+	mkdir -p "$QR_DATA/s" || return 1
+	if [ ! -s "$QR_DATA/chapters.tsv" ]; then
+		js := dav request -H 'Accept: application/json' GET "$QR_API/chapters?language=ar" 2> /dev/null
+		[ "$DAV_CODE" = 200 ] || { echo "the chapters: the server answered $DAV_CODE"; return 1; }
+		json parse r <<< "$js" 2> /dev/null || { echo "the chapters: not JSON"; return 1; }
+		c := json len r .chapters
+		[ "$c" = 114 ] || { echo "the chapters: $c of 114"; return 1; }
+		: > "$QR_DATA/chapters.tmp"
+		for ((i = 0; i < c; i++)); do
+			printf '%s\t%s\t%s\t%s\n' "${r["chapters"][$i]["id"]}" "${r["chapters"][$i]["name_arabic"]}" \
+				"${r["chapters"][$i]["verses_count"]}" "${r["chapters"][$i]["revelation_place"]}" >> "$QR_DATA/chapters.tmp"
+		done
+		mv "$QR_DATA/chapters.tmp" "$QR_DATA/chapters.tsv"
+	fi
+	for ((n = 1; n <= 114; n++)); do
+		qr_getsura "$n" || return 1
+	done
+	qr_mkindex || return 1
+	: > "$QR_DATA/ready"
+	return 0
+}
+
+# Start the job, unless one is running.
+qr_jobstart() {
+	[ -n "$QR_JOB" ] && [ ! -f "$QR_DATA/job.st" ] && return 0
+	mkdir -p "$QR_DATA/s" 2> /dev/null
+	rm -f "$QR_DATA/job.st" "$QR_DATA/job.log"
+	(
+		command -v dt_jobname > /dev/null && dt_jobname quran fetch
+		qr_job > "$QR_DATA/job.log" 2>&1 < /dev/null
+		printf '%s\n' "$?" > "$QR_DATA/job.st"
+	) &
+	QR_JOB=$!
+	return 0
+}
+
+# --- a sura on the screen ---------------------------------------------------
+
+# Make the sura's text the window's: its ayat by number, in both spellings.
+fn qr_load(int id, int n) {
+	local f a u m ax na=0
+
+	printf -v f '%s/s/%03d.tsv' "$QR_DATA" "$n"
+	[ -s "$f" ] || return 1
+	unset "QRU[$id]"
+	unset "QRI[$id]"
+	unset "QRA[$id]"
+	while IFS=$'\t' read -r a u m ax; do
+		QRU[$id][$a]=$u
+		QRI[$id][$a]=$m
+		QRA[$id][$a]=$ax
+		na=$a
+	done < "$f"
+	QR[$id]["sura"]=$n
+	QR[$id]["na"]=$na
+	QR[$id]["lkey"]=
+	return 0
+}
+
+# The words of an ayah, in the spelling chosen, a | between each: a word can hold a space, for the sign of stopping after it.
+fn qr_words(int id, int a) {
+	if [ "$QR_SCRIPT" = simple ]; then
+		ret "${QRI[$id][$a]}"
+	else
+		ret "${QRU[$id][$a]}"
+	fi
+}
+
+# The words of the Basmala in the spelling chosen.
+qr_bism() {
+	if [ "$QR_SCRIPT" = simple ]; then
+		ret "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ"
+	else
+		ret "بِسْمِ ٱللَّهِ ٱلرَّحْمَـٰنِ ٱلرَّحِيمِ"
+	fi
+}
+
+# One line of the page: its words set from the right, a space between each and the spare spread over them when asked.
+fn qr_emit(int id, int r, int lw, int just, ...toks) {
+	local n=${#toks[@]} sumw=0 t a i wd gaps extra per=0 rem=0 x col out= k=0 gap rest
+
+	for t in "${toks[@]}"; do
+		wd=${t##*:}
+		sumw=$((sumw + wd))
+	done
+	gaps=$((n - 1))
+	extra=$((lw - sumw - gaps))
+	if [ "$just" = 1 ] && [ "$gaps" -gt 0 ] && [ "$extra" -gt 0 ] && [ "$extra" -le $((gaps * 3)) ]; then
+		per=$((extra / gaps))
+		rem=$((extra % gaps))
+	fi
+	x=$lw
+	for t in "${toks[@]}"; do
+		a=${t%%:*}
+		rest=${t#*:}
+		i=${rest%%:*}
+		wd=${rest#*:}
+		col=$((x - wd))
+		out+=" $a:$i:$col:$wd"
+		gap=$((1 + per))
+		[ "$k" -lt "$rem" ] && gap=$((gap + 1))
+		x=$((col - gap))
+		k=$((k + 1))
+	done
+	QRL[$id][$r]="A$out"
+}
+
+# The whole sura as lines for a width: a heading, the Basmala where there is one, then the ayat running on from one to the next.
+fn qr_layout(int id, int lw) {
+	local s=${QR[$id]["sura"]} na=${QR[$id]["na"]} a i nw wd mk need r=0 cur=0 used=0 ws
+	local -a toks words
+
+	unset "QRL[$id]"
+	unset "QRF[$id]"
+	unset "QRE[$id]"
+	QRL[$id][0]="T"
+	QRL[$id][1]="I"
+	r=2
+	if [ "$s" != 1 ] && [ "$s" != 9 ]; then
+		QRL[$id][$r]="S"
+		QRL[$id][$((r + 1))]="B"
+		r=$((r + 2))
+	fi
+	QRL[$id][$r]="S"
+	r=$((r + 1))
+	for ((a = 1; a <= na; a++)); do
+		ws := qr_words "$id" "$a"
+		IFS='|' read -ra words <<< "$ws"
+		nw=${#words[@]}
+		QRF[$id][$a]=$r
+		for ((i = 0; i <= nw; i++)); do
+			if [ "$i" -lt "$nw" ]; then
+				wd := qr_wid "${words[$i]}"
+			else
+				mk := qr_ind "$a"
+				mk="($mk)"
+				wd := qr_wid "$mk"
+			fi
+			if [ "$cur" -eq 0 ]; then
+				need=$wd
+			else
+				need=$((used + 1 + wd))
+			fi
+			if [ "$cur" -gt 0 ] && [ "$need" -gt "$lw" ]; then
+				qr_emit "$id" "$r" "$lw" 1 "${toks[@]}"
+				r=$((r + 1))
+				toks=()
+				cur=0
+				need=$wd
+			fi
+			toks+=("$a:$i:$wd")
+			cur=$((cur + 1))
+			used=$need
+		done
+		QRE[$id][$a]=$r
+	done
+	if [ "$cur" -gt 0 ]; then
+		qr_emit "$id" "$r" "$lw" 0 "${toks[@]}"
+		r=$((r + 1))
+	fi
+	QR[$id]["nl"]=$r
+}
+
+# Open a sura at an ayah: read it, select the ayah and show it.
+fn qr_open(int id, int n, int a = 1) {
+	qr_chload || return 1
+	qr_stop "$id"
+	if ! qr_load "$id" "$n"; then
+		QR[$id]["err"]="The text of sura $n is not on disk"
+		return 1
+	fi
+	[ "$a" -ge 1 ] || a=1
+	[ "$a" -le "${QR[$id]["na"]}" ] || a=${QR[$id]["na"]}
+	QR[$id]["view"]=read
+	QR[$id]["aya"]=$a
+	QR[$id]["wd"]=0
+	QR[$id]["top"]=0
+	QR[$id]["follow"]=1
+	QR[$id]["err"]=
+	QR_LAST="$n:$a"
+	return 0
+}
+
+# Select an ayah (and the word in it), keeping the place for the next time.
+fn qr_select(int id, int a, int wd = 0) {
+	local na=${QR[$id]["na"]}
+
+	[ "$a" -ge 1 ] || a=1
+	[ "$a" -le "$na" ] || a=$na
+	QR[$id]["aya"]=$a
+	QR[$id]["wd"]=$wd
+	QR[$id]["follow"]=1
+	QR_LAST="${QR[$id]["sura"]}:$a"
+}
+
+# How many words the ayah has.
+fn qr_nwords(int id, int a) {
+	local ws words
+
+	ws := qr_words "$id" "$a"
+	IFS='|' read -ra words <<< "$ws"
+	ret "${#words[@]}"
+}
+
+# Move the selected word on or back, over the end of an ayah into the next.
+fn qr_wmove(int id, int d) {
+	local a=${QR[$id]["aya"]} wd=${QR[$id]["wd"]} nw na=${QR[$id]["na"]}
+
+	nw := qr_nwords "$id" "$a"
+	wd=$((wd + d))
+	if [ "$wd" -ge "$nw" ]; then
+		[ "$a" -lt "$na" ] || return 0
+		qr_select "$id" $((a + 1)) 0
+		return 0
+	fi
+	if [ "$wd" -lt 0 ]; then
+		[ "$a" -gt 1 ] || return 0
+		nw := qr_nwords "$id" $((a - 1))
+		qr_select "$id" $((a - 1)) $((nw - 1))
+		return 0
+	fi
+	qr_select "$id" "$a" "$wd"
+}
+
+# --- the sound --------------------------------------------------------------
+
+# Whether the media module is here; the reason shown when not.
+fn qr_need(int id) {
+	if ! need media 2> /dev/null; then
+		QR[$id]["err"]="The media module is not installed, so nothing can be heard"
+		return 1
+	fi
+	return 0
+}
+
+# Where an ayah's recitation is. Ayah 0 is the Basmala, the first ayah of the Fatiha's file.
+fn qr_ayaurl(int s, int a) {
+	local f
+
+	[ "$a" -eq 0 ] && { s=1; a=1; }
+	printf -v f '%s/%s/%03d%03d.mp3' "$QR_AYAH" "$QR_RECITER" "$s" "$a"
+	ret "$f"
+}
+
+# Where a word's is.
+fn qr_wordurl(int s, int a, int w) {
+	local f
+
+	printf -v f '%s/%03d_%03d_%03d.mp3' "$QR_WORD" "$s" "$a" "$w"
+	ret "$f"
+}
+
+# Stop whatever is playing, and anything opened ahead of it.
+fn qr_stop(int id) {
+	local p=${QR[$id]["p"]} np=${QR[$id]["np"]}
+
+	[ -n "$p" ] && media close "$p" 2> /dev/null
+	[ -n "$np" ] && media close "$np" 2> /dev/null
+	QR[$id]["p"]=
+	QR[$id]["np"]=
+	QR[$id]["mode"]=
+	QR[$id]["pa"]=
+	QR[$id]["pw"]=
+}
+
+# Play one clip from an address; the player's number is the result.
+fn qr_clip(int id, url, paused = 0) {
+	local p
+
+	qr_need "$id" || return 1
+	if [ "$paused" = 1 ]; then
+		p := media open "$url" -p 2> /dev/null || { QR[$id]["err"]="The sound could not be opened"; return 1; }
+	else
+		p := media open "$url" 2> /dev/null || { QR[$id]["err"]="The sound could not be opened"; return 1; }
+	fi
+	media volume "$p" "${QR[$id]["vol"]:-100}" > /dev/null 2>&1
+	ret "$p"
+}
+
+# Hear a word, which is the clip the API names by sura, ayah and the clip number it keeps for the word.
+fn qr_playword(int id) {
+	local s=${QR[$id]["sura"]} a=${QR[$id]["aya"]} wd=${QR[$id]["wd"]} u p clip
+	local -a ax
+
+	qr_stop "$id"
+	read -ra ax <<< "${QRA[$id][$a]}"
+	clip=${ax[$wd]-0}
+	if [ "$clip" -lt 1 ]; then
+		QR[$id]["err"]="There is no recording of this word"
+		return 0
+	fi
+	u := qr_wordurl "$s" "$a" "$clip"
+	p := qr_clip "$id" "$u" || return 0
+	QR[$id]["p"]=$p
+	QR[$id]["mode"]=word
+	QR[$id]["pa"]=$a
+	QR[$id]["pw"]=$wd
+	QR[$id]["err"]=
+	dt_want 100
+}
+
+# Hear the selected ayah.
+fn qr_playaya(int id, int a = 0) {
+	local s=${QR[$id]["sura"]} u p
+
+	[ "$a" -ge 1 ] || a=${QR[$id]["aya"]}
+	qr_stop "$id"
+	u := qr_ayaurl "$s" "$a"
+	p := qr_clip "$id" "$u" || return 0
+	QR[$id]["p"]=$p
+	QR[$id]["mode"]=aya
+	QR[$id]["pa"]=$a
+	QR[$id]["err"]=
+	dt_want 100
+}
+
+# Hear the sura from an ayah to its end; from the first, the Basmala first where the sura has one.
+fn qr_playsura(int id, int a = 0) {
+	local s=${QR[$id]["sura"]} u p
+
+	[ "$a" -ge 1 ] || a=${QR[$id]["aya"]}
+	qr_stop "$id"
+	if [ "$a" -eq 1 ] && [ "$s" != 1 ] && [ "$s" != 9 ]; then
+		a=0
+	fi
+	u := qr_ayaurl "$s" "$a"
+	p := qr_clip "$id" "$u" || return 0
+	QR[$id]["p"]=$p
+	QR[$id]["mode"]=sura
+	QR[$id]["pa"]=$a
+	QR[$id]["err"]=
+	[ "$a" -ge 1 ] && qr_select "$id" "$a" 0
+	dt_want 100
+}
+
+# Hear the Basmala that opens a sura.
+fn qr_playbism(int id) {
+	local u p
+
+	qr_stop "$id"
+	u := qr_ayaurl 1 0
+	p := qr_clip "$id" "$u" || return 0
+	QR[$id]["p"]=$p
+	QR[$id]["mode"]=aya
+	QR[$id]["pa"]=0
+	QR[$id]["err"]=
+	dt_want 100
+}
+
+# Pause what is playing, or go on with it; with nothing playing, the ayah.
+fn qr_toggle(int id) {
+	local p=${QR[$id]["p"]}
+
+	if [ -z "$p" ]; then
+		qr_playaya "$id"
+		return 0
+	fi
+	media toggle "$p" > /dev/null 2>&1
+	return 0
+}
+
+# The next ayah of a sura being played, or none (status 1) at its end.
+fn qr_after(int id) {
+	local a=${QR[$id]["pa"]} na=${QR[$id]["na"]}
+
+	a=$((a + 1))
+	[ "$a" -le "$na" ] || return 1
+	ret "$a"
+}
+
+# Once a frame, for a window that is playing: open the next ayah ahead, go on to it when this one ends, follow it.
+fn qr_tick(int id) {
+	local p=${QR[$id]["p"]} np=${QR[$id]["np"]} mode=${QR[$id]["mode"]} i nx u e
+	local -A inf
+
+	[ -n "$p" ] || return 0
+	media frame "$p" > /dev/null 2>&1
+	inf := media info "$p" 2> /dev/null || { qr_stop "$id"; return 0; }
+	if [ -n "${inf["error"]}" ] && [ "${inf["output"]}" = none ]; then
+		QR[$id]["err"]="No sound device: ${inf["error"]}"
+	fi
+	if [ "$mode" = sura ] && [ -z "$np" ]; then
+		e=${inf["dur"]%.*}
+		if [ "${e:-0}" -gt 0 ] && nx := qr_after "$id"; then
+			if [ $(( ${inf["dur"]%.*} - ${inf["pos"]%.*} )) -le 2 ]; then
+				u := qr_ayaurl "${QR[$id]["sura"]}" "$nx"
+				np := qr_clip "$id" "$u" 1 && QR[$id]["np"]=$np
+			fi
+		fi
+	fi
+	if [ "${inf["ended"]}" = 1 ]; then
+		media close "$p" 2> /dev/null
+		QR[$id]["p"]=
+		if [ "$mode" = sura ] && nx := qr_after "$id"; then
+			np=${QR[$id]["np"]}
+			if [ -z "$np" ]; then
+				u := qr_ayaurl "${QR[$id]["sura"]}" "$nx"
+				np := qr_clip "$id" "$u" 1 || { qr_stop "$id"; return 0; }
+			fi
+			media play "$np" > /dev/null 2>&1
+			QR[$id]["p"]=$np
+			QR[$id]["np"]=
+			QR[$id]["pa"]=$nx
+			qr_select "$id" "$nx" 0
+		elif [ "$mode" = aya ] && [ "$QR_REPEAT" = 1 ]; then
+			qr_playaya "$id" "${QR[$id]["pa"]}"
+		else
+			qr_stop "$id"
+		fi
+	fi
+	dt_want 100
+	return 0
+}
+
+# --- the window -------------------------------------------------------------
+
+fn quran_open(int id, arg = "") {
+	local s a
+
+	QR[$id]["view"]=fetch
+	QR[$id]["sura"]=1
+	QR[$id]["aya"]=1
+	QR[$id]["wd"]=0
+	QR[$id]["top"]=0
+	QR[$id]["sel"]=0
+	QR[$id]["p"]=
+	QR[$id]["np"]=
+	QR[$id]["err"]=
+	QR[$id]["vol"]=100
+	dt_searchclear "$id"
+	if qr_ready; then
+		qr_start "$id"
+	else
+		qr_jobstart
+	fi
+	return 0
+}
+
+# The Quran is on disk: open where it was left, or at the Fatiha.
+fn qr_start(int id) {
+	local s=${QR_LAST%%:*} a=${QR_LAST##*:}
+
+	qr_chload || { QR[$id]["err"]="The list of suras is missing from $QR_DATA"; return 1; }
+	[[ $s =~ ^[0-9]+$ ]] && [ "$s" -ge 1 ] && [ "$s" -le 114 ] || { s=1; a=1; }
+	[[ $a =~ ^[0-9]+$ ]] || a=1
+	qr_open "$id" "$s" "$a" || { QR[$id]["view"]=list; QR[$id]["sel"]=0; }
+	QR[$id]["sel"]=$((s - 1))
+	return 0
+}
+
+fn quran_close(int id) {
+	qr_stop "$id"
+	command -v dt_save > /dev/null && dt_save
+	unset "QR[$id]"
+	unset "QRL[$id]"
+	unset "QRF[$id]"
+	unset "QRE[$id]"
+	unset "QRU[$id]"
+	unset "QRI[$id]"
+	unset "QRA[$id]"
+	unset "QRR[$id]"
+	dt_searchfree "$id"
+}
+
+# A window that is playing keeps the screen saver away, unless Quran says it should not.
+fn quran_awake(int id) {
+	local p=${QR[$id]["p"]}
+	local -A inf
+
+	[ "$QR_SAVERHOLD" = 1 ] || return 1
+	dt_hidden "$id" && return 1
+	[ -n "$p" ] || return 1
+	inf := media info "$p" 2> /dev/null || return 1
+	[ "${inf["paused"]}" = 1 ] && return 1
+	return 0
+}
+
+# What a window that is not drawn still does: go on with the recitation.
+fn quran_idle(int id) {
+	[ -n "${QR[$id]["p"]}" ] && qr_tick "$id"
+	return 0
+}
+
+# Once a frame, before anything is drawn: the download's end, the recitation's next ayah.
+fn qr_poll(int id) {
+	if [ "${QR[$id]["view"]}" = fetch ]; then
+		if qr_ready; then
+			qr_start "$id"
+		elif [ -f "$QR_DATA/job.st" ]; then
+			QR[$id]["err"]=$(tail -n 1 "$QR_DATA/job.log" 2> /dev/null)
+		else
+			dt_want 400
+		fi
+	fi
+	[ -n "${QR[$id]["p"]}" ] && qr_tick "$id"
+	return 0
+}
+
+fn quran_draw(int id, int h, int w, int row, int col) {
+	dt_wclear "$id"
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "Quran"
+	qr_poll "$id"
+	console pen "$DT_INK" "$DT_FACE"
+	case ${QR[$id]["view"]} in
+	read) qr_drawread "$id" "$h" "$w" ;;
+	list) qr_drawlist "$id" "$h" "$w" ;;
+	results) qr_drawres "$id" "$h" "$w" ;;
+	*) qr_drawfetch "$id" "$h" "$w" ;;
+	esac
+	qr_drawstatus "$id" "$h" "$w"
+}
+
+# Text with its right edge at a column, so Arabic sits where it is read from.
+fn qr_putr(int id, int r, int right, text, int tw = -1) {
+	[ "$tw" -ge 0 ] || tw := qr_wid "$text"
+	console put -p "w$id" "$r" $((right - tw)) "$text"
+}
+
+# Text across the middle of the width.
+fn qr_putc(int id, int r, int w, text) {
+	local tw
+
+	tw := qr_wid "$text"
+	console put -p "w$id" "$r" $(((w - tw) / 2 + 1)) "$text"
+}
+
+# The bottom row: what is playing, or what is wrong, or the search bar.
+fn qr_drawstatus(int id, int h, int w) {
+	local p=${QR[$id]["p"]} e=${QR[$id]["err"]} t i rn k blank
+	local -A inf
+
+	t := dt_searchrows "$id"
+	if [ "$t" = 1 ]; then
+		dt_searchdraw "$id" "$h" "$w"
+		return 0
+	fi
+	[ "${QR[$id]["view"]}" = fetch ] && [ -z "$e" ] && return 0
+	console pen "$DT_DIM" "$DT_FACE"
+	blank := str repeat " " "$w"
+	console put -p "w$id" "$h" 1 "$blank"
+	if [ -n "$e" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" "$h" 2 "${e:0:$((w - 3))}"
+		return 0
+	fi
+	for k in "${!QR_RIDS[@]}"; do
+		[ "${QR_RIDS[$k]}" = "$QR_RECITER" ] && rn=${QR_RNAMES[$k]}
+	done
+	t=" ${rn:-$QR_RECITER}"
+	if [ -n "$p" ]; then
+		inf := media info "$p" 2> /dev/null || inf=()
+		console pen "$DT_ACTIVE" "$DT_FACE" bold
+		case ${QR[$id]["mode"]} in
+		word) t="▶ ${QR[$id]["sura"]}:${QR[$id]["pa"]} word $((${QR[$id]["pw"]} + 1))   $rn" ;;
+		sura) t="▶ ${QR[$id]["sura"]}:${QR[$id]["pa"]} of ${QR[$id]["na"]}   $rn" ;;
+		*) t="▶ ${QR[$id]["sura"]}:${QR[$id]["pa"]}   $rn" ;;
+		esac
+		[ "${inf["paused"]}" = 1 ] && t="‖ ${t#▶ }"
+	elif [ "${QR[$id]["view"]}" = read ]; then
+		t=" ${QR[$id]["sura"]}:${QR[$id]["aya"]}   $rn"
+	fi
+	console put -p "w$id" "$h" 1 "${t:0:$((w - 2))}"
+}
+
+# First run: what is being fetched, and how far.
+fn qr_drawfetch(int id, int h, int w) {
+	local n=0 f e bar k fill
+
+	for f in "$QR_DATA"/s/*.tsv; do
+		[ -f "$f" ] && n=$((n + 1))
+	done
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	console put -p "w$id" 2 2 "The Quran"
+	console pen "$DT_INK" "$DT_FACE"
+	console put -p "w$id" 4 2 "Fetching the text, with every mark, from Quran.com. It is kept"
+	console put -p "w$id" 5 2 "in $QR_DATA"
+	console put -p "w$id" 6 2 "and read from there afterwards, offline."
+	fill=$((n * (w - 6) / 114))
+	bar := str repeat "#" "$fill"
+	k := str repeat "-" $((w - 6 - fill))
+	console put -p "w$id" 8 2 "[$bar$k]"
+	if [ -f "$QR_DATA/job.st" ]; then
+		e=${QR[$id]["err"]:-the download stopped}
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" 10 2 "${e:0:$((w - 3))}"
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 12 2 "Press r to try again."
+	else
+		console put -p "w$id" 10 2 "$n of 114 suras"
+		dt_want 400
+	fi
+}
+
+# The suras, a row each: its number, where it came down, how many ayat, its name at the right.
+fn qr_drawlist(int id, int h, int w) {
+	local n=114 sel=${QR[$id]["sel"]} top=${QR[$id]["top"]} vis=$((h - 2)) r=2 i pl nm cnt blank on
+
+	[ "$vis" -ge 1 ] || vis=1
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	qr_putc "$id" 1 "$w" "فهرس السور"
+	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${QR[$id]["seen"]-}"
+	QR[$id]["seen"]=$sel
+	QR[$id]["top"]=$top
+	QR[$id]["vis"]=$vis
+	blank := str repeat " " $((w - 1))
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$r" -le $((h - 1)) ]; do
+		on=0
+		[ "$i" = "$sel" ] && on=1
+		if [ "$on" = 1 ]; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" "$r" 1 "$blank"
+		nm=${QRNAME[$((i + 1))]}
+		cnt := qr_ind "${QRCOUNT[$((i + 1))]}"
+		console put -p "w$id" "$r" 2 "$((i + 1))"
+		[ "${QRPLACE[$((i + 1))]}" = makkah ] && pl="مكية" || pl="مدنية"
+		[ "$on" = 1 ] || console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" "$r" 8 "$pl"
+		console put -p "w$id" "$r" 16 "$cnt"
+		[ "$on" = 1 ] || console pen "$DT_INK" "$DT_FACE"
+		qr_putr "$id" "$r" $((w - 2)) "$nm"
+		dt_wreg "$id" "$r" 1 $((w - 1)) "row:$i"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	dt_scrollbar "$id" 2 "$w" "$vis" "$n" "$vis" "$top" list
+}
+
+# The page: a heading, the Basmala, and the ayat set from the right, each word a place to click.
+fn qr_drawread(int id, int h, int w) {
+	local s=${QR[$id]["sura"]} a=${QR[$id]["aya"]} wd=${QR[$id]["wd"]} top=${QR[$id]["top"]}
+	local lw=$((w - 3)) vis=$((h - 1)) nl lkey="$((w - 3))|$QR_SCRIPT|${QR[$id]["sura"]}" r i line t ca= cws tok ai ii col wdt txt
+	local first last pa=${QR[$id]["pa"]} pw=${QR[$id]["pw"]} mode=${QR[$id]["mode"]} rs=2 pe cnt
+	local -a words toks
+
+	[ "$vis" -ge 1 ] || vis=1
+	if [ "${QR[$id]["lkey"]}" != "$lkey" ]; then
+		qr_layout "$id" "$lw"
+		QR[$id]["lkey"]=$lkey
+		QR[$id]["follow"]=1
+	fi
+	nl=${QR[$id]["nl"]}
+	if [ "${QR[$id]["follow"]}" = 1 ]; then
+		first=${QRF[$id][$a]}
+		last=${QRE[$id][$a]}
+		if [ "$first" -lt "$top" ]; then
+			top=$first
+		elif [ "$last" -ge $((top + vis)) ]; then
+			top=$((last - vis + 1))
+			[ "$top" -gt "$first" ] && top=$first
+		fi
+		QR[$id]["follow"]=0
+	fi
+	[ "$top" -gt $((nl - vis)) ] && top=$((nl - vis))
+	[ "$top" -ge 0 ] || top=0
+	QR[$id]["top"]=$top
+	QR[$id]["vis"]=$vis
+	pe=
+	[ -n "${QR[$id]["p"]}" ] && pe=1
+	for ((r = 0; r < vis; r++)); do
+		i=$((top + r))
+		[ "$i" -lt "$nl" ] || break
+		line=${QRL[$id][$i]}
+		case ${line:0:1} in
+		T)
+			console pen "$DT_ACTIVE" "$DT_FACE" bold
+			t="سورة ${QRNAME[$s]}"
+			qr_putc "$id" $((r + 1)) "$w" "$t"
+			;;
+		I)
+			console pen "$DT_DIM" "$DT_FACE"
+			[ "${QRPLACE[$s]}" = makkah ] && t="مكية" || t="مدنية"
+			cnt := qr_ind "${QRCOUNT[$s]}"
+			qr_putc "$id" $((r + 1)) "$w" "$t · آياتها $cnt"
+			;;
+		B)
+			if [ -n "$pe" ] && [ "$pa" = 0 ]; then
+				console pen "$DT_SELINK" "$DT_ACTIVE" bold
+			else
+				console pen "$DT_INK" "$DT_FACE"
+			fi
+			t := qr_bism
+			col := qr_wid "$t"
+			qr_putc "$id" $((r + 1)) "$w" "$t"
+			dt_wreg "$id" $((r + 1)) $(((w - col) / 2 + 1)) "$col" "b"
+			;;
+		A)
+			read -ra toks <<< "${line:1}"
+			for tok in "${toks[@]}"; do
+				ai=${tok%%:*}
+				tok=${tok#*:}
+				ii=${tok%%:*}
+				tok=${tok#*:}
+				col=${tok%%:*}
+				wdt=${tok#*:}
+				if [ "$ai" != "$ca" ]; then
+					cws := qr_words "$id" "$ai"
+					IFS='|' read -ra words <<< "$cws"
+					ca=$ai
+				fi
+				if [ "$ii" -ge "${#words[@]}" ]; then
+					txt := qr_ind "$ai"
+					txt="($txt)"
+					if [ "$ai" = "$a" ]; then
+						console pen "$DT_INK" "$DT_WELL"
+					else
+						console pen "$DT_DIM" "$DT_FACE"
+					fi
+					dt_wreg "$id" $((r + 1)) $((rs + col)) "$wdt" "m:$ai"
+				else
+					txt=${words[$ii]}
+					if [ -n "$pe" ] && [ "$mode" = word ] && [ "$ai" = "$pa" ] && [ "$ii" = "$pw" ]; then
+						console pen "$DT_SELINK" "$DT_ACTIVE" bold
+					elif [ "$ai" = "$a" ] && [ "$ii" = "$wd" ]; then
+						console pen "$DT_SELINK" "$DT_ACTIVE" bold
+					elif [ -n "$pe" ] && [ "$mode" != word ] && [ "$ai" = "$pa" ]; then
+						console pen "$DT_ACTIVE" "$DT_WELL" bold
+					elif [ "$ai" = "$a" ]; then
+						console pen "$DT_INK" "$DT_WELL"
+					else
+						console pen "$DT_INK" "$DT_FACE"
+					fi
+					dt_wreg "$id" $((r + 1)) $((rs + col)) "$wdt" "w:$ai:$ii"
+				fi
+				console put -p "w$id" $((r + 1)) $((rs + col)) "$txt"
+			done
+			;;
+		esac
+	done
+	dt_scrollbar "$id" 1 "$w" "$vis" "$nl" "$vis" "$top" read
+}
+
+# The ayat a search found: where each is, and as much of it as there is room for.
+fn qr_drawres(int id, int h, int w) {
+	local n=${QR[$id]["rn"]:-0} sel=${QR[$id]["sel"]} top=${QR[$id]["top"]} vis=$((h - 2)) r=2 i k s a tw ref txt on blank t
+
+	[ "$vis" -ge 1 ] || vis=1
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	k := qr_ind "$n"
+	t="نتائج البحث ($k)"
+	qr_putc "$id" 1 "$w" "$t"
+	if [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		qr_putc "$id" 3 "$w" "لا نتائج"
+	fi
+	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${QR[$id]["seen"]-}"
+	QR[$id]["seen"]=$sel
+	QR[$id]["top"]=$top
+	QR[$id]["vis"]=$vis
+	blank := str repeat " " $((w - 1))
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$r" -le $((h - 1)) ]; do
+		k=${QRR[$id][$i]}
+		on=0
+		[ "$i" = "$sel" ] && on=1
+		if [ "$on" = 1 ]; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" "$r" 1 "$blank"
+		s=${QS_K[$k]%%:*}
+		a=${QS_K[$k]##*:}
+		ref="$s:$a"
+		console put -p "w$id" "$r" 2 "$ref"
+		tw=$((w - 3 - ${#ref} - 2))
+		txt := qr_fit "${QS_D[$k]}" "$tw"
+		qr_putr "$id" "$r" $((w - 2)) "$txt"
+		dt_wreg "$id" "$r" 1 $((w - 1)) "row:$i"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	dt_scrollbar "$id" 2 "$w" "$vis" "$n" "$vis" "$top" list
+}
+
+# As many words from the front of a text as fit in a width, with an ellipsis where it was cut.
+fn qr_fit(text, int maxw) {
+	local -a ws
+	local t= used=0 wd x
+
+	read -ra ws <<< "$text"
+	for x in "${ws[@]}"; do
+		wd := qr_wid "$x"
+		if [ $((used + wd + 1)) -gt $((maxw - 2)) ]; then
+			t+=" …"
+			break
+		fi
+		t+="${t:+ }$x"
+		used=$((used + wd + 1))
+	done
+	ret "$t"
+}
+
+# --- searching --------------------------------------------------------------
+
+# Look for the words typed: every ayah that has all of them, with or without marks; or go to 2:255.
+fn qr_search(int id, q) {
+	local nq w i n=0 hit ref s a
+	local -a ws
+
+	q := qr_wdig "$q"
+	q=${q// /}
+	if [[ $q =~ ^([0-9]+)[:.]([0-9]+)$ ]]; then
+		s=${BASH_REMATCH[1]}
+		a=${BASH_REMATCH[2]}
+		if [ "$s" -ge 1 ] && [ "$s" -le 114 ]; then
+			qr_open "$id" "$s" "$a"
+			QR[$id]["sel"]=$((s - 1))
+			return 0
+		fi
+	fi
+	q := dt_searchq "$id"
+	[ -n "$q" ] || return 0
+	qr_searchload || { QR[$id]["err"]="The index is missing from $QR_DATA"; return 0; }
+	q := qr_norm "$q"
+	read -ra ws <<< "$q"
+	[ "${#ws[@]}" -gt 0 ] || return 0
+	unset "QRR[$id]"
+	for i in "${!QS_T[@]}"; do
+		hit=1
+		for w in "${ws[@]}"; do
+			if [[ ${QS_T[$i]} != *"$w"* ]]; then
+				hit=0
+				break
+			fi
+		done
+		if [ "$hit" = 1 ]; then
+			QRR[$id][$n]=$i
+			n=$((n + 1))
+			[ "$n" -ge 1000 ] && break
+		fi
+	done
+	QR[$id]["rn"]=$n
+	QR[$id]["rq"]=$q
+	QR[$id]["rv"]=${QR[$id]["view"]}
+	[ "${QR[$id]["view"]}" = results ] || QR[$id]["rv"]=${QR[$id]["view"]}
+	QR[$id]["view"]=results
+	QR[$id]["sel"]=0
+	QR[$id]["top"]=0
+	QR[$id]["seen"]=
+	QR[$id]["err"]=
+}
+
+# Open the ayah a result is, with the first word the search found selected.
+fn qr_goresult(int id, int i) {
+	local k=${QRR[$id][$i]} s a w ws wd=0 j x nw
+	local -a words
+
+	s=${QS_K[$k]%%:*}
+	a=${QS_K[$k]##*:}
+	qr_open "$id" "$s" "$a" || return 0
+	QR[$id]["sel"]=$((s - 1))
+	w=${QR[$id]["rq"]%% *}
+	ws := qr_words "$id" "$a"
+	IFS='|' read -ra words <<< "$ws"
+	j=0
+	for x in "${words[@]}"; do
+		nw := qr_norm "$x"
+		if [[ $nw == *"$w"* ]]; then
+			wd=$j
+			break
+		fi
+		j=$((j + 1))
+	done
+	qr_select "$id" "$a" "$wd"
+}
+
+fn quran_find(int id) {
+	[ -n "${QR[$id]["view"]}" ] && [ "${QR[$id]["view"]}" != fetch ] && dt_searchopen "$id"
+	return 0
+}
+
+# --- keys, clicks and menus -------------------------------------------------
+
+# Move the ayah selection a page's worth, in lines.
+fn qr_page(int id, int d) {
+	local a=${QR[$id]["aya"]} na=${QR[$id]["na"]} vis=${QR[$id]["vis"]:-10} start b
+
+	start=${QRF[$id][$a]}
+	b=$a
+	while true; do
+		b=$((b + d))
+		if [ "$b" -lt 1 ] || [ "$b" -gt "$na" ]; then
+			b=$((b - d))
+			break
+		fi
+		if [ $(( ${QRF[$id][$b]} - start )) -ge $((vis - 1)) ] || [ $(( start - ${QRF[$id][$b]} )) -ge $((vis - 1)) ]; then
+			break
+		fi
+	done
+	qr_select "$id" "$b" 0
+}
+
+# The next sura or the one before.
+fn qr_step(int id, int d) {
+	local s=${QR[$id]["sura"]}
+
+	s=$((s + d))
+	[ "$s" -ge 1 ] && [ "$s" -le 114 ] || return 0
+	qr_open "$id" "$s" 1
+	QR[$id]["sel"]=$((s - 1))
+}
+
+fn qr_golist(int id) {
+	qr_stop "$id"
+	QR[$id]["view"]=list
+	QR[$id]["sel"]=$((${QR[$id]["sura"]} - 1))
+	QR[$id]["seen"]=
+	return 0
+}
+
+fn quran_key(int id, key) {
+	local view=${QR[$id]["view"]} sel=${QR[$id]["sel"]:-0} n q vis=${QR[$id]["vis"]:-10} a=${QR[$id]["aya"]:-1}
+
+	[ "$view" = fetch ] && {
+		case $key in
+		r) qr_jobstart; return 0 ;;
+		esac
+		return 1
+	}
+	if dt_searchon "$id" && [ "$key" = enter ]; then
+		q := dt_searchq "$id"
+		dt_searchshut "$id"
+		qr_search "$id" "$q"
+		return 0
+	fi
+	if dt_searchkey "$id" "$key"; then
+		return 0
+	fi
+	case $view in
+	list)
+		case $key in
+		up) [ "$sel" -gt 0 ] && QR[$id]["sel"]=$((sel - 1)) ;;
+		down) [ "$sel" -lt 113 ] && QR[$id]["sel"]=$((sel + 1)) ;;
+		pageup) sel=$((sel - vis)); [ "$sel" -lt 0 ] && sel=0; QR[$id]["sel"]=$sel ;;
+		pagedown) sel=$((sel + vis)); [ "$sel" -gt 113 ] && sel=113; QR[$id]["sel"]=$sel ;;
+		home) QR[$id]["sel"]=0 ;;
+		end) QR[$id]["sel"]=113 ;;
+		enter) qr_open "$id" $((sel + 1)) 1 ;;
+		escape | backspace) [ -n "${QRU[$id][1]}" ] && QR[$id]["view"]=read || return 1 ;;
+		*) return 1 ;;
+		esac
+		return 0
+		;;
+	results)
+		n=${QR[$id]["rn"]:-0}
+		case $key in
+		up) [ "$sel" -gt 0 ] && QR[$id]["sel"]=$((sel - 1)) ;;
+		down) [ "$sel" -lt $((n - 1)) ] && QR[$id]["sel"]=$((sel + 1)) ;;
+		pageup) sel=$((sel - vis)); [ "$sel" -lt 0 ] && sel=0; QR[$id]["sel"]=$sel ;;
+		pagedown) sel=$((sel + vis)); [ "$sel" -ge "$n" ] && sel=$((n - 1)); [ "$sel" -lt 0 ] && sel=0; QR[$id]["sel"]=$sel ;;
+		home) QR[$id]["sel"]=0 ;;
+		end) QR[$id]["sel"]=$((n > 0 ? n - 1 : 0)) ;;
+		enter) [ "$n" -gt 0 ] && qr_goresult "$id" "$sel" ;;
+		escape | backspace) dt_searchclear "$id"; QR[$id]["view"]=${QR[$id]["rv"]:-read}; QR[$id]["follow"]=1 ;;
+		g) qr_golist "$id" ;;
+		*) return 1 ;;
+		esac
+		return 0
+		;;
+	esac
+	case $key in
+	up) qr_select "$id" $((a - 1)) 0 ;;
+	down) qr_select "$id" $((a + 1)) 0 ;;
+	left) qr_wmove "$id" 1 ;;
+	right) qr_wmove "$id" -1 ;;
+	pageup) qr_page "$id" -1 ;;
+	pagedown) qr_page "$id" 1 ;;
+	home) qr_select "$id" 1 0 ;;
+	end) qr_select "$id" "${QR[$id]["na"]}" 0 ;;
+	enter) qr_playaya "$id" ;;
+	" ") qr_toggle "$id" ;;
+	w) qr_playword "$id" ;;
+	s) qr_playsura "$id" ;;
+	r) qr_repeat ;;
+	"]" | n) qr_step "$id" 1 ;;
+	"[" | p) qr_step "$id" -1 ;;
+	g | l) qr_golist "$id" ;;
+	escape)
+		if [ -n "${QR[$id]["p"]}" ]; then
+			qr_stop "$id"
+		elif q := dt_searchq "$id" && [ -n "$q" ]; then
+			dt_searchclear "$id"
+		else
+			return 1
+		fi
+		;;
+	*) return 1 ;;
+	esac
+	return 0
+}
+
+# Whether an ayah is repeated when it ends.
+qr_repeat() {
+	[ "$QR_REPEAT" = 1 ] && QR_REPEAT=0 || QR_REPEAT=1
+	command -v dt_save > /dev/null && dt_save
+}
+
+fn quran_click(int id, int r, int c, btn = "") {
+	local tag s a w
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	dtsearch) dt_searchopen "$id"; return 0 ;;
+	row:*)
+		w=${tag#row:}
+		dt_searchshut "$id"
+		if [ "${QR[$id]["view"]}" = list ]; then
+			if [ "${QR[$id]["sel"]}" = "$w" ]; then
+				qr_open "$id" $((w + 1)) 1
+			else
+				QR[$id]["sel"]=$w
+			fi
+		else
+			if [ "${QR[$id]["sel"]}" = "$w" ]; then
+				qr_goresult "$id" "$w"
+			else
+				QR[$id]["sel"]=$w
+			fi
+		fi
+		return 0
+		;;
+	esac
+	[ "${QR[$id]["view"]}" = read ] || return 0
+	case $tag in
+	w:*)
+		s=${tag#w:}
+		a=${s%%:*}
+		w=${s##*:}
+		qr_select "$id" "$a" "$w"
+		if dt_has dt_isdbl && dt_isdbl "$id"; then
+			qr_playaya "$id"
+		else
+			qr_playword "$id"
+		fi
+		;;
+	m:*)
+		a=${tag#m:}
+		qr_select "$id" "$a" 0
+		qr_playaya "$id"
+		;;
+	b) qr_playbism "$id" ;;
+	esac
+	return 0
+}
+
+fn quran_wheel(int id, dir, int r = 0, int c = 0) {
+	local v=${QR[$id]["view"]} n top
+
+	case $v in
+	read) n=${QR[$id]["nl"]:-0} ;;
+	list) n=114 ;;
+	results) n=${QR[$id]["rn"]:-0} ;;
+	*) return 1 ;;
+	esac
+	top := dt_scrollmove "$dir" "${QR[$id]["top"]:-0}" "$n" "${QR[$id]["vis"]:-1}" "$DT_SCROLLWHEEL" || return 1
+	QR[$id]["top"]=$top
+	QR[$id]["follow"]=0
+	QR[$id]["seen"]=${QR[$id]["sel"]}
+	return 0
+}
+
+fn quran_scroll(int id, key, int top) {
+	QR[$id]["top"]=$top
+	QR[$id]["follow"]=0
+	QR[$id]["seen"]=${QR[$id]["sel"]}
+}
+
+# Copy the ayah selected, with its marks, as it is read.
+fn quran_copy(int id) {
+	local a=${QR[$id]["aya"]} t
+
+	[ "${QR[$id]["view"]}" = read ] || return 1
+	t := qr_words "$id" "$a"
+	ret "${t//|/ }"
+}
+
+# Choose a reciter, for the next thing played.
+fn qr_setreciter(r) {
+	QR_RECITER=$r
+	command -v dt_save > /dev/null && dt_save
+}
+
+# The spelling of the text: with the Quran's own signs, or as ordinarily written.
+fn qr_setscript(v) {
+	QR_SCRIPT=$v
+	command -v dt_save > /dev/null && dt_save
+}
+
+qr_saverhold() {
+	[ "$QR_SAVERHOLD" = 1 ] && QR_SAVERHOLD=0 || QR_SAVERHOLD=1
+	command -v dt_save > /dev/null && dt_save
+}
+
+quran_menus() {
+	local id=$DT_FOCUS k on playing= view=${QR[$DT_FOCUS]["view"]}
+
+	[ -n "${QR[$id]["p"]}" ] && playing=1
+	dt_menu "File"
+	dt_item "Suras${GL[ellipsis]}" g qr_golist "$id"
+	dt_rowaccel g
+	dt_item "Search${GL[ellipsis]}" s quran_key "$id" /
+	dt_rowaccel /
+	dt_sep
+	dt_item "Next Sura" n qr_step "$id" 1
+	dt_rowaccel ]
+	dt_item "Previous Sura" p qr_step "$id" -1
+	dt_rowaccel [
+	dt_sep
+	dt_item "Close Window" w dt_close_focused
+	dt_editmenu
+	dt_menu "Play"
+	if [ "$view" = read ]; then
+		dt_item "Ayah" a qr_playaya "$id"
+		dt_rowaccel enter
+		dt_item "Word" w qr_playword "$id"
+		dt_rowaccel w
+		dt_item "Sura from Here" s qr_playsura "$id"
+		dt_rowaccel s
+	else
+		dt_dim "Ayah"
+		dt_dim "Word"
+		dt_dim "Sura from Here"
+	fi
+	if [ -n "$playing" ]; then
+		dt_item "Pause or Play" p qr_toggle "$id"
+		dt_rowaccel space
+		dt_item "Stop" t qr_stop "$id"
+		dt_rowaccel escape
+	else
+		dt_dim "Pause or Play"
+		dt_dim "Stop"
+	fi
+	dt_sep
+	dt_mark "Repeat the Ayah" r "$QR_REPEAT" qr_repeat
+	dt_rowaccel r
+	dt_mark "Keep the Screen Saver Away" k "$QR_SAVERHOLD" qr_saverhold
+	dt_menu "Reciter"
+	for k in "${!QR_RIDS[@]}"; do
+		on=0
+		[ "${QR_RIDS[$k]}" = "$QR_RECITER" ] && on=1
+		dt_mark "${QR_RNAMES[$k]}" "" "$on" qr_setreciter "${QR_RIDS[$k]}"
+	done
+	dt_menu "Text"
+	on=0
+	[ "$QR_SCRIPT" = simple ] || on=1
+	dt_mark "Quranic Marks (Uthmani)" u "$on" qr_setscript uthmani
+	on=0
+	[ "$QR_SCRIPT" = simple ] && on=1
+	dt_mark "Ordinary Spelling" o "$on" qr_setscript simple
+}

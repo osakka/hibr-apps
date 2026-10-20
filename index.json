@@ -183,6 +183,19 @@
       "name": "puzzle",
       "dir": "Accessories"
     },
+    "apps/quran": {
+      "title": "Quran",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Accessories/quran.hibr",
+      "sha256": "f368723efb98db6c118bfe467eefc62aef1563f6300de208c986392feabfd663",
+      "about": "The Quran in Arabic, with tashkeel, to read, search and hear\n\nthe Quran in a window, in Arabic only and with every mark of tashkeel, laid out a word at a time so that a word can be heard: click it for that word, enter for the ayah, s for the sura from there on.\n\nThe text is read from Quran.com's public API once, on first use, by a job in the background, and kept as plain files under ~/.local/share/hibr/quran/ -- after that the Quran reads and searches offline, and only the sound needs the network. Nothing is translated: the window draws the Quran in Arabic whatever language the desktop speaks. Words are the API's own, each with the number of the clip the word-by-word recitation (audio.qurancdn.com) holds for it -- a word and the sign of stopping after it are one word here, as they are there. An ayah's recitation is everyayah.com's, in the reciter chosen on the Reciter menu.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "quran",
+      "modules": "media dav",
+      "dir": "Accessories"
+    },
     "apps/clock": {
       "title": "Clock",
       "version": "1.0",
@@ -1043,11 +1056,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.6",
+      "version": "3.7",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "b324efbc9c170eb321aac30108a85c5cc1ca8717f3a2f38142efd983eea35e98",
-      "about": "The desktop's own words in العربية (ar): 1092 strings, read right to left.",
+      "sha256": "0dce5d837793f0eb1d01c17195240e394732722a91689e0c3d2341155531ef06",
+      "about": "The desktop's own words in العربية (ar): 1118 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1180,6 +1193,19 @@
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "puzzle",
+      "dir": "Accessories"
+    },
+    "quran": {
+      "title": "Quran",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Accessories/quran.hibr",
+      "sha256": "f368723efb98db6c118bfe467eefc62aef1563f6300de208c986392feabfd663",
+      "about": "The Quran in Arabic, with tashkeel, to read, search and hear\n\nthe Quran in a window, in Arabic only and with every mark of tashkeel, laid out a word at a time so that a word can be heard: click it for that word, enter for the ayah, s for the sura from there on.\n\nThe text is read from Quran.com's public API once, on first use, by a job in the background, and kept as plain files under ~/.local/share/hibr/quran/ -- after that the Quran reads and searches offline, and only the sound needs the network. Nothing is translated: the window draws the Quran in Arabic whatever language the desktop speaks. Words are the API's own, each with the number of the clip the word-by-word recitation (audio.qurancdn.com) holds for it -- a word and the sign of stopping after it are one word here, as they are there. An ayah's recitation is everyayah.com's, in the reciter chosen on the Reciter menu.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "quran",
+      "modules": "media dav",
       "dir": "Accessories"
     },
     "prayer": {
