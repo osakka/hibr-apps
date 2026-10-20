@@ -128,6 +128,9 @@ ENTHIBR["apps/xscreen"]=0.99.266
 # It acts through wm/net.hibr and wm/polkit.hibr, which an older desktop
 # does not have (Gitea #311).
 ENTHIBR["control-panel/networks"]=0.99.270
+# It acts through wm/bt.hibr, which an older desktop does not have
+# (Gitea #312).
+ENTHIBR["control-panel/bluetooth"]=0.99.271
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

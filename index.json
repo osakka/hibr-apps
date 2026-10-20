@@ -699,6 +699,18 @@
       "name": "blit",
       "hibr": "0.99.244"
     },
+    "control-panel/bluetooth": {
+      "title": "Bluetooth",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/bluetooth.hibr",
+      "sha256": "dda73dea240d8cc41d0760f86c5e83217ff4ede35292553258243befdb3f4772",
+      "about": "The Control Panel pane for Bluetooth\n\nthe Control Panel pane called Bluetooth (Gitea #312): the adapter on or off and visible to others or not, the devices it knows -- each connected or not, with its battery, a click to connect or disconnect -- forgetting one, looking for new ones and pairing them, and the item on the menu bar. It acts through wm/bt.hibr.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "bluetooth",
+      "hibr": "0.99.271"
+    },
     "control-panel/wallset": {
       "title": "Wallpaper",
       "version": "1.1",
@@ -1096,11 +1108,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.8",
+      "version": "3.9",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "6a790d1b67e4166875a7ee772270d95ffc0050483aa4db590bb50c7ec33c237f",
-      "about": "The desktop's own words in العربية (ar): 1174 strings, read right to left.",
+      "sha256": "d0becc1319df04cdb57b3ba6397e534424c1ad5770f744b19847f8418dad8407",
+      "about": "The desktop's own words in العربية (ar): 1213 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1654,6 +1666,18 @@
       "author": "Omar Sakka",
       "name": "blit",
       "hibr": "0.99.244"
+    },
+    "bluetooth": {
+      "title": "Bluetooth",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/bluetooth.hibr",
+      "sha256": "dda73dea240d8cc41d0760f86c5e83217ff4ede35292553258243befdb3f4772",
+      "about": "The Control Panel pane for Bluetooth\n\nthe Control Panel pane called Bluetooth (Gitea #312): the adapter on or off and visible to others or not, the devices it knows -- each connected or not, with its battery, a click to connect or disconnect -- forgetting one, looking for new ones and pairing them, and the item on the menu bar. It acts through wm/bt.hibr.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "bluetooth",
+      "hibr": "0.99.271"
     },
     "wallset": {
       "title": "Wallpaper",
