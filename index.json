@@ -43,22 +43,22 @@
     },
     "apps/xscreen": {
       "title": "X Screen",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "5a4f8359c6bc61620670d7ff8971bca057940a4863cd0b88ddb39deb55720668",
+      "sha256": "03cf92d01b78f0ac1dbff5cfe84c4c7ef0edb6540075cc74fb7ff3515be010f8",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "xscreen",
-      "hibr": "0.99.260",
+      "hibr": "0.99.266",
       "modules": "xscr",
       "parts": [
         {
           "kind": "control-panel",
           "as": "xscreenset.hibr",
           "path": "bundles/control-panel/xscreenset.hibr",
-          "sha256": "a18b1cd99a378e01433ea0b5c5246a95449d27e9fc7f85779047f3c4e00dc0d2"
+          "sha256": "3831bd04872fb227a789e3a9efc69278f41e1121e738ea2d4fb98b19d49ee661"
         }
       ]
     },
@@ -1043,11 +1043,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.5",
+      "version": "3.6",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "d5795b84c2d6532974ff1455531ee60b50ebba97640bd47137df098b14e3b508",
-      "about": "The desktop's own words in العربية (ar): 1089 strings, read right to left.",
+      "sha256": "b324efbc9c170eb321aac30108a85c5cc1ca8717f3a2f38142efd983eea35e98",
+      "about": "The desktop's own words in العربية (ar): 1092 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1082,15 +1082,15 @@
     },
     "xscreen": {
       "title": "X Screen",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "5a4f8359c6bc61620670d7ff8971bca057940a4863cd0b88ddb39deb55720668",
+      "sha256": "03cf92d01b78f0ac1dbff5cfe84c4c7ef0edb6540075cc74fb7ff3515be010f8",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "xscreen",
-      "hibr": "0.99.260",
+      "hibr": "0.99.266",
       "modules": "xscr"
     },
     "files": {
