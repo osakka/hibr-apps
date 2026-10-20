@@ -66,6 +66,15 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_cp_start refresh
       finish
       [ "$BCP_BASE_REV" -ge 0 ] || { echo "refresh failed: $BCP_STATUS" >&2; exit 1; }
+      BCP_DROP_KEY[44]=primary
+      blit_cp_selected 44 "${BCP_SNAPSHOT[topology][panes][0][id]}"
+      [ "${BCP_DRAFT[login][preferred_pane_id]}" = "${BCP_SNAPSHOT[topology][panes][0][id]}" ] || exit 55
+      blit_cp_selected 44 auto
+      [ "${BCP_DRAFT[login][preferred_pane_id]}" = null ] || exit 56
+      blit_cp_choose fallback wait
+      blit_cp_choose fallback invalid
+      [ "${BCP_DRAFT[login][fallback]}" = wait ] || exit 57
+      blit_cp_choose fallback first_available
       n := blit_rows 44
       [ "$n" -gt 20 ] || { echo 'pane rows missing' >&2; exit 1; }
       i=0; sliders=0

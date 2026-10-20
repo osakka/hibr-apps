@@ -1,5 +1,19 @@
 # Blit Control Panel
 
+## Native dropdown menus (pane0.1.8)
+
+Clicking the value/caret opens Hibr's native popup for primary pane, fallback,
+font, pointer shape/palette/device and acceleration. Dismissal changes nothing;
+choosing a value uses the same validated choice list as keyboard stepping.
+Font selection remains live; other settings retain their staged Save behavior.
+Booleans and sliders are unchanged. See
+[ADR0007](adr/0007-blit-native-dropdowns.md) and
+[hibr-apps#2](https://git.home.arpa/itdlabs/hibr-apps/issues/2).
+
+Update with `catalogue refresh` then `catalogue update control-panel/blit`.
+An already-loaded desktop pane may need a desktop restart to load the new
+functions. Publication does not imply installation on the live machine.
+
 ## Presentation source (pane0.1.7)
 
 With Blit0.1.563+, the read-only Presentation section distinguishes requested

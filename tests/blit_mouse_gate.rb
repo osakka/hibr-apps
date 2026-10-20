@@ -48,6 +48,21 @@ Dir.mktmpdir('blit-mouse') do |root|
       selected := blit_mouse_index
       [ "$selected" = 0 ] || { echo 'mixed keyboard/pointer ignored'; exit 13; }
       id=$BCP_POINTER_ID
+      # Popup callbacks apply the exact choice, never another cp_next step.
+      BCP_DROP_KEY[45]=shape
+      blit_cp_selected 45 precision
+      [ "${BCP_DRAFT[pointer][shape]}" = precision ] || exit 25
+      blit_cp_selected 45 invalid
+      [ "${BCP_DRAFT[pointer][shape]}" = precision ] || exit 26
+      blit_cp_choose shape arrow
+      blit_cp_choose palette amber
+      [ "${BCP_DRAFT[pointer][palette]}" = amber ] || exit 27
+      blit_cp_choose palette pearl
+      BCP_DROP_KEY[45]=device
+      blit_cp_choices device
+      blit_cp_selected 45 "${BCP_CHOICES[1]}"
+      [ "$BCP_POINTER_ID" != "$id" ] || exit 28
+      blit_cp_choose device "$id"
       blit_mouse_do 45 shape 1
       blit_mouse_do 45 palette 1
       blit_mouse_do 45 shadow 1

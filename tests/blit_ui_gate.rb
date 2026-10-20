@@ -97,7 +97,43 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
     end
     input=->(bytes){req('POST',"/v1/terminal-sessions/#{session['id']}/input",{'data'=>bytes})}
+    # A click on a dropdown must open the installed native menu, not step
+    # to another value. Escape dismisses it without a settings mutation.
+    dropdown=->(label,value,alternative,select=false) do
+      cells=req('GET',surface)['cells']
+      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?(label)}
+      raise "missing dropdown #{label}" unless row
+      sorted=row[1].sort_by{|c|c['x']}
+      offset=sorted.map{|c|c['text']}.join.index(value)
+      raise "missing dropdown value #{value}" unless offset
+      x=sorted[offset]['x']; grid=req('GET','/v1/topology')['panes'][0]['cell_grid']
+      req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+x*grid['cell_width']+grid['cell_width']/2,y:grid['origin_y']+row[0]*grid['cell_height']+grid['cell_height']/2})
+      req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
+      req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+      await("native #{label} popup"){text.call.include?(alternative)}
+      capture.call("dropdown-#{label.downcase.gsub(' ','-')}")
+      if select
+        items=req('GET',surface)['cells'].group_by{|c|c['y']}
+        item=items.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?(alternative)}
+        chars=item[1].sort_by{|c|c['x']}
+        column=chars[chars.map{|c|c['text']}.join.index(alternative)]['x']
+        req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+column*grid['cell_width']+grid['cell_width']/2,y:grid['origin_y']+item[0]*grid['cell_height']+grid['cell_height']/2})
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+        await("selected #{alternative}") do
+          text.call.lines.any?{|line|line.include?(label) && line.include?(alternative)}
+        end
+        next
+      end
+      input.call("\e")
+      await("dismiss #{label} popup"){!text.call.include?(alternative)}
+    end
     if PANE=='blit_mouse'
+      before=req('GET','/v1/settings')
+      dropdown.call('Shape','arrow','precision')
+      raise 'opening/dismissing popup changed settings' unless req('GET','/v1/settings')==before
+      dropdown.call('Shape','arrow','precision',true)
+      raise 'selection saved staged settings prematurely' unless req('GET','/v1/settings')==before
       drag.call('Pointer Size',10)
       await('native pointer size drag'){text.call.include?('Pointer Size (64 px)')}
       capture.call('pointer-size-dragged')
@@ -113,6 +149,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
         req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
       end
       await('mouse pane actual save action'){req('GET','/v1/settings').dig('effective','pointer','size_px')==64}
+      raise 'popup selected next option instead of precision' unless req('GET','/v1/settings').dig('effective','pointer','shape')=='precision'
       capture.call('mouse-saved')
       puts "BLIT_MOUSE_UI_PASS library=installed_hibr renderer=sdl_software pane=shared_bundle size=actual_pointer64 save=actual_click screenshots=#{output}"
     else
@@ -143,6 +180,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     input.call("\e[D")
     await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
     capture.call('font-size-keyboard-step')
+    dropdown.call('Fallback','first_available','wait')
     puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception

@@ -10,7 +10,7 @@
 # is kept in a private user file, is masked in its editor, and is excluded
 # from configuration exports. The privileged updater token is never requested.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.7
+app blit "API configuration and diagnostics for the Blit display server" 0.1.8
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -35,6 +35,9 @@ BCP_BASE_REV=-1
 BCP_OPERATION=
 BCP_HTTP_CODE=000
 declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_DIALOG BCP_HTTP
+declare -gA BCP_DROP_KEY
+declare -ga BCP_CHOICES
+BCP_CHOICE_CURRENT=
 json parse BCP_SNAPSHOT '{}'
 json parse BCP_LIVE '{}'
 json parse BCP_DRAFT '{}'
@@ -420,9 +423,85 @@ fn blit_rows(int w) {
     ret "$n"
 }
 
+# One choice source and selection path for native popups and keyboard stepping.
+fn blit_cp_choices(key) {
+    local i=0 raw
+    local -A cfg
+    BCP_CHOICES=(); BCP_CHOICE_CURRENT=
+    case $key in
+    primary)
+        BCP_CHOICES=(auto)
+        while [ -n "${BCP_SNAPSHOT[topology][panes][$i][id]}" ]; do
+            BCP_CHOICES+=("${BCP_SNAPSHOT[topology][panes][$i][id]}"); i=$((i + 1))
+        done
+        BCP_CHOICE_CURRENT=${BCP_DRAFT[login][preferred_pane_id]:-auto}
+        [ "$BCP_CHOICE_CURRENT" != null ] || BCP_CHOICE_CURRENT=auto ;;
+    fallback) BCP_CHOICES=(first_available wait); BCP_CHOICE_CURRENT=${BCP_DRAFT[login][fallback]:-first_available} ;;
+    font)
+        while [ -n "${BCP_SNAPSHOT[fonts][profiles][$i][id]}" ]; do
+            [ "${BCP_SNAPSHOT[fonts][profiles][$i][available]}" != true ] || BCP_CHOICES+=("${BCP_SNAPSHOT[fonts][profiles][$i][id]}")
+            i=$((i + 1))
+        done
+        BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[fonts][active][id]} ;;
+    shape) BCP_CHOICES=(arrow hand precision); BCP_CHOICE_CURRENT=${BCP_DRAFT[pointer][shape]:-arrow} ;;
+    palette) BCP_CHOICES=(pearl obsidian neon amber); BCP_CHOICE_CURRENT=${BCP_DRAFT[pointer][palette]:-pearl} ;;
+    device)
+        i := blit_mouse_index
+        i=0
+        while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" ]; do
+            if blit_mouse_is_pointer "$i"; then BCP_CHOICES+=("${BCP_SNAPSHOT[input_devices][devices][$i][id]}"); fi
+            i=$((i + 1))
+        done
+        BCP_CHOICE_CURRENT=$BCP_POINTER_ID ;;
+    acceleration)
+        i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
+        raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
+        if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
+        json parse cfg "$raw"
+        BCP_CHOICES=(flat adaptive); BCP_CHOICE_CURRENT=${cfg[acceleration][profile]:-flat} ;;
+    esac
+    return 0
+}
+
+fn blit_cp_choose(key, value) {
+    local option valid=0 body
+    local -A payload
+    [ "$BCP_BUSY" = 0 ] || return 0
+    blit_cp_choices "$key"
+    for option in "${BCP_CHOICES[@]}"; do [ "$option" != "$value" ] || valid=1; done
+    [ "$valid" = 1 ] || return 0
+    case $key in
+    primary)
+        if [ "$value" = auto ]; then json set BCP_DRAFT .login.preferred_pane_id null;
+        else json set BCP_DRAFT .login.preferred_pane_id "$value" -s; fi
+        BCP_DIRTY=1 ;;
+    fallback) json set BCP_DRAFT .login.fallback "$value" -s; BCP_DIRTY=1 ;;
+    font)
+        json parse payload '{}'; json set payload .font_id "$value" -s
+        body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
+    shape | palette) json set BCP_DRAFT ".pointer.$key" "$value" -s; BCP_DIRTY=1 ;;
+    device) BCP_POINTER_ID=$value ;;
+    acceleration) option=0; [ "$value" != adaptive ] || option=1; blit_mouse_slide 0 acceleration "$option" ;;
+    esac
+    return 0
+}
+
+fn blit_cp_selected(int w, value) {
+    blit_cp_choose "${BCP_DROP_KEY[$w]}" "$value"
+}
+fn blit_drop(int w, int r, int c, key) {
+    [ "$BCP_BUSY" = 0 ] || return 0
+    blit_cp_choices "$key"
+    [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
+    BCP_DROP_KEY[$w]=$key
+    dt_droplist "$w" "$r" "$c" blit_cp_selected "${BCP_CHOICES[@]}"
+}
+fn blit_mouse_drop(int w, int r, int c, key) {
+    blit_drop "$w" "$r" "$c" "$key"
+}
+
 fn blit_do(int w, key, int dir) {
     local raw body pane=auto i=0 value tenths output ordinal
-    local -a choices
     local -A payload
     [ "$BCP_BUSY" = 0 ] || [ "$key" = font_size ] || return 0
     case $key in
@@ -431,17 +510,11 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary)
-        choices=(auto)
-        while [ -n "${BCP_SNAPSHOT[topology][panes][$i][id]}" ]; do choices+=("${BCP_SNAPSHOT[topology][panes][$i][id]}"); i=$((i + 1)); done
-        value=${BCP_DRAFT[login][preferred_pane_id]:-auto}; [ "$value" = null ] && value=auto
-        value := cp_next "$value" "$dir" "${choices[@]}"
-        if [ "$value" = auto ]; then json set BCP_DRAFT .login.preferred_pane_id null;
-        else json set BCP_DRAFT .login.preferred_pane_id "$value" -s; fi
-        BCP_DIRTY=1 ;;
-    fallback)
-        value := cp_next "${BCP_DRAFT[login][fallback]:-first_available}" "$dir" first_available wait
-        json set BCP_DRAFT .login.fallback "$value" -s; BCP_DIRTY=1 ;;
+    primary | fallback | font)
+        blit_cp_choices "$key"
+        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
+        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
+        blit_cp_choose "$key" "$value" ;;
     aux:*) output=${key#aux:}; ordinal=${output##*:}; output=${output%:*}; blit_cp_toggle "$output" "$ordinal" ;;
     apply | retry)
         raw := blit_cp_auxiliary_json
@@ -454,14 +527,6 @@ fn blit_do(int w, key, int dir) {
         json parse payload '{}'; json parse 'payload[document]' "$raw"
         body := json emit payload
         blit_cp_start save PUT /v1/settings "$body" "$BCP_BASE_REV" ;;
-    font)
-        while [ -n "${BCP_SNAPSHOT[fonts][profiles][$i][id]}" ]; do
-            [ "${BCP_SNAPSHOT[fonts][profiles][$i][available]}" != true ] || choices+=("${BCP_SNAPSHOT[fonts][profiles][$i][id]}")
-            i=$((i + 1))
-        done
-        value := cp_next "${BCP_SNAPSHOT[fonts][active][id]}" "$dir" "${choices[@]}"
-        json parse payload '{}'; json set payload .font_id "$value" -s
-        body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
     font_size)
         value=${BCP_FONT_SIZE_PENDING:-${BCP_FONT_SIZE_REQUESTED:-${BCP_SNAPSHOT[fonts][active][size_px]}}}
         [ -n "$value" ] && [ "$value" != null ] || return 0
@@ -608,25 +673,17 @@ fn blit_mouse_slide(int w, key, int value) {
 }
 
 fn blit_mouse_do(int w, key, int dir) {
-    local value raw i j=0 current
-    local -a choices
+    local value raw i
     case $key in
-    shape | palette)
-        [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ] || return 0
-        if [ "$key" = shape ]; then choices=(arrow hand precision); current=${BCP_DRAFT[pointer][shape]:-arrow};
-        else choices=(pearl obsidian neon amber); current=${BCP_DRAFT[pointer][palette]:-pearl}; fi
-        value := cp_next "$current" "$dir" "${choices[@]}"
-        json set BCP_DRAFT ".pointer.$key" "$value" -s; BCP_DIRTY=1 ;;
+    shape | palette | device | acceleration)
+        blit_cp_choices "$key"
+        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
+        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
+        blit_cp_choose "$key" "$value" ;;
     shadow) value=true; [ "${BCP_DRAFT[pointer][shadow]:-true}" != true ] || value=false
         json set BCP_DRAFT .pointer.shadow "$value"; BCP_DIRTY=1 ;;
     size) blit_mouse_slide "$w" size "$(( ${BCP_DRAFT[pointer][size_px]:-24} + dir ))" ;;
-    device)
-        while [ -n "${BCP_SNAPSHOT[input_devices][devices][$j][id]}" ]; do
-            if blit_mouse_is_pointer "$j"; then choices+=("${BCP_SNAPSHOT[input_devices][devices][$j][id]}"); fi
-            j=$((j + 1))
-        done
-        [ "${#choices[@]}" -eq 0 ] || { BCP_POINTER_ID := cp_next "$BCP_POINTER_ID" "$dir" "${choices[@]}"; } ;;
-    sensitivity | wheel | natural | acceleration)
+    sensitivity | wheel | natural)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
         raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
         if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
@@ -635,7 +692,6 @@ fn blit_mouse_do(int w, key, int dir) {
         sensitivity) value=$(( ${cfg[sensitivity_percent]:-100} + dir * 5 )) ;;
         wheel) value=$(( ${cfg[scroll_step]:-1} + dir )) ;;
         natural) value=1; [ "${cfg[natural_scroll]:-false}" != true ] || value=0 ;;
-        acceleration) value=1; [ "${cfg[acceleration][profile]:-flat}" != adaptive ] || value=0 ;;
         esac
         blit_mouse_slide "$w" "$key" "$value" ;;
     *) blit_do "$w" "$key" "$dir" ;;
