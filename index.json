@@ -274,10 +274,10 @@
     },
     "apps/boxer": {
       "title": "Boxer",
-      "version": "0.3",
+      "version": "0.4",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "9f945fb7db8cdeb04da6acc2ca821815bf91fb7affbf2615756e97b2ccffee84",
+      "sha256": "617c25d67af4164421874d4be351e981dafa4569e487327c41d41c8dc88387f5",
       "about": "DOS games on a shelf\n\na shelf of DOS games, one box to a game, in the way Boxer shelves them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (cover.png), the person's DOSBox settings and the game's saves; the shelf is a folder of them, and this window shows it as a grid of covers. Clicking one selects it, a double click or Enter plays it, in a window of its own (boxerplay).\n\nNothing registers a game: the shelf is scanned, so a box copied in, rsync'd or untarred is on the shelf the next time it is refreshed, and a box taken out is gone. The default shelf is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -290,7 +290,7 @@
           "kind": "apps",
           "as": "boxerplay.hibr",
           "path": "bundles/apps/boxerplay.hibr",
-          "sha256": "6ab57ac07606f43f7e3e7d6b6c0c8c651099294e688a296d01aa2d3b8fa88844"
+          "sha256": "dcf74d86a74ad1ed60d6ee811400649f0c53d957dd4cc240f71ce2c96dd846b7"
         },
         {
           "kind": "control-panel",
@@ -1300,10 +1300,10 @@
     },
     "boxer": {
       "title": "Boxer",
-      "version": "0.3",
+      "version": "0.4",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "9f945fb7db8cdeb04da6acc2ca821815bf91fb7affbf2615756e97b2ccffee84",
+      "sha256": "617c25d67af4164421874d4be351e981dafa4569e487327c41d41c8dc88387f5",
       "about": "DOS games on a shelf\n\na shelf of DOS games, one box to a game, in the way Boxer shelves them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (cover.png), the person's DOSBox settings and the game's saves; the shelf is a folder of them, and this window shows it as a grid of covers. Clicking one selects it, a double click or Enter plays it, in a window of its own (boxerplay).\n\nNothing registers a game: the shelf is scanned, so a box copied in, rsync'd or untarred is on the shelf the next time it is refreshed, and a box taken out is gone. The default shelf is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another.",
       "licence": "MIT",
       "author": "Omar Sakka",
