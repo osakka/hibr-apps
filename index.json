@@ -64,10 +64,10 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "5bb63d8d23ae134faeb8eafc4b01c7fcb2170968f7c6157c8c0ee53b3764283d",
+      "sha256": "4f80c6f880bdba4447119fdd4ce06e66dc4e6a9991aaf4d2078e2fd2fef7873e",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -78,7 +78,7 @@
           "kind": "control-panel",
           "as": "filesview.hibr",
           "path": "bundles/control-panel/filesview.hibr",
-          "sha256": "ee465e01f56c51d58448c7b4e07c2cb3c1f751ccffa63198b8dc143699d69bb0"
+          "sha256": "572a17e8bd1f27502c4efe928fbaf932719b74ddae04e84bd431c8e2cb6a0367"
         }
       ]
     },
@@ -1110,11 +1110,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.14",
+      "version": "3.15",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "9923f256f7beb6867b224e75cef0768687a6ed0e4345a4388e24d3fba62195f5",
-      "about": "The desktop's own words in العربية (ar): 1219 strings, read right to left.",
+      "sha256": "411b1b52ca44369de5574d9366b65048bc1ff2eada68fa220b63994f94574064",
+      "about": "The desktop's own words in العربية (ar): 1220 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1162,10 +1162,10 @@
     },
     "files": {
       "title": "Files",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "5bb63d8d23ae134faeb8eafc4b01c7fcb2170968f7c6157c8c0ee53b3764283d",
+      "sha256": "4f80c6f880bdba4447119fdd4ce06e66dc4e6a9991aaf4d2078e2fd2fef7873e",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
