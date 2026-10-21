@@ -136,6 +136,8 @@ ENTHIBR["control-panel/shortcuts"]=0.99.273
 # It asks dt_openers about a kind of folder, which an older desktop
 # cannot answer (Gitea #318).
 ENTHIBR["control-panel/filetypes"]=0.99.279
+# It sets DT_MOVEMODE, which an older desktop never declares.
+ENTHIBR["control-panel/mouse"]=0.99.280
 # It sets DT_MENUMAX, which an older desktop never declares (Gitea #324).
 ENTHIBR["control-panel/appearance"]=0.99.276
 # It shows a bundle as one item through dt_isbundle, which an older

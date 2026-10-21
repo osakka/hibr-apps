@@ -620,14 +620,15 @@
     },
     "control-panel/mouse": {
       "title": "Mouse",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "f16317bb78d52c7cc4712706fabe8b25c86e95577fc2999a5640d88c5c2d8983",
-      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
+      "sha256": "ce1091e066356916ea73169eab4d9a9b2c5262911ca80fdda2b1e0e70a144a50",
+      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, and whether a dragged window follows by its outline or whole. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "mouse"
+      "name": "mouse",
+      "hibr": "0.99.280"
     },
     "control-panel/windows": {
       "title": "Windows",
@@ -1109,11 +1110,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.12",
+      "version": "3.13",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "ef8d6509643230cf62528e0dafbf24e5258c79000d239330e91b883d9c8a6a02",
-      "about": "The desktop's own words in العربية (ar): 1217 strings, read right to left.",
+      "sha256": "70443b54bb959b104c26976c5270a506a261f9c39c2421fda90663405f5b11f6",
+      "about": "The desktop's own words in العربية (ar): 1218 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1589,14 +1590,15 @@
     },
     "mouse": {
       "title": "Mouse",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "f16317bb78d52c7cc4712706fabe8b25c86e95577fc2999a5640d88c5c2d8983",
-      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
+      "sha256": "ce1091e066356916ea73169eab4d9a9b2c5262911ca80fdda2b1e0e70a144a50",
+      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, and whether a dragged window follows by its outline or whole. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "mouse"
+      "name": "mouse",
+      "hibr": "0.99.280"
     },
     "windows": {
       "title": "Windows",
