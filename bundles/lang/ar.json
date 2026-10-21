@@ -1,6 +1,6 @@
 {
  "dir": "rtl",
- "version": "3.9",
+ "version": "3.10",
  "language": "ar",
  "name": "العربية",
  "plural": "ar",
@@ -81,6 +81,7 @@
   "%s needs a username and a certificate -- set it up with nmcli": "%s يحتاج إلى اسم مستخدم وشهادة -- أعدّه باستخدام nmcli",
   "%s of %s": "%s من %s",
   "%s of %s rows": "%s من %s صفوف",
+  "%s or %s": "%s أو %s",
   "%s pixels, a cell is %s by %s": "بكسلات %s، وحجم الخلية %s في %s",
   "%s rows": "%s صفوف",
   "%s selected": "%s محدد",
@@ -943,6 +944,7 @@
   "Sheet": "الجدول",
   "Sheet needs the db module": "الجدول يحتاج إلى وحدة db",
   "Shell": "الصدفة",
+  "Shortcut Key": "مفتاح الاختصارات",
   "Shortcuts": "الاختصارات",
   "Shortcuts in Terminals": "الاختصارات في الطرفيات",
   "Show": "إظهار",

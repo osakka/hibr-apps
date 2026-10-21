@@ -563,14 +563,15 @@
     },
     "control-panel/shortcuts": {
       "title": "Shortcuts",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "5cb983a3d5546e93786d9e47c947815ba1508299d734200c72f8662aef94d010",
-      "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both.",
+      "sha256": "dcbcf34ebf9a18ae7bac096afc0e24ccbbf121e5784017edea0ee37f526976a4",
+      "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Above them all, Shortcut Key: which modifiers the desktop's own chords use (DT_MOD, Gitea #326) -- Alt, Super or Alt, or Super -- every row then showing what to press.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "shortcuts"
+      "name": "shortcuts",
+      "hibr": "0.99.273"
     },
     "control-panel/network": {
       "title": "Servers",
@@ -1108,11 +1109,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.9",
+      "version": "3.10",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "d0becc1319df04cdb57b3ba6397e534424c1ad5770f744b19847f8418dad8407",
-      "about": "The desktop's own words in العربية (ar): 1213 strings, read right to left.",
+      "sha256": "46def93ed56e0015310dbb01bd71dd6cfda53bff05eda2b69c71f45e9f01c659",
+      "about": "The desktop's own words in العربية (ar): 1215 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1531,14 +1532,15 @@
     },
     "shortcuts": {
       "title": "Shortcuts",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "5cb983a3d5546e93786d9e47c947815ba1508299d734200c72f8662aef94d010",
-      "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both.",
+      "sha256": "dcbcf34ebf9a18ae7bac096afc0e24ccbbf121e5784017edea0ee37f526976a4",
+      "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Above them all, Shortcut Key: which modifiers the desktop's own chords use (DT_MOD, Gitea #326) -- Alt, Super or Alt, or Super -- every row then showing what to press.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "shortcuts"
+      "name": "shortcuts",
+      "hibr": "0.99.273"
     },
     "network": {
       "title": "Servers",
