@@ -667,15 +667,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "1.9",
+      "version": "2.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "99a91df36972245d7d2c71a367b1fce5e305e066cae84311fa71d888a8c2322e",
+      "sha256": "51819189934caad1bb4a21d01556434e164352ec3383a87aa484dbc3aec2c1a4",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.265"
+      "hibr": "0.99.276"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -1109,11 +1109,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.11",
+      "version": "3.12",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "fa045143560a1220171396656daefe5d82893e508bfed9f97aa869457e8df658",
-      "about": "The desktop's own words in العربية (ar): 1216 strings, read right to left.",
+      "sha256": "ef8d6509643230cf62528e0dafbf24e5258c79000d239330e91b883d9c8a6a02",
+      "about": "The desktop's own words in العربية (ar): 1217 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1636,15 +1636,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "1.9",
+      "version": "2.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "99a91df36972245d7d2c71a367b1fce5e305e066cae84311fa71d888a8c2322e",
+      "sha256": "51819189934caad1bb4a21d01556434e164352ec3383a87aa484dbc3aec2c1a4",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.265"
+      "hibr": "0.99.276"
     },
     "versions": {
       "title": "Versions",
