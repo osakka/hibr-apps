@@ -64,15 +64,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "7a8bb98f628f5a4dc7add8dd7e5f4bbba46d2f70dfdfac7da2972513d5b10571",
+      "sha256": "54d4d0b2f1b8d06ffdf97f0431d6347dbdb29e4f578152e9408589a422cf2523",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.260",
+      "hibr": "0.99.274",
       "parts": [
         {
           "kind": "control-panel",
@@ -1109,11 +1109,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.10",
+      "version": "3.11",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "46def93ed56e0015310dbb01bd71dd6cfda53bff05eda2b69c71f45e9f01c659",
-      "about": "The desktop's own words in العربية (ar): 1215 strings, read right to left.",
+      "sha256": "fa045143560a1220171396656daefe5d82893e508bfed9f97aa869457e8df658",
+      "about": "The desktop's own words in العربية (ar): 1216 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1161,15 +1161,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "7a8bb98f628f5a4dc7add8dd7e5f4bbba46d2f70dfdfac7da2972513d5b10571",
+      "sha256": "54d4d0b2f1b8d06ffdf97f0431d6347dbdb29e4f578152e9408589a422cf2523",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.260"
+      "hibr": "0.99.274"
     },
     "term": {
       "title": "Terminal",
