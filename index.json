@@ -346,10 +346,10 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "1.8",
+      "version": "1.9",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "9431aac1ecb1cb634a63788e3ab2d008774dd3c6a58c7a47dcc43ce2e4985a35",
+      "sha256": "dbac16da0a6db77b43d8540893795c52e586b8a10e93aa1c41c40f046be1efb5",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -655,15 +655,15 @@
     },
     "control-panel/filetypes": {
       "title": "File Types",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "371730c8cf2973cd8b4285b5d18cf608be73431a6c8c21cccb454825a9831fbf",
+      "sha256": "92e033c4c383b948cd7dedc8b37e2854ea5529f9227ccef48b47f2375daf9da3",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "filetypes",
-      "hibr": "0.99.260"
+      "hibr": "0.99.279"
     },
     "control-panel/appearance": {
       "title": "Appearance",
@@ -1355,10 +1355,10 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "1.8",
+      "version": "1.9",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "9431aac1ecb1cb634a63788e3ab2d008774dd3c6a58c7a47dcc43ce2e4985a35",
+      "sha256": "dbac16da0a6db77b43d8540893795c52e586b8a10e93aa1c41c40f046be1efb5",
       "about": "The web, in a window: a headless Chromium driven by the web module, each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "MIT",
       "author": "Omar Sakka",
@@ -1624,15 +1624,15 @@
     },
     "filetypes": {
       "title": "File Types",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "371730c8cf2973cd8b4285b5d18cf608be73431a6c8c21cccb454825a9831fbf",
+      "sha256": "92e033c4c383b948cd7dedc8b37e2854ea5529f9227ccef48b47f2375daf9da3",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "filetypes",
-      "hibr": "0.99.260"
+      "hibr": "0.99.279"
     },
     "appearance": {
       "title": "Appearance",
