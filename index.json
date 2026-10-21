@@ -274,11 +274,11 @@
     },
     "apps/boxer": {
       "title": "Boxer",
-      "version": "0.9",
+      "version": "1.0",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "a1b91ae86d443e679983b63defdd9a1778cf0d4fe3588629a984e7d6daa920b1",
-      "about": "DOS games on a shelf\n\na shelf of DOS games, one box to a game, in the way Boxer shelves them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves; the shelf is a folder of them, and this window shows it as a grid of covers. Clicking one selects it, a double click or Enter plays it, in a window of its own (boxerplay).\n\nNothing registers a game: the shelf is scanned, so a box copied in, rsync'd or untarred is on the shelf the next time it is refreshed, and a box taken out is gone. The default shelf is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another.",
+      "sha256": "fd4081db008cc0606e0ff96ccbd1377da9ccf04a4c6f63aaae6a28b87ac52bc4",
+      "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "boxer",
@@ -290,13 +290,13 @@
           "kind": "apps",
           "as": "boxerplay.hibr",
           "path": "bundles/apps/boxerplay.hibr",
-          "sha256": "938014c6136ab48cc463d7229a865f0171fbb7a9f051aa02324912e092ad40eb"
+          "sha256": "16a26b54389d4f6e3aa579bbe8f97464147e5579c1eed16f6a6908551969f8b5"
         },
         {
           "kind": "control-panel",
           "as": "boxerset.hibr",
           "path": "bundles/control-panel/boxerset.hibr",
-          "sha256": "4e9626119886a7ca2fd9d1659d41cc559471fddea27f5062e4388d23289ad141"
+          "sha256": "fec98a1fba9baa351e42074eca6114c8116f77dd43b1223efef7cd731ac19676"
         }
       ]
     },
@@ -1313,11 +1313,11 @@
     },
     "boxer": {
       "title": "Boxer",
-      "version": "0.9",
+      "version": "1.0",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "a1b91ae86d443e679983b63defdd9a1778cf0d4fe3588629a984e7d6daa920b1",
-      "about": "DOS games on a shelf\n\na shelf of DOS games, one box to a game, in the way Boxer shelves them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves; the shelf is a folder of them, and this window shows it as a grid of covers. Clicking one selects it, a double click or Enter plays it, in a window of its own (boxerplay).\n\nNothing registers a game: the shelf is scanned, so a box copied in, rsync'd or untarred is on the shelf the next time it is refreshed, and a box taken out is gone. The default shelf is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another.",
+      "sha256": "fd4081db008cc0606e0ff96ccbd1377da9ccf04a4c6f63aaae6a28b87ac52bc4",
+      "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "boxer",
