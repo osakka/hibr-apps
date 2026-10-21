@@ -133,6 +133,8 @@ ENTHIBR["control-panel/networks"]=0.99.270
 ENTHIBR["control-panel/bluetooth"]=0.99.271
 # It shows Shortcut Key, which an older desktop does not have (Gitea #326).
 ENTHIBR["control-panel/shortcuts"]=0.99.273
+# It sets DT_MENUMAX, which an older desktop never declares (Gitea #324).
+ENTHIBR["control-panel/appearance"]=0.99.276
 # It shows a bundle as one item through dt_isbundle, which an older
 # desktop does not have (Gitea #318).
 ENTHIBR["apps/files"]=0.99.274
