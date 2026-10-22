@@ -366,6 +366,20 @@
         }
       ]
     },
+    "apps/pdfr": {
+      "title": "PDF Reader",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Office/pdfr.hibr",
+      "sha256": "f6073b6db1e02ce69cc9eeb3b10cf5dd5b4b7fe13d547d8e04b3ab00ad2088b9",
+      "about": "A PDF reader: pages as pictures where the terminal can, text where it cannot\n\na PDF reader (Gitea #348). The pages are drawn by the pdf module, which renders through Poppler loaded at run time, and placed by the img module, so a page is pixels on a terminal that takes them, half blocks or characters on one that does not, and -- under View > Text, or with no img at all -- the page's own text, wrapped to the window.\n\nThe document is one continuous column of pages: the wheel, the arrows, page up and down and the scroll bar move through it, and a view that spans the foot of one page and the head of the next is one picture. Fit Width is where a document opens; Fit Page, and zoom in and out, are on the View menu and on w, f, + and -. / searches the whole document, n and N step through what it found, each marked on its page. o shows the contents beside the pages; a link on a page is followed by clicking it -- to its page, or an address to the Browser. A drag selects text, and Copy takes it (or the whole page when nothing is selected); g goes to a page.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "pdfr",
+      "hibr": "0.99.292",
+      "modules": "pdf img",
+      "dir": "Office"
+    },
     "apps/diagram": {
       "title": "Diagram",
       "version": "1.3",
@@ -1110,11 +1124,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.17",
+      "version": "3.18",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "0945b4096cfeec0df1ecd88cbb3e707c35c1337cf58645fa242f814aa72631e0",
-      "about": "The desktop's own words in العربية (ar): 1224 strings, read right to left.",
+      "sha256": "483e970a981bd96616437e0fbced04169f9dc36d8dc4a7038bbd75918a6d67a2",
+      "about": "The desktop's own words in العربية (ar): 1243 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1367,6 +1381,20 @@
       "hibr": "0.99.263",
       "modules": "web",
       "dir": "Internet"
+    },
+    "pdfr": {
+      "title": "PDF Reader",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Office/pdfr.hibr",
+      "sha256": "f6073b6db1e02ce69cc9eeb3b10cf5dd5b4b7fe13d547d8e04b3ab00ad2088b9",
+      "about": "A PDF reader: pages as pictures where the terminal can, text where it cannot\n\na PDF reader (Gitea #348). The pages are drawn by the pdf module, which renders through Poppler loaded at run time, and placed by the img module, so a page is pixels on a terminal that takes them, half blocks or characters on one that does not, and -- under View > Text, or with no img at all -- the page's own text, wrapped to the window.\n\nThe document is one continuous column of pages: the wheel, the arrows, page up and down and the scroll bar move through it, and a view that spans the foot of one page and the head of the next is one picture. Fit Width is where a document opens; Fit Page, and zoom in and out, are on the View menu and on w, f, + and -. / searches the whole document, n and N step through what it found, each marked on its page. o shows the contents beside the pages; a link on a page is followed by clicking it -- to its page, or an address to the Browser. A drag selects text, and Copy takes it (or the whole page when nothing is selected); g goes to a page.",
+      "licence": "MIT",
+      "author": "Omar Sakka",
+      "name": "pdfr",
+      "hibr": "0.99.292",
+      "modules": "pdf img",
+      "dir": "Office"
     },
     "diagram": {
       "title": "Diagram",

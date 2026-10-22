@@ -144,6 +144,9 @@ ENTHIBR["control-panel/appearance"]=0.99.276
 # draw (0.99.286, hibr Gitea #340), and Item Order, which reads the bar
 # through dt_barseq and dt_barilabel (0.99.287, Gitea #341).
 ENTHIBR["control-panel/appearance"]=0.99.287
+# The PDF Reader draws through the pdf module, which 0.99.292 brings (hibr
+# Gitea #348).
+ENTHIBR["apps/pdfr"]=0.99.292
 # It shows a bundle as one item through dt_isbundle, which an older
 # desktop does not have (Gitea #318).
 ENTHIBR["apps/files"]=0.99.274
