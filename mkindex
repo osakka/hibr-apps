@@ -150,6 +150,9 @@ ENTHIBR["apps/pdfr"]=0.99.292
 # It shows a bundle as one item through dt_isbundle, which an older
 # desktop does not have (Gitea #318).
 ENTHIBR["apps/files"]=0.99.274
+# Desktop 1.2 has Icon Background, which DT_ICONBG and dt_iconpix draw
+# (hibr Gitea #349).
+ENTHIBR["control-panel/desktop"]=0.99.293
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

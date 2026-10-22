@@ -623,14 +623,15 @@
     },
     "control-panel/desktop": {
       "title": "Desktop",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "ed2fdd0af86add2daa6b893c5499ef855a488b90c8ae8c835088b19e83cdc7e5",
+      "sha256": "41ad5f282c0eb48f9ef9eb0741b394652dca03e40689a4531c733c376ea59761",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "desktop"
+      "name": "desktop",
+      "hibr": "0.99.293"
     },
     "control-panel/mouse": {
       "title": "Mouse",
@@ -1124,11 +1125,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.18",
+      "version": "3.19",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "483e970a981bd96616437e0fbced04169f9dc36d8dc4a7038bbd75918a6d67a2",
-      "about": "The desktop's own words in العربية (ar): 1243 strings, read right to left.",
+      "sha256": "ba52cc4b4fdb4a0e38672daeb3f201db316da2e656398aef58208e38206b57e7",
+      "about": "The desktop's own words in العربية (ar): 1244 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1607,14 +1608,15 @@
     },
     "desktop": {
       "title": "Desktop",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "ed2fdd0af86add2daa6b893c5499ef855a488b90c8ae8c835088b19e83cdc7e5",
+      "sha256": "41ad5f282c0eb48f9ef9eb0741b394652dca03e40689a4531c733c376ea59761",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "MIT",
       "author": "Omar Sakka",
-      "name": "desktop"
+      "name": "desktop",
+      "hibr": "0.99.293"
     },
     "mouse": {
       "title": "Mouse",
