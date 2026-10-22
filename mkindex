@@ -153,6 +153,10 @@ ENTHIBR["apps/files"]=0.99.274
 # Desktop 1.2 has Icon Background, which DT_ICONBG and dt_iconpix draw
 # (hibr Gitea #349).
 ENTHIBR["control-panel/desktop"]=0.99.293
+# About 1.3 and Task Manager 1.4 read CPU and memory through
+# lib/sysstat.hibr, which an older desktop does not have (hibr Gitea #354).
+ENTHIBR["system/about"]=0.99.296
+ENTHIBR["system/tasks"]=0.99.296
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
