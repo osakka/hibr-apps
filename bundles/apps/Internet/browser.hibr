@@ -1,7 +1,7 @@
 #!/usr/bin/env hibr
 #
-# browser -- the web, in a window: a headless Chromium driven by the web
-# module, each page drawn as cells -- its text where the browser laid it
+# browser -- the web, in a window: WPE WebKit, in a helper process of its own,
+# driven by the web module (hibr-browser's webkit), each page drawn as cells -- its text where the browser laid it
 # out, in its colours, over a half-block picture of its backgrounds and
 # images. Links are followed with a click, fields typed into, pages
 # scrolled with the wheel or the page keys.
@@ -16,14 +16,14 @@
 # Bookmarks are a file of their own, a title and an address to a line,
 # tab between (~/.local/share/hibr/bookmarks.tsv): Bookmarks > Add Bookmark
 # keeps the page, and the rest of that menu goes to one. A restart brings
-# every tab back. Without Chromium or Chrome installed the window says so.
+# every tab back. Without the WebKit engine installed the window says so.
 #
 # Control Panel > Browser (Gitea #276) sets the home page a new window and
 # tab open at, the search, how a page is drawn -- following Pictures, half
 # blocks, pixels, or text only, the page's words wrapped to the window with
 # each link numbered -- and what each tab is told: JavaScript, images, dark
-# pages, zoom, the user agent. The program, the profile and extra flags
-# are read when Chromium next starts. Since Gitea #285 it also sets the
+# pages, zoom, the user agent. The profile folder
+# is read when the engine next starts. Since Gitea #285 it also sets the
 # languages pages are asked for, Do Not Track, addresses never fetched,
 # what a page may be given (location, camera, microphone, notifications,
 # each refused or allowed, since a headless browser can ask nobody), and
@@ -31,14 +31,14 @@
 # notifications become the desktop's notes. File > Save as PDF prints the
 # page to a file.
 #
-# A page's sound plays through the media module (Gitea #305): the browser
-# records each tab's own sound once the page is pressed or typed into --
-# or as it loads, with Pages May Play Sound On Their Own -- and each tab
-# has a player of its own for it.
+# A page's sound is played by the engine itself, on the machine's sound
+# server, so nothing here records or relays it: a page needs a press first
+# unless Pages May Play Sound On Their Own is set (`web sound`). Do Not Track
+# and Save as PDF are offered only when the engine can do them (`web caps`).
 
 strict
 
-app browser "The web, in a window" 1.10
+app browser "The web, in a window" 2.0
 # modules: web
 # part: control-panel/browserset.hibr
 
@@ -119,13 +119,18 @@ bw_watch() {
 	return 0
 }
 
-# What Chromium is started with, for whichever window starts it -- the
-# YouTube player asks for this too, since the two share one browser.
+# What the engine is started with, for whichever window starts it -- the
+# YouTube player asks for this too, since the two share one engine.
 bw_cfg() {
-	web config browser "$BW_PROGRAM"
 	web config profile "$BW_PROFILE"
-	web config args "$BW_ARGS"
 	return 0
+}
+
+# What the engine can do, asked once it is there; an app asks for nothing else.
+BW_CAPS=
+fn bw_has(c) {
+	case " $BW_CAPS " in *" $c "*) return 0 ;; esac
+	return 1
 }
 
 # What one tab is told: the browser keeps each per page, so the YouTube
@@ -146,7 +151,7 @@ fn bw_apply(t) {
 	web set "$t" lang "$BW_LANG" 2> /dev/null
 	on=off
 	[ "$BW_DNT" = 1 ] && on=on
-	web set "$t" dnt "$on" 2> /dev/null
+	bw_has dnt && web set "$t" dnt "$on" 2> /dev/null
 	web set "$t" block "$BW_BLOCK" 2> /dev/null
 	bw_geo "$t"
 	on=off
@@ -158,11 +163,9 @@ fn bw_apply(t) {
 	return 0
 }
 
-# A tab may be about to start its sound: it was just pressed, typed into
-# or sent to a page, so it is taken from at once rather than when it has
-# something already.
+# The engine plays a page's sound itself, so there is nothing to arm: these two
+# stay so the places that called them need not change.
 fn bw_sndarm(t) {
-	[ -n "$t" ] && BWSA["$t"]=$EPOCHSECONDS
 	return 0
 }
 
@@ -182,40 +185,6 @@ fn bw_sndstop(t) {
 # into or sent somewhere, so a desktop with a Browser open and nothing
 # playing asks for nothing.
 fn bw_sound(int id) {
-	local t s p fd want=
-	local -a w
-
-	bw_tabs "$id"
-	for t in "${BW_TABS[@]}"; do
-		if [ -z "${BWS["$t"]-}" ] &&
-		   [ $((EPOCHSECONDS - ${BWSA["$t"]:-0})) -gt 10 ]; then
-			continue
-		fi
-		fd=${BWSF["$t"]:--}
-		s := web take "$t" - "$fd" 2> /dev/null || continue
-		read -ra w <<< "$s"
-		if [ "${w[5]}" = 1 ]; then
-			bw_sndstop "$t"
-			need media 2> /dev/null || continue
-			p := media feed 2> /dev/null || continue
-			fd := media pipe "$p" audio 2> /dev/null || {
-				media close "$p" 2> /dev/null
-				continue
-			}
-			BWS["$t"]=$p
-			BWSF["$t"]=$fd
-			want=50
-		fi
-		case ${w[11]} in
-		on) [ "${want:-9999}" -gt 200 ] && want=200 ;;
-		quiet) [ -z "$want" ] && want=1000 ;;
-		*)
-			[ -n "${BWS["$t"]-}" ] && [ "${w[5]}" != 1 ] && bw_sndstop "$t"
-			[ -z "$want" ] && want=250
-			;;
-		esac
-	done
-	[ -n "$want" ] && dt_want "$want"
 	return 0
 }
 
@@ -301,7 +270,7 @@ fn bw_newtab(int id, url = "") {
 	[ -z "$url" ] && [ -n "$BW_HOME" ] && url := bw_addr "$BW_HOME"
 	bw_cfg
 	t := web open || {
-		BW[$id]["err"]="No Chromium or Chrome to show pages with -- install one, or set HIBR_WEB_BROWSER"
+		BW[$id]["err"]="No WebKit engine to show pages with -- install hibr-browser, or set HIBR_WPE"
 		return 1
 	}
 	bw_wide
@@ -354,11 +323,12 @@ fn browser_open(int id, arg = "") {
 		BW[$id]["err"]="The web module is not installed"
 		return 0
 	}
+	[ -n "$BW_CAPS" ] || BW_CAPS := web caps 2> /dev/null
 	bw_newtab "$id" "$arg"
 }
 
-# The last Browser window stops watching Chromium's pipe, which nothing
-# else drains; Chromium itself stops only when no YouTube window uses it.
+# The last Browser window stops watching the engine's pipe, which nothing
+# else drains; the engine itself stops only when no YouTube window uses it.
 fn browser_close(int id) {
 	local t ids o other=0 tube=0
 	local -a il
@@ -1032,7 +1002,7 @@ browser_menus() {
 	dt_rowaccel ctrl-t
 	dt_item "Open Location${GL[ellipsis]}" l bw_editaddr "$id"
 	dt_rowaccel f6
-	if [ -n "${BW[$id]["cur"]}" ]; then
+	if bw_has pdf && [ -n "${BW[$id]["cur"]}" ]; then
 		dt_item "Save as PDF${GL[ellipsis]}" p bw_pdfask "$id"
 	else
 		dt_dim "Save as PDF${GL[ellipsis]}"
