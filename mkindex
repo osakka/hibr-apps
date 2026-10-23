@@ -110,7 +110,7 @@ ENTHIBR["control-panel/wallset"]=0.99.259
 ENTHIBR["apps/youtube"]=0.99.258
 # A scrollbar drawn with a key, and dt_scrollview: refused by an older
 # widget library (Gitea #298). The 0.99.258 lines above are the same.
-ENTHIBR["apps/term"]=0.99.258
+ENTHIBR["apps/term"]=0.99.303
 ENTHIBR["apps/diagram"]=0.99.258
 ENTHIBR["system/modman"]=0.99.258
 ENTHIBR["system/about"]=0.99.258

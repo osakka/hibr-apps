@@ -84,15 +84,15 @@
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "6e2f91602fb7799650f5ce0b3487f025482100361418c04638a3ad63b3d79906",
+      "sha256": "f86e13b39dd82489d457cc2fc9120070c571c424c5778a05019fec4c03f63e21",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "term",
-      "hibr": "0.99.258",
+      "hibr": "0.99.303",
       "modules": "pty term",
       "parts": [
         {
@@ -1189,15 +1189,15 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "6e2f91602fb7799650f5ce0b3487f025482100361418c04638a3ad63b3d79906",
+      "sha256": "f86e13b39dd82489d457cc2fc9120070c571c424c5778a05019fec4c03f63e21",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "term",
-      "hibr": "0.99.258",
+      "hibr": "0.99.303",
       "modules": "pty term"
     },
     "calendar": {
