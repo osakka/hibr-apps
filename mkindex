@@ -157,6 +157,14 @@ ENTHIBR["control-panel/desktop"]=0.99.293
 # lib/sysstat.hibr, which an older desktop does not have (hibr Gitea #354).
 ENTHIBR["system/about"]=0.99.296
 ENTHIBR["system/tasks"]=0.99.296
+# Mouse 1.2 has Wheel Scrolls, kept through DT_KEEP's DT_SCROLLWHEEL, and
+# Files 1.8 names its paste copies by wm/jobs.hibr's DTJ_N (hibr Gitea
+# #357); both need what 0.99.297 brings.
+ENTHIBR["control-panel/mouse"]=0.99.297
+ENTHIBR["apps/files"]=0.99.297
+# Blit 0.1.9 asks through dav request in a dt_job and dt_ask, which
+# 0.99.297 brings (hibr Gitea #357); no curl.
+ENTHIBR["control-panel/blit"]=0.99.297
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

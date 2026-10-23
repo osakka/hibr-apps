@@ -6,11 +6,14 @@
 # resource with revision protection. Login preferences take effect at restart.
 # Font changes use Blit's live-and-saved font API. Hibr Displays continues to
 # own native desktop arrangement after initial attachment.
-# Every network request runs in a bounded background job. The connection token
-# is kept in a private user file, is masked in its editor, and is excluded
-# from configuration exports. The privileged updater token is never requested.
+# Every network request is hibr's own dav request, in a bounded background
+# job of the desktop's (dt_job); no curl, and the token never on a command
+# line. The connection token is kept in a private user file, is masked in its
+# editor, and is excluded from configuration exports. The privileged updater
+# token is never requested. The source of this pane is this file, in the
+# hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.8
+app blit "API configuration and diagnostics for the Blit display server" 0.1.9
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -34,7 +37,10 @@ BCP_DIRTY=0
 BCP_BASE_REV=-1
 BCP_OPERATION=
 BCP_HTTP_CODE=000
-declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_DIALOG BCP_HTTP
+BCP_REPLY=
+BCP_EDITKEY=
+DAV_CODE=
+declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP
 declare -gA BCP_DROP_KEY
 declare -ga BCP_CHOICES
 BCP_CHOICE_CURRENT=
@@ -45,7 +51,7 @@ json parse BCP_DRAFT '{}'
 # Desktop settings use executable text and no secret permissions. Keep only
 # the URL there; this data-only credential is scoped to that exact URL.
 fn blit_cp_credentials(load = "1") {
-    local dir=${XDG_CONFIG_HOME:-$HOME/.config}/hibr/blit file tmp mode raw
+    local dir=${XDG_CONFIG_HOME:-$HOME/.config}/hibr/blit file tmp mode
     local -A saved
     file=$dir/connection.json
     BCP_CREDENTIAL_STATUS=
@@ -57,63 +63,113 @@ fn blit_cp_credentials(load = "1") {
         if [ -L "$dir" ] || [ -L "$file" ] || [ ! -O "$dir" ] || [ ! -O "$file" ]; then
             BCP_CREDENTIAL_STATUS="Unsafe credential owner or symlink"; return 1
         fi
-        mode=$(command stat -c %a "$dir" "$file")
-        [ "$mode" = $'700\n600' ] || { BCP_CREDENTIAL_STATUS="Credential permissions must be 0700/0600"; return 1; }
+        mode := blit_cp_mode "$dir" || mode=
+        if [ "${mode:0:10}" != drwx------ ]; then
+            BCP_CREDENTIAL_STATUS="Credential permissions must be 0700/0600"; return 1
+        fi
+        mode := blit_cp_mode "$file" || mode=
+        if [ "${mode:0:10}" != -rw------- ]; then
+            BCP_CREDENTIAL_STATUS="Credential permissions must be 0700/0600"; return 1
+        fi
         json parse saved < "$file" 2> /dev/null || { BCP_CREDENTIAL_STATUS="Invalid connection credential file"; return 1; }
         [ "${saved[url]}" != "$BCP_URL" ] || BCP_TOKEN=${saved[token]}
         return 0
     fi
+    # Made under umask 077, so the folder is 0700 and the file 0600 with no
+    # chmod; a folder that already exists with another mode is the one case
+    # that needs one. The file is written new (noclobber) and moved over.
     (
         umask 077
         [ ! -L "$dir" ] && [ ! -L "$file" ] || exit 1
-        command mkdir -p "$dir" && [ -O "$dir" ] && command chmod 0700 "$dir" || exit 1
-        tmp=$(command mktemp "$dir/.connection-XXXXXX") || exit 1
+        mkdir -p "$dir" && [ -O "$dir" ] || exit 1
+        mode := blit_cp_mode "$dir" || exit 1
+        [ "${mode:0:10}" = drwx------ ] || command chmod 0700 "$dir" || exit 1
+        tmp="$dir/.connection-$$-$RANDOM"
         json parse saved '{}'
         json set saved .url "$BCP_URL" -s
         json set saved .token "$BCP_TOKEN" -s
-        if json emit saved > "$tmp" && command chmod 0600 "$tmp" && command mv -f "$tmp" "$file"; then exit 0; fi
-        command rm -f "$tmp"
+        set -C
+        if json emit saved > "$tmp" && mv -f "$tmp" "$file"; then exit 0; fi
+        rm -f "$tmp"
         exit 1
     ) || { BCP_CREDENTIAL_STATUS="Could not save API token"; return 1; }
     BCP_CREDENTIAL_STATUS="API token saved privately"
     return 0
 }
+
+# A file's mode as ls -l writes it (drwx------), from hibr's own ls module:
+# in this process, and the same on Linux and macOS, where stat(1) is not.
+fn blit_cp_mode(path) {
+    local l
+    need ls 2> /dev/null || return 1
+    blit_cp_ready || return 1
+    ls -ld "$path" > "$BCP_DIR/mode" 2> /dev/null || return 1
+    read -r l _ < "$BCP_DIR/mode"
+    ret "$l"
+}
 # cp_panes loads this bundle before dt_open calls dt_load. Read credentials
 # on first use, after the saved URL exists, never against a guessed default.
 
 fn blit_cp_ready() {
-    [ -n "$BCP_DIR" ] && return 0
-    umask 077
-    BCP_DIR=$(command mktemp -d "${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-blit-XXXXXX") || return 1
+    [ -n "$BCP_DIR" ] && [ -d "$BCP_DIR" ] && return 0
+    BCP_DIR=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-blit-$UID/$$
+    ( umask 077; mkdir -p "$BCP_DIR" ) 2> /dev/null || return 1
 }
 
-# Worker-only HTTP. Credentials travel through curl's stdin configuration,
-# never its argv, request files, logs, or exported configuration.
-fn blit_cp_auth() {
-    [ -z "$BCP_TOKEN" ] || printf 'header = "Authorization: Bearer %s"\n' "$BCP_TOKEN"
-    return 0
-}
+# One request, through hibr's dav module: the token is a header on a
+# builtin, so no command line ever holds it. HIBR_DAV_TIMEOUT bounds the
+# connect and every read; the job that calls this sets it. The reply is in
+# BCP_HTTP, its status in BCP_HTTP_CODE (000 when no server answered).
 fn blit_cp_http(method, path, body = "", revision = "") {
-    local code rc raw
-    local -a argv
-    argv=(--silent --show-error --connect-timeout 2 --max-time 6
-        --max-filesize 5242880 --proto '=http,https' --config -
-        --request "$method" --header 'Content-Type: application/json'
-        --output "$BCP_DIR/body" --write-out '%{http_code}' "$BCP_URL$path")
-    [ -z "$revision" ] || argv+=(--header "If-Match: $revision")
-    if [ -n "$body" ]; then
-        printf '%s' "$body" > "$BCP_DIR/request.json"
-        argv+=(--data-binary "@$BCP_DIR/request.json")
+    local -a o
+    o=(-H "Content-Type: application/json")
+    [ -z "$BCP_TOKEN" ] || o+=(-H "Authorization: Bearer $BCP_TOKEN")
+    [ -z "$revision" ] || o+=(-H "If-Match: $revision")
+    [ "$method" != POST ] || o+=(-H "Idempotency-Key: blit-panel-$$-$EPOCHREALTIME")
+    [ -z "$body" ] || o+=(-d "$body")
+    DAV_CODE=
+    BCP_REPLY=
+    BCP_INVALID=0
+    json parse BCP_HTTP '{}'
+    BCP_REPLY := dav request "${o[@]}" "$method" "$BCP_URL$path" 2> /dev/null || :
+    # dav says 0 when no server answered at all, which is 000 here.
+    case ${DAV_CODE:-0} in 0 | 000) BCP_HTTP_CODE=000; return 1 ;; esac
+    BCP_HTTP_CODE=$DAV_CODE
+    json parse BCP_HTTP "${BCP_REPLY:-"{}"}" 2> /dev/null || { BCP_INVALID=1; json parse BCP_HTTP '{}'; return 1; }
+    case $BCP_HTTP_CODE in 2??) return 0 ;; *) return 1 ;; esac
+}
+
+# The job's own work, in the background: the requests an operation makes,
+# and one JSON document on standard output for blit_cp_done --
+# {"ok":..,"code":..,"invalid":..,"reply":{..}}.
+fn blit_cp_work(what, method = "GET", path = "", body = "", revision = "") {
+    local ok=0 raw
+    local -A envelope reply
+    export HIBR_DAV_TIMEOUT=6
+    json parse reply '{}'
+    if [ "$what" = refresh ]; then
+        if blit_cp_http GET /v1/diagnostics/observation; then
+            raw := json emit BCP_HTTP
+            json parse 'reply[snapshot]' "$raw"
+            if blit_cp_http GET /v1/auxiliary-displays; then
+                raw := json emit BCP_HTTP
+                json parse 'reply[auxiliary]' "$raw"
+                ok=1
+            fi
+        fi
+        if [ "$ok" = 0 ]; then raw := json emit BCP_HTTP; json parse reply "$raw"; fi
+    else
+        blit_cp_http "$method" "$path" "$body" "$revision" && ok=1
+        raw := json emit BCP_HTTP
+        json parse reply "$raw"
     fi
-    if [ "$method" = POST ]; then
-        argv+=(--header "Idempotency-Key: blit-panel-$$-$EPOCHREALTIME")
-    fi
-    code=$(blit_cp_auth | command curl "${argv[@]}" 2> "$BCP_DIR/error")
-    rc=$?
-    BCP_HTTP_CODE=${code:-000}
-    [ "$rc" = 0 ] || { BCP_HTTP_CODE=000; return 1; }
-    json parse BCP_HTTP < "$BCP_DIR/body" 2> /dev/null || return 1
-    case $code in 2??) return 0 ;; *) return 1 ;; esac
+    json parse envelope '{}'
+    json set envelope .ok "$ok"
+    json set envelope .code "$BCP_HTTP_CODE" -s
+    json set envelope .invalid "${BCP_INVALID:-0}"
+    raw := json emit reply
+    json parse 'envelope[reply]' "$raw"
+    json emit envelope
 }
 
 fn blit_cp_schedule(failed = "0") {
@@ -126,10 +182,12 @@ fn blit_cp_schedule(failed = "0") {
 }
 
 fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "", quiet = "0") {
+    local n
     [ "$BCP_BUSY" = 0 ] || return 1
     # Schedule before validation too: a failed start must not retry per draw.
     BCP_NEXT=$((EPOCHSECONDS + BCP_REFRESH_SECONDS))
-    if ! command -v curl > /dev/null; then BCP_STATUS="curl is required"; blit_cp_schedule 1; return 1; fi
+    if ! need dav 2> /dev/null; then BCP_STATUS="The dav module is required"; blit_cp_schedule 1; return 1; fi
+    if ! command -v dt_job > /dev/null; then BCP_STATUS="Needs hibr 0.99.297 or later"; blit_cp_schedule 1; return 1; fi
     BCP_URL=${BCP_URL%/}
     if [ "$BCP_CONNECTION_READY" != 1 ] || [ "$BCP_CREDENTIAL_URL" != "$BCP_URL" ]; then
         blit_cp_credentials
@@ -138,51 +196,41 @@ fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "", quie
         BCP_STATUS="Use an http(s) server URL without a path"; blit_cp_schedule 1; return 1
     fi
     case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_STATUS="Invalid bearer token characters"; blit_cp_schedule 1; return 1 ;; esac
-    blit_cp_ready || { BCP_STATUS="Cannot create private job directory"; blit_cp_schedule 1; return 1; }
-    command rm -f "$BCP_DIR/done"
+    if ! n := dt_job blit "$what" blit_cp_done blit_cp_work "$what" "$method" "$path" "$body" "$revision"; then
+        BCP_STATUS="Cannot create private job directory"; blit_cp_schedule 1; return 1
+    fi
     BCP_BUSY=1
     BCP_OPERATION=$what
     [ "$quiet" = 1 ] || BCP_STATUS="Working: $what"
-    (
-        command -v dt_jobname > /dev/null && dt_jobname blit "$what"
-        local ok=0 raw
-        local -A envelope
-        if [ "$what" = refresh ]; then
-            json parse envelope '{}'
-            if blit_cp_http GET /v1/diagnostics/observation; then
-                raw := json emit BCP_HTTP
-                json parse 'envelope[snapshot]' "$raw"
-                if blit_cp_http GET /v1/auxiliary-displays; then
-                    raw := json emit BCP_HTTP
-                    json parse 'envelope[auxiliary]' "$raw"
-                    json emit envelope > "$BCP_DIR/reply"
-                    ok=1
-                fi
-            fi
-        elif blit_cp_http "$method" "$path" "$body" "$revision"; then
-            json emit BCP_HTTP > "$BCP_DIR/reply"
-            ok=1
-        fi
-        if [ "$ok" = 0 ]; then
-            if [ -s "$BCP_DIR/body" ]; then command cp "$BCP_DIR/body" "$BCP_DIR/reply";
-            else printf '{}' > "$BCP_DIR/reply"; fi
-        fi
-        printf '%s %s\n' "$ok" "${BCP_HTTP_CODE:-000}" > "$BCP_DIR/done"
-    ) &
     command -v dt_want > /dev/null && dt_want 250
     return 0
 }
 
+# Finished work is handed on by the desktop's job runner after a frame; a
+# caller with no desktop loop (a test) calls this to look now.
 fn blit_cp_poll() {
-    local ok code raw
-    local -A reply
-    [ "$BCP_BUSY" = 1 ] || return 0
-    command -v dt_want > /dev/null && dt_want 250
-    [ -s "$BCP_DIR/done" ] || return 0
-    read -r ok code < "$BCP_DIR/done"
+    command -v dt_jobtick > /dev/null && dt_jobtick
+    return 0
+}
+
+# A request has finished: what it read, into the pane.
+fn blit_cp_done(int n, int st) {
+    local ok code raw f
+    local -A envelope reply
     BCP_BUSY=0
     BCP_LAST=$EPOCHSECONDS
-    if ! json parse reply < "$BCP_DIR/reply" 2> /dev/null; then
+    f := dt_jobfile "$n"
+    if ! json parse envelope < "$f" 2> /dev/null; then
+        blit_cp_schedule 1
+        BCP_FONT_SIZE_PENDING=
+        BCP_FONT_SIZE_REQUESTED=
+        BCP_STATUS="HTTP 000: invalid JSON response"; return 0
+    fi
+    ok=${envelope[ok]}
+    code=${envelope[code]:-000}
+    raw := json get envelope .reply
+    json parse reply "${raw:-"{}"}"
+    if [ "${envelope[invalid]}" = 1 ]; then
         blit_cp_schedule 1
         BCP_FONT_SIZE_PENDING=
         BCP_FONT_SIZE_REQUESTED=
@@ -466,7 +514,11 @@ fn blit_cp_choices(key) {
 fn blit_cp_choose(key, value) {
     local option valid=0 body
     local -A payload
-    [ "$BCP_BUSY" = 0 ] || return 0
+    # Only a choice that sends a request waits for the one in flight; the
+    # rest change the staged draft, which a background refresh leaves alone
+    # once it has been edited. Refusing them all while a quiet refresh ran
+    # dropped a click on a dropdown for as long as the refresh took.
+    [ "$BCP_BUSY" = 0 ] || [ "$key" != font ] || return 0
     blit_cp_choices "$key"
     for option in "${BCP_CHOICES[@]}"; do [ "$option" != "$value" ] || valid=1; done
     [ "$valid" = 1 ] || return 0
@@ -490,7 +542,7 @@ fn blit_cp_selected(int w, value) {
     blit_cp_choose "${BCP_DROP_KEY[$w]}" "$value"
 }
 fn blit_drop(int w, int r, int c, key) {
-    [ "$BCP_BUSY" = 0 ] || return 0
+    [ "$BCP_BUSY" = 0 ] || [ "$key" != font ] || return 0
     blit_cp_choices "$key"
     [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
     BCP_DROP_KEY[$w]=$key
@@ -503,7 +555,9 @@ fn blit_mouse_drop(int w, int r, int c, key) {
 fn blit_do(int w, key, int dir) {
     local raw body pane=auto i=0 value tenths output ordinal
     local -A payload
-    [ "$BCP_BUSY" = 0 ] || [ "$key" = font_size ] || return 0
+    # What sends a request waits for the one in flight (blit_cp_start
+    # refuses a second anyway); what only edits the draft never waits.
+    case $key in reload | apply | retry | save) [ "$BCP_BUSY" = 0 ] || return 0 ;; esac
     case $key in
     url | token) blit_cp_edit "$key"; return 0 ;;
     reload) BCP_CONNECTION_READY=0; BCP_DIRTY=0; BCP_BASE_REV=-1; blit_cp_start refresh; return 0 ;;
@@ -638,7 +692,7 @@ fn blit_mouse_rows(int w) {
         value=off; [ "${cfg[natural_scroll]:-false}" != true ] || value=on
         blit_cp_row "$w" "$n" set "Natural Scroll" "$value" natural bool; n=$((n + 1))
         value=${cfg[scroll_step]:-1}
-        blit_cp_row "$w" "$n" set "Wheel Step" "$value" wheel slider
+        blit_cp_row "$w" "$n" set "Device Wheel Step" "$value" wheel slider
         CP[$w][$n][min]=1; CP[$w][$n][max]=10; CP[$w][$n][after]="($value)"; n=$((n + 1))
     fi
     blit_cp_row "$w" "$n" action "Save all staged Blit settings" "rev $BCP_BASE_REV" save; n=$((n + 1))
@@ -717,61 +771,34 @@ fn blit_cp_imported(path, context = "") {
     BCP_STATUS="Imported draft; Apply auxiliaries or Save as Default"
 }
 
-# One ordinary Hibr text dialog, also used for the masked token field.
+# The server's address and the token are each the desktop's one-line
+# question (dt_ask); the token's field is masked.
 fn blit_cp_edit(key) {
-    local id value
-    value=$BCP_URL; [ "$key" != token ] || value=$BCP_TOKEN
-    id := dt_new "Blit Connection" 9 64 $(((DT_ROWS - 9) / 2)) $(((DT_COLS - 64) / 2)) blitconn
-    BCP_DIALOG[$id][key]=$key; BCP_DIALOG[$id][value]=$value
-    BCP_DIALOG[$id][cursor]=${#value}; BCP_DIALOG[$id][focus]=value
-}
-fn blitconn_draw(int id, int h, int w, int row, int col) {
-    local value=${BCP_DIALOG[$id][value]} focus=${BCP_DIALOG[$id][focus]} active=0
-    dt_wclear "$id"
-    console pen "$DT_INK" "$DT_FACE"
-    dt_tput "$id" 1 2 "${BCP_DIALOG[$id][key]} (connection only, not exported)"
-    [ "${BCP_DIALOG[$id][key]}" != token ] || value := str repeat '*' "${#value}"
-    [ "$focus" != value ] || active=1
-    dt_textdraw "$id" 3 2 $((w - 4)) "$value" "${BCP_DIALOG[$id][cursor]}" "$active"
-    dt_wreg "$id" 3 2 $((w - 4)) value
-    dt_dlgbtns "$id" "$h" "$w" "$focus" ok Connect cancel Cancel
-}
-fn blitconn_key(int id, key) {
-    local focus=${BCP_DIALOG[$id][focus]} direction result onbutton=1
-    [ "$focus" != value ] || onbutton=0
-    if direction := dt_focuskey "$key" "$onbutton"; then
-        BCP_DIALOG[$id][focus] := dt_focus "$focus" "$direction" value ok cancel; return 0
+    BCP_EDITKEY=$key
+    if [ "$key" = token ]; then
+        dt_ask "Blit Connection" "API Token:" "$BCP_TOKEN" blit_cp_answer \
+            "Kept privately for this server; never exported." 1 64
+    else
+        dt_ask "Blit Connection" "Server:" "$BCP_URL" blit_cp_answer \
+            "An http(s) address and port, without a path." "" 64
     fi
-    case $key in escape) dt_del "$id"; return 0 ;; enter) blitconn_do "$id" "$focus"; return 0 ;; esac
-    [ "$focus" = value ] || return 1
-    result := dt_textkey "${BCP_DIALOG[$id][value]}" "${BCP_DIALOG[$id][cursor]}" "$key" || return 1
-    BCP_DIALOG[$id][value]=${result% *}; BCP_DIALOG[$id][cursor]=${result##* }
 }
-fn blitconn_click(int id, int r, int c, button = "") {
-    local tag
-    tag := dt_hit "$id" "$r" "$c" || return 0
-    BCP_DIALOG[$id][focus]=$tag
-    if [ "$tag" = value ]; then
-        BCP_DIALOG[$id][cursor]=$((c - 2))
-        [ "${BCP_DIALOG[$id][cursor]}" -ge 0 ] || BCP_DIALOG[$id][cursor]=0
-        [ "${BCP_DIALOG[$id][cursor]}" -le "${#BCP_DIALOG[$id][value]}" ] || BCP_DIALOG[$id][cursor]=${#BCP_DIALOG[$id][value]}
-    else blitconn_do "$id" "$tag"; fi
-}
-fn blitconn_do(int id, what) {
-    if [ "$what" = cancel ]; then dt_del "$id"; return 0; fi
-    [ "$BCP_BUSY" = 0 ] || return 0
-    if [ "${BCP_DIALOG[$id][key]}" = token ]; then
-        BCP_TOKEN=${BCP_DIALOG[$id][value]}
-        case "$BCP_TOKEN" in *[!a-zA-Z0-9._~+/=-]*) BCP_CREDENTIAL_STATUS="Invalid bearer token characters"; return 1 ;; esac
+
+# What was typed: the token kept, or the server changed. Refused, the
+# question stays open.
+fn blit_cp_answer(value, int id) {
+    [ "$BCP_BUSY" = 0 ] || return 1
+    if [ "$BCP_EDITKEY" = token ]; then
+        case "$value" in *[!a-zA-Z0-9._~+/=-]*) BCP_CREDENTIAL_STATUS="Invalid bearer token characters"; return 1 ;; esac
+        BCP_TOKEN=$value
         blit_cp_credentials 0 || return 1
     else
-        BCP_URL=${BCP_DIALOG[$id][value]}; BCP_URL=${BCP_URL%/}; BCP_DIRTY=0; BCP_BASE_REV=-1
+        BCP_URL=${value%/}; BCP_DIRTY=0; BCP_BASE_REV=-1
         blit_cp_credentials
         json parse BCP_SNAPSHOT '{}'; json parse BCP_DRAFT '{}'; json parse BCP_LIVE '{}'
     fi
     command -v cp_save > /dev/null && cp_save
     BCP_LAST=0
-    dt_del "$id"
     blit_cp_start refresh
+    return 0
 }
-fn blitconn_close(int id) { unset "BCP_DIALOG[$id]"; }

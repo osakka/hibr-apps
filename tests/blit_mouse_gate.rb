@@ -34,6 +34,8 @@ Dir.mktmpdir('blit-mouse') do |root|
       strict
       source /usr/share/hibr/desktop/wm/settings.hibr
       source /usr/share/hibr/desktop/system/panel.hibr
+      source /usr/share/hibr/desktop/wm/jobs.hibr
+      source /usr/share/hibr/desktop/wm/ask.hibr
       source '#{ROOT}/bundles/control-panel/blit.hibr'
       BCP_URL=http://127.0.0.1:#{PORT}
       fn finish() {

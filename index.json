@@ -64,15 +64,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "4f80c6f880bdba4447119fdd4ce06e66dc4e6a9991aaf4d2078e2fd2fef7873e",
+      "sha256": "b0f6852711a60da4d25a8959b64750d3ff4d3a04b660ad7a377803989007b82d",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.274",
+      "hibr": "0.99.297",
       "parts": [
         {
           "kind": "control-panel",
@@ -635,15 +635,15 @@
     },
     "control-panel/mouse": {
       "title": "Mouse",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "ce1091e066356916ea73169eab4d9a9b2c5262911ca80fdda2b1e0e70a144a50",
-      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, and whether a dragged window follows by its outline or whole. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
+      "sha256": "0a9ae3cf8e2178873bba1e444dcf0fc03f5379ae6890bb6403a068c5f9cfa1f5",
+      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, whether a dragged window follows by its outline or whole, and how far one notch of the wheel scrolls. wm/input.hibr reads the window settings and every scrolling window the wheel's; this pane only changes the DT_* settings.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mouse",
-      "hibr": "0.99.280"
+      "hibr": "0.99.297"
     },
     "control-panel/windows": {
       "title": "Windows",
@@ -706,15 +706,15 @@
     },
     "control-panel/blit": {
       "title": "Blit",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "448a182bdebe158843dcc526c163f28d18380120a733446fddc883040a24891a",
-      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
+      "sha256": "32efc1aebdfe069345fb3e3922a0c11a5ded85135287ec3017291e3216d73583",
+      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request is hibr's own dav request, in a bounded background job of the desktop's (dt_job); no curl, and the token never on a command line. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested. The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps), not the Blit tree.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "blit",
-      "hibr": "0.99.244"
+      "hibr": "0.99.297"
     },
     "control-panel/bluetooth": {
       "title": "Bluetooth",
@@ -1125,11 +1125,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.19",
+      "version": "3.20",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "ba52cc4b4fdb4a0e38672daeb3f201db316da2e656398aef58208e38206b57e7",
-      "about": "The desktop's own words in العربية (ar): 1244 strings, read right to left.",
+      "sha256": "a1f64bcac47fbe1491b8d5544151fdfbb423d38eca759d06ea25f5571546bc00",
+      "about": "The desktop's own words in العربية (ar): 1318 strings, read right to left.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1177,15 +1177,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "4f80c6f880bdba4447119fdd4ce06e66dc4e6a9991aaf4d2078e2fd2fef7873e",
+      "sha256": "b0f6852711a60da4d25a8959b64750d3ff4d3a04b660ad7a377803989007b82d",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.274"
+      "hibr": "0.99.297"
     },
     "term": {
       "title": "Terminal",
@@ -1620,15 +1620,15 @@
     },
     "mouse": {
       "title": "Mouse",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "ce1091e066356916ea73169eab4d9a9b2c5262911ca80fdda2b1e0e70a144a50",
-      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, and whether a dragged window follows by its outline or whole. Every value is read by wm/input.hibr; this pane only changes the DT_* settings.",
+      "sha256": "0a9ae3cf8e2178873bba1e444dcf0fc03f5379ae6890bb6403a068c5f9cfa1f5",
+      "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, whether a dragged window follows by its outline or whole, and how far one notch of the wheel scrolls. wm/input.hibr reads the window settings and every scrolling window the wheel's; this pane only changes the DT_* settings.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mouse",
-      "hibr": "0.99.280"
+      "hibr": "0.99.297"
     },
     "windows": {
       "title": "Windows",
@@ -1691,15 +1691,15 @@
     },
     "blit": {
       "title": "Blit",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "448a182bdebe158843dcc526c163f28d18380120a733446fddc883040a24891a",
-      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request runs in a bounded background job. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested.",
+      "sha256": "32efc1aebdfe069345fb3e3922a0c11a5ded85135287ec3017291e3216d73583",
+      "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request is hibr's own dav request, in a bounded background job of the desktop's (dt_job); no curl, and the token never on a command line. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested. The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps), not the Blit tree.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "blit",
-      "hibr": "0.99.244"
+      "hibr": "0.99.297"
     },
     "bluetooth": {
       "title": "Bluetooth",

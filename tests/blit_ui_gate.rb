@@ -160,7 +160,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     await('dialog close'){!text.call.include?('Blit Connection')}
     input.call("\e[B")
     input.call("\r")
-    await('token dialog from real keyboard input'){text.call.include?('token (connection')}
+    await('token dialog from real keyboard input'){text.call.include?('API Token:')}
     input.call('secret-must-be-masked')
     await('masked UI text'){text.call.include?('********************')}
     raise 'token visible in terminal cells' if text.call.include?('secret-must-be-masked')

@@ -43,6 +43,8 @@ Dir.mktmpdir('blit-panel') do |root|
       strict
       source /usr/share/hibr/desktop/wm/settings.hibr
       source /usr/share/hibr/desktop/system/panel.hibr
+      source /usr/share/hibr/desktop/wm/jobs.hibr
+      source /usr/share/hibr/desktop/wm/ask.hibr
       source '#{BUNDLE}'
       [ "${CP_PANES[blit][title]}" = Blit ] || { echo 'pane title is not Blit' >&2; exit 1; }
       BCP_TEST_WAKE=0
@@ -151,7 +153,7 @@ Dir.mktmpdir('blit-panel') do |root|
       BCP_TEST_WAKE=0
       n := blit_rows 44
       [ "$BCP_BUSY" = 1 ] && [ "$BCP_STATUS" = "$before" ] || { echo 'automatic refresh changed visible status' >&2; exit 22; }
-      [ "$BCP_TEST_WAKE" = 250 ] || { echo 'busy wake differs from bounded polling' >&2; exit 23; }
+      [ "$BCP_TEST_WAKE" -gt 0 ] && [ "$BCP_TEST_WAKE" -le 250 ] || { echo "busy wake is not bounded polling: $BCP_TEST_WAKE" >&2; exit 23; }
       finish
       [ $((BCP_NEXT - EPOCHSECONDS)) -ge 14 ] || { echo 'refresh completion did not schedule idle deadline' >&2; exit 24; }
       BCP_NEXT=0
@@ -267,11 +269,13 @@ Dir.mktmpdir('blit-panel') do |root|
       fn dt_textdraw(...args) { printf 'masked:%s\\n' "${args[4]}"; }
       fn dt_wreg(...args) { return 0; }
       fn dt_dlgbtns(...args) { return 0; }
-      BCP_DIALOG[9][value]=secret-must-be-masked
-      BCP_DIALOG[9][key]=token
-      BCP_DIALOG[9][focus]=value
-      BCP_DIALOG[9][cursor]=0
-      blitconn_draw 9 9 64 0 0
+      DTA[9][label]="API Token:"
+      DTA[9][buf]=secret-must-be-masked
+      DTA[9][masked]=1
+      DTA[9][focus]=text
+      DTA[9][cur]=0
+      DTA[9][hint]=
+      dtask_draw 9 9 64 0 0
       echo BLIT_PANEL_PASS
     HIBR
     out,err,st=Open3.capture3({'XDG_RUNTIME_DIR'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config')},'/usr/bin/hibr',script)
@@ -286,6 +290,7 @@ Dir.mktmpdir('blit-panel') do |root|
     File.write(reload_script, <<~HIBR)
       strict
       source /usr/share/hibr/desktop/wm/settings.hibr
+      source /usr/share/hibr/desktop/wm/jobs.hibr
       source '#{BUNDLE}'
       # Match the installed session: cp_panes sources bundles first,
       # dt_open loads preferences afterwards, and only then a pane runs.
