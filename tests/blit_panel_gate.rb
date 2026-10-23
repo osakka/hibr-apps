@@ -223,7 +223,56 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_slide 44 font_size 20
       [ "$BCP_BUSY" = 0 ] || exit 50
       json parse 'BCP_SNAPSHOT[fonts]' "$font_snapshot"
+      # #368: a font size chosen while the slider is held is shown, not
+      # written; letting go writes it once.
+      finish
+      CP_MSLIDE[44]="3 10"
+      blit_slide 44 font_size 25
+      blit_slide 44 font_size 40
+      [ "$BCP_BUSY" = 0 ] && [ "$BCP_FONT_HELD" = 40 ] || { echo 'a held slider wrote the font' >&2; exit 60; }
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 64 ] || exit 61
+      n := blit_rows 44
+      i=0; shown=
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[44][$i][key]}" != font_size ] || shown=${CP[44][$i][val]}
+          i=$((i + 1))
+      done
+      [ "$shown" = 40 ] || { echo "held size not shown: $shown" >&2; exit 62; }
+      finish
+      CP_MSLIDE[44]=
+      blit_cp_tick 44
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 40 ] && [ -z "$BCP_FONT_HELD" ] || { echo 'release did not apply the held size' >&2; exit 63; }
       /bin/sleep 0.7
+      blit_do 44 reload 1
+      finish
+      # #364: Blit saving the pane's own font change moves the revision; the
+      # pane rebases and keeps its staged edits instead of calling that
+      # somebody else's change. An outside change still says so.
+      json set BCP_DRAFT .login.fallback wait -s
+      BCP_DIRTY=1
+      base=$BCP_BASE_REV
+      blit_slide 44 font_size 21
+      finish
+      i=0
+      while :; do
+          /bin/sleep 0.3
+          blit_cp_start refresh; finish
+          [ "${BCP_SNAPSHOT[settings][revision]}" = "$base" ] || break
+          i=$((i + 1)); [ "$i" -lt 20 ] || { echo 'Blit never saved the font change' >&2; exit 64; }
+      done
+      [ "$BCP_BASE_REV" = "${BCP_SNAPSHOT[settings][revision]}" ] || { echo "own font save not rebased: $BCP_STATUS" >&2; exit 65; }
+      [ "$BCP_STATUS" != "Saved settings changed; reload before saving" ] || exit 66
+      [ "${BCP_DRAFT[login][fallback]}" = wait ] && [ "$BCP_DIRTY" = 1 ] || { echo 'rebase lost the staged edit' >&2; exit 67; }
+      raw := json get BCP_SNAPSHOT .settings.document
+      json parse outside "$raw"
+      fb=wait; [ "${outside[login][fallback]}" != wait ] || fb=first_available
+      json set outside .login.fallback "$fb" -s
+      json parse oput '{}'; raw := json emit outside; json parse 'oput[document]' "$raw"
+      raw := json emit oput
+      blit_cp_http PUT /v1/settings "$raw" "${BCP_SNAPSHOT[settings][revision]}" || { echo "outside PUT failed: $BCP_HTTP_CODE" >&2; exit 68; }
+      blit_cp_start refresh; finish
+      [ "$BCP_STATUS" = "Saved settings changed; reload before saving" ] || { echo "outside change not flagged: $BCP_STATUS" >&2; exit 69; }
       blit_do 44 reload 1
       finish
       BCP_DIRTY=1

@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.10
+app blit "API configuration and diagnostics for the Blit display server" 0.1.11
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -25,6 +25,13 @@ BCP_CONNECTION_READY=0
 BCP_CREDENTIAL_URL=
 BCP_FONT_SIZE_PENDING=
 BCP_FONT_SIZE_REQUESTED=
+# A font size chosen while the slider is still held, and the window holding
+# it: applied once the slider is let go (#368).
+BCP_FONT_HELD=
+BCP_FONT_HELDW=
+# The settings document the draft was based on, to tell Blit saving the
+# pane's own font change from somebody else changing the settings (#364).
+BCP_BASE_DOC=
 BCP_POINTER_ID=
 BCP_DIR=
 BCP_BUSY=0
@@ -37,6 +44,7 @@ BCP_DIRTY=0
 BCP_BASE_REV=-1
 BCP_OPERATION=
 BCP_HTTP_CODE=000
+BCP_INVALID=0
 BCP_REPLY=
 BCP_EDITKEY=
 DAV_CODE=
@@ -251,10 +259,17 @@ fn blit_cp_done(int n, int st) {
         json parse BCP_SNAPSHOT "$raw"
         raw := json get reply .auxiliary
         json parse BCP_LIVE "$raw"
+        raw := json get BCP_SNAPSHOT .settings.document
         if [ "$BCP_DIRTY" = 0 ]; then
-            raw := json get BCP_SNAPSHOT .settings.document
             json parse BCP_DRAFT "$raw"
             BCP_BASE_REV=${BCP_SNAPSHOT[settings][revision]}
+            BCP_BASE_DOC=$raw
+        elif [ "$BCP_BASE_REV" != "${BCP_SNAPSHOT[settings][revision]}" ] &&
+             blit_cp_fontonly "$BCP_BASE_DOC" "$raw"; then
+            # Only the font moved: that is Blit saving this pane's own font
+            # change, which the draft already holds. Rebase, keep the edits.
+            BCP_BASE_REV=${BCP_SNAPSHOT[settings][revision]}
+            BCP_BASE_DOC=$raw
         fi
         BCP_STATUS="Connected: ${BCP_SNAPSHOT[version][server_version]}"
         if [ "$BCP_DIRTY" = 1 ] && [ "$BCP_BASE_REV" != "${BCP_SNAPSHOT[settings][revision]}" ]; then
@@ -274,6 +289,7 @@ fn blit_cp_done(int n, int st) {
         raw := json get reply .document
         json parse BCP_DRAFT "$raw"
         BCP_BASE_REV=${reply[revision]}
+        BCP_BASE_DOC=$raw
         BCP_DIRTY=0
         BCP_STATUS="Save: ${reply[storage][state]} (revision ${reply[storage][saved_revision]})"
         ;;
@@ -342,12 +358,32 @@ fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
     CP[$w][$n][val]=$value; CP[$w][$n][key]=$key; CP[$w][$n][wtype]=$wtype
 }
 
+# Whether two settings documents differ in nothing but the font (and the
+# revision the save gave it).
+fn blit_cp_fontonly(a, b) {
+    local x y
+    local -A da db
+    [ -n "$a" ] && [ -n "$b" ] || return 1
+    json parse da "$a" 2> /dev/null || return 1
+    json parse db "$b" 2> /dev/null || return 1
+    unset da["font"] da["revision"] db["font"] db["revision"]
+    x := json emit da
+    y := json emit db
+    [ "$x" = "$y" ]
+}
+
 fn blit_cp_tick(int w) {
-    local left
+    local left v
     # Hibr asks every pane for scratch rows during search; that is not a
     # visible pane and must not start I/O or wake the desktop.
     if [ "$w" != 999999 ]; then
         blit_cp_poll
+        # A font size held on the slider is applied once it is let go.
+        if [ -n "$BCP_FONT_HELD" ] && [ -z "${CP_MSLIDE[$BCP_FONT_HELDW]:-}" ]; then
+            v=$BCP_FONT_HELD
+            BCP_FONT_HELD=
+            blit_slide 0 font_size "$v"
+        fi
         if [ "$BCP_BUSY" = 0 ] && [ "$EPOCHSECONDS" -ge "$BCP_NEXT" ]; then
             blit_cp_start refresh GET "" "" "" 1
         fi
@@ -434,6 +470,7 @@ fn blit_rows(int w) {
     local size=${BCP_SNAPSHOT[fonts][active][size_px]}
     if [ -n "$size" ] && [ "$size" != null ]; then
         [ -z "$BCP_FONT_SIZE_PENDING" ] || size=$BCP_FONT_SIZE_PENDING
+        [ -z "$BCP_FONT_HELD" ] || size=$BCP_FONT_HELD
         blit_cp_row "$w" "$n" set "Font size" "$size" font_size slider
         CP[$w][$n][min]=8; CP[$w][$n][max]=64; CP[$w][$n][after]="($size px)"
     else
@@ -582,7 +619,7 @@ fn blit_do(int w, key, int dir) {
         body := json emit payload
         blit_cp_start save PUT /v1/settings "$body" "$BCP_BASE_REV" ;;
     font_size)
-        value=${BCP_FONT_SIZE_PENDING:-${BCP_FONT_SIZE_REQUESTED:-${BCP_SNAPSHOT[fonts][active][size_px]}}}
+        value=${BCP_FONT_HELD:-${BCP_FONT_SIZE_PENDING:-${BCP_FONT_SIZE_REQUESTED:-${BCP_SNAPSHOT[fonts][active][size_px]}}}}
         [ -n "$value" ] && [ "$value" != null ] || return 0
         blit_slide "$w" font_size "$((value + dir))" ;;
     columns:* | rows:*)
@@ -602,6 +639,15 @@ fn blit_slide(int w, key, int value) {
     font_size)
         [ -n "${BCP_SNAPSHOT[fonts][active][size_px]}" ] && [ "${BCP_SNAPSHOT[fonts][active][size_px]}" != null ] || return 0
         [ "$value" -ge 8 ] && [ "$value" -le 64 ] || return 0
+        # While the slider is held the size is only shown: applying each
+        # step reflowed the screen under the pointer, and the next step
+        # landed somewhere else on the slider (#368). The release applies it.
+        if [ "$w" != 0 ] && [ -n "${CP_MSLIDE[$w]:-}" ]; then
+            BCP_FONT_HELD=$value
+            BCP_FONT_HELDW=$w
+            command -v dt_want > /dev/null && dt_want 50
+            return 0
+        fi
         if [ "$BCP_BUSY" = 1 ]; then BCP_FONT_SIZE_PENDING=$value; return 0; fi
         BCP_FONT_SIZE_REQUESTED=$value
         json parse payload '{}'
