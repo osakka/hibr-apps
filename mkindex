@@ -165,6 +165,14 @@ ENTHIBR["apps/files"]=0.99.297
 # Blit 0.1.9 asks through dav request in a dt_job and dt_ask, which
 # 0.99.297 brings (hibr Gitea #357); no curl.
 ENTHIBR["control-panel/blit"]=0.99.297
+# Mail 1.7 (with its pane, 1.4), Calendar 1.6, Contacts 1.6 and the Catalogue
+# window 2.5 run their background work through dt_job, which lib/pim.hibr
+# and the desktop's own runners moved onto in 0.99.299 (hibr Gitea #357);
+# none of them keeps the runner it used to carry.
+ENTHIBR["apps/mail"]=0.99.299
+ENTHIBR["apps/calendar"]=0.99.299
+ENTHIBR["apps/contacts"]=0.99.299
+ENTHIBR["system/catalogue"]=0.99.299
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

@@ -16,7 +16,7 @@
 
 strict
 
-app contacts "The people in your address books, kept offline from CardDAV" 1.5
+app contacts "The people in your address books, kept offline from CardDAV" 1.6
 # part: control-panel/pimset.hibr
 # modules: dav db pim
 
@@ -357,7 +357,7 @@ fn contacts_draw(int id, int h, int w, int row, int col) {
 		if pe_running "$s" > /dev/null; then
 			local n
 			n := pe_running "$s"
-			st := pe_joblast "$n"
+			st := dt_joblast "$n"
 			st="Syncing $s${st:+: $st}"
 			dt_want 700
 			break

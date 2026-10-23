@@ -22,15 +22,15 @@
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "04450c817eac64502193398bc31b9055680f9082f6c4475dc7f848135ef8f5e1",
+      "sha256": "c60515e27ffcaff94c462101238273db39772ba0348487a3dc5ccc68921dd466",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.258",
+      "hibr": "0.99.299",
       "modules": "dav db pim",
       "parts": [
         {
@@ -105,15 +105,15 @@
     },
     "apps/calendar": {
       "title": "Calendar",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "8b59915e5f423f1d6b549ef17646a97704cfac26e1fb147dcb249bd587531d4c",
+      "sha256": "bdcd9a3b4bc4f0b48007dbc44b1c60304a0d06392d61d4359d13155cff889b73",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.258",
+      "hibr": "0.99.299",
       "modules": "dav db email pim",
       "parts": [
         {
@@ -302,15 +302,15 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "7552051771f2e0791d7b41ca76c175104518651b1742b27d38dcb521b5e1cb72",
+      "sha256": "1cb1c5c865ba7f2261dc7c321be825220c3bc6016ac3bc93e2bac6045b2922a7",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.260",
+      "hibr": "0.99.299",
       "modules": "db email html img",
       "dir": "Internet",
       "parts": [
@@ -318,7 +318,7 @@
           "kind": "control-panel",
           "as": "mailset.hibr",
           "path": "bundles/control-panel/mailset.hibr",
-          "sha256": "d2afb863c0aa22fb00f9beba5e2d32aa954f83137c97de8c8d53a3563e2370d2"
+          "sha256": "d060fac336d8023b2b841f7589f16ad8f8d02cac047968799af767d7119a14b3"
         }
       ]
     },
@@ -541,15 +541,15 @@
     },
     "system/catalogue": {
       "title": "Catalogue",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "24e33782d46c3757fa82ce68551ad9a3b3df8edb9ac8698879c177439d1bc10b",
+      "sha256": "6dc2d3b2f4d2a330ac76a0d86761b0607b8ac3f2aa15e299ac84a4938bc855f5",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "catalogue",
-      "hibr": "0.99.258"
+      "hibr": "0.99.299"
     },
     "control-panel/aboutme": {
       "title": "About Me",
@@ -1151,15 +1151,15 @@
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "04450c817eac64502193398bc31b9055680f9082f6c4475dc7f848135ef8f5e1",
+      "sha256": "c60515e27ffcaff94c462101238273db39772ba0348487a3dc5ccc68921dd466",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.258",
+      "hibr": "0.99.299",
       "modules": "dav db pim"
     },
     "xscreen": {
@@ -1202,15 +1202,15 @@
     },
     "calendar": {
       "title": "Calendar",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "8b59915e5f423f1d6b549ef17646a97704cfac26e1fb147dcb249bd587531d4c",
+      "sha256": "bdcd9a3b4bc4f0b48007dbc44b1c60304a0d06392d61d4359d13155cff889b73",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.258",
+      "hibr": "0.99.299",
       "modules": "dav db email pim"
     },
     "stickies": {
@@ -1343,15 +1343,15 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "7552051771f2e0791d7b41ca76c175104518651b1742b27d38dcb521b5e1cb72",
+      "sha256": "1cb1c5c865ba7f2261dc7c321be825220c3bc6016ac3bc93e2bac6045b2922a7",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.260",
+      "hibr": "0.99.299",
       "modules": "db email html img",
       "dir": "Internet"
     },
@@ -1526,15 +1526,15 @@
     },
     "catalogue": {
       "title": "Catalogue",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "24e33782d46c3757fa82ce68551ad9a3b3df8edb9ac8698879c177439d1bc10b",
+      "sha256": "6dc2d3b2f4d2a330ac76a0d86761b0607b8ac3f2aa15e299ac84a4938bc855f5",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "MIT",
       "author": "Omar Sakka",
       "name": "catalogue",
-      "hibr": "0.99.258"
+      "hibr": "0.99.299"
     },
     "aboutme": {
       "title": "About Me",
