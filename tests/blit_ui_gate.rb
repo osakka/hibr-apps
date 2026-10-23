@@ -97,6 +97,15 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       Open3.capture3('ffmpeg','-hide_banner','-loglevel','error','-y','-i',File.join(output,"#{name}.bmp"),File.join(output,"#{name}.png"))
     end
     capture.call('panel')
+    # A Hibr desktop's first seconds on Blit are its startup repair: Blit
+    # nudges the terminal's size until the desktop has laid itself out at the
+    # canonical one, and each nudge is a repaint. Click only once Blit says
+    # that has settled (hibr_attachment.settled, Blit 0.2.4; a server that
+    # does not say is taken as settled).
+    await('desktop attachment settled') do
+      mine=req('GET','/v1/terminal-sessions')['sessions'].find{|x|x['id']==session['id']}
+      mine && mine.dig('hibr_attachment','settled')!=false
+    end
     # Real pointer press/held motion/release through Blit into the installed
     # Control Panel drag handler, not a direct call to the pane callback.
     drag=->(label,position) do
