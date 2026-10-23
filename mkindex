@@ -185,6 +185,9 @@ ENTHIBR["apps/files"]=0.99.300
 ENTHIBR["apps/xscreen"]=0.99.300
 ENTHIBR["control-panel/datetime"]=0.99.300
 ENTHIBR["control-panel/filetypes"]=0.99.300
+# Network 1.1 has No Network Password and asks for the password a join
+# needs through nmcli --ask on a pty, which 0.99.301 brings (hibr #369).
+ENTHIBR["control-panel/networks"]=0.99.301
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
@@ -801,7 +804,7 @@ builds for several machines has mkindex run on each of them."
 			bundle) v="bundles/$kind${dr0:+/$dr0}/${bundle##*/}" ;;
 			sha256) v=$sha ;;
 			about) v=$about ;;
-			licence) v="MIT" ;;
+			licence) v="LGPL-3.0-or-later" ;;
 			author) v="Omar Sakka" ;;
 			name) v=$name ;;
 			hibr) v=; isdata "$kind" && v=$DATAHIBR
