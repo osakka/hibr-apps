@@ -657,6 +657,18 @@
       "name": "windows",
       "hibr": "0.99.248"
     },
+    "control-panel/power": {
+      "title": "Power",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/power.hibr",
+      "sha256": "9301338a9db64a849063e39c0bc0258b5a53de961430b7259e69457bcccd0d9f",
+      "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the battery on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through wm/power.hibr, and its rows for a battery are there only where there is one.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "power",
+      "hibr": "0.99.307"
+    },
     "control-panel/datetime": {
       "title": "Date & Time",
       "version": "1.4",
@@ -1125,11 +1137,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.24",
+      "version": "3.25",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "83c59b34e8adbfd5f909ef332dd54599e604bb51062c78cf6934e37f1fa7f287",
-      "about": "The desktop's own words in العربية (ar): 1336 strings, read right to left.",
+      "sha256": "cd1ade9b591e0610a1bafe9f229282a81d87c39922c58f0f78a4df671ed1b978",
+      "about": "The desktop's own words in العربية (ar): 1373 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1641,6 +1653,18 @@
       "author": "Omar Sakka",
       "name": "windows",
       "hibr": "0.99.248"
+    },
+    "power": {
+      "title": "Power",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/power.hibr",
+      "sha256": "9301338a9db64a849063e39c0bc0258b5a53de961430b7259e69457bcccd0d9f",
+      "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the battery on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through wm/power.hibr, and its rows for a battery are there only where there is one.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "power",
+      "hibr": "0.99.307"
     },
     "datetime": {
       "title": "Date & Time",

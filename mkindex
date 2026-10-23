@@ -188,6 +188,7 @@ ENTHIBR["control-panel/filetypes"]=0.99.300
 # Network 1.1 has No Network Password and asks for the password a join
 # needs through nmcli --ask on a pty, which 0.99.301 brings (hibr #369).
 ENTHIBR["control-panel/networks"]=0.99.301
+ENTHIBR["control-panel/power"]=0.99.307
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
