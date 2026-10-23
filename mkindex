@@ -173,6 +173,18 @@ ENTHIBR["apps/mail"]=0.99.299
 ENTHIBR["apps/calendar"]=0.99.299
 ENTHIBR["apps/contacts"]=0.99.299
 ENTHIBR["system/catalogue"]=0.99.299
+# Copy, Cut and Paste in a focused field are the desktop's own from
+# 0.99.300 (hibr Gitea #357 part 3), and these no longer carry their own:
+# without it their fields would have none.
+ENTHIBR["apps/browser"]=0.99.300
+ENTHIBR["apps/mail"]=0.99.300
+ENTHIBR["apps/dbase"]=0.99.300
+ENTHIBR["apps/sheet"]=0.99.300
+ENTHIBR["apps/write"]=0.99.300
+ENTHIBR["apps/files"]=0.99.300
+ENTHIBR["apps/xscreen"]=0.99.300
+ENTHIBR["control-panel/datetime"]=0.99.300
+ENTHIBR["control-panel/filetypes"]=0.99.300
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
