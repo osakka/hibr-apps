@@ -72,6 +72,22 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       cells=req('GET',surface)['cells']
       cells.group_by{|c|c['y']}.sort.map{|_,row|row.sort_by{|c|c['x']}.map{|c|c['text']}.join}.join("\n")
     end
+    # A font change reflows the pane: Blit resizes the grid, the desktop
+    # redraws, and for a moment the cells are neither the old screen nor the
+    # new one. A click aimed from such a frame lands on nothing (Gitea #362),
+    # so every click waits for two reads of the cells and the grid, 150 ms
+    # apart, to agree first -- and on a screen that is drawn, since two blank
+    # reads agree too. What is left is Blit flipping between the live font
+    # and the one its automatic save is still writing (itdlabs/blit, see
+    # #362), which reflows the screen several times a second for a while.
+    settle=->(why) do
+      await("settled before #{why}") do
+        a=[text.call,req('GET','/v1/topology')['panes'][0]['cell_grid']]
+        sleep 0.15
+        b=[text.call,req('GET','/v1/topology')['panes'][0]['cell_grid']]
+        a==b && a[0].include?('Control Panel')
+      end
+    end
     snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?("Connected: #{EXPECTED_VERSION}") && t.include?(PANE=='blit_mouse' ? 'Pointer Size' : 'Apply auxiliaries')}
     capture=->(name) do
       File.write(File.join(output,"#{name}.txt"),text.call)
@@ -84,6 +100,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     # Real pointer press/held motion/release through Blit into the installed
     # Control Panel drag handler, not a direct call to the pane callback.
     drag=->(label,position) do
+      settle.call("dragging #{label}")
       cells=req('GET',surface)['cells']
       row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?(label)}
       raise "missing slider #{label}" unless row
@@ -100,9 +117,13 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     # A click on a dropdown must open the installed native menu, not step
     # to another value. Escape dismisses it without a settings mutation.
     dropdown=->(label,value,alternative,select=false) do
+      settle.call("opening #{label}")
       cells=req('GET',surface)['cells']
       row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?(label)}
-      raise "missing dropdown #{label}" unless row
+      unless row
+        File.write(File.join(output,'lookup.txt'),cells.group_by{|c|c['y']}.sort.map{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join}.join("\n")+"\n#{cells.length} cells")
+        raise "missing dropdown #{label}"
+      end
       sorted=row[1].sort_by{|c|c['x']}
       offset=sorted.map{|c|c['text']}.join.index(value)
       raise "missing dropdown value #{value}" unless offset
@@ -113,6 +134,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       await("native #{label} popup"){text.call.include?(alternative)}
       capture.call("dropdown-#{label.downcase.gsub(' ','-')}")
       if select
+        settle.call("choosing #{alternative}")
         items=req('GET',surface)['cells'].group_by{|c|c['y']}
         item=items.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?(alternative)}
         chars=item[1].sort_by{|c|c['x']}
@@ -184,6 +206,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception
+    File.write(File.join(output,'failure.txt'),text.call) rescue nil
     warn File.read(log) if File.exist?(log)
     warn File.read(File.join(root,'desktop.log')) if File.exist?(File.join(root,'desktop.log'))
     warn req('GET',surface).to_json[0,3000] rescue nil

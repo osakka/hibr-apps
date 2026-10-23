@@ -13,7 +13,7 @@ Dir.mktmpdir('blit-mouse') do |root|
   input=File.join(root,'input');Dir.mkdir(input)
   2.times do |i|
     File.write(File.join(input,"event#{i}"),'')
-    File.write(File.join(input,"event#{i}.identity"),"bustype=3\nvendor=046d\nproduct=c52#{i}\nversion=0111\nphys=usb-0000:00:14.0-#{i}/input0\nname=Pointer #{i}\nkinds=#{i==0 ? 'keyboard,pointer' : 'pointer'}\ncapabilities=rel-x,rel-y,buttons,keys\n")
+    File.write(File.join(input,"event#{i}.identity"),"bustype=3\nvendor=046d\nproduct=c52#{i}\nversion=0111\nphys=usb-0000:00:14.0-#{i}/input0\nname=Pointer #{i}\nkinds=#{i==0 ? 'keyboard,pointer' : 'pointer'}\ncapabilities=rel-x,rel-y,buttons,keys#{i==1 ? ',touchpad' : ''}\n")
   end
   env={'SDL_VIDEODRIVER'=>'dummy','BLIT_RENDERER'=>'software','BLIT_LOGIN_AUTOSTART'=>'0',
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>input,
@@ -38,6 +38,12 @@ Dir.mktmpdir('blit-mouse') do |root|
       source /usr/share/hibr/desktop/wm/ask.hibr
       source '#{ROOT}/bundles/control-panel/blit.hibr'
       BCP_URL=http://127.0.0.1:#{PORT}
+      # Whether the rows the pane draws hold one with this text.
+      fn hasrow(int w, int n, text) {
+          local i
+          for ((i = 0; i < n; i++)); do [ "${CP[$w][$i][text]}" = "$text" ] && return 0; done
+          return 1
+      }
       fn finish() {
           local i=0
           while [ "$BCP_BUSY" = 1 ]; do blit_cp_poll; /bin/sleep 0.02; i=$((i+1)); [ "$i" -lt 800 ] || exit 90; done
@@ -85,8 +91,22 @@ Dir.mktmpdir('blit-mouse') do |root|
       [ "${BCP_SNAPSHOT[input_devices][devices][0][configuration][acceleration][profile]}" = adaptive ] || exit 21
       [ "${BCP_SNAPSHOT[input_devices][devices][0][configuration][natural_scroll]}" = true ] || exit 22
       [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][sensitivity_percent]}" = 100 ] || exit 23
+      # Tap to Click is a touchpad's alone: not offered for the mouse, offered
+      # off for the touchpad, and saved like any other device setting.
+      n := blit_mouse_rows 45
+      ! hasrow 45 "$n" "Tap to Click" || { echo 'a mouse offered tap'; exit 29; }
+      blit_mouse_do 45 tap 1
+      [ -z "${BCP_DRAFT[input_devices][$id][tap_to_click]}" ] || exit 30
       blit_mouse_do 45 device 1
       [ "$BCP_POINTER_ID" != "$id" ] || exit 24
+      n := blit_mouse_rows 45
+      hasrow 45 "$n" "Tap to Click" || { echo 'the touchpad offered no tap'; exit 31; }
+      [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][tap_to_click]}" = false ] || exit 32
+      blit_mouse_do 45 tap 1
+      blit_mouse_do 45 save 1; finish
+      [ "$BCP_DIRTY" = 0 ] || { echo "tap save failed:$BCP_STATUS"; exit 33; }
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][tap_to_click]}" = true ] || exit 34
       echo BLIT_MOUSE_CALLBACK_PASS
     HIBR
     out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},'/usr/bin/hibr',script)

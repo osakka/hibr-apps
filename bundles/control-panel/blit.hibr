@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.9
+app blit "API configuration and diagnostics for the Blit display server" 0.1.10
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -691,6 +691,10 @@ fn blit_mouse_rows(int w) {
         blit_cp_row "$w" "$n" set Acceleration "${cfg[acceleration][profile]:-flat}" acceleration; n=$((n + 1))
         value=off; [ "${cfg[natural_scroll]:-false}" != true ] || value=on
         blit_cp_row "$w" "$n" set "Natural Scroll" "$value" natural bool; n=$((n + 1))
+        if [ -n "${cfg[tap_to_click]+x}" ]; then
+            value=off; [ "${cfg[tap_to_click]}" != true ] || value=on
+            blit_cp_row "$w" "$n" set "Tap to Click" "$value" tap bool; n=$((n + 1))
+        fi
         value=${cfg[scroll_step]:-1}
         blit_cp_row "$w" "$n" set "Device Wheel Step" "$value" wheel slider
         CP[$w][$n][min]=1; CP[$w][$n][max]=10; CP[$w][$n][after]="($value)"; n=$((n + 1))
@@ -716,6 +720,8 @@ fn blit_mouse_slide(int w, key, int value) {
         sensitivity) [ "$value" -ge 10 ] && [ "$value" -le 1000 ] || return 0; json set cfg .sensitivity_percent "$value" ;;
         wheel) [ "$value" -ge 1 ] && [ "$value" -le 10 ] || return 0; json set cfg .scroll_step "$value" ;;
         natural) flag=false; [ "$value" != 1 ] || flag=true; json set cfg .natural_scroll "$flag" ;;
+        tap) [ -n "${cfg[tap_to_click]+x}" ] || return 0
+            flag=false; [ "$value" != 1 ] || flag=true; json set cfg .tap_to_click "$flag" ;;
         acceleration) field=flat; [ "$value" != 1 ] || field=adaptive; json set cfg .acceleration.profile "$field" -s ;;
         *) return 0 ;;
         esac
@@ -737,7 +743,7 @@ fn blit_mouse_do(int w, key, int dir) {
     shadow) value=true; [ "${BCP_DRAFT[pointer][shadow]:-true}" != true ] || value=false
         json set BCP_DRAFT .pointer.shadow "$value"; BCP_DIRTY=1 ;;
     size) blit_mouse_slide "$w" size "$(( ${BCP_DRAFT[pointer][size_px]:-24} + dir ))" ;;
-    sensitivity | wheel | natural)
+    sensitivity | wheel | natural | tap)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
         raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
         if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
@@ -746,6 +752,7 @@ fn blit_mouse_do(int w, key, int dir) {
         sensitivity) value=$(( ${cfg[sensitivity_percent]:-100} + dir * 5 )) ;;
         wheel) value=$(( ${cfg[scroll_step]:-1} + dir )) ;;
         natural) value=1; [ "${cfg[natural_scroll]:-false}" != true ] || value=0 ;;
+        tap) value=1; [ "${cfg[tap_to_click]:-false}" != true ] || value=0 ;;
         esac
         blit_mouse_slide "$w" "$key" "$value" ;;
     *) blit_do "$w" "$key" "$dir" ;;

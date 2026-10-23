@@ -1,6 +1,6 @@
 {
  "dir": "rtl",
- "version": "3.20",
+ "version": "3.21",
  "language": "ar",
  "name": "العربية",
  "plural": "ar",
@@ -1360,6 +1360,7 @@
   "The dav module is required": "وحدة dav مطلوبة",
   "Unsafe credential owner or symlink": "مالك بيانات الاعتماد غير آمن أو رابط رمزي",
   "Use an http(s) server URL without a path": "استخدم عنوان خادم http(s) دون مسار",
-  "Word": "الكلمة"
+  "Word": "الكلمة",
+  "Tap to Click": "النقر باللمس"
  }
 }
