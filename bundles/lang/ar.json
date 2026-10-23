@@ -1,6 +1,6 @@
 {
  "dir": "rtl",
- "version": "3.23",
+ "version": "3.24",
  "language": "ar",
  "name": "العربية",
  "plural": "ar",
@@ -1280,6 +1280,7 @@
   "it took too long": "استغرق وقتًا أطول من اللازم",
   "nmcli asked something the desktop cannot answer": "سأل nmcli عن شيء لا يستطيع سطح المكتب الإجابة عنه",
   "the network's settings were not saved": "لم تُحفظ إعدادات الشبكة",
+  "Hover": "التحويم",
   "API Token (remembered)": "رمز الواجهة البرمجية (محفوظ)",
   "API Token:": "رمز الواجهة البرمجية:",
   "API token saved privately": "حُفظ رمز الواجهة البرمجية بشكل خاص",
