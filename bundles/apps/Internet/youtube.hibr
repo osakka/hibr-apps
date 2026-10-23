@@ -21,7 +21,8 @@
 # them thirty, up and down the volume, n and p the next video and the one
 # before, f a favourite, m the picture (half blocks, ASCII, plain), c the
 # captions (drawn here as text, in the window, not in the picture), q the
-# quality (144p, 240p, 360p, 480p, and round again), escape
+# quality (144p, 240p, 360p, 480p, and round again), h the history and v the
+# favourites (both end the video, noting where it was), escape
 # back to the list. A click on the bar goes there. At the end of a video
 # the next in the list plays, unless Play > Play Next Automatically is off.
 #
@@ -32,7 +33,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.3
+app youtube "YouTube, in a window" 3.4
 # part: control-panel/tube.hibr
 # modules: web
 
@@ -172,6 +173,9 @@ fn yt_load(int id, kind, arg, head = "", push = 1) {
 	local t u
 
 	yt_need "$id" || return 0
+	# Going to a list from the player ends the video: where it was is noted in
+	# the history, and nothing goes on playing, unheard of, behind the list.
+	[ -n "${YT[$id]["p"]}" ] && yt_stop "$id"
 	if [ "$push" = 1 ] && [ -n "${YT[$id]["kind"]}" ]; then
 		YT[$id]["stack"]+="${YT[$id]["kind"]}"$'\t'"${YT[$id]["arg"]}"$'\t'"${YT[$id]["head"]}"$'\n'
 	fi
@@ -1111,6 +1115,8 @@ fn youtube_key(int id, key) {
 		m) yt_mode; return 0 ;;
 		c) yt_captions "$id"; return 0 ;;
 		q) yt_quality "$id"; return 0 ;;
+		h) yt_load "$id" history ""; return 0 ;;
+		v) yt_load "$id" favourites ""; return 0 ;;
 		escape | backspace)
 			if [ "${YT[$id]["mini"]}" = 1 ]; then
 				yt_mini "$id"
