@@ -30,7 +30,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.1
+app youtube "YouTube, in a window" 3.2
 # part: control-panel/tube.hibr
 # modules: web
 
@@ -82,11 +82,14 @@ YT_RJS='(function(){var d=window.ytInitialData;if(!d)return "";function t(x){ret
 YT_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,u:location.href,vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
 
 # Start YouTube's player once it is there: the quality asked for, the
-# volume, captions off, everything on the watch page but the player taken out
-# of it (its masthead, the recommendations, the comments, the player's own
-# controls and overlays: they sit outside the player's stacking context, so
-# hiding them is the only thing that works, not covering them), and playing.
-YT_CSS='html,body,ytd-app{overflow:hidden!important;background:#000!important}ytd-masthead,#masthead-container,#secondary,#secondary-inner,#below,#comments,#chat,#related,ytd-watch-metadata,ytd-engagement-panel-section-list-renderer,tp-yt-app-drawer,ytd-mini-guide-renderer,#guide,ytd-popup-container,ytd-consent-bump-v2-lightbox,tp-yt-iron-overlay-backdrop{display:none!important}#page-manager{margin:0!important;padding:0!important}ytd-watch-flexy,ytd-watch-flexy #columns,ytd-watch-flexy #primary,ytd-watch-flexy #primary-inner{max-width:none!important;margin:0!important;padding:0!important;width:100vw!important;min-width:0!important}#movie_player{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;z-index:2147483646!important;background:#000!important}#movie_player .html5-video-container{position:absolute!important;inset:0!important;width:100%!important;height:100%!important}video{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;left:0!important;top:0!important;object-fit:contain!important;z-index:2147483647!important;background:#000!important}.ytp-chrome-top,.ytp-chrome-bottom,.ytp-gradient-top,.ytp-gradient-bottom,.ytp-pause-overlay,.ytp-ce-element,.ytp-cards-teaser,.ytp-paid-content-overlay,.ytp-caption-window-container,.ytp-watermark,.ytp-title,.ytp-endscreen-content,.ytp-iv-video-content,.annotation,.ytp-ad-overlay-container,.ytp-suggested-action,.ytp-videowall-still,.ytp-spinner{display:none!important}'
+# volume, captions off, and the page cut down to the video. That is done by
+# structure, not by YouTube's names for things: every element that does not
+# hold the video is hidden (the masthead, the recommendations, the comments,
+# the player's own controls and overlays), and every one that does -- the
+# video's ancestors -- fills the window. A redesign of the page changes none
+# of it, since it names nothing; and covering the extras instead does not
+# work, as they sit outside the player's stacking context.
+YT_CSS='html,body{overflow:hidden!important;background:#000!important;margin:0!important}body *:not(:has(video)):not(video){display:none!important}body *:has(video){display:block!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;transform:none!important;overflow:hidden!important;background:#000!important}video{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:contain!important;border-radius:0!important;background:#000!important}'
 fn yt_startjs(q, v, vid) {
 	ret "(function(){var p=document.getElementById(\"movie_player\");if(!p||!p.playVideo||location.href.indexOf(\"v=$vid\")<0)return \"\";if(!document.getElementById(\"hibr-yt\")){var c=document.createElement(\"style\");c.id=\"hibr-yt\";c.textContent='$YT_CSS';document.head.appendChild(c)}try{p.setPlaybackQualityRange(\"$q\",\"$q\")}catch(e){}try{p.unloadModule(\"captions\")}catch(e){}try{p.setOption(\"captions\",\"track\",{})}catch(e){}if(p.unMute)p.unMute();if(p.setVolume)p.setVolume($v);p.playVideo();return \"ok\"})()"
 }
