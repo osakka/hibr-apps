@@ -324,33 +324,33 @@
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "3.4",
+      "version": "3.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "5182cb06f3e7465b29207ec91787abecef2345a31094d8bfacc52bb197ad407c",
-      "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine -- WPE WebKit, from the hibr-browser package -- which fetches, decodes and plays the video itself, picture and sound, as it does any page's. The page is drawn here as cells or pixels with YouTube's own controls set aside, and this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
+      "sha256": "8e0ac8a5af82c667c99e2880c86a4f57a11e44509544e7c3ee6e30434d99e7ee",
+      "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "youtube",
       "hibr": "0.99.258",
-      "modules": "web",
+      "modules": "media web",
       "dir": "Internet",
       "parts": [
         {
           "kind": "control-panel",
           "as": "tube.hibr",
           "path": "bundles/control-panel/tube.hibr",
-          "sha256": "d6ec95c5563d9c5ca1ad25159969fd1e5f3607e047fd3248d2fdd9fb3257040b"
+          "sha256": "7d381b6baf0c943215afc587bd41ce48bb6166aec7b1735fa65211d4f3408d1b"
         }
       ]
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "2.0",
+      "version": "2.4",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "a125849611a97a8df743a28c84c24d10bd50656713661f7204fa9814c2e4c48c",
-      "about": "The web, in a window: WPE WebKit, in a helper process of its own, driven by the web module (hibr-browser's webkit), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
+      "sha256": "dd08e9d61097b904a9e6498116c4dab2eaf6e8318011851c4fb57852697087f4",
+      "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "browser",
@@ -362,7 +362,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "9749cd2ae734317fc61382d2fb499da013c76d87489b2d7d4b9a9737012faa83"
+          "sha256": "f07aa5246457bbd8252d6d4d5e2257f1b8886d4243ee9136957dde33b751d326"
         }
       ]
     },
@@ -1401,25 +1401,25 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "3.4",
+      "version": "3.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "5182cb06f3e7465b29207ec91787abecef2345a31094d8bfacc52bb197ad407c",
-      "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine -- WPE WebKit, from the hibr-browser package -- which fetches, decodes and plays the video itself, picture and sound, as it does any page's. The page is drawn here as cells or pixels with YouTube's own controls set aside, and this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
+      "sha256": "8e0ac8a5af82c667c99e2880c86a4f57a11e44509544e7c3ee6e30434d99e7ee",
+      "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "youtube",
       "hibr": "0.99.258",
-      "modules": "web",
+      "modules": "media web",
       "dir": "Internet"
     },
     "browser": {
       "title": "Browser",
-      "version": "2.0",
+      "version": "2.4",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "a125849611a97a8df743a28c84c24d10bd50656713661f7204fa9814c2e4c48c",
-      "about": "The web, in a window: WPE WebKit, in a helper process of its own, driven by the web module (hibr-browser's webkit), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
+      "sha256": "dd08e9d61097b904a9e6498116c4dab2eaf6e8318011851c4fb57852697087f4",
+      "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "browser",

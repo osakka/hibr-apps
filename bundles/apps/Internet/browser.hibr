@@ -1,7 +1,7 @@
 #!/usr/bin/env hibr
 #
-# browser -- the web, in a window: WPE WebKit, in a helper process of its own,
-# driven by the web module (hibr-browser's webkit), each page drawn as cells -- its text where the browser laid it
+# browser -- the web, in a window: a browser engine driven by the web module
+# (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it
 # out, in its colours, over a half-block picture of its backgrounds and
 # images. Links are followed with a click, fields typed into, pages
 # scrolled with the wheel or the page keys.
@@ -16,14 +16,14 @@
 # Bookmarks are a file of their own, a title and an address to a line,
 # tab between (~/.local/share/hibr/bookmarks.tsv): Bookmarks > Add Bookmark
 # keeps the page, and the rest of that menu goes to one. A restart brings
-# every tab back. Without the WebKit engine installed the window says so.
+# every tab back. Without an engine installed the window says so.
 #
 # Control Panel > Browser (Gitea #276) sets the home page a new window and
 # tab open at, the search, how a page is drawn -- following Pictures, half
 # blocks, pixels, or text only, the page's words wrapped to the window with
 # each link numbered -- and what each tab is told: JavaScript, images, dark
-# pages, zoom, the user agent. The profile folder
-# is read when the engine next starts. Since Gitea #285 it also sets the
+# pages, zoom, the user agent. The profile folder (and with Chromium the
+# program and extra flags) is read when the engine next starts. Since Gitea #285 it also sets the
 # languages pages are asked for, Do Not Track, addresses never fetched,
 # what a page may be given (location, camera, microphone, notifications,
 # each refused or allowed, since a headless browser can ask nobody), and
@@ -31,14 +31,26 @@
 # notifications become the desktop's notes. File > Save as PDF prints the
 # page to a file.
 #
-# A page's sound is played by the engine itself, on the machine's sound
-# server, so nothing here records or relays it: a page needs a press first
-# unless Pages May Play Sound On Their Own is set (`web sound`). Do Not Track
-# and Save as PDF are offered only when the engine can do them (`web caps`).
+# A window a page opens by a click becomes a tab beside it, and window.close()
+# closes it; one it opens on its own is refused and noted (`web windows`).
+#
+# A download under way is on the address row (name and how far); File >
+# Cancel Download stops it, and a note says how it ended or why not (a click
+# on it shows the folder). With no folder set, the desktop's Save dialog
+# asks where each file goes.
+#
+# A page's sound: WebKit plays it itself, on the machine's sound server, a page
+# needing a press first unless Pages May Play Sound On Their Own is set (`web
+# sound`). Chromium's is recorded and played through the media module (Gitea
+# #305): each tab's own sound once the page is pressed or typed into -- or as it
+# loads, with that setting -- and each tab has a player of its own for it.
+#
+# What the engine can do is asked once, as `web caps`; Do Not Track, Save as PDF,
+# downloads, windows and the rest are offered only when it lists them.
 
 strict
 
-app browser "The web, in a window" 2.0
+app browser "The web, in a window" 2.4
 # modules: web
 # part: control-panel/browserset.hibr
 
@@ -60,6 +72,7 @@ BW_PROFILE="${BW_PROFILE-}"
 BW_ARGS="${BW_ARGS-}"
 BW_LANG="${BW_LANG-}"
 BW_DNT="${BW_DNT-0}"
+BW_RTC="${BW_RTC-0}"
 BW_BLOCK="${BW_BLOCK-}"
 BW_PGEO="${BW_PGEO-refuse}"
 BW_PCAM="${BW_PCAM-refuse}"
@@ -70,7 +83,7 @@ BW_DLDIR="${BW_DLDIR-$HOME/Downloads}"
 BW_AUTOPLAY="${BW_AUTOPLAY-0}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_JS \
 	BW_IMAGES BW_DARK BW_ZOOM BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
-	BW_LANG BW_DNT BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_DL BW_DLDIR \
+	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_DL BW_DLDIR \
 	BW_AUTOPLAY
 declare -gA BWX
 # A tab's sound: its player, the pipe into it, and when it was last
@@ -120,15 +133,30 @@ bw_watch() {
 }
 
 # What the engine is started with, for whichever window starts it -- the
-# YouTube player asks for this too, since the two share one engine.
+# YouTube player asks for this too, since the two share one engine.  Chromium
+# is told its program and flags; WebKit has none.
 bw_cfg() {
+	local x
+	if bw_has config; then
+		web config browser "$BW_PROGRAM"
+		web config args "$BW_ARGS"
+	fi
+	# Calls and meetings need the page's process to have the machine's network,
+	# which this engine's sandbox takes away unless asked; off by default, and
+	# used when the engine next starts.
+	if bw_has webrtc; then
+		x=off; [ "$BW_RTC" = 1 ] && x=on
+		web config webrtc "$x"
+	fi
 	web config profile "$BW_PROFILE"
 	return 0
 }
 
-# What the engine can do, asked once it is there; an app asks for nothing else.
+# What the engine can do, asked once it is there; both engines' modules answer
+# `web caps`, and an app asks for nothing else.
 BW_CAPS=
 fn bw_has(c) {
+	[ -n "$BW_CAPS" ] || BW_CAPS := web caps 2> /dev/null
 	case " $BW_CAPS " in *" $c "*) return 0 ;; esac
 	return 1
 }
@@ -163,9 +191,12 @@ fn bw_apply(t) {
 	return 0
 }
 
-# The engine plays a page's sound itself, so there is nothing to arm: these two
-# stay so the places that called them need not change.
+# A tab may be about to start its sound: it was just pressed, typed into
+# or sent to a page, so it is taken from at once rather than when it has
+# something already.
 fn bw_sndarm(t) {
+	bw_has tap || return 0
+	[ -n "$t" ] && BWSA["$t"]=$EPOCHSECONDS
 	return 0
 }
 
@@ -185,6 +216,41 @@ fn bw_sndstop(t) {
 # into or sent somewhere, so a desktop with a Browser open and nothing
 # playing asks for nothing.
 fn bw_sound(int id) {
+	local t s p fd want=
+	local -a w
+
+	bw_has tap || return 0
+	bw_tabs "$id"
+	for t in "${BW_TABS[@]}"; do
+		if [ -z "${BWS["$t"]-}" ] &&
+		   [ $((EPOCHSECONDS - ${BWSA["$t"]:-0})) -gt 10 ]; then
+			continue
+		fi
+		fd=${BWSF["$t"]:--}
+		s := web take "$t" - "$fd" 2> /dev/null || continue
+		read -ra w <<< "$s"
+		if [ "${w[5]}" = 1 ]; then
+			bw_sndstop "$t"
+			need media 2> /dev/null || continue
+			p := media feed 2> /dev/null || continue
+			fd := media pipe "$p" audio 2> /dev/null || {
+				media close "$p" 2> /dev/null
+				continue
+			}
+			BWS["$t"]=$p
+			BWSF["$t"]=$fd
+			want=50
+		fi
+		case ${w[11]} in
+		on) [ "${want:-9999}" -gt 200 ] && want=200 ;;
+		quiet) [ -z "$want" ] && want=1000 ;;
+		*)
+			[ -n "${BWS["$t"]-}" ] && [ "${w[5]}" != 1 ] && bw_sndstop "$t"
+			[ -z "$want" ] && want=250
+			;;
+		esac
+	done
+	[ -n "$want" ] && dt_want "$want"
 	return 0
 }
 
@@ -218,17 +284,117 @@ bw_wide() {
 	return 0
 }
 
+# One thing a page did with its windows: `open opener tab` or `shut tab`.
+fn bw_winev(k, a, b = "") {
+	local id x
+
+	for id in "${!BW[@]}"; do
+		[ -n "${BW[$id]["tabs"]+x}" ] || continue
+		bw_tabs "$id"
+		for x in "${BW_TABS[@]}"; do
+			if [ "$k" = open ] && [ "$x" = "$a" ]; then
+				bw_apply "$b"
+				bw_sndarm "$b"
+				BW[$id]["tabs"]="${BW[$id]["tabs"]} $b"
+				BW[$id]["cur"]=$b
+				BW[$id]["sized"]=
+				return 0
+			elif [ "$k" = shut ] && [ "$x" = "$a" ]; then
+				bw_closetab "$id" "$a"
+				return 0
+			fi
+		done
+	done
+	# Not one of ours (a YouTube window's, or already closed): let it go.
+	[ "$k" = open ] && web close "$b" 2> /dev/null
+	return 0
+}
+
+# The downloads under way as one phrase for the address row's end --
+# "name 43%", or the size so far when the server did not say how big, and
+# how many more -- empty when there are none.
+fn bw_dlsay() {
+	local x n=0 id nm rc tt first= pct
+
+	if ! x := web dlstate 2> /dev/null; then
+		ret ""
+		return 0
+	fi
+	while IFS=$'\t' read -r id nm rc tt; do
+		[ -n "$id" ] || continue
+		n=$((n + 1))
+		[ "$n" = 1 ] || continue
+		if [ "${tt:-0}" -gt 0 ]; then
+			pct=$((rc * 100 / tt))
+			first="${nm:0:20} ${pct}%"
+		else
+			first="${nm:0:20} $((rc / 1048576)) MB"
+		fi
+	done <<< "$x"
+	[ "$n" -gt 1 ] && first="$first +$((n - 1))"
+	ret "${GL[down]} $first"
+}
+
+# Where the person said a download goes: the dialog's callback.
+fn bw_dlpicked(id = "", path = "", type = "") {
+	[ -n "$id" ] && [ -n "$path" ] || return 0
+	web dldest "$id" "$path"
+	return 0
+}
+
+# Stop every download under way.
+fn bw_dlstop() {
+	local x id nm rc tt
+
+	if x := web dlstate 2> /dev/null; then
+		while IFS=$'\t' read -r id nm rc tt; do
+			[ -n "$id" ] && web dlcancel "$id"
+		done <<< "$x"
+	fi
+	return 0
+}
+
 # What the browser has to say since it was last asked: a download that
 # ended, and a page's notification, each a note of the desktop's own.
 bw_heard() {
-	local l k x
+	local l k o x why tn dn du dir
 
 	if x := web downloaded 2> /dev/null; then
-		while IFS=$'\t' read -r k l; do
+		while IFS=$'\t' read -r k l why; do
 			case $k in
-			done) dt_notep normal "Downloaded %s" "${l##*/}" ;;
-			failed) dt_notep high "The download of %s did not finish" "$l" ;;
+			done)
+				# Clicking the note shows the folder in the Files app: that, and
+				# the notes' own history, is the list of what was downloaded.
+				tn := dt_tr "Downloaded %s" "${l##*/}"
+				dt_notify "$tn" dt_launch files "${l%/*}"
+				;;
+			failed) dt_notep high "The download of %s did not finish: %s" "${l##*/}" "${why:-no reason given}" ;;
+			cancelled) dt_notep normal "Download of %s stopped" "${l##*/}" ;;
 			esac
+		done <<< "$x"
+	fi
+	# A file a page offered with no folder set: the desktop's own Save dialog
+	# asks where it goes, and the engine is told the answer.  (The dialog
+	# calls back only when a file is chosen; a download nobody answers is
+	# given up by the engine after five minutes.)
+	if x := web dlasks 2> /dev/null; then
+		while IFS=$'\t' read -r k dn du; do
+			dir=$BW_DLDIR
+			[ -d "$dir" ] || dir=$HOME
+			dt_filepick save "Save File" "All files:*" "$dir" "$dn" bw_dlpicked "$k"
+		done <<< "$x"
+	fi
+	# Windows a page opened by a click (a link to a new window, a sign-in
+	# popup) become tabs beside their opener, and the one it closed with
+	# window.close() goes.  What it opened on its own was turned away: said once.
+	if x := web windows 2> /dev/null; then
+		while IFS=$'\t' read -r k l o; do
+			bw_winev "$k" "$l" "$o"
+		done <<< "$x"
+	fi
+	if x := web popups 2> /dev/null; then
+		while IFS= read -r l; do
+			dt_notep low "A page tried to open a window of its own, and was refused: %s" "${l:0:60}"
 		done <<< "$x"
 	fi
 	# A page's own words, which no catalogue holds: passed as they are.
@@ -270,7 +436,7 @@ fn bw_newtab(int id, url = "") {
 	[ -z "$url" ] && [ -n "$BW_HOME" ] && url := bw_addr "$BW_HOME"
 	bw_cfg
 	t := web open || {
-		BW[$id]["err"]="No WebKit engine to show pages with -- install hibr-browser, or set HIBR_WPE"
+		BW[$id]["err"]="No browser engine to show pages with -- install hibr-browser (WebKit) or Chromium, or set HIBR_WPE or HIBR_WEB_BROWSER"
 		return 1
 	}
 	bw_wide
@@ -323,7 +489,6 @@ fn browser_open(int id, arg = "") {
 		BW[$id]["err"]="The web module is not installed"
 		return 0
 	}
-	[ -n "$BW_CAPS" ] || BW_CAPS := web caps 2> /dev/null
 	bw_newtab "$id" "$arg"
 }
 
@@ -509,7 +674,7 @@ fn bw_strip(int id, t, int w) {
 
 # Back, forward, reload and the address, on row ar.
 fn bw_bar(int id, t, int w, int ar) {
-	local lab u on=0 ld= lw=0
+	local lab u on=0 ld= lw=0 dl=
 
 	console pen "$DT_INK" "$DT_FACE"
 	console put -p "w$id" "$ar" 1 " ${GL[larr]} ${GL[rarr]} ${GL[reload]} "
@@ -528,6 +693,16 @@ fn bw_bar(int id, t, int w, int ar) {
 		if [ -n "$t" ] && web loading "$t" 2> /dev/null; then
 			ld := dt_tr "Loading${GL[ellipsis]}"
 			lw := str width " $ld "
+		fi
+		# A download under way says so the same way, before it, and keeps the
+		# bar drawn while it runs.
+		if bw_has dlstate; then
+			dl := bw_dlsay
+			if [ -n "$dl" ]; then
+				ld="$dl${ld:+  $ld}"
+				lw := str width " $ld "
+				dt_want 500
+			fi
 		fi
 		console pen "$DT_INK" "$DT_WELL"
 		lab := str pad "${u:0:$((w - 9 - lw))}" $((w - 9 - lw))
@@ -1006,6 +1181,11 @@ browser_menus() {
 		dt_item "Save as PDF${GL[ellipsis]}" p bw_pdfask "$id"
 	else
 		dt_dim "Save as PDF${GL[ellipsis]}"
+	fi
+	if bw_has dlstate && web dlstate > /dev/null 2>&1; then
+		dt_item "Cancel Download" d bw_dlstop
+	else
+		dt_dim "Cancel Download"
 	fi
 	dt_sep
 	if [ -n "${BW[$id]["cur"]}" ]; then
