@@ -115,7 +115,9 @@ ENTHIBR["apps/diagram"]=0.99.258
 ENTHIBR["system/modman"]=0.99.258
 ENTHIBR["system/about"]=0.99.258
 ENTHIBR["system/clipboard"]=0.99.258
-ENTHIBR["system/notifications"]=0.99.258
+# Notifications 1.3 brings its pane 1.2, whose List From and per-sender rows
+# read DT_NOTELIST and DT_NOTEAPP: the window manager has them from 0.99.315.
+ENTHIBR["system/notifications"]=0.99.315
 # It calls `web sound`, which an older web module does not have (Gitea #305).
 ENTHIBR["apps/browser"]=0.99.263
 # It acts through wm/sound.hibr, which an older desktop does not have (Gitea #306);

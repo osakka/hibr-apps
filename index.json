@@ -529,13 +529,13 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.258",
+      "hibr": "0.99.315",
       "parts": [
         {
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "07b003545ec431f02ba69639b9183b9aebf215896fa7324b9f56bf00363f4e71"
+          "sha256": "9790a46da03550d7bf28d6e3a24f0a23f279dc2edf2ecc7f308fb285660c8330"
         }
       ]
     },
@@ -1137,11 +1137,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.25",
+      "version": "3.26",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "cd1ade9b591e0610a1bafe9f229282a81d87c39922c58f0f78a4df671ed1b978",
-      "about": "The desktop's own words in العربية (ar): 1373 strings, read right to left.",
+      "sha256": "5e0332fbdb50cafa85f67bbd996d53c9d0b88a6133ec8397336c9ec16feedaf4",
+      "about": "The desktop's own words in العربية (ar): 1287 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1534,7 +1534,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.258"
+      "hibr": "0.99.315"
     },
     "catalogue": {
       "title": "Catalogue",
