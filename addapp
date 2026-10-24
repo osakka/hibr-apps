@@ -48,7 +48,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers themes colours lang mods"
+KINDS="apps system control-panel control-strip savers themes colours lang mods cli"
 
 fn die(...msg) {
 	printf 'addapp: %s\n' "${msg[*]}" >&2
@@ -111,7 +111,7 @@ fn verof(path, kind) {
 	while read -r l; do
 		case $l in
 		"app "*)
-			if match "$l" '^app[ 	]+[A-Za-z0-9_]+[ 	]+"[^"]*"[ 	]+([0-9][0-9A-Za-z.+~-]*)'; then
+			if match "$l" '^app[ 	]+[A-Za-z0-9_-]+[ 	]+"[^"]*"[ 	]+([0-9][0-9A-Za-z.+~-]*)'; then
 				ret "${M[1]}"
 				return 0
 			fi
@@ -246,16 +246,26 @@ fn shaof(path) {
 	ret "${line%% *}"
 }
 
-[ $# -ge 1 ] || die "usage: addapp [--same] PATH-TO-FILE.hibr [VERSION]"
+[ $# -ge 1 ] || die "usage: addapp [--same] [--kind cli] PATH-TO-FILE.hibr [VERSION]"
 same=0
+forced=
 args=()
-for a in "$@"; do
-	case $a in
+while [ $# -gt 0 ]; do
+	case $1 in
 	--same) same=1 ;;
-	*) args+=("$a") ;;
+	--kind)
+		[ $# -ge 2 ] || die "--kind needs a kind"
+		forced=$2
+		shift ;;
+	*) args+=("$1") ;;
 	esac
+	shift
 done
-[ "${#args[@]}" -ge 1 ] || die "usage: addapp [--same] PATH-TO-FILE.hibr [VERSION]"
+case $forced in
+"" | cli) ;;
+*) die "--kind is for cli: every other kind is read from where the file sits in the desktop's tree" ;;
+esac
+[ "${#args[@]}" -ge 1 ] || die "usage: addapp [--same] [--kind cli] PATH-TO-FILE.hibr [VERSION]"
 src=${args[0]}
 ver=${args[1]-}
 DESKTOP=
@@ -278,8 +288,14 @@ case $name in
 *[!a-z0-9_-]*) die "$name: a name is lower case letters, digits, dashes and underscores" ;;
 esac
 
-kind := kindof "$src" ||
-	die "$src: not under one of the desktop's scan roots ($KINDS)"
+# A command is not under the desktop's tree at all -- it is not an application, and nothing the desktop scans -- so it is
+# said, not found: `--kind cli`.
+if [ -n "$forced" ]; then
+	kind=$forced
+else
+	kind := kindof "$src" ||
+		die "$src: not under one of the desktop's scan roots ($KINDS), and not --kind cli"
+fi
 ext := kextof "$kind"
 case $src in
 *"$ext") ;;
@@ -309,7 +325,7 @@ done < "$src"
 # (hibr ADR 0047, Gitea #271). Asked of the owners' own `# part:` lines,
 # read the way partsof reads them.
 rel=${src#"$DESKTOP/"}
-for k in $KINDS; do
+for k in ${DESKTOP:+$KINDS}; do
 	for o in "$DESKTOP/$k"/**; do
 		case $o in *.hibr) ;; *) continue ;; esac
 		[ -f "$o" ] || continue
@@ -339,11 +355,14 @@ parts := partsof "$src" "$kind"
 # Only `apps` has them -- the desktop scans every other root flat -- but
 # nothing here needs to know that: a kind with no subfolders simply
 # never produces one.
-sub=${src#"$DESKTOP/$kind/"}
-case $sub in
-*/*) sub=${sub%/*} ;;
-*) sub= ;;
-esac
+sub=
+if [ -n "$DESKTOP" ]; then		# a command is not in a desktop tree: it has no folder
+	sub=${src#"$DESKTOP/$kind/"}
+	case $sub in
+	*/*) sub=${sub%/*} ;;
+	*) sub= ;;
+	esac
+fi
 # A module is filed under the machine it was built for, so the same name
 # can have a build per architecture and a client fetches the one it can
 # actually load. Nothing is ever compiled on the machine it runs on --

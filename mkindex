@@ -27,7 +27,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers themes colours lang mods"
+KINDS="apps system control-panel control-strip savers themes colours lang mods cli"
 # The release whose desktop first looks in `$XDG_DATA_HOME/hibr/<kind>` for
 # a theme, a colour scheme or a language. See the `hibr` field below.
 DATAHIBR=0.99.187
@@ -232,7 +232,7 @@ fn verof(path, kind) {
 	while read -r l; do
 		case $l in
 		"app "*)
-			if match "$l" '^app[ 	]+[A-Za-z0-9_]+[ 	]+"[^"]*"[ 	]+([0-9][0-9A-Za-z.+~-]*)'; then
+			if match "$l" '^app[ 	]+[A-Za-z0-9_-]+[ 	]+"[^"]*"[ 	]+([0-9][0-9A-Za-z.+~-]*)'; then
 				ret "${M[1]}"
 				return 0
 			fi ;;
@@ -490,7 +490,7 @@ fn appline(path) {
 	while read -r l; do
 		case $l in
 		"app "*)
-			if match "$l" '^app[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
+			if match "$l" '^app[ 	]+[a-z0-9_-]+[ 	]+"([^"]+)"'; then
 				ret "${M[1]}"
 				return 0
 			fi ;;
@@ -592,6 +592,24 @@ fn htesc(s) {
 	ret "$t"
 }
 
+# The licence a script declares in its own header (`# SPDX-License-Identifier: GPL-3.0-or-later`), or hibr's own when it
+# declares none: a catalogue that carries somebody else's script should not call it LGPL.
+fn licof(path) {
+	local l
+
+	while read -r l; do
+		case $l in
+		"# SPDX-License-Identifier:"*)
+			l=${l#*:}
+			l=${l# }
+			[ -n "$l" ] && { ret "$l"; return 0; } ;;
+		"#"* | "") ;;
+		*) break ;;
+		esac
+	done < "$path"
+	ret "LGPL-3.0-or-later"
+}
+
 # What a kind is called on the page, in the order the desktop presents them.
 fn kindname(k) {
 	case $k in
@@ -603,6 +621,8 @@ fn kindname(k) {
 	themes) ret "Themes" ;;
 	colours) ret "Colour schemes" ;;
 	lang) ret "Languages" ;;
+	mods) ret "Modules" ;;
+	cli) ret "Commands" ;;
 	*) ret "$k" ;;
 	esac
 }
@@ -698,6 +718,7 @@ builds for several machines has mkindex run on each of them."
 		# no comments to hold either, so its words come from the
 		# fields it already carries (Gitea #224); and a module says
 		# it in the descriptor read above.
+		lic="LGPL-3.0-or-later"
 		if isnative "$kind"; then
 			:
 		elif isdata "$kind"; then
@@ -708,6 +729,7 @@ builds for several machines has mkindex run on each of them."
 		else
 			title := titleof "$src" "$name"
 			about := aboutof "$src"
+			lic := licof "$src"
 			if sum := appline "$src"; [ -n "$sum" ]; then
 				# Almost every file says the same sentence
 				# twice -- once on its `app` line and once
@@ -805,7 +827,7 @@ builds for several machines has mkindex run on each of them."
 			bundle) v="bundles/$kind${dr0:+/$dr0}/${bundle##*/}" ;;
 			sha256) v=$sha ;;
 			about) v=$about ;;
-			licence) v="LGPL-3.0-or-later" ;;
+			licence) v=$lic ;;
 			author) v="Omar Sakka" ;;
 			name) v=$name ;;
 			hibr) v=; isdata "$kind" && v=$DATAHIBR
@@ -955,7 +977,8 @@ catalogue install snake</code></pre>
 <p>Installing places a file where the desktop already looks, so it is there the next
 time the desktop starts: an application under <code>\$XDG_DATA_HOME/hibr/apps</code>, a
 Control Panel pane under <code>control-panel/</code>, a theme under
-<code>themes/</code>, and so on for all eight kinds. Something that brings its own
+<code>themes/</code>, and so on for the desktop's eight. A <em>command</em> (<code>cli/</code>) is a script run from a prompt or a service, not
+an application: it goes to <code>\$XDG_DATA_HOME/hibr/cli</code>, which the desktop never reads, so it is never on a menu. Something that brings its own
 pane, Control Strip module or picture brings it as a plain file of its own, named in
 this index with its own <code>sha256</code>, and each part is placed in the root it
 names &mdash; every one fetched and verified before any is written, so an entry with
@@ -971,10 +994,10 @@ application and a screen saver, so each is named by its id.</p>
 $rows</table>
 
 <h2>What you are trusting</h2>
-<p>Five of the nine kinds are hibr scripts and run with everything your own shell can
+<p>Six of the ten kinds are hibr scripts &mdash; the five the desktop runs, and commands &mdash; and run with everything your own shell can
 do: there is no sandbox. Three &mdash; themes, colour schemes and languages &mdash;
 are data, read rather than run, which is deliberate: they are the things people hand
-each other, and a theme that was a script would run as whoever applied it. The ninth
+each other, and a theme that was a script would run as whoever applied it. The tenth
 is <code>mods</code>, a hibr module: native code, with no sandbox at all, which is
 why <code>apps</code> refuses to install one from a catalogue it cannot verify.</p>
 <p>TLS says which server the index came from; the <code>sha256</code> in the index
