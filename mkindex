@@ -199,6 +199,12 @@ ENTHIBR["control-panel/filetypes"]=0.99.300
 # needs through nmcli --ask on a pty, which 0.99.301 brings (hibr #369).
 ENTHIBR["control-panel/networks"]=0.99.301
 ENTHIBR["control-panel/power"]=0.99.307
+# One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
+# web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
+# and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
+# have no answer to `web caps` and offer a Browser that does not know its engine.
+ENTHIBR["apps/browser"]=0.99.322
+ENTHIBR["apps/youtube"]=0.99.322
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
