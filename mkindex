@@ -146,6 +146,14 @@ ENTHIBR["control-panel/appearance"]=0.99.276
 # draw (0.99.286, hibr Gitea #340), and Item Order, which reads the bar
 # through dt_barseq and dt_barilabel (0.99.287, Gitea #341).
 ENTHIBR["control-panel/appearance"]=0.99.287
+# Appearance 2.2 and Windows 1.2 offer Wallpaper Shows Through, which reads
+# DT_BARTRANS and DT_WINTRANS, and the bar frame, which only a window
+# manager of 0.99.316 draws; Charcoal is that frame and those settings, so it
+# needs the same release. Its colours read anywhere: an older desktop takes
+# no notice of titlebar and titleink.
+ENTHIBR["control-panel/appearance"]=0.99.316
+ENTHIBR["control-panel/windows"]=0.99.316
+ENTHIBR["themes/charcoal"]=0.99.316
 # The PDF Reader draws through the pdf module, which 0.99.292 brings (hibr
 # Gitea #348).
 ENTHIBR["apps/pdfr"]=0.99.292

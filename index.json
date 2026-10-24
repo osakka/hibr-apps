@@ -647,15 +647,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "44fc2bb385ef3166ecb4533979b54611416870b64a8327b63f8547f1308b418c",
+      "sha256": "26cf2bc81dfdd2d6bc33444f699b6f746bcd26e3146d13844816371bf10ad193",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.248"
+      "hibr": "0.99.316"
     },
     "control-panel/power": {
       "title": "Power",
@@ -695,15 +695,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.1",
+      "version": "2.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "d1c8b2476656e9633474f4938abf6ed690a8a233433a5dc7331e9f3bd04777e4",
+      "sha256": "eeec17c766b922d35727e50db57c96364c2fc9699fc65e4415be1c4303548533",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.287"
+      "hibr": "0.99.316"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -931,6 +931,26 @@
       "name": "classic",
       "hibr": "0.99.187"
     },
+    "themes/charcoal": {
+      "title": "Charcoal",
+      "version": "1.0",
+      "kind": "themes",
+      "bundle": "bundles/themes/charcoal.json",
+      "sha256": "32becb11f575d32ac8364a6153cf7776cb63f29fe5482693e7589315a5202cac",
+      "about": "Modern and quiet: a charcoal title bar with rounded ends and no other frame, content to the edge, coloured buttons on the left, and windows and the menu bar the wallpaper shows through.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "charcoal",
+      "hibr": "0.99.316",
+      "parts": [
+        {
+          "kind": "themes",
+          "as": "charcoal.png",
+          "path": "bundles/themes/charcoal.png",
+          "sha256": "062461f0368be098c394ea1686d393a46fa419d342a8cd6b3f9770d5e0a58794"
+        }
+      ]
+    },
     "themes/construction": {
       "title": "Under Construction",
       "version": "1.1",
@@ -1013,6 +1033,18 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ember",
+      "hibr": "0.99.187"
+    },
+    "colours/charcoal": {
+      "title": "Charcoal",
+      "version": "1.0",
+      "kind": "colours",
+      "bundle": "bundles/colours/charcoal.json",
+      "sha256": "753747d7c315db1ff84b08cb16be79c061d31e244353ad8cadce56b2da9ff31c",
+      "about": "Soft white on charcoal, with a bright white accent and a charcoal title bar of its own.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "charcoal",
       "hibr": "0.99.187"
     },
     "colours/black": {
@@ -1644,15 +1676,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "44fc2bb385ef3166ecb4533979b54611416870b64a8327b63f8547f1308b418c",
+      "sha256": "26cf2bc81dfdd2d6bc33444f699b6f746bcd26e3146d13844816371bf10ad193",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.248"
+      "hibr": "0.99.316"
     },
     "power": {
       "title": "Power",
@@ -1692,15 +1724,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.1",
+      "version": "2.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "d1c8b2476656e9633474f4938abf6ed690a8a233433a5dc7331e9f3bd04777e4",
+      "sha256": "eeec17c766b922d35727e50db57c96364c2fc9699fc65e4415be1c4303548533",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.287"
+      "hibr": "0.99.316"
     },
     "versions": {
       "title": "Versions",
