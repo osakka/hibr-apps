@@ -126,8 +126,9 @@ application and must not be on a menu. It is published as the kind `cli`, which 
 not under any desktop tree, so say so: `./addapp --kind cli path/to/command.hibr`. It
 installs with `catalogue install cli/NAME` into `$XDG_DATA_HOME/hibr/cli`, a folder
 the desktop never scans. It declares itself as an application does, with an `app` line
-(a name with a dash is fine) and `# modules:`, and the catalogue shows the licence from
-its own `# SPDX-License-Identifier:` line, hibr's when it has none.
+(a name with a dash is fine) and `# modules:`. The index carries the licence from its own
+`# SPDX-License-Identifier:` line, hibr's when it has none (for scripts; a module or a data file is still
+hibr's). A command brings no `# part:` files.
 
 A bundle's path is **stable**: it is overwritten when a new version is
 published, and git holds every previous one, which is where anybody

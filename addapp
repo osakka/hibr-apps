@@ -337,6 +337,7 @@ for k in ${DESKTOP:+$KINDS}; do
 done
 
 parts := partsof "$src" "$kind"
+[ -z "$parts" ] || [ "$kind" != cli ] || die "$src: a command brings no parts -- \`# part:\` is for an application's pane or strip module"
 # One stable path per thing, overwritten when a new version is published:
 # the version is the app's own now and lives in the index, not in a
 # filename, and git holds every previous version for whoever wants to
