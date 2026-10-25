@@ -171,6 +171,9 @@ ENTHIBR["system/tasks"]=0.99.336
 # Files 1.8 names its paste copies by wm/jobs.hibr's DTJ_N (hibr Gitea
 # #357); both need what 0.99.297 brings.
 ENTHIBR["control-panel/mouse"]=0.99.338
+# Mouse 1.6 has Tooltip Delay, kept through DT_KEEP's DT_TIPMS, which
+# 0.99.343 adds (hibr Gitea #370).
+ENTHIBR["control-panel/mouse"]=0.99.343
 ENTHIBR["apps/files"]=0.99.297
 # Blit 0.1.9 asks through dav request in a dt_job and dt_ask, which
 # 0.99.297 brings (hibr Gitea #357); no curl.
