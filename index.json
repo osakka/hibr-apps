@@ -653,15 +653,15 @@
     },
     "control-panel/mouse": {
       "title": "Mouse",
-      "version": "1.3",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "cdad050666512279e369ab543ff8bdd33f5ec86f08956cea6e28d5a8fd7bd813",
+      "sha256": "9f9e2357901c8397960ea942ec4cb4ea397952c2653368ab4ce866604933b28e",
       "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, whether a dragged window follows by its outline or whole, and how far one notch of the wheel scrolls. wm/input.hibr reads the window settings and every scrolling window the wheel's; this pane only changes the DT_* settings.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mouse",
-      "hibr": "0.99.304"
+      "hibr": "0.99.338"
     },
     "control-panel/windows": {
       "title": "Windows",
@@ -1730,15 +1730,15 @@
     },
     "mouse": {
       "title": "Mouse",
-      "version": "1.3",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "cdad050666512279e369ab543ff8bdd33f5ec86f08956cea6e28d5a8fd7bd813",
+      "sha256": "9f9e2357901c8397960ea942ec4cb4ea397952c2653368ab4ce866604933b28e",
       "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, whether a dragged window follows by its outline or whole, and how far one notch of the wheel scrolls. wm/input.hibr reads the window settings and every scrolling window the wheel's; this pane only changes the DT_* settings.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mouse",
-      "hibr": "0.99.304"
+      "hibr": "0.99.338"
     },
     "windows": {
       "title": "Windows",
