@@ -99,7 +99,7 @@
           "kind": "control-panel",
           "as": "terminal.hibr",
           "path": "bundles/control-panel/terminal.hibr",
-          "sha256": "82d6fb20818d79d37764a9c76b578a7e73ed9afc8a46c5d1477611f244eada9e"
+          "sha256": "549fff35150ee9c9c4b98f75cdb21b3c78a4316a26d987613d9892d618810635"
         }
       ]
     },
@@ -647,15 +647,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "26cf2bc81dfdd2d6bc33444f699b6f746bcd26e3146d13844816371bf10ad193",
+      "sha256": "6874453fbaa7280c2affa02779986c09c6cbfd76c5c25b964379d3293d422813",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.316"
+      "hibr": "0.99.324"
     },
     "control-panel/power": {
       "title": "Power",
@@ -671,10 +671,10 @@
     },
     "control-panel/datetime": {
       "title": "Date & Time",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/datetime.hibr",
-      "sha256": "7798405d9bbc7c329b0d40ee860a73cf52525078f0cef698f73518c773ea7331",
+      "sha256": "7b1ac2c70e1bb25b8ee918d185cf2f29ee8f44b36c07784f2b0bcab344226e3c",
       "about": "The Control Panel pane for the time, the date and the time zone\n\nthe Control Panel pane for the time, the date, and a small world map with a mark near the machine's own time zone, System 7's Date & Time control panel. A custom pane, since a map needs a body of its own rather than two columns of text.\n\nThe map data, its scoring, and the zone1970.tab lookup are all copied from examples/traceroute.hibr rather than redone: CLAUDE.md's own trap about that map says not to adjust one by eye, and the same is true of drawing a second one. What is copied is copied unchanged; only the projection's target size differs, since this map is a corner of a settings pane and not a full screen.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -695,15 +695,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.2",
+      "version": "2.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "eeec17c766b922d35727e50db57c96364c2fc9699fc65e4415be1c4303548533",
+      "sha256": "91bcd54c0d6050a1f285c0d717b9381193d5bf1ce1ecc0273e560fa99adbdbda",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.316"
+      "hibr": "0.99.324"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -933,15 +933,15 @@
     },
     "themes/charcoal": {
       "title": "Charcoal",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "themes",
       "bundle": "bundles/themes/charcoal.json",
-      "sha256": "32becb11f575d32ac8364a6153cf7776cb63f29fe5482693e7589315a5202cac",
-      "about": "Modern and quiet: a charcoal title bar with rounded ends and no other frame, content to the edge, coloured buttons on the left, and windows and the menu bar the wallpaper shows through.",
+      "sha256": "dc4c3ed81e95f81e81e730bbddfec3e38c14468087a91eeaada8e7869da5a0a0",
+      "about": "Modern and quiet: a charcoal title bar, its top corners curved where the glyphs have them, and no other frame, content to the edge, coloured buttons on the left, and windows and the menu bar the wallpaper shows through.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "charcoal",
-      "hibr": "0.99.316",
+      "hibr": "0.99.324",
       "parts": [
         {
           "kind": "themes",
@@ -1169,11 +1169,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.28",
+      "version": "3.29",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "1eaa3e17c73e34a82b71889623d5625ca465ea74baadcb847f749d6659d23ffb",
-      "about": "The desktop's own words in العربية (ar): 1297 strings, read right to left.",
+      "sha256": "60137f3f024a86c06bbc920e2aa69a7b20709e328fba673a66c83d9f0fb1810e",
+      "about": "The desktop's own words in العربية (ar): 1298 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1676,15 +1676,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "26cf2bc81dfdd2d6bc33444f699b6f746bcd26e3146d13844816371bf10ad193",
+      "sha256": "6874453fbaa7280c2affa02779986c09c6cbfd76c5c25b964379d3293d422813",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.316"
+      "hibr": "0.99.324"
     },
     "power": {
       "title": "Power",
@@ -1700,10 +1700,10 @@
     },
     "datetime": {
       "title": "Date & Time",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/datetime.hibr",
-      "sha256": "7798405d9bbc7c329b0d40ee860a73cf52525078f0cef698f73518c773ea7331",
+      "sha256": "7b1ac2c70e1bb25b8ee918d185cf2f29ee8f44b36c07784f2b0bcab344226e3c",
       "about": "The Control Panel pane for the time, the date and the time zone\n\nthe Control Panel pane for the time, the date, and a small world map with a mark near the machine's own time zone, System 7's Date & Time control panel. A custom pane, since a map needs a body of its own rather than two columns of text.\n\nThe map data, its scoring, and the zone1970.tab lookup are all copied from examples/traceroute.hibr rather than redone: CLAUDE.md's own trap about that map says not to adjust one by eye, and the same is true of drawing a second one. What is copied is copied unchanged; only the projection's target size differs, since this map is a corner of a settings pane and not a full screen.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1724,15 +1724,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.2",
+      "version": "2.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "eeec17c766b922d35727e50db57c96364c2fc9699fc65e4415be1c4303548533",
+      "sha256": "91bcd54c0d6050a1f285c0d717b9381193d5bf1ce1ecc0273e560fa99adbdbda",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.316"
+      "hibr": "0.99.324"
     },
     "versions": {
       "title": "Versions",
