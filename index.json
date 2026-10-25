@@ -22,15 +22,15 @@
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "8364fc314c9a1b880f92ef0b0d1e5ef6c02d0c56682a4abf9fd270126bcd49e4",
+      "sha256": "ac292bd1e82025958d7c1c91f20db0526ffaf30b9dffcca47cfd2506bc0e5471",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.299",
+      "hibr": "0.99.336",
       "modules": "dav db pim",
       "parts": [
         {
@@ -64,15 +64,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "2.1",
+      "version": "2.2",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "337c992ce409ecb37d90a319fa9662c9925ce7b179b586b040fc3e774fb712a5",
+      "sha256": "074f5119c74f1aa338b85b772e43c3e57ce141bac428953cb6bcdfa164596394",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.300",
+      "hibr": "0.99.336",
       "parts": [
         {
           "kind": "control-panel",
@@ -105,15 +105,15 @@
     },
     "apps/calendar": {
       "title": "Calendar",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "faa408b37abbe21bd7a6b5e9a5c9abf571b895c8df1ae6bb9827f4ec145b321d",
+      "sha256": "758f24be8c503f41ac56ae0941abada98badeb01c0c277a05fa8faf0a0153b59",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.299",
+      "hibr": "0.99.336",
       "modules": "dav db email pim",
       "parts": [
         {
@@ -302,15 +302,15 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "2.0",
+      "version": "2.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "00af845499b2dd78fa32af4fcce67cabf2f73247991c0f7a07f5d03137ee46fb",
+      "sha256": "0ddeb3a34c7ff7f25c52609c601a609fece979e329cbc0533c5b73ea8bcee7fb",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.300",
+      "hibr": "0.99.336",
       "modules": "db email html img",
       "dir": "Internet",
       "parts": [
@@ -455,15 +455,15 @@
     },
     "system/modman": {
       "title": "Modules",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/modman.hibr",
-      "sha256": "6400d976d94db4e6d074701058681b71182e969d693c30a46a756c738d6f715b",
+      "sha256": "12d26f383d6217783a42d07913d91bd132dac3ee46602e492c11810eb894faa0",
       "about": "What this shell can load, what it has loaded, and a way to change either\n\nModules: what this shell can load, what it has loaded, and a way to change either (#133).\n\nEverything here is `mod avail`'s own answer: it walks the module path and reads each object's descriptor *without calling its init*, so a module can be named, versioned and described before it is ever loaded. In a pipe that answer is one line of eight tab-separated fields per module, which is what this reads -- never the column form, which is for a person.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "modman",
-      "hibr": "0.99.258"
+      "hibr": "0.99.336"
     },
     "system/about": {
       "title": "About This Computer",
@@ -487,15 +487,15 @@
     },
     "system/clipboard": {
       "title": "Clipboard",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/clipboard.hibr",
-      "sha256": "3cff2098887831094804c043369d675f70e3760e61a5b0b4f6932731b9af93e4",
+      "sha256": "0b8b5ab83bca12c5ffba9763bd9e5f7293c9ad071d876cea589d6ac743238f7b",
       "about": "The clipboard's history: copy something back, pin it, keep it\n\nthe clipboard's history, newest first (wm/clip.hibr keeps it). Each line is when it was copied, a ★ if pinned, a • on what is on the clipboard now, and the start of the text. Enter makes the selected one the clipboard again; p pins it, so it is never dropped; delete takes it away. A paste into this window -- alt-v, or the machine's own -- keeps what was pasted, to come back to later; Copy takes the selected one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "clipboard",
-      "hibr": "0.99.258",
+      "hibr": "0.99.336",
       "parts": [
         {
           "kind": "control-panel",
@@ -507,15 +507,15 @@
     },
     "system/tasks": {
       "title": "Task Manager",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "4d2dcf7caca71775fb76b7ee7d3c695c2c0b6b78128ca3aeaab26e3613f525ae",
+      "sha256": "4d9f1750cc46bad9b2b7b69442d5cbc3f30a80935fbcab49b50a8fc439e53dd6",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tasks",
-      "hibr": "0.99.296",
+      "hibr": "0.99.336",
       "parts": [
         {
           "kind": "control-panel",
@@ -527,15 +527,15 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "ecf7b736ebf39b69f4655e4ad7cdfe3ca4383aefbb5e698f23b3c29803731ec5",
+      "sha256": "cf91ae8b2af046ddcf41de2bb4b7132a8415257b46331c0f58c95d812fe58de7",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.315",
+      "hibr": "0.99.336",
       "parts": [
         {
           "kind": "control-panel",
@@ -547,15 +547,15 @@
     },
     "system/catalogue": {
       "title": "Catalogue",
-      "version": "2.5",
+      "version": "2.6",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "6dc2d3b2f4d2a330ac76a0d86761b0607b8ac3f2aa15e299ac84a4938bc855f5",
+      "sha256": "7cfec410059a289e5380af1b434004263aa72b2a2999e620ce7fc57cdd2f9fd3",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "catalogue",
-      "hibr": "0.99.299"
+      "hibr": "0.99.336"
     },
     "control-panel/aboutme": {
       "title": "About Me",
@@ -1201,15 +1201,15 @@
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "8364fc314c9a1b880f92ef0b0d1e5ef6c02d0c56682a4abf9fd270126bcd49e4",
+      "sha256": "ac292bd1e82025958d7c1c91f20db0526ffaf30b9dffcca47cfd2506bc0e5471",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.299",
+      "hibr": "0.99.336",
       "modules": "dav db pim"
     },
     "xscreen": {
@@ -1227,15 +1227,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "2.1",
+      "version": "2.2",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "337c992ce409ecb37d90a319fa9662c9925ce7b179b586b040fc3e774fb712a5",
+      "sha256": "074f5119c74f1aa338b85b772e43c3e57ce141bac428953cb6bcdfa164596394",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.300"
+      "hibr": "0.99.336"
     },
     "term": {
       "title": "Terminal",
@@ -1252,15 +1252,15 @@
     },
     "calendar": {
       "title": "Calendar",
-      "version": "1.7",
+      "version": "1.8",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "faa408b37abbe21bd7a6b5e9a5c9abf571b895c8df1ae6bb9827f4ec145b321d",
+      "sha256": "758f24be8c503f41ac56ae0941abada98badeb01c0c277a05fa8faf0a0153b59",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.299",
+      "hibr": "0.99.336",
       "modules": "dav db email pim"
     },
     "stickies": {
@@ -1393,15 +1393,15 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "2.0",
+      "version": "2.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "00af845499b2dd78fa32af4fcce67cabf2f73247991c0f7a07f5d03137ee46fb",
+      "sha256": "0ddeb3a34c7ff7f25c52609c601a609fece979e329cbc0533c5b73ea8bcee7fb",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.300",
+      "hibr": "0.99.336",
       "modules": "db email html img",
       "dir": "Internet"
     },
@@ -1516,15 +1516,15 @@
     },
     "modman": {
       "title": "Modules",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/modman.hibr",
-      "sha256": "6400d976d94db4e6d074701058681b71182e969d693c30a46a756c738d6f715b",
+      "sha256": "12d26f383d6217783a42d07913d91bd132dac3ee46602e492c11810eb894faa0",
       "about": "What this shell can load, what it has loaded, and a way to change either\n\nModules: what this shell can load, what it has loaded, and a way to change either (#133).\n\nEverything here is `mod avail`'s own answer: it walks the module path and reads each object's descriptor *without calling its init*, so a module can be named, versioned and described before it is ever loaded. In a pipe that answer is one line of eight tab-separated fields per module, which is what this reads -- never the column form, which is for a person.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "modman",
-      "hibr": "0.99.258"
+      "hibr": "0.99.336"
     },
     "about": {
       "title": "About This Computer",
@@ -1540,51 +1540,51 @@
     },
     "clipboard": {
       "title": "Clipboard",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "system",
       "bundle": "bundles/system/clipboard.hibr",
-      "sha256": "3cff2098887831094804c043369d675f70e3760e61a5b0b4f6932731b9af93e4",
+      "sha256": "0b8b5ab83bca12c5ffba9763bd9e5f7293c9ad071d876cea589d6ac743238f7b",
       "about": "The clipboard's history: copy something back, pin it, keep it\n\nthe clipboard's history, newest first (wm/clip.hibr keeps it). Each line is when it was copied, a ★ if pinned, a • on what is on the clipboard now, and the start of the text. Enter makes the selected one the clipboard again; p pins it, so it is never dropped; delete takes it away. A paste into this window -- alt-v, or the machine's own -- keeps what was pasted, to come back to later; Copy takes the selected one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "clipboard",
-      "hibr": "0.99.258"
+      "hibr": "0.99.336"
     },
     "tasks": {
       "title": "Task Manager",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "4d2dcf7caca71775fb76b7ee7d3c695c2c0b6b78128ca3aeaab26e3613f525ae",
+      "sha256": "4d9f1750cc46bad9b2b7b69442d5cbc3f30a80935fbcab49b50a8fc439e53dd6",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tasks",
-      "hibr": "0.99.296"
+      "hibr": "0.99.336"
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "ecf7b736ebf39b69f4655e4ad7cdfe3ca4383aefbb5e698f23b3c29803731ec5",
+      "sha256": "cf91ae8b2af046ddcf41de2bb4b7132a8415257b46331c0f58c95d812fe58de7",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.315"
+      "hibr": "0.99.336"
     },
     "catalogue": {
       "title": "Catalogue",
-      "version": "2.5",
+      "version": "2.6",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "6dc2d3b2f4d2a330ac76a0d86761b0607b8ac3f2aa15e299ac84a4938bc855f5",
+      "sha256": "7cfec410059a289e5380af1b434004263aa72b2a2999e620ce7fc57cdd2f9fd3",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "catalogue",
-      "hibr": "0.99.299"
+      "hibr": "0.99.336"
     },
     "aboutme": {
       "title": "About Me",

@@ -112,12 +112,12 @@ ENTHIBR["apps/youtube"]=0.99.258
 # widget library (Gitea #298). The 0.99.258 lines above are the same.
 ENTHIBR["apps/term"]=0.99.303
 ENTHIBR["apps/diagram"]=0.99.258
-ENTHIBR["system/modman"]=0.99.258
+ENTHIBR["system/modman"]=0.99.336
 ENTHIBR["system/about"]=0.99.258
-ENTHIBR["system/clipboard"]=0.99.258
+ENTHIBR["system/clipboard"]=0.99.336
 # Notifications 1.3 brings its pane 1.2, whose List From and per-sender rows
 # read DT_NOTELIST and DT_NOTEAPP: the window manager has them from 0.99.315.
-ENTHIBR["system/notifications"]=0.99.315
+ENTHIBR["system/notifications"]=0.99.336
 # It calls `web sound`, which an older web module does not have (Gitea #305).
 ENTHIBR["apps/browser"]=0.99.263
 # It acts through wm/sound.hibr, which an older desktop does not have (Gitea #306);
@@ -166,7 +166,7 @@ ENTHIBR["control-panel/desktop"]=0.99.293
 # About 1.3 and Task Manager 1.4 read CPU and memory through
 # lib/sysstat.hibr, which an older desktop does not have (hibr Gitea #354).
 ENTHIBR["system/about"]=0.99.296
-ENTHIBR["system/tasks"]=0.99.296
+ENTHIBR["system/tasks"]=0.99.336
 # Mouse 1.2 has Wheel Scrolls, kept through DT_KEEP's DT_SCROLLWHEEL, and
 # Files 1.8 names its paste copies by wm/jobs.hibr's DTJ_N (hibr Gitea
 # #357); both need what 0.99.297 brings.
@@ -180,18 +180,18 @@ ENTHIBR["control-panel/blit"]=0.99.297
 # and the desktop's own runners moved onto in 0.99.299 (hibr Gitea #357);
 # none of them keeps the runner it used to carry.
 ENTHIBR["apps/mail"]=0.99.299
-ENTHIBR["apps/calendar"]=0.99.299
-ENTHIBR["apps/contacts"]=0.99.299
-ENTHIBR["system/catalogue"]=0.99.299
+ENTHIBR["apps/calendar"]=0.99.336
+ENTHIBR["apps/contacts"]=0.99.336
+ENTHIBR["system/catalogue"]=0.99.336
 # Copy, Cut and Paste in a focused field are the desktop's own from
 # 0.99.300 (hibr Gitea #357 part 3), and these no longer carry their own:
 # without it their fields would have none.
 ENTHIBR["apps/browser"]=0.99.300
-ENTHIBR["apps/mail"]=0.99.300
+ENTHIBR["apps/mail"]=0.99.336
 ENTHIBR["apps/dbase"]=0.99.300
 ENTHIBR["apps/sheet"]=0.99.300
 ENTHIBR["apps/write"]=0.99.300
-ENTHIBR["apps/files"]=0.99.300
+ENTHIBR["apps/files"]=0.99.336
 ENTHIBR["apps/xscreen"]=0.99.300
 ENTHIBR["control-panel/datetime"]=0.99.300
 ENTHIBR["control-panel/filetypes"]=0.99.300
