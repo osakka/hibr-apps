@@ -76,15 +76,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "2.2",
+      "version": "2.3",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "074f5119c74f1aa338b85b772e43c3e57ce141bac428953cb6bcdfa164596394",
+      "sha256": "39efcb98895e7762c6522b285d7b21f91e2126e23b1a08048d35a9bc24bda6a4",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.336",
+      "hibr": "0.99.341",
       "parts": [
         {
           "kind": "control-panel",
@@ -641,15 +641,15 @@
     },
     "control-panel/desktop": {
       "title": "Desktop",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "41ad5f282c0eb48f9ef9eb0741b394652dca03e40689a4531c733c376ea59761",
+      "sha256": "6e281dd858592af22a2a45c0ebf8cbba12b6fa7e3b22a3977504b88cf0b1e0a4",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "desktop",
-      "hibr": "0.99.293"
+      "hibr": "0.99.341"
     },
     "control-panel/mouse": {
       "title": "Mouse",
@@ -713,15 +713,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.5",
+      "version": "2.6",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "651b7f54a4c9414dc4fed8dc016f92a04683d9428be2e82c776b62c81619c667",
+      "sha256": "5dc4b091421e85cb8a3b556eb5535b417a60623525fac02c3668c63a473c3ff5",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.340"
+      "hibr": "0.99.341"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -1287,15 +1287,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "2.2",
+      "version": "2.3",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "074f5119c74f1aa338b85b772e43c3e57ce141bac428953cb6bcdfa164596394",
+      "sha256": "39efcb98895e7762c6522b285d7b21f91e2126e23b1a08048d35a9bc24bda6a4",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.336"
+      "hibr": "0.99.341"
     },
     "term": {
       "title": "Terminal",
@@ -1718,15 +1718,15 @@
     },
     "desktop": {
       "title": "Desktop",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "41ad5f282c0eb48f9ef9eb0741b394652dca03e40689a4531c733c376ea59761",
+      "sha256": "6e281dd858592af22a2a45c0ebf8cbba12b6fa7e3b22a3977504b88cf0b1e0a4",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "desktop",
-      "hibr": "0.99.293"
+      "hibr": "0.99.341"
     },
     "mouse": {
       "title": "Mouse",
@@ -1790,15 +1790,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.5",
+      "version": "2.6",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "651b7f54a4c9414dc4fed8dc016f92a04683d9428be2e82c776b62c81619c667",
+      "sha256": "5dc4b091421e85cb8a3b556eb5535b417a60623525fac02c3668c63a473c3ff5",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.340"
+      "hibr": "0.99.341"
     },
     "versions": {
       "title": "Versions",

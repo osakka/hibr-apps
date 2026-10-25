@@ -151,7 +151,7 @@ ENTHIBR["control-panel/appearance"]=0.99.287
 # manager of 0.99.316 draws; Charcoal is that frame and those settings, so it
 # needs the same release. Its colours read anywhere: an older desktop takes
 # no notice of titlebar and titleink.
-ENTHIBR["control-panel/appearance"]=0.99.340
+ENTHIBR["control-panel/appearance"]=0.99.341
 ENTHIBR["control-panel/windows"]=0.99.327
 ENTHIBR["themes/charcoal"]=0.99.327
 # The PDF Reader draws through the pdf module, which 0.99.292 brings (hibr
@@ -162,7 +162,7 @@ ENTHIBR["apps/pdfr"]=0.99.292
 ENTHIBR["apps/files"]=0.99.274
 # Desktop 1.2 has Icon Background, which DT_ICONBG and dt_iconpix draw
 # (hibr Gitea #349).
-ENTHIBR["control-panel/desktop"]=0.99.293
+ENTHIBR["control-panel/desktop"]=0.99.341
 # About 1.3 and Task Manager 1.4 read CPU and memory through
 # lib/sysstat.hibr, which an older desktop does not have (hibr Gitea #354).
 ENTHIBR["system/about"]=0.99.296
@@ -191,7 +191,7 @@ ENTHIBR["apps/mail"]=0.99.336
 ENTHIBR["apps/dbase"]=0.99.300
 ENTHIBR["apps/sheet"]=0.99.300
 ENTHIBR["apps/write"]=0.99.300
-ENTHIBR["apps/files"]=0.99.336
+ENTHIBR["apps/files"]=0.99.341
 ENTHIBR["apps/xscreen"]=0.99.300
 ENTHIBR["control-panel/datetime"]=0.99.300
 ENTHIBR["control-panel/filetypes"]=0.99.300
