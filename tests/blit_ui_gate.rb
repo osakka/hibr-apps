@@ -9,6 +9,8 @@ require 'fileutils'
 require 'open3'
 ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
+# Blit's own mocked display (native KMS on its DRM mock; ADR 0184).
+require File.join(BLIT,'tools/tests/gate_server')
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
 EXPECTED_VERSION=ENV.fetch('BLIT_EXPECTED_VERSION'){File.read(File.join(BLIT,'packaging/VERSION')).strip}
 PANE=ENV.fetch('BLIT_PANEL_UI_PANE','blit')
@@ -50,10 +52,9 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     dt_run
     dt_close
   HIBR
-  env={'SDL_VIDEODRIVER'=>'dummy','BLIT_RENDERER'=>'software','BLIT_LOGIN_AUTOSTART'=>'0','BLIT_AUTH_TOKEN'=>'',
+  env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0','BLIT_AUTH_TOKEN'=>'',
        'BLIT_PSF_FONT'=>ENV.fetch('BLIT_GATE_FONT',File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf')),
-       'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input'),
-       'LD_LIBRARY_PATH'=>File.join(BLIT,'build/sdl3-kms')}
+       'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input')}
   log=File.join(root,'server.log')
   pid=spawn(env,BINARY,PORT.to_s,out:log,err:[:child,:out])
   session=nil
@@ -182,7 +183,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       await('mouse pane actual save action'){req('GET','/v1/settings').dig('effective','pointer','size_px')==64}
       raise 'popup selected next option instead of precision' unless req('GET','/v1/settings').dig('effective','pointer','shape')=='precision'
       capture.call('mouse-saved')
-      puts "BLIT_MOUSE_UI_PASS library=installed_hibr renderer=sdl_software pane=shared_bundle size=actual_pointer64 save=actual_click screenshots=#{output}"
+      puts "BLIT_MOUSE_UI_PASS library=installed_hibr display=kms_mock pane=shared_bundle size=actual_pointer64 save=actual_click screenshots=#{output}"
     else
     input.call("\r")
     await('connection dialog from real keyboard input'){text.call.include?('Blit Connection')}
@@ -212,7 +213,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
     capture.call('font-size-keyboard-step')
     dropdown.call('Fallback','first_available','wait')
-    puts "BLIT_UI_PASS library=installed_hibr renderer=sdl_software font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
+    puts "BLIT_UI_PASS library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception
     File.write(File.join(output,'failure.txt'),text.call) rescue nil

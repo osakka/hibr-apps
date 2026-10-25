@@ -1,5 +1,16 @@
 # Blit Control Panel
 
+## Native KMS only (pane0.1.13)
+
+Blit 0.2.22 removes SDL (Blit ADR 0184): native KMS is its only presentation
+path. The Presentation section drops the rows that described SDL -- Requested
+backend, Active renderer, SDL video driver and Restart required -- and keeps
+Active backend, Backend source and Startup default; Rendering still says
+whether the GPU or the CPU draws each display. An invalid startup default now
+reads `Invalid; display disabled`. `blit_panel_gate` asserts the SDL rows are
+gone, and the Blit gates run against Blit's own DRM mock instead of SDL's dummy
+driver.
+
 ## Rendering (pane0.1.12)
 
 The Presentation section gains **Rendering**: one line per display saying what
@@ -35,9 +46,8 @@ startup-default validity and pending restart. Older servers show `Not reported
 by server` where provenance is unavailable, rather than guessing.
 
 Saved API settings own presentation intent. `BLIT_DISPLAY_BACKEND=kms` is a
-startup fallback, not an override; `kmsdrm` is only an SDL video-driver value.
-The panel does not create a competing backend preference store. On native KMS,
-an SDL renderer preference can remain saved without being active.
+startup fallback, not an override. The panel does not create a competing
+backend preference store. (Since pane 0.1.13 the SDL rows are gone; see above.)
 See [ADR0006](adr/0006-blit-presentation-source-is-read-only.md).
 
 2026-10-19 verification: actual callbacks pass against563 and561 fallback;

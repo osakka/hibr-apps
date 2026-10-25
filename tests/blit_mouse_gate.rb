@@ -8,6 +8,8 @@ require 'json'
 require 'net/http'
 ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
+# Blit's own mocked display (native KMS on its DRM mock; ADR 0184).
+require File.join(BLIT,'tools/tests/gate_server')
 PORT=Integer(ENV.fetch('BLIT_MOUSE_GATE_PORT','19520'))
 Dir.mktmpdir('blit-mouse') do |root|
   input=File.join(root,'input');Dir.mkdir(input)
@@ -15,10 +17,9 @@ Dir.mktmpdir('blit-mouse') do |root|
     File.write(File.join(input,"event#{i}"),'')
     File.write(File.join(input,"event#{i}.identity"),"bustype=3\nvendor=046d\nproduct=c52#{i}\nversion=0111\nphys=usb-0000:00:14.0-#{i}/input0\nname=Pointer #{i}\nkinds=#{i==0 ? 'keyboard,pointer' : 'pointer'}\ncapabilities=rel-x,rel-y,buttons,keys#{i==1 ? ',touchpad' : ''}\n")
   end
-  env={'SDL_VIDEODRIVER'=>'dummy','BLIT_RENDERER'=>'software','BLIT_LOGIN_AUTOSTART'=>'0',
+  env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0',
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>input,
-       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf'),
-       'LD_LIBRARY_PATH'=>File.join(BLIT,'build/sdl3-kms')}
+       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf')}
   pid=spawn(env,ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server')),PORT.to_s,out:File.join(root,'server.log'),err:[:child,:out])
   begin
     Timeout.timeout(10){loop{begin;s=TCPSocket.new('127.0.0.1',PORT);s.close;break;rescue Errno::ECONNREFUSED;sleep 0.05;end}}

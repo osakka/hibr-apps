@@ -9,6 +9,8 @@ require 'socket'
 ROOT=File.expand_path('..',__dir__)
 BUNDLE=ENV.fetch('BLIT_PANEL_BUNDLE',File.join(ROOT,'bundles/control-panel/blit.hibr'))
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
+# Blit's own mocked display (native KMS on its DRM mock; ADR 0184).
+require File.join(BLIT,'tools/tests/gate_server')
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
 PORT=Integer(ENV.fetch('BLIT_PANEL_GATE_PORT','19495'))
 abort('panel gate port occupied') unless begin s=TCPServer.new('127.0.0.1',PORT);s.close;true;rescue Errno::EADDRINUSE;false;end
@@ -23,10 +25,10 @@ end
 Dir.mktmpdir('blit-panel') do |root|
   Dir.mkdir(File.join(root,'input'))
   log=File.join(root,'server.log')
-  env={'SDL_VIDEODRIVER'=>'dummy','BLIT_RENDERER'=>'software','BLIT_LOGIN_AUTOSTART'=>'0','BLIT_PANE_LAYOUT'=>'1x2',
+  env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0','BLIT_PANE_LAYOUT'=>'1x2',
        'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf'),
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input'),
-       'BLIT_AUTH_TOKEN'=>'panel-test-token','LD_LIBRARY_PATH'=>File.join(BLIT,'build/sdl3-kms')}
+       'BLIT_AUTH_TOKEN'=>'panel-test-token'}
   pid=spawn(env,BINARY,PORT.to_s,out:log,err:[:child,:out])
   begin
     Timeout.timeout(10) do
@@ -92,23 +94,26 @@ Dir.mktmpdir('blit-panel') do |root|
       done
       [ "$font_size_found" = 1 ] || { echo 'pixel font size control missing' >&2; exit 41; }
       expected_source=${BCP_SNAPSHOT[settings][effective][presentation_configuration][backend_source]:-"Not reported by server"}
-      i=0; source_found=0; driver_found=0
+      i=0; source_found=0; sdl_rows=0
       while [ "$i" -lt "$n" ]; do
           if [ "${CP[44][$i][text]}" = "Backend source" ]; then
               [ "${CP[44][$i][val]}" = "$expected_source" ] || exit 51
               source_found=1
           fi
-          [ "${CP[44][$i][text]}" != "SDL video driver" ] || driver_found=1
+          case "${CP[44][$i][text]}" in
+          "SDL video driver"|"Active renderer"|"Requested backend"|"Restart required") sdl_rows=$((sdl_rows + 1)) ;;
+          esac
           i=$((i + 1))
       done
-      [ "$source_found" = 1 ] && [ "$driver_found" = 1 ] || exit 52
+      # Blit 0.2.22 (ADR 0184): native KMS only, so no SDL renderer/driver rows.
+      [ "$source_found" = 1 ] && [ "$sdl_rows" = 0 ] || exit 52
       provenance := json get BCP_SNAPSHOT .settings.effective.presentation_configuration
-      json parse 'BCP_SNAPSHOT[settings][effective][presentation_configuration]' '{"backend_source":"saved-settings","backend_environment_valid":false,"backend_environment_overridden":true}'
+      json parse 'BCP_SNAPSHOT[settings][effective][presentation_configuration]' '{"backend_source":"saved-settings","backend_environment_valid":false}'
       n := blit_rows 999999
       i=0; invalid_found=0
       while [ "$i" -lt "$n" ]; do
           if [ "${CP[999999][$i][text]}" = "Startup default" ]; then
-              [ "${CP[999999][$i][val]}" = "Invalid; saved settings win" ] || exit 53
+              [ "${CP[999999][$i][val]}" = "Invalid; display disabled" ] || exit 53
               invalid_found=1
           fi
           i=$((i + 1))
@@ -116,8 +121,8 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "$invalid_found" = 1 ] || exit 54
       json parse 'BCP_SNAPSHOT[settings][effective][presentation_configuration]' "$provenance"
       # Rendering: what draws each display, from the diagnostics the
-      # snapshot carries. The gate server is SDL, so the native states are
-      # injected the same way as the provenance above.
+      # snapshot carries. The gate server's mocked display composes on the
+      # CPU, so the other states are injected the same way as above.
       rendering := json get BCP_SNAPSHOT .diagnostics.render.outputs
       json parse 'BCP_SNAPSHOT[diagnostics][render][outputs]' '[{"display_id":"display-93","compositor":{"active":"gles","requested":"gles","reason":"","renderer":"AMD Radeon Graphics (radeonsi, rembrandt) | OpenGL ES 3.2 Mesa 25.0.7"}},{"display_id":"display-102","compositor":{"active":"cpu","requested":"gles","reason":"no GBM scanout surface for the output","renderer":""}},{"display_id":"display-7","compositor":{"active":"cpu","requested":"cpu","reason":"","renderer":""}}]'
       n := blit_rows 999999
@@ -147,7 +152,7 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_do 44 frame_timing 1
       [ "${BCP_DRAFT[server][kms_frame_timing]}" = late ] || { echo 'frame timing does not step' >&2; exit 66; }
       blit_cp_choose frame_timing immediate
-      output=${BCP_SNAPSHOT[displays][displays][0][name]}
+      output=${BCP_SNAPSHOT[displays][displays][0][state][connector]:-${BCP_SNAPSHOT[displays][displays][0][name]}}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2
       [ "${BCP_DRAFT[display_layouts][$output][columns]}" = 3 ] &&
@@ -195,7 +200,7 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "$BCP_BUSY" = 0 ] || { echo 'search scratch rows launched a request' >&2; exit 25; }
       BCP_NEXT=$((EPOCHSECONDS + 15))
       base=$BCP_BASE_REV
-      output=${BCP_SNAPSHOT[displays][displays][0][name]}
+      output=${BCP_SNAPSHOT[displays][displays][0][state][connector]:-${BCP_SNAPSHOT[displays][displays][0][name]}}
       blit_cp_toggle "$output" 1
       [ "${BCP_DRAFT[auxiliary_displays][0][output]}" = "$output" ] || exit 2
       blit_do 44 apply 1
