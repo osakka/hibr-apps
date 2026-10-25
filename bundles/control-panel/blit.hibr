@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.11
+app blit "API configuration and diagnostics for the Blit display server" 0.1.12
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -503,8 +503,47 @@ fn blit_rows(int w) {
     fi
     blit_cp_row "$w" "$n" info "Startup default" "$startup"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Restart required" "${BCP_SNAPSHOT[settings][effective][presentation_restart_required]}"; n=$((n + 1))
+    n := blit_cp_rendering_rows "$w" "$n"
     blit_cp_row "$w" "$n" action "Export staged configuration" "" export; n=$((n + 1))
     blit_cp_row "$w" "$n" action "Import configuration (stage only)" "" import; n=$((n + 1))
+    ret "$n"
+}
+
+# What draws each display's frames (Blit 0.2.9+, ADR 0181): the GPU through
+# GLES, or the CPU compositor (software); with why, when the GPU was asked
+# for and is not drawing. Then the two settings that choose it: the
+# compositor (saved, applies at Blit's next restart) and frame timing
+# (0.2.20+, applies as soon as it is saved). A server that does not report
+# a setting shows no control for it.
+fn blit_cp_rendering_rows(int w, int n) {
+    local i=0 id active requested reason renderer text value
+    blit_cp_row "$w" "$n" head "Rendering"; n=$((n + 1))
+    while [ -n "${BCP_SNAPSHOT[diagnostics][render][outputs][$i][display_id]}" ]; do
+        id=${BCP_SNAPSHOT[diagnostics][render][outputs][$i][display_id]}
+        active=${BCP_SNAPSHOT[diagnostics][render][outputs][$i][compositor][active]}
+        requested=${BCP_SNAPSHOT[diagnostics][render][outputs][$i][compositor][requested]}
+        reason=${BCP_SNAPSHOT[diagnostics][render][outputs][$i][compositor][reason]}
+        renderer=${BCP_SNAPSHOT[diagnostics][render][outputs][$i][compositor][renderer]}
+        renderer=${renderer%% (*}; renderer=${renderer%% |*}
+        case $active in
+        gles) text="GPU (GLES)"; [ -z "$renderer" ] || text="$text: $renderer" ;;
+        cpu) text="Software (CPU)"
+             if [ "$requested" = gles ] && [ -n "$reason" ] && [ "$reason" != null ]; then
+                 text="$text; GPU unavailable: $reason"
+             fi ;;
+        sdl) text="SDL renderer" ;;
+        *) text="Not reported by server" ;;
+        esac
+        blit_cp_row "$w" "$n" info "$id" "$text"; n=$((n + 1)); i=$((i + 1))
+    done
+    value=${BCP_SNAPSHOT[settings][effective][kms_compositor]}
+    if [ -n "$value" ] && [ "$value" != null ]; then
+        blit_cp_row "$w" "$n" set "Compositor (save, then restart)" "${BCP_DRAFT[server][kms_compositor]:-$value}" compositor; n=$((n + 1))
+    fi
+    value=${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}
+    if [ -n "$value" ] && [ "$value" != null ]; then
+        blit_cp_row "$w" "$n" set "Frame timing (Save applies)" "${BCP_DRAFT[server][kms_frame_timing]:-$value}" frame_timing; n=$((n + 1))
+    fi
     ret "$n"
 }
 
@@ -522,6 +561,12 @@ fn blit_cp_choices(key) {
         BCP_CHOICE_CURRENT=${BCP_DRAFT[login][preferred_pane_id]:-auto}
         [ "$BCP_CHOICE_CURRENT" != null ] || BCP_CHOICE_CURRENT=auto ;;
     fallback) BCP_CHOICES=(first_available wait); BCP_CHOICE_CURRENT=${BCP_DRAFT[login][fallback]:-first_available} ;;
+    compositor)
+        BCP_CHOICES=(gles cpu)
+        BCP_CHOICE_CURRENT=${BCP_DRAFT[server][kms_compositor]:-${BCP_SNAPSHOT[settings][effective][kms_compositor]}} ;;
+    frame_timing)
+        BCP_CHOICES=(late immediate)
+        BCP_CHOICE_CURRENT=${BCP_DRAFT[server][kms_frame_timing]:-${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}} ;;
     font)
         while [ -n "${BCP_SNAPSHOT[fonts][profiles][$i][id]}" ]; do
             [ "${BCP_SNAPSHOT[fonts][profiles][$i][available]}" != true ] || BCP_CHOICES+=("${BCP_SNAPSHOT[fonts][profiles][$i][id]}")
@@ -565,6 +610,8 @@ fn blit_cp_choose(key, value) {
         else json set BCP_DRAFT .login.preferred_pane_id "$value" -s; fi
         BCP_DIRTY=1 ;;
     fallback) json set BCP_DRAFT .login.fallback "$value" -s; BCP_DIRTY=1 ;;
+    compositor) json set BCP_DRAFT .server.kms_compositor "$value" -s; BCP_DIRTY=1 ;;
+    frame_timing) json set BCP_DRAFT .server.kms_frame_timing "$value" -s; BCP_DIRTY=1 ;;
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
@@ -601,7 +648,7 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary | fallback | font)
+    primary | fallback | font | compositor | frame_timing)
         blit_cp_choices "$key"
         [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
         value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"

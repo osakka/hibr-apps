@@ -1,5 +1,18 @@
 # Blit Control Panel
 
+## Rendering (pane0.1.12)
+
+The Presentation section gains **Rendering**: one line per display saying what
+draws its frames, from `render.outputs[].compositor` in Blit's diagnostics --
+`GPU (GLES): <renderer>` or `Software (CPU)`, with the reason when the GPU was
+requested and is not drawing (Blit ADR 0181). Two settings follow, staged like
+the rest and written by Save as Default: **Compositor** (`gles`/`cpu`,
+`server.kms_compositor`, applies at Blit's next restart) and **Frame timing**
+(`immediate`/`late`, `server.kms_frame_timing`, Blit 0.2.20+, applies when
+saved; Blit ADR 0183). A server that does not report a setting shows no control
+for it. `blit_panel_gate` covers the GPU, software and fallback lines, both
+selectors (invalid values ignored, keyboard stepping) and that Save writes them.
+
 ## Native dropdown menus (pane0.1.8)
 
 Clicking the value/caret opens Hibr's native popup for primary pane, fallback,

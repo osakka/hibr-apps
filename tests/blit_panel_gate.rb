@@ -115,6 +115,38 @@ Dir.mktmpdir('blit-panel') do |root|
       done
       [ "$invalid_found" = 1 ] || exit 54
       json parse 'BCP_SNAPSHOT[settings][effective][presentation_configuration]' "$provenance"
+      # Rendering: what draws each display, from the diagnostics the
+      # snapshot carries. The gate server is SDL, so the native states are
+      # injected the same way as the provenance above.
+      rendering := json get BCP_SNAPSHOT .diagnostics.render.outputs
+      json parse 'BCP_SNAPSHOT[diagnostics][render][outputs]' '[{"display_id":"display-93","compositor":{"active":"gles","requested":"gles","reason":"","renderer":"AMD Radeon Graphics (radeonsi, rembrandt) | OpenGL ES 3.2 Mesa 25.0.7"}},{"display_id":"display-102","compositor":{"active":"cpu","requested":"gles","reason":"no GBM scanout surface for the output","renderer":""}},{"display_id":"display-7","compositor":{"active":"cpu","requested":"cpu","reason":"","renderer":""}}]'
+      n := blit_rows 999999
+      i=0; seen=0
+      while [ "$i" -lt "$n" ]; do
+          case "${CP[999999][$i][text]}" in
+          display-93) [ "${CP[999999][$i][val]}" = "GPU (GLES): AMD Radeon Graphics" ] || { echo "gpu row: ${CP[999999][$i][val]}" >&2; exit 60; }; seen=$((seen + 1)) ;;
+          display-102) [ "${CP[999999][$i][val]}" = "Software (CPU); GPU unavailable: no GBM scanout surface for the output" ] || { echo "fallback row: ${CP[999999][$i][val]}" >&2; exit 61; }; seen=$((seen + 1)) ;;
+          display-7) [ "${CP[999999][$i][val]}" = "Software (CPU)" ] || exit 62; seen=$((seen + 1)) ;;
+          esac
+          i=$((i + 1))
+      done
+      [ "$seen" = 3 ] || { echo "rendering rows missing ($seen)" >&2; exit 63; }
+      json parse 'BCP_SNAPSHOT[diagnostics][render][outputs]' "$rendering"
+      i=0; compositor_row=0; timing_row=0
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[999999][$i][key]}" != compositor ] || compositor_row=1
+          [ "${CP[999999][$i][key]}" != frame_timing ] || timing_row=1
+          i=$((i + 1))
+      done
+      [ "$compositor_row" = 1 ] && [ "$timing_row" = 1 ] || { echo 'compositor/frame timing controls missing' >&2; exit 64; }
+      blit_cp_choose compositor cpu
+      blit_cp_choose compositor opengl
+      blit_cp_choose frame_timing immediate
+      blit_cp_choose frame_timing soon
+      [ "${BCP_DRAFT[server][kms_compositor]}" = cpu ] && [ "${BCP_DRAFT[server][kms_frame_timing]}" = immediate ] || { echo 'rendering choices not staged' >&2; exit 65; }
+      blit_do 44 frame_timing 1
+      [ "${BCP_DRAFT[server][kms_frame_timing]}" = late ] || { echo 'frame timing does not step' >&2; exit 66; }
+      blit_cp_choose frame_timing immediate
       output=${BCP_SNAPSHOT[displays][displays][0][name]}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2
@@ -123,6 +155,8 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_do 44 save 1
       finish
       [ "${BCP_SNAPSHOT[settings][document][display_layouts][$output][columns]}" = 3 ] || exit 32
+      [ "${BCP_SNAPSHOT[settings][document][server][kms_compositor]}" = cpu ] || { echo 'compositor not saved' >&2; exit 67; }
+      [ "${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}" = immediate ] || { echo 'frame timing not applied' >&2; exit 68; }
       BCP_TOKEN=panel-test-token
       blit_cp_credentials 0 || { echo 'credential save failed' >&2; exit 33; }
       cp_save
