@@ -207,6 +207,7 @@ ENTHIBR["control-panel/power"]=0.99.307
 # after: the apps ask `web caps` (0.99.317), and Web Apps need an engine that lists `profiles`
 # (hibr-browser 0.3.0), which they ask for before offering anything.
 ENTHIBR["apps/browser"]=0.99.325
+ENTHIBR["apps/browser"]=0.99.332   # Browser 2.6 passes dt_filepick an oncancel (0.99.332)
 ENTHIBR["apps/youtube"]=0.99.325
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
