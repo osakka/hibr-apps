@@ -151,9 +151,9 @@ ENTHIBR["control-panel/appearance"]=0.99.287
 # manager of 0.99.316 draws; Charcoal is that frame and those settings, so it
 # needs the same release. Its colours read anywhere: an older desktop takes
 # no notice of titlebar and titleink.
-ENTHIBR["control-panel/appearance"]=0.99.324
-ENTHIBR["control-panel/windows"]=0.99.324
-ENTHIBR["themes/charcoal"]=0.99.324
+ENTHIBR["control-panel/appearance"]=0.99.327
+ENTHIBR["control-panel/windows"]=0.99.327
+ENTHIBR["themes/charcoal"]=0.99.327
 # The PDF Reader draws through the pdf module, which 0.99.292 brings (hibr
 # Gitea #348).
 ENTHIBR["apps/pdfr"]=0.99.292

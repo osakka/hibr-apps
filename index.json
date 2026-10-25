@@ -647,15 +647,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "6874453fbaa7280c2affa02779986c09c6cbfd76c5c25b964379d3293d422813",
+      "sha256": "4110cd1d48dd0f248cc8ec189913aefea45696cfdaeabca67761eaf9f8160130",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.324"
+      "hibr": "0.99.327"
     },
     "control-panel/power": {
       "title": "Power",
@@ -695,15 +695,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.3",
+      "version": "2.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "91bcd54c0d6050a1f285c0d717b9381193d5bf1ce1ecc0273e560fa99adbdbda",
+      "sha256": "00c16625d70802b806edc591cf1a0829f12f2899f838e951d0f8d62f1049f6eb",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.324"
+      "hibr": "0.99.327"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -933,15 +933,15 @@
     },
     "themes/charcoal": {
       "title": "Charcoal",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "themes",
       "bundle": "bundles/themes/charcoal.json",
-      "sha256": "dc4c3ed81e95f81e81e730bbddfec3e38c14468087a91eeaada8e7869da5a0a0",
+      "sha256": "1069aaef1e8cbef8af963e39a0d4cce2f9acc29908f01054ca5b10de67f7050a",
       "about": "Modern and quiet: a charcoal title bar, its top corners curved where the glyphs have them, and no other frame, content to the edge, coloured buttons on the left, and windows and the menu bar the wallpaper shows through.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "charcoal",
-      "hibr": "0.99.324",
+      "hibr": "0.99.327",
       "parts": [
         {
           "kind": "themes",
@@ -1676,15 +1676,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "6874453fbaa7280c2affa02779986c09c6cbfd76c5c25b964379d3293d422813",
+      "sha256": "4110cd1d48dd0f248cc8ec189913aefea45696cfdaeabca67761eaf9f8160130",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.324"
+      "hibr": "0.99.327"
     },
     "power": {
       "title": "Power",
@@ -1724,15 +1724,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.3",
+      "version": "2.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "91bcd54c0d6050a1f285c0d717b9381193d5bf1ce1ecc0273e560fa99adbdbda",
+      "sha256": "00c16625d70802b806edc591cf1a0829f12f2899f838e951d0f8d62f1049f6eb",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.324"
+      "hibr": "0.99.327"
     },
     "versions": {
       "title": "Versions",
