@@ -202,6 +202,13 @@ ENTHIBR["control-panel/filetypes"]=0.99.300
 # needs through nmcli --ask on a pty, which 0.99.301 brings (hibr #369).
 ENTHIBR["control-panel/networks"]=0.99.301
 ENTHIBR["control-panel/power"]=0.99.307
+# Network, Sound, Bluetooth and Power 2.0 bring their bar item and watcher
+# as a part (control-panel/*-watch.hibr), which left the package in 0.99.349
+# along with them (hibr Gitea #388); Sleep, Restart and Shut Down stayed.
+ENTHIBR["control-panel/networks"]=0.99.349
+ENTHIBR["control-panel/sound"]=0.99.349
+ENTHIBR["control-panel/bluetooth"]=0.99.349
+ENTHIBR["control-panel/power"]=0.99.349
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
