@@ -48,7 +48,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers themes colours lang mods cli"
+KINDS="apps system control-panel control-strip menubar savers themes colours lang mods cli bundles"
 
 fn die(...msg) {
 	printf 'addapp: %s\n' "${msg[*]}" >&2
@@ -98,6 +98,16 @@ fn verof(path, kind) {
 		[ -n "$v" ] ||
 			die "$path: hibr cannot read a module descriptor in it"
 		ret "$v"
+		return 0 ;;
+	bundles)
+		# A bundle has no version of its own: it is current when its
+		# members are (hibr Gitea #392). What it must have is members,
+		# each a kind and a name.
+		json parse j < "$path" 2> /dev/null ||
+			die "$path: does not parse as JSON"
+		[ "${#j["members"][@]}" -gt 0 ] ||
+			die "$path: no \"members\" in it -- a bundle is a list of the entries it installs"
+		ret ""
 		return 0 ;;
 	themes | colours | lang)
 		json parse j < "$path" 2> /dev/null ||
@@ -188,7 +198,7 @@ fn partsof(path, kind) {
 		fi
 		ret "$out"
 		return 0 ;;
-	colours | lang)
+	colours | lang | bundles)
 		ret ""
 		return 0 ;;
 	esac
@@ -205,7 +215,7 @@ fn partsof(path, kind) {
 # What a kind calls its files, which is also what a bundle of one is named.
 fn kextof(kind) {
 	case $kind in
-	themes | colours | lang) ret ".json" ;;
+	themes | colours | lang | bundles) ret ".json" ;;
 	mods) ret ".so" ;;
 	*) ret ".hibr" ;;
 	esac
@@ -302,6 +312,7 @@ case $src in
 *) die "$src: a $kind file is a $ext, and this is not one" ;;
 esac
 [ -n "$ver" ] || ver := verof "$src" "$kind"
+[ "$kind" = bundles ] && same=1
 
 # A file that says `# platform:` in its header is part of the desktop and
 # not a thing to install: every pane runs on the Control Panel, every saver

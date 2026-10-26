@@ -27,7 +27,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip savers themes colours lang mods cli"
+KINDS="apps system control-panel control-strip menubar savers themes colours lang mods cli bundles"
 # The release whose desktop first looks in `$XDG_DATA_HOME/hibr/<kind>` for
 # a theme, a colour scheme or a language. See the `hibr` field below.
 DATAHIBR=0.99.187
@@ -209,6 +209,25 @@ ENTHIBR["control-panel/networks"]=0.99.349
 ENTHIBR["control-panel/sound"]=0.99.349
 ENTHIBR["control-panel/bluetooth"]=0.99.349
 ENTHIBR["control-panel/power"]=0.99.349
+# Each acts through a menu bar item it needs, `menubar/` being a kind of its
+# own from 0.99.351, and the four bundles are Sound, Network, Bluetooth and
+# Power whole (hibr Gitea #392): an older catalogue cannot install either
+# kind, and an older desktop does not read menubar/ at all.
+ENTHIBR["control-panel/networks"]=0.99.351
+ENTHIBR["control-panel/sound"]=0.99.351
+ENTHIBR["control-panel/bluetooth"]=0.99.351
+ENTHIBR["control-panel/power"]=0.99.351
+ENTHIBR["menubar/network"]=0.99.351
+ENTHIBR["menubar/sound"]=0.99.351
+ENTHIBR["menubar/bluetooth"]=0.99.351
+ENTHIBR["menubar/power"]=0.99.351
+ENTHIBR["bundles/network"]=0.99.351
+ENTHIBR["bundles/sound"]=0.99.351
+ENTHIBR["bundles/bluetooth"]=0.99.351
+ENTHIBR["bundles/power"]=0.99.351
+# The Catalogue window 2.7 shows bundles in a section of their own and asks
+# before removing one, which needs `catalogue remove -y` (Gitea #392).
+ENTHIBR["system/catalogue"]=0.99.351
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
@@ -276,7 +295,7 @@ fn verof(path, kind) {
 # for why they are not scripts).
 fn kextof(kind) {
 	case $kind in
-	themes | colours | lang) ret ".json" ;;
+	themes | colours | lang | bundles) ret ".json" ;;
 	mods) ret ".so" ;;
 	*) ret ".hibr" ;;
 	esac
@@ -474,6 +493,27 @@ fn modsof(path, kind) {
 	ret "$out"
 }
 
+# What an entry needs installed before it, from its own `# needs:` lines
+# (hibr Gitea #392): the menu bar item a pane acts through. Only a script
+# has a header to say it in.
+fn needsof(path, kind) {
+	local l out=
+
+	case $kind in
+	themes | colours | lang | mods | bundles)
+		ret ""
+		return 0 ;;
+	esac
+	while read -r l; do
+		case $l in
+		"# needs: "*)
+			l=${l#"# needs: "}
+			out="$out${out:+ }$l" ;;
+		esac
+	done < "$path"
+	ret "$out"
+}
+
 # The folder a bundle sits in *inside* its kind, which `addapp` took from
 # where the thing lives in hibr's own tree: `bundles/apps/Internet/mail.hibr`
 # gives `Internet`, and `catalogue install` then places it as
@@ -503,7 +543,7 @@ fn titleof(path, name) {
 			ret "${M[2]}"
 			return 0
 		fi
-		if match "$l" '(cs_module|sv_saver)[ 	]+[a-z0-9_]+[ 	]+"?([A-Za-z][A-Za-z ]*[A-Za-z])"?'; then
+		if match "$l" '(cs_module|sv_saver|dt_barilabel)[ 	]+[a-z0-9_]+[ 	]+"?([A-Za-z][A-Za-z ]*[A-Za-z])"?'; then
 			ret "${M[2]}"
 			return 0
 		fi
@@ -647,6 +687,8 @@ fn kindname(k) {
 	system) ret "The desktop's own" ;;
 	control-panel) ret "Control Panel panes" ;;
 	control-strip) ret "Control Strip modules" ;;
+	menubar) ret "Menu bar items" ;;
+	bundles) ret "Bundles" ;;
 	savers) ret "Screen savers" ;;
 	themes) ret "Themes" ;;
 	colours) ret "Colour schemes" ;;
@@ -710,12 +752,58 @@ for kind in $KINDS; do
 		[ -f "$bundle" ] || continue
 		isentry "$kind" "$bundle" || continue
 		name := nameof "$bundle"
+		# A bundle is a list of other entries and nothing else: no
+		# file to fetch, no hash, and no version, since it is current
+		# when its members are (hibr Gitea #392). Each member must be
+		# an entry this catalogue offers, or the bundle is refused.
+		if [ "$kind" = bundles ]; then
+			unset bj
+			declare -A bj
+			json parse bj < "$bundle" 2> /dev/null ||
+				die "bundles/$name: does not parse as JSON"
+			mem=
+			for bi in "${!bj["members"][@]}"; do
+				bm=${bj["members"]["$bi"]}
+				bk=${bm%%/*}
+				case $bk in
+				bundles | mods) die "bundles/$name: lists $bm, and a bundle holds scripts and data, not ${bk}" ;;
+				esac
+				bke := kextof "$bk"
+				[ -n "$(command find "$HERE/bundles/$bk" -name "${bm#*/}$bke" 2> /dev/null)" ] ||
+					die "bundles/$name: lists $bm, which is not in this catalogue -- publish it first"
+				mem="$mem${mem:+ }$bm"
+			done
+			[ -n "$mem" ] || die "bundles/$name: lists no members"
+			id=bundles/$name
+			[ -z "${SEEN["$id"]+x}" ] ||
+				die "$id is in the catalogue twice: ${SEEN["$id"]} and $bundle"
+			SEEN["$id"]=$bundle
+			title=${bj["title"]-$name}
+			about=${bj["about"]-}
+			IX["entries"]["$id"]["title"]=$title
+			IX["entries"]["$id"]["kind"]=bundles
+			IX["entries"]["$id"]["name"]=$name
+			IX["entries"]["$id"]["about"]=$about
+			IX["entries"]["$id"]["members"]=$mem
+			IX["entries"]["$id"]["licence"]="LGPL-3.0-or-later"
+			IX["entries"]["$id"]["author"]="Omar Sakka"
+			[ -n "${ENTHIBR["$id"]-}" ] &&
+				IX["entries"]["$id"]["hibr"]=${ENTHIBR["$id"]}
+			t := htesc "$title"
+			s := htesc "${about%%$'\n'*}"
+			krows="$krows<tr><td><code>$name</code></td><td>$t</td><td></td><td>$s</td></tr>
+"
+			n=$((n + 1))
+			printf '%-14s %-12s %-10s %s\n' "$kind" "$name" "-" "$mem"
+			continue
+		fi
 		sha := shaof "$bundle"
 		src := readable "$bundle" "$name" "$kind"
 		# Read before the fields are written, since whether this
 		# entry brings parts decides the `hibr` it declares.
 		pl0=
 		ml0=
+		nd0=
 		march=
 		# A property of where the bundle sits, so it is read for
 		# every kind rather than inside the script branch below.
@@ -740,6 +828,7 @@ builds for several machines has mkindex run on each of them."
 		else
 			pl0 := partsof "$src" "$kind"
 			ml0 := modsof "$src" "$kind"
+			nd0 := needsof "$src" "$kind"
 			ver := verof "$src" "$kind" ||
 				die "$kind/$name: it declares no version -- an app says so on its \`app\` line, a theme in its own \"version\""
 		fi
@@ -849,7 +938,7 @@ builds for several machines has mkindex run on each of them."
 		# catalogue that is honest about one thing it knows and one that
 		# guesses about everything (Gitea #224).
 		for f in title version kind bundle sha256 about licence author \
-			 name hibr arch abi modules dir; do
+			 name hibr arch abi modules needs dir; do
 			case $f in
 			title) v=$title ;;
 			version) v=$ver ;;
@@ -876,13 +965,16 @@ builds for several machines has mkindex run on each of them."
 			# this field and refused by name on it since it was
 			# written; nothing had ever filled it in.
 			modules) v=$ml0 ;;
+			# What it needs installed before it, from its own
+			# `# needs:` lines (hibr Gitea #392).
+			needs) v=$nd0 ;;
 			# Where inside its kind it lands, from the bundle's
 			# own path (Gitea #233). Only `apps` has folders
 			# today; every other root is scanned flat.
 			dir) v=$dr0 ;;
 			esac
 			case $f in
-			hibr | arch | abi | modules | dir) [ -n "$v" ] || continue ;;
+			hibr | arch | abi | modules | needs | dir) [ -n "$v" ] || continue ;;
 			esac
 			# A module's bundle, hash, machine and ABI belong to
 			# **one build** of it, not to the entry: the entry is
@@ -912,6 +1004,9 @@ builds for several machines has mkindex run on each of them."
 			# the only one there, which is the bug this fixes.
 			[ -n "${DUP["$name"]+x}" ] && continue
 			isdata "$kind" && continue
+			# Nor a menu bar item: a client older than the kind
+			# would place it where nothing reads it.
+			[ "$kind" = menubar ] && continue
 			IX["apps"]["$name"]["$f"]=$v
 		done
 
@@ -946,6 +1041,8 @@ builds for several machines has mkindex run on each of them."
 		fi
 		[ -n "$ml0" ] &&
 			printf '   %s needs %s\n' "$kind/$name" "$ml0"
+		[ -n "$nd0" ] &&
+			printf '   %s needs %s\n' "$kind/$name" "$nd0"
 
 		t := htesc "$title"
 		s := htesc "$sum"
@@ -1024,12 +1121,14 @@ application and a screen saver, so each is named by its id.</p>
 $rows</table>
 
 <h2>What you are trusting</h2>
-<p>Six of the ten kinds are hibr scripts &mdash; the five the desktop runs, and commands &mdash; and run with everything your own shell can
+<p>Seven of the twelve kinds are hibr scripts &mdash; the six the desktop runs, and commands &mdash; and run with everything your own shell can
 do: there is no sandbox. Three &mdash; themes, colour schemes and languages &mdash;
 are data, read rather than run, which is deliberate: they are the things people hand
-each other, and a theme that was a script would run as whoever applied it. The tenth
-is <code>mods</code>, a hibr module: native code, with no sandbox at all, which is
-why <code>apps</code> refuses to install one from a catalogue it cannot verify.</p>
+each other, and a theme that was a script would run as whoever applied it. The
+eleventh is <code>mods</code>, a hibr module: native code, with no sandbox at all, which is
+why <code>catalogue</code> refuses to install one from a catalogue it cannot verify. The
+twelfth, a <em>bundle</em>, is no file at all, only a list of other entries installed
+together &mdash; Sound is the speaker on the menu bar and its Control Panel pane.</p>
 <p>TLS says which server the index came from; the <code>sha256</code> in the index
 says the bundle was not changed on the way; and the detached signature beside the
 index (<code>index.json.asc</code>) says who published it &mdash; the same key that

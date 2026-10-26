@@ -559,15 +559,15 @@
     },
     "system/catalogue": {
       "title": "Catalogue",
-      "version": "2.6",
+      "version": "2.7",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "7cfec410059a289e5380af1b434004263aa72b2a2999e620ce7fc57cdd2f9fd3",
+      "sha256": "df679e4f494d80475a85b371a103e29aa312410dbab69726c198915a6a511dff",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "catalogue",
-      "hibr": "0.99.336"
+      "hibr": "0.99.351"
     },
     "control-panel/aboutme": {
       "title": "About Me",
@@ -629,23 +629,16 @@
     },
     "control-panel/networks": {
       "title": "Network",
-      "version": "2.0",
+      "version": "3.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/networks.hibr",
-      "sha256": "8e457c084055a8caa98eb9b1185c2d0bf3300ad16a8257d4a426101a970ae156",
-      "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through control-panel/net-watch.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
+      "sha256": "90c14a00d79d135b3cb055b9b0bbff887891cab3c4dfcd70b8158c9678a03aa9",
+      "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through menubar/network.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "networks",
-      "hibr": "0.99.349",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "net-watch.hibr",
-          "path": "bundles/control-panel/net-watch.hibr",
-          "sha256": "84466d94cbdd62a53d972b5e7801c08119f450b0d4599d385ee373c0b8634513"
-        }
-      ]
+      "hibr": "0.99.351",
+      "needs": "menubar/network"
     },
     "control-panel/desktop": {
       "title": "Desktop",
@@ -685,23 +678,16 @@
     },
     "control-panel/power": {
       "title": "Power",
-      "version": "2.0",
+      "version": "3.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/power.hibr",
-      "sha256": "892495ac9518b11b9b5d4a4ad4686d099e29d38f21a3682ed5bf80a36e8acbca",
-      "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the battery on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through control-panel/power-watch.hibr, and its rows for a battery are there only where there is one.\n\npart: control-panel/power-watch.hibr",
+      "sha256": "fb16399f56306b80e65e17a4e1622e394c508714d5ef8cf44275a1ba2e797e06",
+      "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the battery on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through menubar/power.hibr, and its rows for a battery are there only where there is one.\n\nneeds: menubar/power",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "power",
-      "hibr": "0.99.349",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "power-watch.hibr",
-          "path": "bundles/control-panel/power-watch.hibr",
-          "sha256": "e15d8b1dd5b74d39577c9fc3dfc0579a95fdef196faf28dd2343edb8fdc00808"
-        }
-      ]
+      "hibr": "0.99.351",
+      "needs": "menubar/power"
     },
     "control-panel/datetime": {
       "title": "Date & Time",
@@ -764,23 +750,16 @@
     },
     "control-panel/bluetooth": {
       "title": "Bluetooth",
-      "version": "2.0",
+      "version": "3.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/bluetooth.hibr",
-      "sha256": "bf652900c80a140d92bb03e932e3b3bb2c1ba1765bd80355121213bc66b99d5a",
-      "about": "The Control Panel pane for Bluetooth\n\nthe Control Panel pane called Bluetooth (Gitea #312): the adapter on or off and visible to others or not, the devices it knows -- each connected or not, with its battery, a click to connect or disconnect -- forgetting one, looking for new ones and pairing them, and the item on the menu bar. It acts through control-panel/bt-watch.hibr.\n\npart: control-panel/bt-watch.hibr",
+      "sha256": "812dba3e256432a7c4649ffc29530e96f2dac75dae5e64cbdbe27fa0f20bbd4c",
+      "about": "The Control Panel pane for Bluetooth\n\nthe Control Panel pane called Bluetooth (Gitea #312): the adapter on or off and visible to others or not, the devices it knows -- each connected or not, with its battery, a click to connect or disconnect -- forgetting one, looking for new ones and pairing them, and the item on the menu bar. It acts through menubar/bluetooth.hibr.\n\nneeds: menubar/bluetooth",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "bluetooth",
-      "hibr": "0.99.349",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "bt-watch.hibr",
-          "path": "bundles/control-panel/bt-watch.hibr",
-          "sha256": "293a20c6303792b6d5a03f15b921f57a5189fd5b60bb59a386f08ea7f02a3300"
-        }
-      ]
+      "hibr": "0.99.351",
+      "needs": "menubar/bluetooth"
     },
     "control-panel/wallset": {
       "title": "Wallpaper",
@@ -818,23 +797,16 @@
     },
     "control-panel/sound": {
       "title": "Sound",
-      "version": "2.0",
+      "version": "3.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/sound.hibr",
-      "sha256": "b6d1ca4d24d3ac62e46e56c1e6302d88856f5bd2c73c1220b78458ab7e45f15d",
-      "about": "The Control Panel pane for the machine's sound (Gitea #306): the output and the input used, each one's level and mute, how far a key or a wheel notch moves the volume, and whether the speaker is on the menu bar. The keys themselves are rows in Shortcuts. Everything here acts through control-panel/sound-watch.hibr, which says what kind of sound this machine has: a server PipeWire or PulseAudio answers for, or ALSA's mixer.\n\npart: control-panel/sound-watch.hibr",
+      "sha256": "d6368a4a07cd8f21b6955fd9f58a203593b332d5ff381d4473006e5819ad5acc",
+      "about": "The Control Panel pane for the machine's sound (Gitea #306): the output and the input used, each one's level and mute, how far a key or a wheel notch moves the volume, and whether the speaker is on the menu bar. The keys themselves are rows in Shortcuts. Everything here acts through menubar/sound.hibr, which says what kind of sound this machine has: a server PipeWire or PulseAudio answers for, or ALSA's mixer.\n\nneeds: menubar/sound",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sound",
-      "hibr": "0.99.349",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "sound-watch.hibr",
-          "path": "bundles/control-panel/sound-watch.hibr",
-          "sha256": "3a6a571818a5598a4c06ad868ef77913bed2e30a459983062d0a09760b6fd313"
-        }
-      ]
+      "hibr": "0.99.351",
+      "needs": "menubar/sound"
     },
     "control-panel/longwire": {
       "title": "Longwire",
@@ -914,6 +886,54 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "cursor"
+    },
+    "menubar/network": {
+      "title": "Network",
+      "version": "1.0",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/network.hibr",
+      "sha256": "03b1aec8dd50233d4c3967a42be383bf48295332315da16fda4c159a7b2e3a28",
+      "about": "The network on the menu bar and the connection it watches\n\nthe machine's network: whether it is on Wi-Fi, a cable or neither, the Wi-Fi networks in reach and the ones it knows, joining and leaving them, and the item on the menu bar that says which (Gitea #311). Control Panel > Network is the pane over it.\n\nTwo ways to see it, the first that answers taken:",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "network",
+      "hibr": "0.99.351"
+    },
+    "menubar/power": {
+      "title": "Battery",
+      "version": "1.0",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/power.hibr",
+      "sha256": "6b4f93b94e807a028b4bf7333c38e9ce16e063b575788154c14af8a058f4e639",
+      "about": "The battery on the menu bar and the charge it watches\n\nthe battery and the machine's power (Gitea #365): each battery's charge, whether it is charging, the time left and its health, read from the kernel's own files; an item on the menu bar while there is a battery; a note when the charge runs low, and a choice of what to do when it runs out. Sleep, Restart and Shut Down are the platform's, in wm/machine.hibr, and are on the hibr menu whether this is installed or not; the battery's menu offers them too.\n\nPart of the power pane's catalogue entry, not of the package (Gitea #388): installed with it, loaded with the Control Panel's panes by cp_panes, and absent -- no bar item, no watcher running -- on a desktop without it. The window manager reaches it only through dt_has.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "power",
+      "hibr": "0.99.351"
+    },
+    "menubar/bluetooth": {
+      "title": "Bluetooth",
+      "version": "1.0",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/bluetooth.hibr",
+      "sha256": "d4ed798bdcc0b08fb336046771c0d97d8f61d1d3713278f3f8a0ba72589752eb",
+      "about": "Bluetooth on the menu bar and the devices it watches\n\nthe machine's Bluetooth: the adapter on or off and visible or not, the devices it knows and which are connected (and their battery), finding new ones and pairing them, and the item on the menu bar that says which (Gitea #312). Control Panel > Bluetooth is the pane over it.\n\nBlueZ, through bluetoothctl, read as captured from bluetoothctl 5.82 on the owner's machine (tests/net/bt-*.txt): `show` for the adapter, `devices Paired` and `devices Connected` for the devices -- one \"Device MAC name\" a line -- and `info MAC` for one device's battery and icon. HIBR_BT chooses -- auto, bluez or none; the suites start every desktop with none, so no test can touch a real machine's Bluetooth.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "bluetooth",
+      "hibr": "0.99.351"
+    },
+    "menubar/sound": {
+      "title": "Volume",
+      "version": "1.0",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/sound.hibr",
+      "sha256": "01c9a8d7bf5f97c109640fafebf2cd0d7ac525bc5611f705601b633fa73bc4c1",
+      "about": "The speaker on the menu bar and the sound it watches\n\nthe machine's sound: which output and input are used, their volume and mute, the speaker on the menu bar and the keys that change it (Gitea #306). Control Panel > Sound is the pane over it.\n\nThree ways to reach it, the first that answers taken:",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "sound",
+      "hibr": "0.99.351"
     },
     "savers/toasters": {
       "title": "Flying Toasters",
@@ -1264,6 +1284,46 @@
       "author": "Omar Sakka",
       "name": "longwire",
       "modules": "longwire"
+    },
+    "bundles/bluetooth": {
+      "title": "Bluetooth",
+      "kind": "bundles",
+      "name": "bluetooth",
+      "about": "Bluetooth on the menu bar, and Control Panel > Bluetooth: the adapter on or off, the devices it knows to connect, disconnect or forget, and new ones to pair.",
+      "members": "menubar/bluetooth control-panel/bluetooth",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "hibr": "0.99.351"
+    },
+    "bundles/power": {
+      "title": "Power",
+      "kind": "bundles",
+      "name": "power",
+      "about": "The battery on the menu bar, and Control Panel > Power: each battery's charge, time left and health, the note at a low charge and what happens at a critical one.",
+      "members": "menubar/power control-panel/power",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "hibr": "0.99.351"
+    },
+    "bundles/network": {
+      "title": "Network",
+      "kind": "bundles",
+      "name": "network",
+      "about": "The network on the menu bar, and Control Panel > Network: what the machine is on and its address, Wi-Fi on or off, the networks in reach to join and the ones it knows to forget.",
+      "members": "menubar/network control-panel/networks",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "hibr": "0.99.351"
+    },
+    "bundles/sound": {
+      "title": "Sound",
+      "kind": "bundles",
+      "name": "sound",
+      "about": "The speaker on the menu bar, and Control Panel > Sound: the output and the input in use, each one's level and mute, and how far a key or a wheel notch moves the volume.",
+      "members": "menubar/sound control-panel/sound",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "hibr": "0.99.351"
     }
   },
   "apps": {
@@ -1668,15 +1728,15 @@
     },
     "catalogue": {
       "title": "Catalogue",
-      "version": "2.6",
+      "version": "2.7",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "7cfec410059a289e5380af1b434004263aa72b2a2999e620ce7fc57cdd2f9fd3",
+      "sha256": "df679e4f494d80475a85b371a103e29aa312410dbab69726c198915a6a511dff",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "catalogue",
-      "hibr": "0.99.336"
+      "hibr": "0.99.351"
     },
     "aboutme": {
       "title": "About Me",
@@ -1714,17 +1774,6 @@
       "name": "shortcuts",
       "hibr": "0.99.273"
     },
-    "network": {
-      "title": "Servers",
-      "version": "1.1",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/network.hibr",
-      "sha256": "d6a1f9e96291513375cff20163966e75ae8d9ca8ef888439c5019befa5987674",
-      "about": "The Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "network"
-    },
     "pictures": {
       "title": "Pictures",
       "version": "1.0",
@@ -1738,15 +1787,16 @@
     },
     "networks": {
       "title": "Network",
-      "version": "2.0",
+      "version": "3.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/networks.hibr",
-      "sha256": "8e457c084055a8caa98eb9b1185c2d0bf3300ad16a8257d4a426101a970ae156",
-      "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through control-panel/net-watch.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
+      "sha256": "90c14a00d79d135b3cb055b9b0bbff887891cab3c4dfcd70b8158c9678a03aa9",
+      "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through menubar/network.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "networks",
-      "hibr": "0.99.349"
+      "hibr": "0.99.351",
+      "needs": "menubar/network"
     },
     "desktop": {
       "title": "Desktop",
@@ -1783,18 +1833,6 @@
       "author": "Omar Sakka",
       "name": "windows",
       "hibr": "0.99.327"
-    },
-    "power": {
-      "title": "Power",
-      "version": "2.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/power.hibr",
-      "sha256": "892495ac9518b11b9b5d4a4ad4686d099e29d38f21a3682ed5bf80a36e8acbca",
-      "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the battery on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through control-panel/power-watch.hibr, and its rows for a battery are there only where there is one.\n\npart: control-panel/power-watch.hibr",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "power",
-      "hibr": "0.99.349"
     },
     "datetime": {
       "title": "Date & Time",
@@ -1855,18 +1893,6 @@
       "name": "blit",
       "hibr": "0.99.297"
     },
-    "bluetooth": {
-      "title": "Bluetooth",
-      "version": "2.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/bluetooth.hibr",
-      "sha256": "bf652900c80a140d92bb03e932e3b3bb2c1ba1765bd80355121213bc66b99d5a",
-      "about": "The Control Panel pane for Bluetooth\n\nthe Control Panel pane called Bluetooth (Gitea #312): the adapter on or off and visible to others or not, the devices it knows -- each connected or not, with its battery, a click to connect or disconnect -- forgetting one, looking for new ones and pairing them, and the item on the menu bar. It acts through control-panel/bt-watch.hibr.\n\npart: control-panel/bt-watch.hibr",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "bluetooth",
-      "hibr": "0.99.349"
-    },
     "wallset": {
       "title": "Wallpaper",
       "version": "1.1",
@@ -1900,18 +1926,6 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language"
-    },
-    "sound": {
-      "title": "Sound",
-      "version": "2.0",
-      "kind": "control-panel",
-      "bundle": "bundles/control-panel/sound.hibr",
-      "sha256": "b6d1ca4d24d3ac62e46e56c1e6302d88856f5bd2c73c1220b78458ab7e45f15d",
-      "about": "The Control Panel pane for the machine's sound (Gitea #306): the output and the input used, each one's level and mute, how far a key or a wheel notch moves the volume, and whether the speaker is on the menu bar. The keys themselves are rows in Shortcuts. Everything here acts through control-panel/sound-watch.hibr, which says what kind of sound this machine has: a server PipeWire or PulseAudio answers for, or ALSA's mixer.\n\npart: control-panel/sound-watch.hibr",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "sound",
-      "hibr": "0.99.349"
     },
     "screensaver": {
       "title": "Screen Saver",
