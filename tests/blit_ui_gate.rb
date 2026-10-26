@@ -212,8 +212,22 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     input.call("\e[D")
     await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
     capture.call('font-size-keyboard-step')
+    # Pane effects, below the font: real keyboard down to the first pane's
+    # corner slider, one step right, then a real pointer drag on it.
+    8.times do
+      break if text.call.include?('Corners (')
+      input.call("\e[B")
+      sleep 0.1
+    end
+    await('pane effects rows'){text.call.include?('Corners (0 px)')}
+    input.call("\e[C")
+    await('one pixel corner step'){text.call.include?('Corners (1 px)')}
+    capture.call('effects-keyboard-step')
+    drag.call('Corners (',4)
+    await('native corner radius drag'){t=text.call; t[/Corners \((\d+) px\)/,1].to_i>1}
+    capture.call('effects-slider-dragged')
     dropdown.call('Fallback','first_available','wait')
-    puts "BLIT_UI_PASS library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
+    puts "BLIT_UI_PASS library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px effects=keyboard_and_drag token=masked screenshots=#{output}"
     end
   rescue Exception
     File.write(File.join(output,'failure.txt'),text.call) rescue nil

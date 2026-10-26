@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.13
+app blit "API configuration and diagnostics for the Blit display server" 0.1.14
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 
@@ -48,13 +48,14 @@ BCP_INVALID=0
 BCP_REPLY=
 BCP_EDITKEY=
 DAV_CODE=
-declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP
+declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS
 declare -gA BCP_DROP_KEY
 declare -ga BCP_CHOICES
 BCP_CHOICE_CURRENT=
 json parse BCP_SNAPSHOT '{}'
 json parse BCP_LIVE '{}'
 json parse BCP_DRAFT '{}'
+json parse BCP_EFFECTS '{}'
 
 # Desktop settings use executable text and no secret permissions. Keep only
 # the URL there; this data-only credential is scoped to that exact URL.
@@ -163,6 +164,14 @@ fn blit_cp_work(what, method = "GET", path = "", body = "", revision = "") {
                 raw := json emit BCP_HTTP
                 json parse 'reply[auxiliary]' "$raw"
                 ok=1
+                # Pane effects (Blit 0.2.27+): each live pane, by output and
+                # ordinal. A server without them leaves the section empty
+                # and the refresh still succeeds.
+                json parse 'reply[effects]' '{}'
+                if blit_cp_http GET /v1/effects; then
+                    raw := json emit BCP_HTTP
+                    json parse 'reply[effects]' "$raw"
+                fi
             fi
         fi
         if [ "$ok" = 0 ]; then raw := json emit BCP_HTTP; json parse reply "$raw"; fi
@@ -259,6 +268,8 @@ fn blit_cp_done(int n, int st) {
         json parse BCP_SNAPSHOT "$raw"
         raw := json get reply .auxiliary
         json parse BCP_LIVE "$raw"
+        raw := json get reply .effects
+        json parse BCP_EFFECTS "${raw:-"{}"}"
         raw := json get BCP_SNAPSHOT .settings.document
         if [ "$BCP_DIRTY" = 0 ]; then
             json parse BCP_DRAFT "$raw"
@@ -477,6 +488,7 @@ fn blit_rows(int w) {
         blit_cp_row "$w" "$n" info "Font size" "Requires Blit 0.1.561+"
     fi
     n=$((n + 1))
+    n := blit_cp_effect_rows "$w" "$n"
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
@@ -535,6 +547,52 @@ fn blit_cp_rendering_rows(int w, int n) {
         blit_cp_row "$w" "$n" set "Frame timing (Save applies)" "${BCP_DRAFT[server][kms_frame_timing]:-$value}" frame_timing; n=$((n + 1))
     fi
     ret "$n"
+}
+
+# Pane effects (Blit ADR 0186): rounded corners and scanlines for each pane
+# Blit reports, staged in the draft's `effects` like the grid and applied
+# when it is saved. A slider at 0 turns that effect off.
+fn blit_cp_effect_rows(int w, int n) {
+    local i=0 output ordinal value
+    blit_cp_row "$w" "$n" head "Pane effects (Save applies)"; n=$((n + 1))
+    if [ -z "${BCP_EFFECTS[available][0][name]}" ]; then
+        blit_cp_row "$w" "$n" info "Pane effects" "Requires Blit 0.2.27"; n=$((n + 1))
+        ret "$n"; return 0
+    fi
+    while [ -n "${BCP_EFFECTS[panes][$i][pane_id]}" ]; do
+        output=${BCP_EFFECTS[panes][$i][output]}
+        ordinal=${BCP_EFFECTS[panes][$i][pane_ordinal]}
+        blit_cp_row "$w" "$n" info "$output pane $ordinal"; n=$((n + 1))
+        value=${BCP_DRAFT[effects][$output][$ordinal][corners][radius_px]:-0}
+        blit_cp_row "$w" "$n" set Corners "$value" "corners:$output:$ordinal" slider
+        CP[$w][$n][min]=0; CP[$w][$n][max]=64; CP[$w][$n][after]="($value px)"; n=$((n + 1))
+        value=${BCP_DRAFT[effects][$output][$ordinal][scanlines][intensity]:-0}
+        blit_cp_row "$w" "$n" set Scanlines "$value" "scanlines:$output:$ordinal" slider
+        CP[$w][$n][min]=0; CP[$w][$n][max]=100; CP[$w][$n][after]="($value%)"; n=$((n + 1))
+        i=$((i + 1))
+    done
+    ret "$n"
+}
+
+# One effect's value for one pane, into the draft. The pane's entry is
+# rebuilt from its two values, leaving out an effect at 0.
+fn blit_cp_effect(key, int value) {
+    local effect=${key%%:*} rest=${key#*:} output ordinal corners scanlines raw
+    local -A entry
+    ordinal=${rest##*:}; output=${rest%:*}
+    corners=${BCP_DRAFT[effects][$output][$ordinal][corners][radius_px]:-0}
+    scanlines=${BCP_DRAFT[effects][$output][$ordinal][scanlines][intensity]:-0}
+    case $effect in
+    corners) [ "$value" -ge 0 ] && [ "$value" -le 64 ] || return 0; corners=$value ;;
+    scanlines) [ "$value" -ge 0 ] && [ "$value" -le 100 ] || return 0; scanlines=$value ;;
+    *) return 0 ;;
+    esac
+    json parse entry '{}'
+    [ "$corners" = 0 ] || json set entry .corners.radius_px "$corners"
+    [ "$scanlines" = 0 ] || json set entry .scanlines.intensity "$scanlines"
+    raw := json emit entry
+    json parse "BCP_DRAFT[effects][$output][$ordinal]" "$raw"
+    BCP_DIRTY=1
 }
 
 # One choice source and selection path for native popups and keyboard stepping.
@@ -663,6 +721,12 @@ fn blit_do(int w, key, int dir) {
         output=${key#*:}; value=${key%%:*}
         tenths=$(( ${BCP_DRAFT[display_layouts][$output][$value]:-1} + dir ))
         blit_slide "$w" "$key" "$tenths" ;;
+    corners:*)
+        output=${key#corners:}; ordinal=${output##*:}; output=${output%:*}
+        blit_cp_effect "$key" "$(( ${BCP_DRAFT[effects][$output][$ordinal][corners][radius_px]:-0} + dir ))" ;;
+    scanlines:*)
+        output=${key#scanlines:}; ordinal=${output##*:}; output=${output%:*}
+        blit_cp_effect "$key" "$(( ${BCP_DRAFT[effects][$output][$ordinal][scanlines][intensity]:-0} + dir * 5 ))" ;;
     export) dt_filepick save "Export Blit Configuration" "JSON:*.json" "$HOME" blit.json blit_cp_exported "" ;;
     import) dt_filepick open "Import Blit Configuration" "JSON:*.json" "$HOME" "" blit_cp_imported "" ;;
     esac
@@ -704,6 +768,7 @@ fn blit_slide(int w, key, int value) {
         body := json emit grid
         json parse "BCP_DRAFT[display_layouts][$output]" "$body"
         BCP_DIRTY=1 ;;
+    corners:* | scanlines:*) blit_cp_effect "$key" "$value" ;;
     esac
     return 0
 }

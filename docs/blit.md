@@ -1,5 +1,24 @@
 # Blit Control Panel
 
+## Pane effects (pane 0.1.14)
+
+Blit 0.2.27 adds per-pane effects (Blit ADR 0186). The section **Pane
+effects**, below Font, lists each live pane by output and pane number, read
+from `GET /v1/effects`. Each pane has two sliders:
+- **Corners**: a rounded-corner radius, 0–64 px.
+- **Scanlines**: a darkening of every second pixel row, 0–100%.
+
+A slider at 0 turns that effect off. The values are staged in the draft's
+`effects` section, like the per-display grid. **Save as Default** applies
+them live and saves them, with no restart. Effects saved for an output that
+is not connected are kept, and come back with it.
+
+On a server without the effects endpoint, the section says it requires Blit
+0.2.27, and the rest of the pane works as before. `blit_panel_gate` checks
+staging, range limits, Save applying them on a real Blit, and turning one off.
+`blit_ui_gate` steps and drags the corner slider with real keyboard and
+pointer input.
+
 ## Native KMS only (pane0.1.13)
 
 Blit 0.2.22 removes SDL (Blit ADR 0184): native KMS is its only presentation

@@ -86,7 +86,9 @@ Dir.mktmpdir('blit-panel') do |root|
           [ "${CP[44][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
           i=$((i + 1))
       done
-      [ "$sliders" = 3 ] || { echo 'font size/columns/rows must use native sliders' >&2; exit 30; }
+      # Font size, columns and rows, then corners and scanlines for each of
+      # the gate server's two panes.
+      [ "$sliders" = 7 ] || { echo "font size/columns/rows/effects must use native sliders ($sliders)" >&2; exit 30; }
       i=0; font_size_found=0
       while [ "$i" -lt "$n" ]; do
           [ "${CP[44][$i][key]}" != font_size ] || font_size_found=1
@@ -152,6 +154,25 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_do 44 frame_timing 1
       [ "${BCP_DRAFT[server][kms_frame_timing]}" = late ] || { echo 'frame timing does not step' >&2; exit 66; }
       blit_cp_choose frame_timing immediate
+      # Pane effects: one pair of sliders per pane Blit reports, staged in
+      # the draft and applied by Save; a slider at 0 drops that effect.
+      eo=${BCP_EFFECTS[panes][0][output]}
+      [ -n "$eo" ] && [ "${BCP_EFFECTS[panes][1][pane_ordinal]}" = 2 ] || { echo 'effects panes not read' >&2; exit 70; }
+      blit_slide 44 "corners:$eo:1" 12
+      blit_slide 44 "scanlines:$eo:2" 30
+      blit_slide 44 "corners:$eo:1" 65
+      blit_slide 44 "scanlines:$eo:2" -1
+      blit_do 44 "scanlines:$eo:2" 1
+      [ "${BCP_DRAFT[effects][$eo][1][corners][radius_px]}" = 12 ] &&
+      [ "${BCP_DRAFT[effects][$eo][2][scanlines][intensity]}" = 35 ] || { echo 'effects not staged' >&2; exit 71; }
+      [ -z "${BCP_DRAFT[effects][$eo][1][scanlines][intensity]}" ] || { echo 'an effect at 0 was written' >&2; exit 72; }
+      n := blit_rows 999999
+      i=0; shown=
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[999999][$i][key]}" != "corners:$eo:1" ] || shown="${CP[999999][$i][val]} ${CP[999999][$i][after]}"
+          i=$((i + 1))
+      done
+      [ "$shown" = "12 (12 px)" ] || { echo "corner row: $shown" >&2; exit 73; }
       output=${BCP_SNAPSHOT[displays][displays][0][state][connector]:-${BCP_SNAPSHOT[displays][displays][0][name]}}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2
@@ -162,6 +183,15 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "${BCP_SNAPSHOT[settings][document][display_layouts][$output][columns]}" = 3 ] || exit 32
       [ "${BCP_SNAPSHOT[settings][document][server][kms_compositor]}" = cpu ] || { echo 'compositor not saved' >&2; exit 67; }
       [ "${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}" = immediate ] || { echo 'frame timing not applied' >&2; exit 68; }
+      blit_cp_start refresh; finish
+      [ "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" = 12 ] &&
+      [ "${BCP_EFFECTS[panes][1][effects][scanlines][intensity]}" = 35 ] || { echo 'saved effects not live' >&2; exit 74; }
+      blit_slide 44 "corners:$eo:1" 0
+      blit_do 44 save 1
+      finish
+      blit_cp_start refresh; finish
+      [ -z "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" ] &&
+      [ "${BCP_EFFECTS[panes][1][effects][scanlines][intensity]}" = 35 ] || { echo 'corners not turned off' >&2; exit 75; }
       BCP_TOKEN=panel-test-token
       blit_cp_credentials 0 || { echo 'credential save failed' >&2; exit 33; }
       cp_save
@@ -392,7 +422,7 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value draft=preserved token=masked export=no_secrets'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=staged_saved_live draft=preserved token=masked export=no_secrets'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil
