@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.16
+app blit "API configuration and diagnostics for the Blit display server" 0.1.17
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -657,7 +657,8 @@ fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
         max=${BCP_EFFECTS[available][$j][maximum]}
         value=${BCP_FX[$output][$ordinal][$name][$param]:-0}
         unit=%; [ "$param" != radius_px ] || { unit=" px"; max=64; }
-        label=${name^}
+        # Blit's own title ("RGB shift"); an older Blit sends none.
+        label=${BCP_EFFECTS[available][$j][title]:-${name^}}
         blit_cp_row "$w" "$n" set "$label" "$value" "fx:$name:$output:$ordinal" slider
         CP[$w][$n][min]=0; CP[$w][$n][max]=$max; CP[$w][$n][after]="($value$unit)"
         n=$((n + 1)); j=$((j + 1))
