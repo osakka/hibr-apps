@@ -152,33 +152,61 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_do 44 frame_timing 1
       [ "${BCP_DRAFT[server][kms_frame_timing]}" = late ] || { echo 'frame timing does not step' >&2; exit 66; }
       blit_cp_choose frame_timing immediate
-      # Pane effects: one pair of sliders per pane Blit reports, staged in
-      # the draft and applied by Save; a slider at 0 drops that effect.
+      # Blit Effects: its own pane, live. The draft holds staged edits here
+      # (rendering choices above); applying effects must not save them.
+      [ "${CP_PANES[blit_effects][title]}" = 'Blit Effects' ] || { echo 'effects pane not registered' >&2; exit 76; }
       eo=${BCP_EFFECTS[panes][0][output]}
       [ -n "$eo" ] && [ "${BCP_EFFECTS[panes][1][pane_ordinal]}" = 2 ] || { echo 'effects panes not read' >&2; exit 70; }
-      blit_slide 44 "corners:$eo:1" 12
-      blit_slide 44 "scanlines:$eo:2" 30
-      blit_slide 44 "corners:$eo:1" 65
-      blit_slide 44 "scanlines:$eo:2" -1
-      blit_do 44 "scanlines:$eo:2" 1
-      [ "${BCP_DRAFT[effects][$eo][1][corners][radius_px]}" = 12 ] &&
-      [ "${BCP_DRAFT[effects][$eo][2][scanlines][intensity]}" = 35 ] || { echo 'effects not staged' >&2; exit 71; }
-      [ -z "${BCP_DRAFT[effects][$eo][1][scanlines][intensity]}" ] || { echo 'an effect at 0 was written' >&2; exit 72; }
-      # Their own pane: Save at the top, then a pair of sliders per pane.
-      [ "${CP_PANES[blit_effects][title]}" = 'Blit Effects' ] || { echo 'effects pane not registered' >&2; exit 76; }
+      fn served() { blit_cp_start refresh; finish; }
+      blit_effects_slide 44 "fx:corners:$eo:1" 12
+      finish
+      blit_effects_slide 44 "fx:scanlines:$eo:2" 30
+      blit_effects_do 44 "fx:scanlines:$eo:2" 1
+      finish
+      blit_effects_slide 44 "fx:corners:$eo:1" 65
+      blit_effects_slide 44 "fx:scanlines:$eo:2" -1
+      [ "$BCP_BUSY" = 0 ] || { echo 'an out-of-range effect was sent' >&2; exit 79; }
+      served
+      [ "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" = 12 ] &&
+      [ "${BCP_EFFECTS[panes][1][effects][scanlines][intensity]}" = 35 ] || { echo "effects not applied live: $BCP_STATUS" >&2; exit 71; }
+      [ -z "${BCP_EFFECTS[panes][0][effects][scanlines][intensity]}" ] || { echo 'an effect at 0 was written' >&2; exit 72; }
+      [ "${BCP_SNAPSHOT[settings][document][server][kms_compositor]}" != cpu ] || { echo 'live effects saved staged edits' >&2; exit 80; }
+      [ "$BCP_DIRTY" = 1 ] && [ "${BCP_DRAFT[server][kms_compositor]}" = cpu ] || { echo 'live effects lost staged edits' >&2; exit 81; }
+      # The rows: a master switch, then per pane a switch and one slider per
+      # effect Blit lists.
       n := blit_effects_rows 999999
-      i=0; shown=; sliders=0; save_row=-1
+      i=0; shown=; sliders=0; switches=0
       while [ "$i" -lt "$n" ]; do
-          [ "${CP[999999][$i][key]}" != "corners:$eo:1" ] || shown="${CP[999999][$i][val]} ${CP[999999][$i][after]}"
+          [ "${CP[999999][$i][key]}" != "fx:corners:$eo:1" ] || shown="${CP[999999][$i][val]} ${CP[999999][$i][after]}"
           [ "${CP[999999][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
-          [ "${CP[999999][$i][key]}" != save ] || [ "$save_row" -ge 0 ] || save_row=$i
+          [ "${CP[999999][$i][wtype]}" != bool ] || switches=$((switches + 1))
           i=$((i + 1))
       done
+      effects_listed=0
+      while [ -n "${BCP_EFFECTS[available][$effects_listed][name]}" ]; do effects_listed=$((effects_listed + 1)); done
       [ "$shown" = "12 (12 px)" ] || { echo "corner row: $shown" >&2; exit 73; }
-      [ "$sliders" = 4 ] && [ "$save_row" -ge 0 ] && [ "$save_row" -lt 8 ] || { echo "effects pane layout: sliders=$sliders save=$save_row" >&2; exit 77; }
-      blit_effects_slide 44 "corners:$eo:1" 13
-      blit_effects_do 44 "corners:$eo:1" -1
-      [ "${BCP_DRAFT[effects][$eo][1][corners][radius_px]}" = 12 ] || { echo 'effects pane callbacks not wired' >&2; exit 78; }
+      [ "$sliders" = $((effects_listed * 2)) ] && [ "$switches" = 3 ] || { echo "effects pane layout: sliders=$sliders switches=$switches" >&2; exit 77; }
+      # Switches: off keeps the values and draws nothing; on brings them back.
+      blit_effects_do 44 fxall 1
+      finish; served
+      [ "${BCP_EFFECTS[enabled]}" = false ] && [ -z "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" ] || { echo 'master switch did not turn effects off' >&2; exit 82; }
+      blit_effects_do 44 fxall 1
+      blit_effects_do 44 "fxpane:$eo:1" 1
+      finish; finish; served
+      [ "${BCP_EFFECTS[enabled]}" = true ] && [ "${BCP_EFFECTS[panes][0][enabled]}" = false ] &&
+      [ -z "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" ] &&
+      [ "${BCP_SNAPSHOT[settings][document][effects][$eo][1][corners][radius_px]}" = 12 ] || { echo 'pane switch did not turn its effects off, keeping them' >&2; exit 83; }
+      blit_effects_do 44 "fxpane:$eo:1" 1
+      finish; served
+      [ "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" = 12 ] || { echo 'pane switch did not bring its effects back' >&2; exit 84; }
+      # A slider still held shows its value; letting go applies it (#368).
+      CP_MSLIDE[44]="3 10"
+      blit_effects_slide 44 "fx:corners:$eo:1" 20
+      [ "$BCP_BUSY" = 0 ] && [ "${BCP_FX[$eo][1][corners][radius_px]}" = 20 ] || { echo 'a held effect slider wrote' >&2; exit 85; }
+      CP_MSLIDE[44]=
+      blit_cp_tick 44
+      finish; served
+      [ "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" = 20 ] || { echo 'releasing the slider did not apply it' >&2; exit 86; }
       output=${BCP_SNAPSHOT[displays][displays][0][state][connector]:-${BCP_SNAPSHOT[displays][displays][0][name]}}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2
@@ -189,13 +217,13 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "${BCP_SNAPSHOT[settings][document][display_layouts][$output][columns]}" = 3 ] || exit 32
       [ "${BCP_SNAPSHOT[settings][document][server][kms_compositor]}" = cpu ] || { echo 'compositor not saved' >&2; exit 67; }
       [ "${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}" = immediate ] || { echo 'frame timing not applied' >&2; exit 68; }
+      # The staged save, after live effects moved the revision, still saves
+      # -- and keeps the effects.
       blit_cp_start refresh; finish
-      [ "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" = 12 ] &&
-      [ "${BCP_EFFECTS[panes][1][effects][scanlines][intensity]}" = 35 ] || { echo 'saved effects not live' >&2; exit 74; }
-      blit_slide 44 "corners:$eo:1" 0
-      blit_do 44 save 1
-      finish
-      blit_cp_start refresh; finish
+      [ "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" = 20 ] &&
+      [ "${BCP_EFFECTS[panes][1][effects][scanlines][intensity]}" = 35 ] || { echo 'a staged save lost the live effects' >&2; exit 74; }
+      blit_effects_slide 44 "fx:corners:$eo:1" 0
+      finish; served
       [ -z "${BCP_EFFECTS[panes][0][effects][corners][radius_px]}" ] &&
       [ "${BCP_EFFECTS[panes][1][effects][scanlines][intensity]}" = 35 ] || { echo 'corners not turned off' >&2; exit 75; }
       BCP_TOKEN=panel-test-token
@@ -428,7 +456,7 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=staged_saved_live draft=preserved token=masked export=no_secrets'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil

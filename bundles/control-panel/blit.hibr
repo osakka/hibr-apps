@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.15
+app blit "API configuration and diagnostics for the Blit display server" 0.1.16
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -30,6 +30,12 @@ BCP_FONT_SIZE_REQUESTED=
 # it: applied once the slider is let go (#368).
 BCP_FONT_HELD=
 BCP_FONT_HELDW=
+# Blit Effects: a held slider's window, a change waiting for the request in
+# flight, and conflict retries left.
+BCP_FX_HELDW=
+BCP_FX_PENDING=
+BCP_FX_RETRIES=0
+BCP_FX_BASE=
 # The settings document the draft was based on, to tell Blit saving the
 # pane's own font change from somebody else changing the settings (#364).
 BCP_BASE_DOC=
@@ -49,7 +55,7 @@ BCP_INVALID=0
 BCP_REPLY=
 BCP_EDITKEY=
 DAV_CODE=
-declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS
+declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS BCP_FX
 declare -gA BCP_DROP_KEY
 declare -ga BCP_CHOICES
 BCP_CHOICE_CURRENT=
@@ -57,6 +63,7 @@ json parse BCP_SNAPSHOT '{}'
 json parse BCP_LIVE '{}'
 json parse BCP_DRAFT '{}'
 json parse BCP_EFFECTS '{}'
+json parse BCP_FX '{}'
 
 # Desktop settings use executable text and no secret permissions. Keep only
 # the URL there; this data-only credential is scoped to that exact URL.
@@ -257,6 +264,15 @@ fn blit_cp_done(int n, int st) {
     if [ "$ok" != 1 ]; then
         BCP_FONT_SIZE_PENDING=
         BCP_FONT_SIZE_REQUESTED=
+        # Effects written over a revision somebody else moved: read the
+        # server again, then write them once more on top of it.
+        if [ "$BCP_OPERATION" = effects ] && [ "$code" = 409 ] && [ "$BCP_FX_RETRIES" -lt 2 ]; then
+            BCP_FX_RETRIES=$((BCP_FX_RETRIES + 1))
+            BCP_FX_PENDING=1
+            BCP_NEXT=0
+            BCP_STATUS="Settings moved; applying effects again"
+            return 0
+        fi
         blit_cp_schedule 1
         if [ "$code" = 000 ]; then BCP_STATUS="Offline or request timed out";
         else BCP_STATUS="HTTP $code: ${reply[code]:-${reply[title]:-request failed}}"; fi
@@ -272,14 +288,26 @@ fn blit_cp_done(int n, int st) {
         raw := json get reply .effects
         json parse BCP_EFFECTS "${raw:-"{}"}"
         raw := json get BCP_SNAPSHOT .settings.document
+        # This pane's effects follow the server's, unless a change of its
+        # own is still on its way there.
+        if [ -z "$BCP_FX_HELDW$BCP_FX_PENDING" ]; then
+            local fx
+            fx := json get BCP_SNAPSHOT .settings.document.effects 2> /dev/null || fx=
+            [ -n "$fx" ] && [ "$fx" != null ] || fx='{}'
+            json parse BCP_FX "$fx"
+        fi
         if [ "$BCP_DIRTY" = 0 ]; then
             json parse BCP_DRAFT "$raw"
             BCP_BASE_REV=${BCP_SNAPSHOT[settings][revision]}
             BCP_BASE_DOC=$raw
         elif [ "$BCP_BASE_REV" != "${BCP_SNAPSHOT[settings][revision]}" ] &&
-             blit_cp_fontonly "$BCP_BASE_DOC" "$raw"; then
-            # Only the font moved: that is Blit saving this pane's own font
-            # change, which the draft already holds. Rebase, keep the edits.
+             blit_cp_liveonly "$BCP_BASE_DOC" "$raw"; then
+            # Only the font or the effects moved: Blit saving a live change
+            # these panes made. Rebase, keep the staged edits, and take the
+            # effects as they now are.
+            raw := json get BCP_SNAPSHOT .settings.document.effects 2> /dev/null || raw=
+            if [ -n "$raw" ] && [ "$raw" != null ]; then json parse 'BCP_DRAFT[effects]' "$raw"
+            else unset BCP_DRAFT["effects"]; fi
             BCP_BASE_REV=${BCP_SNAPSHOT[settings][revision]}
             BCP_BASE_DOC=$raw
         fi
@@ -305,6 +333,29 @@ fn blit_cp_done(int n, int st) {
         BCP_DIRTY=0
         BCP_STATUS="Save: ${reply[storage][state]} (revision ${reply[storage][saved_revision]})"
         ;;
+    effects)
+        # Applied and saved. The settings now hold BCP_FX; a draft with no
+        # staged edits follows them, one with edits is rebased on refresh.
+        BCP_FX_RETRIES=0
+        raw := json emit reply
+        json parse 'BCP_SNAPSHOT[settings]' "$raw"
+        raw := json get reply .document
+        if [ "$BCP_DIRTY" = 0 ]; then
+            json parse BCP_DRAFT "$raw"
+            BCP_BASE_REV=${reply[revision]}
+            BCP_BASE_DOC=$raw
+        elif [ "$BCP_FX_BASE" = "$BCP_BASE_REV" ]; then
+            # Written over the revision the staged edits are based on, so
+            # the effects are all that moved: rebase now, keep the edits.
+            BCP_BASE_REV=${reply[revision]}
+            BCP_BASE_DOC=$raw
+            raw := json emit BCP_FX
+            json parse 'BCP_DRAFT[effects]' "$raw"
+        fi
+        BCP_STATUS="Effects applied"
+        BCP_LAST=0
+        BCP_NEXT=0
+        ;;
     font)
         BCP_FONT_SIZE_REQUESTED=
         raw := json emit reply
@@ -325,6 +376,10 @@ fn blit_cp_done(int n, int st) {
         BCP_NEXT=0
         ;;
     esac
+    if [ -n "$BCP_FX_PENDING" ] && [ -z "$BCP_FX_HELDW" ]; then
+        blit_cp_effects_apply
+        return 0
+    fi
     if [ -n "$BCP_FONT_SIZE_PENDING" ]; then
         local wanted=$BCP_FONT_SIZE_PENDING
         BCP_FONT_SIZE_PENDING=
@@ -370,15 +425,15 @@ fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
     CP[$w][$n][val]=$value; CP[$w][$n][key]=$key; CP[$w][$n][wtype]=$wtype
 }
 
-# Whether two settings documents differ in nothing but the font (and the
-# revision the save gave it).
-fn blit_cp_fontonly(a, b) {
+# Whether two settings documents differ in nothing but what the panes apply
+# live -- the font and the effects -- and the revision a save gave them.
+fn blit_cp_liveonly(a, b) {
     local x y
     local -A da db
     [ -n "$a" ] && [ -n "$b" ] || return 1
     json parse da "$a" 2> /dev/null || return 1
     json parse db "$b" 2> /dev/null || return 1
-    unset da["font"] da["revision"] db["font"] db["revision"]
+    unset da["font"] da["revision"] da["effects"] db["font"] db["revision"] db["effects"]
     x := json emit da
     y := json emit db
     [ "$x" = "$y" ]
@@ -395,6 +450,10 @@ fn blit_cp_tick(int w) {
             v=$BCP_FONT_HELD
             BCP_FONT_HELD=
             blit_slide 0 font_size "$v"
+        fi
+        if [ -n "$BCP_FX_HELDW" ] && [ -z "${CP_MSLIDE[$BCP_FX_HELDW]:-}" ]; then
+            BCP_FX_HELDW=
+            blit_cp_effects_apply
         fi
         if [ "$BCP_BUSY" = 0 ] && [ "$EPOCHSECONDS" -ge "$BCP_NEXT" ]; then
             blit_cp_start refresh GET "" "" "" 1
@@ -549,70 +608,135 @@ fn blit_cp_rendering_rows(int w, int n) {
     ret "$n"
 }
 
-# Pane effects (Blit ADR 0186): rounded corners and scanlines for each pane
-# Blit reports, staged in the draft's `effects` like the grid and applied
-# when it is saved. A slider at 0 turns that effect off. Their own pane, so
-# the Blit pane stays readable and Save sits right above the sliders; it
-# shares the connection, refresh and settings draft with the other two.
+# Blit Effects (Blit ADR 0186, 0187): its own pane, live. Every change is
+# applied at once -- a slider when it is let go -- by writing Blit's current
+# settings document with only `effects` replaced, so nothing another pane
+# has staged is saved with it. BCP_FX is the effects object this pane shows
+# and edits; it follows the server's whenever no change of its own is on its
+# way. The rows come from Blit's own list of effects, so a newer Blit's
+# effects appear here without a new pane, and an older one shows fewer.
 fn blit_effects_rows(int w) {
-    local n=0
+    local n=0 i=0 output ordinal on reason
     blit_cp_tick "$w"
-    blit_cp_row "$w" "$n" head "Blit pane effects"; n=$((n + 1))
+    blit_cp_row "$w" "$n" head "Blit pane effects (live)"; n=$((n + 1))
     blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
     blit_cp_row "$w" "$n" action "API Token (remembered)" "" token; n=$((n + 1))
     blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
-    blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
     [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
-    blit_cp_row "$w" "$n" action "Save all settings" "rev $BCP_BASE_REV" save; n=$((n + 1))
-    blit_cp_row "$w" "$n" info Storage "${BCP_SNAPSHOT[settings][storage][state]}"; n=$((n + 1))
-    n := blit_cp_effect_rows "$w" "$n"
+    if [ -z "${BCP_EFFECTS[available][0][name]}" ]; then
+        blit_cp_row "$w" "$n" info "Pane effects" "Requires Blit 0.2.27"; n=$((n + 1))
+        ret "$n"; return 0
+    fi
+    on=on; [ "${BCP_FX[enabled]:-true}" != false ] || on=off
+    blit_cp_row "$w" "$n" set "Effects" "$on" fxall bool; n=$((n + 1))
+    while [ -n "${BCP_EFFECTS[panes][$i][pane_id]}" ]; do
+        output=${BCP_EFFECTS[panes][$i][output]}
+        ordinal=${BCP_EFFECTS[panes][$i][pane_ordinal]}
+        on=on; [ "${BCP_FX[$output][$ordinal][enabled]:-true}" != false ] || on=off
+        blit_cp_row "$w" "$n" head "$output pane $ordinal"; n=$((n + 1))
+        blit_cp_row "$w" "$n" set "On" "$on" "fxpane:$output:$ordinal" bool; n=$((n + 1))
+        n := blit_cp_effect_sliders "$w" "$n" "$output" "$ordinal"
+        reason=${BCP_EFFECTS[panes][$i][unavailable][curvature]:-${BCP_EFFECTS[panes][$i][unavailable][glow]}}
+        if [ -n "$reason" ]; then
+            blit_cp_row "$w" "$n" info "Not drawn here" "$reason"; n=$((n + 1))
+        fi
+        i=$((i + 1))
+    done
     ret "$n"
 }
 fn blit_effects_do(int w, key, int dir) { blit_do "$w" "$key" "$dir"; }
 fn blit_effects_slide(int w, key, int value) { blit_slide "$w" "$key" "$value"; }
 fn blit_effects_drop(int w, int r, int c, key) { blit_drop "$w" "$r" "$c" "$key"; }
 
-fn blit_cp_effect_rows(int w, int n) {
-    local i=0 output ordinal value
-    blit_cp_row "$w" "$n" head "Each pane (Save applies)"; n=$((n + 1))
-    if [ -z "${BCP_EFFECTS[available][0][name]}" ]; then
-        blit_cp_row "$w" "$n" info "Pane effects" "Requires Blit 0.2.27"; n=$((n + 1))
-        ret "$n"; return 0
-    fi
-    while [ -n "${BCP_EFFECTS[panes][$i][pane_id]}" ]; do
-        output=${BCP_EFFECTS[panes][$i][output]}
-        ordinal=${BCP_EFFECTS[panes][$i][pane_ordinal]}
-        blit_cp_row "$w" "$n" info "$output pane $ordinal"; n=$((n + 1))
-        value=${BCP_DRAFT[effects][$output][$ordinal][corners][radius_px]:-0}
-        blit_cp_row "$w" "$n" set Corners "$value" "corners:$output:$ordinal" slider
-        CP[$w][$n][min]=0; CP[$w][$n][max]=64; CP[$w][$n][after]="($value px)"; n=$((n + 1))
-        value=${BCP_DRAFT[effects][$output][$ordinal][scanlines][intensity]:-0}
-        blit_cp_row "$w" "$n" set Scanlines "$value" "scanlines:$output:$ordinal" slider
-        CP[$w][$n][min]=0; CP[$w][$n][max]=100; CP[$w][$n][after]="($value%)"; n=$((n + 1))
-        i=$((i + 1))
+# One slider per effect Blit lists, for one pane.
+fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
+    local j=0 name param value label unit max
+    while [ -n "${BCP_EFFECTS[available][$j][name]}" ]; do
+        name=${BCP_EFFECTS[available][$j][name]}
+        param=${BCP_EFFECTS[available][$j][parameter]}
+        max=${BCP_EFFECTS[available][$j][maximum]}
+        value=${BCP_FX[$output][$ordinal][$name][$param]:-0}
+        unit=%; [ "$param" != radius_px ] || { unit=" px"; max=64; }
+        label=${name^}
+        blit_cp_row "$w" "$n" set "$label" "$value" "fx:$name:$output:$ordinal" slider
+        CP[$w][$n][min]=0; CP[$w][$n][max]=$max; CP[$w][$n][after]="($value$unit)"
+        n=$((n + 1)); j=$((j + 1))
     done
     ret "$n"
 }
 
-# One effect's value for one pane, into the draft. The pane's entry is
-# rebuilt from its two values, leaving out an effect at 0.
-fn blit_cp_effect(key, int value) {
-    local effect=${key%%:*} rest=${key#*:} output ordinal corners scanlines raw
+# The parameter and the slider's top for an effect Blit lists.
+fn blit_cp_effect_spec(name) {
+    local j=0
+    while [ -n "${BCP_EFFECTS[available][$j][name]}" ]; do
+        if [ "${BCP_EFFECTS[available][$j][name]}" = "$name" ]; then
+            if [ "${BCP_EFFECTS[available][$j][parameter]}" = radius_px ]; then
+                ret "radius_px 64"
+            else
+                ret "${BCP_EFFECTS[available][$j][parameter]} ${BCP_EFFECTS[available][$j][maximum]}"
+            fi
+            return 0
+        fi
+        j=$((j + 1))
+    done
+    return 1
+}
+
+# A change to BCP_FX: an effect's value (key fx:name:output:ordinal), a
+# pane's switch (fxpane:output:ordinal) or the master switch (fxall, with
+# value 0/1). An effect at 0 is left out of the pane's entry.
+fn blit_cp_effect(int w, key, int value) {
+    local rest output ordinal name spec param max raw
     local -A entry
-    ordinal=${rest##*:}; output=${rest%:*}
-    corners=${BCP_DRAFT[effects][$output][$ordinal][corners][radius_px]:-0}
-    scanlines=${BCP_DRAFT[effects][$output][$ordinal][scanlines][intensity]:-0}
-    case $effect in
-    corners) [ "$value" -ge 0 ] && [ "$value" -le 64 ] || return 0; corners=$value ;;
-    scanlines) [ "$value" -ge 0 ] && [ "$value" -le 100 ] || return 0; scanlines=$value ;;
+    case $key in
+    fxall)
+        if [ "$value" = 1 ]; then json set BCP_FX .enabled true; else json set BCP_FX .enabled false; fi ;;
+    fxpane:* | fx:*)
+        rest=${key#*:}
+        if [ "${key%%:*}" = fx ]; then name=${rest%%:*}; rest=${rest#*:}; fi
+        ordinal=${rest##*:}; output=${rest%:*}
+        # Connector names never hold a dot, so the plain path reaches them.
+        raw := json get BCP_FX ".$output.$ordinal" 2> /dev/null || raw=
+        [ -n "$raw" ] && [ "$raw" != null ] || raw='{}'
+        json parse entry "$raw"
+        if [ -z "$name" ]; then
+            if [ "$value" = 1 ]; then unset entry["enabled"]; else json set entry .enabled false; fi
+        else
+            spec := blit_cp_effect_spec "$name" || return 0
+            param=${spec% *}; max=${spec#* }
+            [ "$value" -ge 0 ] && [ "$value" -le "$max" ] || return 0
+            if [ "$value" = 0 ]; then unset entry["$name"]
+            else json set entry ".$name.$param" "$value"; fi
+        fi
+        raw := json emit entry
+        json parse "BCP_FX[$output][$ordinal]" "$raw" ;;
     *) return 0 ;;
     esac
-    json parse entry '{}'
-    [ "$corners" = 0 ] || json set entry .corners.radius_px "$corners"
-    [ "$scanlines" = 0 ] || json set entry .scanlines.intensity "$scanlines"
-    raw := json emit entry
-    json parse "BCP_DRAFT[effects][$output][$ordinal]" "$raw"
-    BCP_DIRTY=1
+    # A slider still held shows the value; letting go applies it (#368).
+    if [ "$w" != 0 ] && [ -n "${CP_MSLIDE[$w]:-}" ]; then
+        BCP_FX_HELDW=$w
+        command -v dt_want > /dev/null && dt_want 50
+        return 0
+    fi
+    blit_cp_effects_apply
+}
+
+# Write BCP_FX into Blit's current settings document. One request at a
+# time; a change made meanwhile is applied when it returns.
+fn blit_cp_effects_apply() {
+    local raw body
+    local -A doc payload
+    if [ "$BCP_BUSY" = 1 ]; then BCP_FX_PENDING=1; return 0; fi
+    BCP_FX_PENDING=
+    raw := json get BCP_SNAPSHOT .settings.document 2> /dev/null || raw='{}'
+    json parse doc "${raw:-"{}"}"
+    raw := json emit BCP_FX
+    json parse 'doc[effects]' "$raw"
+    raw := json emit doc
+    json parse payload '{}'; json parse 'payload[document]' "$raw"
+    body := json emit payload
+    BCP_FX_BASE=${BCP_SNAPSHOT[settings][revision]}
+    blit_cp_start effects PUT /v1/settings "$body" "$BCP_FX_BASE"
 }
 
 # One choice source and selection path for native popups and keyboard stepping.
@@ -741,12 +865,19 @@ fn blit_do(int w, key, int dir) {
         output=${key#*:}; value=${key%%:*}
         tenths=$(( ${BCP_DRAFT[display_layouts][$output][$value]:-1} + dir ))
         blit_slide "$w" "$key" "$tenths" ;;
-    corners:*)
-        output=${key#corners:}; ordinal=${output##*:}; output=${output%:*}
-        blit_cp_effect "$key" "$(( ${BCP_DRAFT[effects][$output][$ordinal][corners][radius_px]:-0} + dir ))" ;;
-    scanlines:*)
-        output=${key#scanlines:}; ordinal=${output##*:}; output=${output%:*}
-        blit_cp_effect "$key" "$(( ${BCP_DRAFT[effects][$output][$ordinal][scanlines][intensity]:-0} + dir * 5 ))" ;;
+    fxall) value=1; [ "${BCP_FX[enabled]:-true}" = false ] || value=0; blit_cp_effect 0 fxall "$value" ;;
+    fxpane:*)
+        output=${key#fxpane:}; ordinal=${output##*:}; output=${output%:*}
+        value=1; [ "${BCP_FX[$output][$ordinal][enabled]:-true}" = false ] || value=0
+        blit_cp_effect 0 "$key" "$value" ;;
+    fx:*)
+        output=${key#fx:}; value=${output%%:*}; output=${output#*:}
+        ordinal=${output##*:}; output=${output%:*}
+        local spec param step=5
+        spec := blit_cp_effect_spec "$value" || return 0
+        param=${spec% *}
+        [ "$param" != radius_px ] || step=1
+        blit_cp_effect 0 "$key" "$(( ${BCP_FX[$output][$ordinal][$value][$param]:-0} + dir * step ))" ;;
     export) dt_filepick save "Export Blit Configuration" "JSON:*.json" "$HOME" blit.json blit_cp_exported "" ;;
     import) dt_filepick open "Import Blit Configuration" "JSON:*.json" "$HOME" "" blit_cp_imported "" ;;
     esac
@@ -788,7 +919,7 @@ fn blit_slide(int w, key, int value) {
         body := json emit grid
         json parse "BCP_DRAFT[display_layouts][$output]" "$body"
         BCP_DIRTY=1 ;;
-    corners:* | scanlines:*) blit_cp_effect "$key" "$value" ;;
+    fx:*) blit_cp_effect "$w" "$key" "$value" ;;
     esac
     return 0
 }

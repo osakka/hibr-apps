@@ -1,5 +1,30 @@
 # Blit Control Panel
 
+## Blit Effects, live, with switches (pane 0.1.16)
+
+The owner's request: effects that apply as you change them, and switch off
+completely.
+- **Live.** Every change reaches Blit at once, with no Save: a slider when it
+  is let go, a switch or a keyboard step immediately. The pane writes Blit's
+  current settings with only `effects` replaced, so nothing staged in Blit
+  or Blit Mouse is saved with it. Staged edits are kept, and rebased onto the
+  new revision, so their own Save still works.
+- **Switches.** **Effects** at the top turns every effect off; each pane's
+  **On** turns that pane's off. The values are kept for when it is switched
+  back on. Blit then draws exactly what it draws with no effects, at no cost
+  (Blit ADR 0187).
+- **Every effect Blit has.** The sliders come from Blit's own list: Scanlines,
+  Corners, and with Blit 0.2.28, Curvature and Glow. Where a pane cannot draw
+  Curvature or Glow (the CPU compositor), it says so.
+- **Conflicts.** If somebody else saved the settings meanwhile, the pane reads
+  them again and applies the effects once more on top.
+
+`blit_panel_gate` checks live apply, ranges, both switches with their values
+kept, a held slider applying on release, staged edits left unsaved and still
+savable, and turning an effect off. With `BLIT_PANEL_UI_PANE=blit_effects`,
+`blit_ui_gate` drags and steps the corner slider and clicks the master
+switch with real input, and checks that each reached Blit with no Save.
+
 ## Blit Effects, its own entry (pane 0.1.15)
 
 Pane effects move out of the Blit pane into their own Control Panel entry,

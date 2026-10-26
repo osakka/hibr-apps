@@ -161,33 +161,37 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       await("dismiss #{label} popup"){!text.call.include?(alternative)}
     end
     if PANE=='blit_effects'
-      # Its own pane: real keyboard step and pointer drag on the first
-      # pane's corner slider, then the pane's own Save, at the top.
-      before=req('GET','/v1/settings')
+      # Its own pane, live: a real pointer drag on the first pane's corner
+      # slider reaches Blit when it is let go, a keyboard step at once, and
+      # the master switch turns every effect off -- no Save anywhere.
+      live=->{req('GET','/v1/effects')['panes'][0].dig('effects','corners','radius_px')}
       drag.call('Corners (',4)
       dragged=nil
-      await('native corner radius drag'){dragged=text.call[/Corners \((\d+) px\)/,1].to_i; dragged>0}
+      await('drag applied live on release'){dragged=live.call; dragged.to_i>0}
+      await('row shows the applied radius'){text.call.include?("Corners (#{dragged} px)")}
+      capture.call('effects-dragged-live')
       settle.call('stepping corners')
-      dragged=text.call[/Corners \((\d+) px\)/,1].to_i
       input.call("\e[C")
-      radius=dragged+1
-      await('one pixel corner step'){text.call.include?("Corners (#{radius} px)")}
-      capture.call('effects-staged')
-      raise 'staging saved settings prematurely' unless req('GET','/v1/settings')==before
-      settle.call('saving effects')
+      await('keyboard step applied live'){live.call==dragged+1}
+      capture.call('effects-stepped-live')
+      settle.call('switching effects off')
       cells=req('GET',surface)['cells']
-      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?('Save all settings')}
-      raise 'save action missing' unless row
-      label=row[1].sort_by{|c|c['x']}; x=label.find{|c|c['text']=='S'}['x']
+      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.match?(/│  Effects +\[/)}
+      raise 'master switch missing' unless row
+      box=row[1].sort_by{|c|c['x']}.select{|c|c['text']=='x'}.last
+      raise 'master switch is not on' unless box
       grid=req('GET','/v1/topology')['panes'][0]['cell_grid']
-      req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+(x+5)*grid['cell_width'],y:grid['origin_y']+row[0]*grid['cell_height']+grid['cell_height']/2})
+      req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+box['x']*grid['cell_width']+grid['cell_width']/2,y:grid['origin_y']+row[0]*grid['cell_height']+grid['cell_height']/2})
       2.times do
         req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
         req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+        break if (req('GET','/v1/effects')['enabled']==false rescue false)
+        sleep 0.4
       end
-      await('effects saved and live'){req('GET','/v1/effects')['panes'][0].dig('effects','corners','radius_px')==radius}
-      capture.call('effects-saved')
-      puts "BLIT_EFFECTS_UI_PASS library=installed_hibr display=kms_mock pane=own_entry drag=actual_pointer keyboard=step save=actual_click_live radius=#{radius} screenshots=#{output}"
+      await('master switch off, live'){req('GET','/v1/effects')['enabled']==false}
+      raise 'values not kept while off' unless req('GET','/v1/settings').dig('document','effects').to_s.include?('radius_px')
+      capture.call('effects-off')
+      puts "BLIT_EFFECTS_UI_PASS library=installed_hibr display=kms_mock pane=own_entry drag=live_on_release keyboard=live master=off_by_click radius=#{dragged + 1} screenshots=#{output}"
     elsif PANE=='blit_mouse'
       before=req('GET','/v1/settings')
       dropdown.call('Shape','arrow','precision')
