@@ -14,7 +14,7 @@ require File.join(BLIT,'tools/tests/gate_server')
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
 EXPECTED_VERSION=ENV.fetch('BLIT_EXPECTED_VERSION'){File.read(File.join(BLIT,'packaging/VERSION')).strip}
 PANE=ENV.fetch('BLIT_PANEL_UI_PANE','blit')
-raise 'unsupported panel fixture' unless %w[blit blit_mouse].include?(PANE)
+raise 'unsupported panel fixture' unless %w[blit blit_mouse blit_effects].include?(PANE)
 PORT=Integer(ENV.fetch('BLIT_PANEL_UI_PORT','19496'))
 BASE=URI("http://127.0.0.1:#{PORT}")
 def req(method,path,body=nil)
@@ -89,7 +89,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
         a==b && a[0].include?('Control Panel')
       end
     end
-    snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?("Connected: #{EXPECTED_VERSION}") && t.include?(PANE=='blit_mouse' ? 'Pointer Size' : 'Apply auxiliaries')}
+    snapshot=await('connected pane in actual Hibr UI'){t=text.call;t if t.include?("Connected: #{EXPECTED_VERSION}") && t.include?({'blit_mouse'=>'Pointer Size','blit_effects'=>'Corners ('}.fetch(PANE,'Apply auxiliaries'))}
     capture=->(name) do
       File.write(File.join(output,"#{name}.txt"),text.call)
       bmp=Net::HTTP.get(BASE+'/v1/diagnostics/screenshots/display-1')
@@ -160,7 +160,35 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       input.call("\e")
       await("dismiss #{label} popup"){!text.call.include?(alternative)}
     end
-    if PANE=='blit_mouse'
+    if PANE=='blit_effects'
+      # Its own pane: real keyboard step and pointer drag on the first
+      # pane's corner slider, then the pane's own Save, at the top.
+      before=req('GET','/v1/settings')
+      drag.call('Corners (',4)
+      dragged=nil
+      await('native corner radius drag'){dragged=text.call[/Corners \((\d+) px\)/,1].to_i; dragged>0}
+      settle.call('stepping corners')
+      dragged=text.call[/Corners \((\d+) px\)/,1].to_i
+      input.call("\e[C")
+      radius=dragged+1
+      await('one pixel corner step'){text.call.include?("Corners (#{radius} px)")}
+      capture.call('effects-staged')
+      raise 'staging saved settings prematurely' unless req('GET','/v1/settings')==before
+      settle.call('saving effects')
+      cells=req('GET',surface)['cells']
+      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.include?('Save all settings')}
+      raise 'save action missing' unless row
+      label=row[1].sort_by{|c|c['x']}; x=label.find{|c|c['text']=='S'}['x']
+      grid=req('GET','/v1/topology')['panes'][0]['cell_grid']
+      req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+(x+5)*grid['cell_width'],y:grid['origin_y']+row[0]*grid['cell_height']+grid['cell_height']/2})
+      2.times do
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+      end
+      await('effects saved and live'){req('GET','/v1/effects')['panes'][0].dig('effects','corners','radius_px')==radius}
+      capture.call('effects-saved')
+      puts "BLIT_EFFECTS_UI_PASS library=installed_hibr display=kms_mock pane=own_entry drag=actual_pointer keyboard=step save=actual_click_live radius=#{radius} screenshots=#{output}"
+    elsif PANE=='blit_mouse'
       before=req('GET','/v1/settings')
       dropdown.call('Shape','arrow','precision')
       raise 'opening/dismissing popup changed settings' unless req('GET','/v1/settings')==before
@@ -212,22 +240,8 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     input.call("\e[D")
     await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
     capture.call('font-size-keyboard-step')
-    # Pane effects, below the font: real keyboard down to the first pane's
-    # corner slider, one step right, then a real pointer drag on it.
-    8.times do
-      break if text.call.include?('Corners (')
-      input.call("\e[B")
-      sleep 0.1
-    end
-    await('pane effects rows'){text.call.include?('Corners (0 px)')}
-    input.call("\e[C")
-    await('one pixel corner step'){text.call.include?('Corners (1 px)')}
-    capture.call('effects-keyboard-step')
-    drag.call('Corners (',4)
-    await('native corner radius drag'){t=text.call; t[/Corners \((\d+) px\)/,1].to_i>1}
-    capture.call('effects-slider-dragged')
     dropdown.call('Fallback','first_available','wait')
-    puts "BLIT_UI_PASS library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px effects=keyboard_and_drag token=masked screenshots=#{output}"
+    puts "BLIT_UI_PASS library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception
     File.write(File.join(output,'failure.txt'),text.call) rescue nil

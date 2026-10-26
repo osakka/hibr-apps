@@ -13,9 +13,10 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.14
+app blit "API configuration and diagnostics for the Blit display server" 0.1.15
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
+command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
 
 BCP_URL=${BCP_URL:-${BLIT_CP_URL:-http://127.0.0.1:8080}}
 command -v dt_keep > /dev/null && dt_keep BCP_URL
@@ -488,7 +489,6 @@ fn blit_rows(int w) {
         blit_cp_row "$w" "$n" info "Font size" "Requires Blit 0.1.561+"
     fi
     n=$((n + 1))
-    n := blit_cp_effect_rows "$w" "$n"
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
@@ -551,10 +551,30 @@ fn blit_cp_rendering_rows(int w, int n) {
 
 # Pane effects (Blit ADR 0186): rounded corners and scanlines for each pane
 # Blit reports, staged in the draft's `effects` like the grid and applied
-# when it is saved. A slider at 0 turns that effect off.
+# when it is saved. A slider at 0 turns that effect off. Their own pane, so
+# the Blit pane stays readable and Save sits right above the sliders; it
+# shares the connection, refresh and settings draft with the other two.
+fn blit_effects_rows(int w) {
+    local n=0
+    blit_cp_tick "$w"
+    blit_cp_row "$w" "$n" head "Blit pane effects"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "API Token (remembered)" "" token; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
+    [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
+    blit_cp_row "$w" "$n" action "Save all settings" "rev $BCP_BASE_REV" save; n=$((n + 1))
+    blit_cp_row "$w" "$n" info Storage "${BCP_SNAPSHOT[settings][storage][state]}"; n=$((n + 1))
+    n := blit_cp_effect_rows "$w" "$n"
+    ret "$n"
+}
+fn blit_effects_do(int w, key, int dir) { blit_do "$w" "$key" "$dir"; }
+fn blit_effects_slide(int w, key, int value) { blit_slide "$w" "$key" "$value"; }
+fn blit_effects_drop(int w, int r, int c, key) { blit_drop "$w" "$r" "$c" "$key"; }
+
 fn blit_cp_effect_rows(int w, int n) {
     local i=0 output ordinal value
-    blit_cp_row "$w" "$n" head "Pane effects (Save applies)"; n=$((n + 1))
+    blit_cp_row "$w" "$n" head "Each pane (Save applies)"; n=$((n + 1))
     if [ -z "${BCP_EFFECTS[available][0][name]}" ]; then
         blit_cp_row "$w" "$n" info "Pane effects" "Requires Blit 0.2.27"; n=$((n + 1))
         ret "$n"; return 0

@@ -1,23 +1,30 @@
 # Blit Control Panel
 
+## Blit Effects, its own entry (pane 0.1.15)
+
+Pane effects move out of the Blit pane into their own Control Panel entry,
+**Blit Effects**, so the Blit pane stays readable and Save sits right above
+the sliders. It shares the connection, the quiet refresh and the settings
+draft with Blit and Blit Mouse: **Save all settings** saves everything staged
+in any of the three, with the same revision guard.
+
 ## Pane effects (pane 0.1.14)
 
-Blit 0.2.27 adds per-pane effects (Blit ADR 0186). The section **Pane
-effects**, below Font, lists each live pane by output and pane number, read
-from `GET /v1/effects`. Each pane has two sliders:
+Blit 0.2.27 adds per-pane effects (Blit ADR 0186). Each live pane, by output
+and pane number, is read from `GET /v1/effects` and has two sliders:
 - **Corners**: a rounded-corner radius, 0–64 px.
 - **Scanlines**: a darkening of every second pixel row, 0–100%.
 
 A slider at 0 turns that effect off. The values are staged in the draft's
-`effects` section, like the per-display grid. **Save as Default** applies
-them live and saves them, with no restart. Effects saved for an output that
-is not connected are kept, and come back with it.
+`effects` section, like the per-display grid. Saving applies them live and
+saves them, with no restart. Effects saved for an output that is not
+connected are kept, and come back with it.
 
-On a server without the effects endpoint, the section says it requires Blit
-0.2.27, and the rest of the pane works as before. `blit_panel_gate` checks
-staging, range limits, Save applying them on a real Blit, and turning one off.
-`blit_ui_gate` steps and drags the corner slider with real keyboard and
-pointer input.
+On a server without the effects endpoint, the pane says it requires Blit
+0.2.27. `blit_panel_gate` checks staging, range limits, the pane's layout and
+callbacks, Save applying them on a real Blit, and turning one off.
+`blit_ui_gate` with `BLIT_PANEL_UI_PANE=blit_effects` drags and steps the
+corner slider with real pointer and keyboard input, and clicks Save.
 
 ## Native KMS only (pane0.1.13)
 

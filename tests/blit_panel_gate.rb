@@ -86,9 +86,7 @@ Dir.mktmpdir('blit-panel') do |root|
           [ "${CP[44][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
           i=$((i + 1))
       done
-      # Font size, columns and rows, then corners and scanlines for each of
-      # the gate server's two panes.
-      [ "$sliders" = 7 ] || { echo "font size/columns/rows/effects must use native sliders ($sliders)" >&2; exit 30; }
+      [ "$sliders" = 3 ] || { echo "font size/columns/rows must use native sliders ($sliders)" >&2; exit 30; }
       i=0; font_size_found=0
       while [ "$i" -lt "$n" ]; do
           [ "${CP[44][$i][key]}" != font_size ] || font_size_found=1
@@ -166,13 +164,21 @@ Dir.mktmpdir('blit-panel') do |root|
       [ "${BCP_DRAFT[effects][$eo][1][corners][radius_px]}" = 12 ] &&
       [ "${BCP_DRAFT[effects][$eo][2][scanlines][intensity]}" = 35 ] || { echo 'effects not staged' >&2; exit 71; }
       [ -z "${BCP_DRAFT[effects][$eo][1][scanlines][intensity]}" ] || { echo 'an effect at 0 was written' >&2; exit 72; }
-      n := blit_rows 999999
-      i=0; shown=
+      # Their own pane: Save at the top, then a pair of sliders per pane.
+      [ "${CP_PANES[blit_effects][title]}" = 'Blit Effects' ] || { echo 'effects pane not registered' >&2; exit 76; }
+      n := blit_effects_rows 999999
+      i=0; shown=; sliders=0; save_row=-1
       while [ "$i" -lt "$n" ]; do
           [ "${CP[999999][$i][key]}" != "corners:$eo:1" ] || shown="${CP[999999][$i][val]} ${CP[999999][$i][after]}"
+          [ "${CP[999999][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
+          [ "${CP[999999][$i][key]}" != save ] || [ "$save_row" -ge 0 ] || save_row=$i
           i=$((i + 1))
       done
       [ "$shown" = "12 (12 px)" ] || { echo "corner row: $shown" >&2; exit 73; }
+      [ "$sliders" = 4 ] && [ "$save_row" -ge 0 ] && [ "$save_row" -lt 8 ] || { echo "effects pane layout: sliders=$sliders save=$save_row" >&2; exit 77; }
+      blit_effects_slide 44 "corners:$eo:1" 13
+      blit_effects_do 44 "corners:$eo:1" -1
+      [ "${BCP_DRAFT[effects][$eo][1][corners][radius_px]}" = 12 ] || { echo 'effects pane callbacks not wired' >&2; exit 78; }
       output=${BCP_SNAPSHOT[displays][displays][0][state][connector]:-${BCP_SNAPSHOT[displays][displays][0][name]}}
       blit_slide 44 "columns:$output" 3
       blit_slide 44 "rows:$output" 2
