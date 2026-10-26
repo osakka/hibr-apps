@@ -649,15 +649,15 @@
     },
     "control-panel/desktop": {
       "title": "Desktop",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "6e281dd858592af22a2a45c0ebf8cbba12b6fa7e3b22a3977504b88cf0b1e0a4",
+      "sha256": "72e98b77a1064862a7c67d9881c2ef96de858aa20c92f46e954a65ba72ac8bd7",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "desktop",
-      "hibr": "0.99.341"
+      "hibr": "0.99.350"
     },
     "control-panel/mouse": {
       "title": "Mouse",
@@ -1750,15 +1750,15 @@
     },
     "desktop": {
       "title": "Desktop",
-      "version": "1.3",
+      "version": "1.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "6e281dd858592af22a2a45c0ebf8cbba12b6fa7e3b22a3977504b88cf0b1e0a4",
+      "sha256": "72e98b77a1064862a7c67d9881c2ef96de858aa20c92f46e954a65ba72ac8bd7",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "desktop",
-      "hibr": "0.99.341"
+      "hibr": "0.99.350"
     },
     "mouse": {
       "title": "Mouse",
