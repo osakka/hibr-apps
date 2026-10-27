@@ -667,15 +667,15 @@
     },
     "control-panel/menubar": {
       "title": "Menu Bar",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menubar.hibr",
-      "sha256": "bae8f75d570db85ea4ed9cec26609a4a02e038fb26c99ec4d90537a3620c7c16",
+      "sha256": "62c089ac0c461cbcefa7c4444e0bf4b9fe1964c40331d0a4fe929615290fdcfd",
       "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "menubar",
-      "hibr": "0.99.356"
+      "hibr": "0.99.359"
     },
     "control-panel/windows": {
       "title": "Windows",
@@ -1289,11 +1289,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.43",
+      "version": "3.44",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "20adbb894b5e05919ec4e5d71e44c61ca4e9464429196b99738e9d62a2349d80",
-      "about": "The desktop's own words in العربية (ar): 1355 strings, read right to left.",
+      "sha256": "c5f8a2c3b94ef522175a8e048af8b71a29577e85c70284ab9c353da057349cc7",
+      "about": "The desktop's own words in العربية (ar): 1356 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1863,15 +1863,15 @@
     },
     "menubar": {
       "title": "Menu Bar",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menubar.hibr",
-      "sha256": "bae8f75d570db85ea4ed9cec26609a4a02e038fb26c99ec4d90537a3620c7c16",
+      "sha256": "62c089ac0c461cbcefa7c4444e0bf4b9fe1964c40331d0a4fe929615290fdcfd",
       "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "menubar",
-      "hibr": "0.99.356"
+      "hibr": "0.99.359"
     },
     "windows": {
       "title": "Windows",
