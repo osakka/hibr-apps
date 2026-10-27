@@ -7,7 +7,7 @@
 # events. See docs/CLI.md.
 
 # What the catalogue reads before it fetches this (docs/BUILD.md): the name, a description, the version, and the module it needs.
-app longwire "One long wire between your sites: dial a number, share a LAN" 0.3.1
+app longwire "One long wire between your sites: dial a number, share a LAN" 0.4.0
 # modules: longwire
 
 LW_DIR=${LW_DIR:-$HOME/.longwire}
@@ -30,6 +30,7 @@ usage: longwire <command>
   up [--switchboard HOST:PORT/KEY] [--answer ask|known|auto|never] [--token T] [--name TEXT] [--listed]
      [--authority OPERATORKEY | --admit ADMIT]   found a line run by an operator, or join one with the operator's admit
      [--splice NIC [--site-key FILE] | --jack TAP | --sock-port LOCAL:PEER] [--listen [ADDR:]PORT]
+     [--group NAME|GID]                      let that group use the control socket (the services use: longwire)
      [--peer BUNDLEFILE[@HOST:PORT]]...      run this node (foreground: a service or hold runs this)
   dial NUMBER|lw1...                          call a number, or a full address (needs the switchboard's directory)
   pickup [ID] | reject [ID]                   answer the ringing call (ID, from the ring, if several ring)
@@ -114,6 +115,7 @@ cmd_up() {
 	local args=()
 	while [ $# -gt 0 ]; do
 		case $1 in
+		--answer|--admit) [ $# -ge 2 ] || { echo "longwire: $1 needs a value" >&2; exit 2; } ;;&
 		--answer) answer=$2; shift 2 ;;
 		--admit) local ad=$2; [ -r "$ad" ] && read -r ad < "$2"; args+=(--admit "$ad"); shift 2 ;;	# a file, or the hex itself
 		*) args+=("$1"); shift ;;
