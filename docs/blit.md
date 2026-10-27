@@ -108,13 +108,16 @@ matches the signed index. Server563 reports ready native KMS, saved-settings
 ownership, validkms environment fallback and SDL not applicable. This records
 configuration/API evidence, not visual acceptance of every desktop mode.
 
-Blit's fonts are `blit-modern`, `blit-retro` and `blit-jetbrainless`
-(native antialiased text and colour glyphs; JetBrains Mono since Blit 0.2.35),
-and the pixel fonts `blit-terminus16` and `blit-spleen16` (renamed from
-`blit-hibr-*` in 0.2.35, ADR 0194). Both appear in
-the existing Font selector from API discovery; no panel-specific font list is
-maintained. The pixel-size slider continues to use the same API. Config-only
-563 does not have these profiles. `BLIT_PANEL_UI_FONT=blit-modern` and
+Since Blit 0.2.36 (ADR 0195), Blit discovers its fonts:
+- **Outline text fonts:** any monospaced font in its `text/` folder.
+  Shipped: `hack`, `ibm-3270`, `jetbrains-mono-nl`, `fira-code`
+  `ibm-plex-mono` and `iosevka-term`.
+- **Pixel fonts:** `blit-terminus16` and `blit-spleen16`.
+
+Every font draws icons, symbols and box drawing from Blit's glyph stack.
+They all appear in the existing Font selector from API discovery; no
+panel-specific font list is maintained. The pixel-size slider continues to use the same API. Config-only
+563 does not have these profiles. `BLIT_PANEL_UI_FONT=hack` and
 `BLIT_FONT_ROOT=/path/to/blit/assets/fonts` run the actual UI gate with modern
 rasterization;564 passes native slider drag19px and keyboard+1/-1, with captures
 under the Blit build's `font564-panel-evidence/`. This is local software/UI
