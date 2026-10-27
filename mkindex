@@ -242,6 +242,15 @@ ENTHIBR["control-panel/pictures"]=0.99.314
 ENTHIBR["control-panel/control-strip"]=0.99.354
 ENTHIBR["system/notifications"]=0.99.354
 ENTHIBR["control-strip/workspaces"]=0.99.354
+# Menu Bar Items (hibr Gitea #396) is 0.99.355's: the panes list through
+# dt_barreading and cs_ordered, and the four hardware items name their own
+# switch with dt_bariswitch at load, which an older bar does not have.
+ENTHIBR["control-panel/appearance"]=0.99.355
+ENTHIBR["control-panel/control-strip"]=0.99.355
+ENTHIBR["menubar/sound"]=0.99.355
+ENTHIBR["menubar/network"]=0.99.355
+ENTHIBR["menubar/bluetooth"]=0.99.355
+ENTHIBR["menubar/power"]=0.99.355
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would

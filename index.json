@@ -716,15 +716,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.6",
+      "version": "2.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "5dc4b091421e85cb8a3b556eb5535b417a60623525fac02c3668c63a473c3ff5",
+      "sha256": "ff8375b667f429c436e713d37015f7ae758c6e5782f1c59c7f7f3faae4c9ee5e",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.341"
+      "hibr": "0.99.355"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -835,15 +835,15 @@
     },
     "control-panel/control-strip": {
       "title": "Control Strip",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "0d3f9e237d856476da33d9e059a33e10212f2ee7175b129dbb330639f7b63db4",
+      "sha256": "c9eaede36652ae5569f319ee1060bb2fb63a16a8d65bc6491ec9ce2404c53c1e",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "control-strip",
-      "hibr": "0.99.354"
+      "hibr": "0.99.355"
     },
     "control-strip/workspaces": {
       "title": "Workspaces",
@@ -902,52 +902,52 @@
       "name": "cursor"
     },
     "menubar/network": {
-      "title": "Network",
-      "version": "1.0",
+      "title": "Wi-Fi",
+      "version": "1.1",
       "kind": "menubar",
       "bundle": "bundles/menubar/network.hibr",
-      "sha256": "03b1aec8dd50233d4c3967a42be383bf48295332315da16fda4c159a7b2e3a28",
+      "sha256": "cb726e5cb6c891d7885290b1d4900dc2f38afda58949fb1b9baf78253870ac8b",
       "about": "The network on the menu bar and the connection it watches\n\nthe machine's network: whether it is on Wi-Fi, a cable or neither, the Wi-Fi networks in reach and the ones it knows, joining and leaving them, and the item on the menu bar that says which (Gitea #311). Control Panel > Network is the pane over it.\n\nTwo ways to see it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "network",
-      "hibr": "0.99.351"
+      "hibr": "0.99.355"
     },
     "menubar/power": {
       "title": "Battery",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "menubar",
       "bundle": "bundles/menubar/power.hibr",
-      "sha256": "648cbb8155bf88ec1fcb7f7fcff4b824df0a7f7921d9e71326f90fd3583ff76d",
+      "sha256": "05399c87e9a835d95dbce17e701db82ed44eb9387fec12742cff0f2af9ebbfc9",
       "about": "The battery on the menu bar and the charge it watches\n\nthe battery and the machine's power (Gitea #365): each battery's charge, whether it is charging, the time left and its health, read from the kernel's own files; an item on the menu bar while there is a battery; a note when the charge runs low, and a choice of what to do when it runs out. Sleep, Restart and Shut Down are the platform's, in wm/machine.hibr, and are on the hibr menu whether this is installed or not; the battery's menu offers them too.\n\nPart of the power pane's catalogue entry, not of the package (Gitea #388): installed with it, loaded with the Control Panel's panes by cp_panes, and absent -- no bar item, no watcher running -- on a desktop without it. The window manager reaches it only through dt_has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "power",
-      "hibr": "0.99.353"
+      "hibr": "0.99.355"
     },
     "menubar/bluetooth": {
       "title": "Bluetooth",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "menubar",
       "bundle": "bundles/menubar/bluetooth.hibr",
-      "sha256": "d4ed798bdcc0b08fb336046771c0d97d8f61d1d3713278f3f8a0ba72589752eb",
+      "sha256": "b31b042825672a0e6d364599bfc050aa9fb3956fd5d28baf89796e998a46c780",
       "about": "Bluetooth on the menu bar and the devices it watches\n\nthe machine's Bluetooth: the adapter on or off and visible or not, the devices it knows and which are connected (and their battery), finding new ones and pairing them, and the item on the menu bar that says which (Gitea #312). Control Panel > Bluetooth is the pane over it.\n\nBlueZ, through bluetoothctl, read as captured from bluetoothctl 5.82 on the owner's machine (tests/net/bt-*.txt): `show` for the adapter, `devices Paired` and `devices Connected` for the devices -- one \"Device MAC name\" a line -- and `info MAC` for one device's battery and icon. HIBR_BT chooses -- auto, bluez or none; the suites start every desktop with none, so no test can touch a real machine's Bluetooth.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "bluetooth",
-      "hibr": "0.99.351"
+      "hibr": "0.99.355"
     },
     "menubar/sound": {
       "title": "Volume",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "menubar",
       "bundle": "bundles/menubar/sound.hibr",
-      "sha256": "01c9a8d7bf5f97c109640fafebf2cd0d7ac525bc5611f705601b633fa73bc4c1",
+      "sha256": "db0a6e3df32f636cb1683f56c82c74fc8dc75ee59ce17de26c51182d3a4c29a0",
       "about": "The speaker on the menu bar and the sound it watches\n\nthe machine's sound: which output and input are used, their volume and mute, the speaker on the menu bar and the keys that change it (Gitea #306). Control Panel > Sound is the pane over it.\n\nThree ways to reach it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sound",
-      "hibr": "0.99.351"
+      "hibr": "0.99.355"
     },
     "savers/toasters": {
       "title": "Flying Toasters",
@@ -1265,11 +1265,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.41",
+      "version": "3.42",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "b04540d8d5d242278e95489da0fe18a042c98ca24316935b37746fa8f9bb1160",
-      "about": "The desktop's own words in العربية (ar): 1354 strings, read right to left.",
+      "sha256": "2ec3515ffc8a8ec2c2f88f4e6bf2a50e16001cadf7d7713872056c5b1e5035a7",
+      "about": "The desktop's own words in العربية (ar): 1355 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1875,15 +1875,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.6",
+      "version": "2.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "5dc4b091421e85cb8a3b556eb5535b417a60623525fac02c3668c63a473c3ff5",
+      "sha256": "ff8375b667f429c436e713d37015f7ae758c6e5782f1c59c7f7f3faae4c9ee5e",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.341"
+      "hibr": "0.99.355"
     },
     "versions": {
       "title": "Versions",
@@ -1956,15 +1956,15 @@
     },
     "control-strip": {
       "title": "Control Strip",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "0d3f9e237d856476da33d9e059a33e10212f2ee7175b129dbb330639f7b63db4",
+      "sha256": "c9eaede36652ae5569f319ee1060bb2fb63a16a8d65bc6491ec9ce2404c53c1e",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "control-strip",
-      "hibr": "0.99.354"
+      "hibr": "0.99.355"
     },
     "workspaces": {
       "title": "Workspaces",
