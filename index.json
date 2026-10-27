@@ -96,10 +96,10 @@
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "f86e13b39dd82489d457cc2fc9120070c571c424c5778a05019fec4c03f63e21",
+      "sha256": "5ec654bf33a2466f8aef8a93fa68a678d39bd770a46ecd60e77772d797d0d7bb",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -336,10 +336,10 @@
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "3.6",
+      "version": "3.7",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "6b364f5c6131352ad34b2eea3ea232e6343b65c012971149bccb413f6c836106",
+      "sha256": "97771689e5faf939b0c71b29864436a454436514c879ff5d23e47adae82f4ad6",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -618,14 +618,15 @@
     },
     "control-panel/pictures": {
       "title": "Pictures",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "4e64db6f12b94e0ea594a6abf1c101d6866a919d94f777734bfcd44adfd6e1e1",
+      "sha256": "d348bd104257afb47192cdd42d286cf5557114408a1b6e2ac9071b771ca28ec4",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "pictures"
+      "name": "pictures",
+      "hibr": "0.99.314"
     },
     "control-panel/networks": {
       "title": "Network",
@@ -642,15 +643,15 @@
     },
     "control-panel/desktop": {
       "title": "Desktop",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "72e98b77a1064862a7c67d9881c2ef96de858aa20c92f46e954a65ba72ac8bd7",
+      "sha256": "33c5aa70c55460d0ac0f1b3f69fb084a022c527c06b99f585b04f3edb8e9c385",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "desktop",
-      "hibr": "0.99.350"
+      "hibr": "0.99.353"
     },
     "control-panel/mouse": {
       "title": "Mouse",
@@ -678,15 +679,15 @@
     },
     "control-panel/power": {
       "title": "Power",
-      "version": "3.0",
+      "version": "3.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/power.hibr",
-      "sha256": "fb16399f56306b80e65e17a4e1622e394c508714d5ef8cf44275a1ba2e797e06",
+      "sha256": "743b0578c06055233f3472af7be85d478459a1b9c614741fbecabca0d8e9e71c",
       "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the battery on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through menubar/power.hibr, and its rows for a battery are there only where there is one.\n\nneeds: menubar/power",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "power",
-      "hibr": "0.99.351",
+      "hibr": "0.99.353",
       "needs": "menubar/power"
     },
     "control-panel/datetime": {
@@ -901,15 +902,15 @@
     },
     "menubar/power": {
       "title": "Battery",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "menubar",
       "bundle": "bundles/menubar/power.hibr",
-      "sha256": "6b4f93b94e807a028b4bf7333c38e9ce16e063b575788154c14af8a058f4e639",
+      "sha256": "648cbb8155bf88ec1fcb7f7fcff4b824df0a7f7921d9e71326f90fd3583ff76d",
       "about": "The battery on the menu bar and the charge it watches\n\nthe battery and the machine's power (Gitea #365): each battery's charge, whether it is charging, the time left and its health, read from the kernel's own files; an item on the menu bar while there is a battery; a note when the charge runs low, and a choice of what to do when it runs out. Sleep, Restart and Shut Down are the platform's, in wm/machine.hibr, and are on the hibr menu whether this is installed or not; the battery's menu offers them too.\n\nPart of the power pane's catalogue entry, not of the package (Gitea #388): installed with it, loaded with the Control Panel's panes by cp_panes, and absent -- no bar item, no watcher running -- on a desktop without it. The window manager reaches it only through dt_has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "power",
-      "hibr": "0.99.351"
+      "hibr": "0.99.353"
     },
     "menubar/bluetooth": {
       "title": "Bluetooth",
@@ -1251,11 +1252,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.36",
+      "version": "3.40",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "6ea1257ae12db177d7fb70e6747e9cba6a8e43bc868dc68f6edbeb0c5cbca8e8",
-      "about": "The desktop's own words in العربية (ar): 1325 strings, read right to left.",
+      "sha256": "592dcf9c57a1d5e9f6f54be99e9c92214d06fc03b2cbb93e16871d197a556174",
+      "about": "The desktop's own words in العربية (ar): 1339 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1391,10 +1392,10 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "f86e13b39dd82489d457cc2fc9120070c571c424c5778a05019fec4c03f63e21",
+      "sha256": "5ec654bf33a2466f8aef8a93fa68a678d39bd770a46ecd60e77772d797d0d7bb",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1559,10 +1560,10 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "3.6",
+      "version": "3.7",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "6b364f5c6131352ad34b2eea3ea232e6343b65c012971149bccb413f6c836106",
+      "sha256": "97771689e5faf939b0c71b29864436a454436514c879ff5d23e47adae82f4ad6",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1776,14 +1777,15 @@
     },
     "pictures": {
       "title": "Pictures",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "4e64db6f12b94e0ea594a6abf1c101d6866a919d94f777734bfcd44adfd6e1e1",
+      "sha256": "d348bd104257afb47192cdd42d286cf5557114408a1b6e2ac9071b771ca28ec4",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "pictures"
+      "name": "pictures",
+      "hibr": "0.99.314"
     },
     "networks": {
       "title": "Network",
@@ -1800,15 +1802,15 @@
     },
     "desktop": {
       "title": "Desktop",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "72e98b77a1064862a7c67d9881c2ef96de858aa20c92f46e954a65ba72ac8bd7",
+      "sha256": "33c5aa70c55460d0ac0f1b3f69fb084a022c527c06b99f585b04f3edb8e9c385",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "desktop",
-      "hibr": "0.99.350"
+      "hibr": "0.99.353"
     },
     "mouse": {
       "title": "Mouse",
