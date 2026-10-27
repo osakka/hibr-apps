@@ -76,15 +76,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "2.3",
+      "version": "2.4",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "39efcb98895e7762c6522b285d7b21f91e2126e23b1a08048d35a9bc24bda6a4",
+      "sha256": "909a290df5144b3c5cefba0fb65e89c400131204a160d4fc67577edcd999f5a1",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.341",
+      "hibr": "0.99.357",
       "parts": [
         {
           "kind": "control-panel",
@@ -927,15 +927,15 @@
     },
     "menubar/power": {
       "title": "Battery",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "menubar",
       "bundle": "bundles/menubar/power.hibr",
-      "sha256": "05399c87e9a835d95dbce17e701db82ed44eb9387fec12742cff0f2af9ebbfc9",
+      "sha256": "85ac2042571851bd1eae0f0061af7763d594f5a597772bc469425b2def2928a8",
       "about": "The battery on the menu bar and the charge it watches\n\nthe battery and the machine's power (Gitea #365): each battery's charge, whether it is charging, the time left and its health, read from the kernel's own files; an item on the menu bar while there is a battery; a note when the charge runs low, and a choice of what to do when it runs out. Sleep, Restart and Shut Down are the platform's, in wm/machine.hibr, and are on the hibr menu whether this is installed or not; the battery's menu offers them too.\n\nPart of the power pane's catalogue entry, not of the package (Gitea #388): installed with it, loaded with the Control Panel's panes by cp_panes, and absent -- no bar item, no watcher running -- on a desktop without it. The window manager reaches it only through dt_has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "power",
-      "hibr": "0.99.355"
+      "hibr": "0.99.357"
     },
     "menubar/bluetooth": {
       "title": "Bluetooth",
@@ -951,15 +951,15 @@
     },
     "menubar/sound": {
       "title": "Volume",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "menubar",
       "bundle": "bundles/menubar/sound.hibr",
-      "sha256": "db0a6e3df32f636cb1683f56c82c74fc8dc75ee59ce17de26c51182d3a4c29a0",
+      "sha256": "13c9fbcd469c8d2091d5d69964dbac351ed76f0f5cca1ef728f4f02f13aef8f0",
       "about": "The speaker on the menu bar and the sound it watches\n\nthe machine's sound: which output and input are used, their volume and mute, the speaker on the menu bar and the keys that change it (Gitea #306). Control Panel > Sound is the pane over it.\n\nThree ways to reach it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sound",
-      "hibr": "0.99.355"
+      "hibr": "0.99.357"
     },
     "savers/toasters": {
       "title": "Flying Toasters",
@@ -1405,15 +1405,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "2.3",
+      "version": "2.4",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "39efcb98895e7762c6522b285d7b21f91e2126e23b1a08048d35a9bc24bda6a4",
+      "sha256": "909a290df5144b3c5cefba0fb65e89c400131204a160d4fc67577edcd999f5a1",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.341"
+      "hibr": "0.99.357"
     },
     "term": {
       "title": "Terminal",

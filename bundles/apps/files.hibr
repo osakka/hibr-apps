@@ -20,7 +20,7 @@
 
 strict
 
-app files "A file browser" 2.3
+app files "A file browser" 2.4
 # part: control-panel/filesview.hibr
 
 # What the hibr menu shows, how big a new window is, and whether a second
@@ -762,8 +762,8 @@ fn fb_pen(kind, bg = "") {
 fn fb_glyph(kind) {
 	case $kind in
 	up) ret "${GL[up]}" ;;
-	dir) ret "${GL[folder]}${GL[folder]}" ;;
-	bundle) ret "${GL[bundle]}${GL[bundle]}" ;;
+	dir) ret "${GL[folderbig]}" ;;
+	bundle) ret "${GL[bundlebig]}" ;;
 	exe) ret "${GL[right]}" ;;
 	link) ret "${GL[hook]}" ;;
 	*) ret "${GL[file]}" ;;
