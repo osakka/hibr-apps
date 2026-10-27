@@ -667,15 +667,15 @@
     },
     "control-panel/menubar": {
       "title": "Menu Bar",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menubar.hibr",
-      "sha256": "62c089ac0c461cbcefa7c4444e0bf4b9fe1964c40331d0a4fe929615290fdcfd",
+      "sha256": "0d0326e7d03bbe626911f2ab42be8fe13f4c900450141b13b0ddf4e1424b117e",
       "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "menubar",
-      "hibr": "0.99.359"
+      "hibr": "0.99.360"
     },
     "control-panel/windows": {
       "title": "Windows",
@@ -1863,15 +1863,15 @@
     },
     "menubar": {
       "title": "Menu Bar",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menubar.hibr",
-      "sha256": "62c089ac0c461cbcefa7c4444e0bf4b9fe1964c40331d0a4fe929615290fdcfd",
+      "sha256": "0d0326e7d03bbe626911f2ab42be8fe13f4c900450141b13b0ddf4e1424b117e",
       "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "menubar",
-      "hibr": "0.99.359"
+      "hibr": "0.99.360"
     },
     "windows": {
       "title": "Windows",

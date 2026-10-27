@@ -267,7 +267,7 @@ ENTHIBR["menubar/power"]=0.99.358
 ENTHIBR["control-panel/power"]=0.99.358
 ENTHIBR["control-strip/power"]=0.99.358
 # Menu Mark (hibr 0.99.359) reads DT_MENUMARK and GL[huil], both 0.99.359's.
-ENTHIBR["control-panel/menubar"]=0.99.359
+ENTHIBR["control-panel/menubar"]=0.99.360
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
