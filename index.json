@@ -43,10 +43,10 @@
     },
     "apps/switchboard": {
       "title": "Switchboard",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "kind": "apps",
       "bundle": "bundles/apps/switchboard.hibr",
-      "sha256": "15782f1af0b00bf7cf0c54c0f5865d7dfc8933648b38adccd959d07cabcce9dd",
+      "sha256": "44a651373eedb1abbb2aa3f6ad45a1486a5fda0f4e9fde03bb88f0b015fa7acb",
       "about": "Watch a longwire switchboard: who is on it and who is ringing whom\n\na window on a longwire switchboard you run: how many nodes are on it, which of them are online, and who is ringing whom right now. It reads the switchboard's own worker through `lw`, once a second, and follows its event stream for the calls. It watches; it does not decide anything (a ring and a registration are the script's to answer, and the script has two seconds). It shows no address and no key: the worker does not give the registry any.\n\nA call is shown while it is being set up and for a few seconds after, and then it is gone. Nothing here is written to disk, and the window keeps no list of past calls: that is what the switchboard promises (docs/SWITCHBOARD.md).",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -829,10 +829,10 @@
     },
     "control-panel/longwire": {
       "title": "Longwire",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/longwire.hibr",
-      "sha256": "2abafeaa13eb4aa4d982c0da77d9ea67c64b1f6deef984b895ad73ebad311cbf",
+      "sha256": "666e04db197b17fda73ef5e4ddd4b2771677537aba88e64f01f587cd6951c6e9",
       "about": "The Control Panel pane for longwire: dial, answer, see your line\n\nthe Control Panel pane for longwire, the layer-2 mesh VPN: who you are, who is ringing, who you are connected to, the line you are on, and how this machine answers. It speaks to the node you started yourself through `lw`, the same verbs the command uses, and to nothing else: it never reads the seed, never asks for privilege, and a node that runs as a service under another user is shown, not driven (docs/adr/0030-three-surfaces-one-engine.md).\n\nA ring is answered here, in the Calls rows, while the pane is open. The pane is where the connection is set up and turned on and off: a profile (switchboard, token, attach mode, interface, name), a Turn on that makes the jack if it has to, and a Turn off.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -931,6 +931,17 @@
       "author": "Omar Sakka",
       "name": "cursor"
     },
+    "control-strip/longwire": {
+      "title": "Longwire",
+      "version": "0.6.0",
+      "kind": "control-strip",
+      "bundle": "bundles/control-strip/longwire.hibr",
+      "sha256": "1fda9c9351b3833599d6f1673e3998204a6e1c8468a7476bc89dab42a17b7d4a",
+      "about": "A Control Strip module for longwire: on or off at a glance\n\na Control Strip module for longwire (docs/adr/0035-longwire-on-the-menu-bar.md): a telephone that is dim when the line is off, blue while it waits for a number, green when it is on, and amber while someone is ringing. A click opens the same menu as the menu bar item (Turn On, Turn Off, Pick up, Dial, Settings). The strip and the bar can each show it, or both, or neither.\n\nCalled lwstrip: longwire is the Control Panel pane's prefix, and a pane with a longwire_draw would be taken for one that draws itself.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "longwire"
+    },
     "menubar/network": {
       "title": "Wi-Fi",
       "version": "1.1",
@@ -978,6 +989,17 @@
       "author": "Omar Sakka",
       "name": "sound",
       "hibr": "0.99.357"
+    },
+    "menubar/longwire": {
+      "title": "Longwire",
+      "version": "0.6.0",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/longwire.hibr",
+      "sha256": "6834e03229ce8dea5ab509ddd636039a1756dc4321bdfd14fcf8dc400f05639e",
+      "about": "Longwire on the menu bar: on or off, your number, and a ring that interrupts\n\nlongwire on the menu bar (docs/adr/0035-longwire-on-the-menu-bar.md): whether it is on, a ring that interrupts, and a menu with what a person does with a phone line: turn it on or off, pick up, decline, dial, see who is connected and how fast, and open the settings.\n\n  off        ☎ ○              the line is off (a click offers Turn On)   waiting    ☎ ◌              on, and the switchboard has not given a number yet   on         ☎ ●   or ☎ ● 2   on, with a number; the count is how many are connected   ringing    ☎ ◉ 447-120-933  someone is calling: the bar says who, and a dialog asks, with the safety phrase",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "longwire"
     },
     "savers/toasters": {
       "title": "Flying Toasters",
@@ -1307,10 +1329,10 @@
     },
     "cli/longwire-switchboard": {
       "title": "longwire-switchboard",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "kind": "cli",
       "bundle": "bundles/cli/longwire-switchboard.hibr",
-      "sha256": "effe7bfca345171cedb1561eeefdc0dc0ee688697996b8b65acc21eef7873ead",
+      "sha256": "220fa3ad9fb9b75e19921f19b00bde8730f2b01687dad0dad6d1603216e780f9",
       "about": "The longwire switchboard: introduces two nodes, then steps aside\n\nthe switchboard (component 1). The module's C worker runs the mechanism (sessions, presence, introductions); this script is the policy: who may register, and whose call may ring. See docs/SWITCHBOARD.md.\n\n  longwire-switchboard [--listen ADDR:PORT] [--tokens FILE] [--state DIR]                        [--per-ip-hour N] [--rings-per-minute N] [--max-nodes N]                        [--caller-id on|off] [--directory on|off]                        [--release-after TIME] [--max-numbers N] [--group NAME|GID]                        --registry HOST:PORT/KEY|none [--issue-codes [--public-switchboard KEY]] [--codes-per-ip-day N]",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1319,10 +1341,10 @@
     },
     "cli/longwire": {
       "title": "longwire",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "kind": "cli",
       "bundle": "bundles/cli/longwire.hibr",
-      "sha256": "66e39b317c9ae317b2749e4f45a682b051a70c466a93982415e382b57856f196",
+      "sha256": "021be555977981bfa7fbf6d4db861d398b835a656c0e3abf1e66fc3b0b259e57",
       "about": "One long wire between your sites: dial a number, share a LAN\n\nthe node (component 2). It starts the engine through the module's `lw` builtin, then runs the node's brain: it reads the worker's events and applies the answer policy. The desktop pane (M4) reads the same events. See docs/CLI.md.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1358,6 +1380,15 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "hibr": "0.99.351"
+    },
+    "bundles/longwire": {
+      "title": "Longwire",
+      "kind": "bundles",
+      "name": "longwire",
+      "about": "Longwire in the desktop: Control Panel > Longwire to set up a connection and turn it on, a telephone on the menu bar and the Control Strip that shows whether it is on, and a ring that interrupts.",
+      "members": "control-panel/longwire menubar/longwire control-strip/longwire",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka"
     },
     "bundles/sound": {
       "title": "Sound",
@@ -1398,10 +1429,10 @@
     },
     "switchboard": {
       "title": "Switchboard",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "kind": "apps",
       "bundle": "bundles/apps/switchboard.hibr",
-      "sha256": "15782f1af0b00bf7cf0c54c0f5865d7dfc8933648b38adccd959d07cabcce9dd",
+      "sha256": "44a651373eedb1abbb2aa3f6ad45a1486a5fda0f4e9fde03bb88f0b015fa7acb",
       "about": "Watch a longwire switchboard: who is on it and who is ringing whom\n\na window on a longwire switchboard you run: how many nodes are on it, which of them are online, and who is ringing whom right now. It reads the switchboard's own worker through `lw`, once a second, and follows its event stream for the calls. It watches; it does not decide anything (a ring and a registration are the script's to answer, and the script has two seconds). It shows no address and no key: the worker does not give the registry any.\n\nA call is shown while it is being set up and for a few seconds after, and then it is gone. Nothing here is written to disk, and the window keeps no list of past calls: that is what the switchboard promises (docs/SWITCHBOARD.md).",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2121,10 +2152,10 @@
     },
     "longwire-switchboard": {
       "title": "longwire-switchboard",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "kind": "cli",
       "bundle": "bundles/cli/longwire-switchboard.hibr",
-      "sha256": "effe7bfca345171cedb1561eeefdc0dc0ee688697996b8b65acc21eef7873ead",
+      "sha256": "220fa3ad9fb9b75e19921f19b00bde8730f2b01687dad0dad6d1603216e780f9",
       "about": "The longwire switchboard: introduces two nodes, then steps aside\n\nthe switchboard (component 1). The module's C worker runs the mechanism (sessions, presence, introductions); this script is the policy: who may register, and whose call may ring. See docs/SWITCHBOARD.md.\n\n  longwire-switchboard [--listen ADDR:PORT] [--tokens FILE] [--state DIR]                        [--per-ip-hour N] [--rings-per-minute N] [--max-nodes N]                        [--caller-id on|off] [--directory on|off]                        [--release-after TIME] [--max-numbers N] [--group NAME|GID]                        --registry HOST:PORT/KEY|none [--issue-codes [--public-switchboard KEY]] [--codes-per-ip-day N]",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
