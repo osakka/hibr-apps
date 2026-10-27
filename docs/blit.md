@@ -110,8 +110,8 @@ configuration/API evidence, not visual acceptance of every desktop mode.
 
 Since Blit 0.2.36 (ADR 0195), Blit discovers its fonts:
 - **Outline text fonts:** any monospaced font in its `text/` folder.
-  Shipped: `hack`, `ibm-3270`, `jetbrains-mono-nl`, `fira-code`
-  `ibm-plex-mono` and `iosevka-term`.
+  Shipped: `hack`, `ibm-3270`, `jetbrains-mono-nl`, `fira-code` and
+  `ibm-plex-mono`. Iosevka Term shipped in 0.2.36 only.
 - **Pixel fonts:** `blit-terminus16` and `blit-spleen16`.
 
 Every font draws icons, symbols and box drawing from Blit's glyph stack.
