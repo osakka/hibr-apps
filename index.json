@@ -286,10 +286,10 @@
     },
     "apps/boxer": {
       "title": "Boxer",
-      "version": "1.9",
+      "version": "1.10",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "0e7860f096058108586a6ddd10d5e603dd55522e29e995d1ef04f3df3b95127c",
+      "sha256": "929a4015a1a9758ffed925ebc390aca06a53a072a5699cd50be7d57653d0910f",
       "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -302,7 +302,7 @@
           "kind": "apps",
           "as": "boxerplay.hibr",
           "path": "bundles/apps/boxerplay.hibr",
-          "sha256": "26a8c73f29d1be0bbb0a4eb29298749f724011a42c3c0c8f04a43f27d1a93a80"
+          "sha256": "5696ddbdb45b083601902366c7128d27051db354bbe76034e3381d0346f7725d"
         },
         {
           "kind": "control-panel",
@@ -1569,10 +1569,10 @@
     },
     "boxer": {
       "title": "Boxer",
-      "version": "1.9",
+      "version": "1.10",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "0e7860f096058108586a6ddd10d5e603dd55522e29e995d1ef04f3df3b95127c",
+      "sha256": "929a4015a1a9758ffed925ebc390aca06a53a072a5699cd50be7d57653d0910f",
       "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
