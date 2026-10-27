@@ -266,6 +266,11 @@ ENTHIBR["menubar/sound"]=0.99.357
 ENTHIBR["menubar/power"]=0.99.358
 ENTHIBR["control-panel/power"]=0.99.358
 ENTHIBR["control-strip/power"]=0.99.358
+# One switch each (hibr 0.99.361): Next Prayer's bar item uses dt_bariswitch
+# on an on/off setting and the strip's Prayer module cs_moduleswitch, and
+# the Control Strip pane turns a module's own switch.
+ENTHIBR["apps/prayer"]=0.99.361
+ENTHIBR["control-panel/control-strip"]=0.99.361
 # Menu Mark (hibr 0.99.359) reads DT_MENUMARK and GL[huil], both 0.99.359's.
 ENTHIBR["control-panel/menubar"]=0.99.360
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
