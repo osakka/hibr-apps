@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.17
+app blit "API configuration and diagnostics for the Blit display server" 0.1.18
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -995,6 +995,16 @@ fn blit_mouse_rows(int w) {
             value=off; [ "${cfg[tap_to_click]}" != true ] || value=on
             blit_cp_row "$w" "$n" set "Tap to Click" "$value" tap bool; n=$((n + 1))
         fi
+        # Offered where the device says so; the saved settings keep these
+        # only when switched off (Blit ADR 0193), so on is the default.
+        if [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][configuration][tap_and_drag]+x}" ]; then
+            value=on; [ "${cfg[tap_and_drag]:-true}" != false ] || value=off
+            blit_cp_row "$w" "$n" set "Tap and Drag" "$value" tapdrag bool; n=$((n + 1))
+        fi
+        if [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][configuration][disable_while_typing]+x}" ]; then
+            value=on; [ "${cfg[disable_while_typing]:-true}" != false ] || value=off
+            blit_cp_row "$w" "$n" set "Disable While Typing" "$value" dwt bool; n=$((n + 1))
+        fi
         value=${cfg[scroll_step]:-1}
         blit_cp_row "$w" "$n" set "Device Wheel Step" "$value" wheel slider
         CP[$w][$n][min]=1; CP[$w][$n][max]=10; CP[$w][$n][after]="($value)"; n=$((n + 1))
@@ -1022,6 +1032,10 @@ fn blit_mouse_slide(int w, key, int value) {
         natural) flag=false; [ "$value" != 1 ] || flag=true; json set cfg .natural_scroll "$flag" ;;
         tap) [ -n "${cfg[tap_to_click]+x}" ] || return 0
             flag=false; [ "$value" != 1 ] || flag=true; json set cfg .tap_to_click "$flag" ;;
+        tapdrag) [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][configuration][tap_and_drag]+x}" ] || return 0
+            flag=false; [ "$value" != 1 ] || flag=true; json set cfg .tap_and_drag "$flag" ;;
+        dwt) [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][configuration][disable_while_typing]+x}" ] || return 0
+            flag=false; [ "$value" != 1 ] || flag=true; json set cfg .disable_while_typing "$flag" ;;
         acceleration) field=flat; [ "$value" != 1 ] || field=adaptive; json set cfg .acceleration.profile "$field" -s ;;
         *) return 0 ;;
         esac
@@ -1043,7 +1057,7 @@ fn blit_mouse_do(int w, key, int dir) {
     shadow) value=true; [ "${BCP_DRAFT[pointer][shadow]:-true}" != true ] || value=false
         json set BCP_DRAFT .pointer.shadow "$value"; BCP_DIRTY=1 ;;
     size) blit_mouse_slide "$w" size "$(( ${BCP_DRAFT[pointer][size_px]:-24} + dir ))" ;;
-    sensitivity | wheel | natural | tap)
+    sensitivity | wheel | natural | tap | tapdrag | dwt)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
         raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
         if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
@@ -1053,6 +1067,8 @@ fn blit_mouse_do(int w, key, int dir) {
         wheel) value=$(( ${cfg[scroll_step]:-1} + dir )) ;;
         natural) value=1; [ "${cfg[natural_scroll]:-false}" != true ] || value=0 ;;
         tap) value=1; [ "${cfg[tap_to_click]:-false}" != true ] || value=0 ;;
+        tapdrag) value=1; [ "${cfg[tap_and_drag]:-true}" = false ] || value=0 ;;
+        dwt) value=1; [ "${cfg[disable_while_typing]:-true}" = false ] || value=0 ;;
         esac
         blit_mouse_slide "$w" "$key" "$value" ;;
     *) blit_do "$w" "$key" "$dir" ;;

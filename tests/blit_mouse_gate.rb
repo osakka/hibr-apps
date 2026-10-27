@@ -96,6 +96,8 @@ Dir.mktmpdir('blit-mouse') do |root|
       # off for the touchpad, and saved like any other device setting.
       n := blit_mouse_rows 45
       ! hasrow 45 "$n" "Tap to Click" || { echo 'a mouse offered tap'; exit 29; }
+      ! hasrow 45 "$n" "Tap and Drag" || { echo 'a mouse offered tap and drag'; exit 35; }
+      ! hasrow 45 "$n" "Disable While Typing" || { echo 'a mouse offered disable while typing'; exit 36; }
       blit_mouse_do 45 tap 1
       [ -z "${BCP_DRAFT[input_devices][$id][tap_to_click]}" ] || exit 30
       blit_mouse_do 45 device 1
@@ -108,6 +110,18 @@ Dir.mktmpdir('blit-mouse') do |root|
       [ "$BCP_DIRTY" = 0 ] || { echo "tap save failed:$BCP_STATUS"; exit 33; }
       blit_cp_start refresh; finish
       [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][tap_to_click]}" = true ] || exit 34
+      # Tap and Drag and Disable While Typing (Blit ADR 0193): a touchpad's,
+      # on by default, switched off and saved like the rest.
+      n := blit_mouse_rows 45
+      hasrow 45 "$n" "Tap and Drag" || { echo 'the touchpad offered no tap and drag'; exit 37; }
+      hasrow 45 "$n" "Disable While Typing" || { echo 'the touchpad offered no disable while typing'; exit 38; }
+      blit_mouse_do 45 tapdrag 1
+      blit_mouse_do 45 dwt 1
+      blit_mouse_do 45 save 1; finish
+      [ "$BCP_DIRTY" = 0 ] || { echo "drag save failed:$BCP_STATUS"; exit 39; }
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][tap_and_drag]}" = false ] || exit 40
+      [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][disable_while_typing]}" = false ] || exit 41
       echo BLIT_MOUSE_CALLBACK_PASS
     HIBR
     out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},'/usr/bin/hibr',script)

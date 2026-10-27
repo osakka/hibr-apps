@@ -174,6 +174,17 @@ present pointer devices, including mixed keyboard/pointer devices, and stages
 sensitivity, flat/adaptive acceleration, natural scrolling and wheel steps.
 Other devices and unedited fields are preserved.
 
+A touchpad has three more rows, shown only when the device offers them
+(Blit 0.2.34, ADR 0193):
+- **Tap to Click,** off by default.
+- **Tap and Drag,** on by default. A tap holds the button for a moment, so
+  a second touch drags, for example a window by its title bar.
+- **Disable While Typing,** on by default. The pad is ignored for half a
+  second after each key typed.
+
+Blit saves the last two only when they are switched off. So the pane offers
+them by the device's live configuration, not by the saved draft.
+
 **Save all staged Blit settings** applies and saves the shared draft from both
 Blit panes with the original revision guard. This is not a separate mouse
 preferences file or polling worker. Appearance requires the server's
