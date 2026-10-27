@@ -547,22 +547,22 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.336",
+      "hibr": "0.99.354",
       "parts": [
         {
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "9790a46da03550d7bf28d6e3a24f0a23f279dc2edf2ecc7f308fb285660c8330"
+          "sha256": "7a0f7571b3c9dedd0c6e31341de13f0177faa0b163d10fe9bf9d569105488177"
         }
       ]
     },
     "system/catalogue": {
       "title": "Catalogue",
-      "version": "2.7",
+      "version": "2.8",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "df679e4f494d80475a85b371a103e29aa312410dbab69726c198915a6a511dff",
+      "sha256": "8681a691b9fda6309f63badec873e6a1d8896403de668caa55be93fbf32a3398",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -835,14 +835,27 @@
     },
     "control-panel/control-strip": {
       "title": "Control Strip",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "35a7aa63c6999d6aef0278960af2b5a8c89a68719ecc1918c7cdf018fee64f90",
+      "sha256": "0d3f9e237d856476da33d9e059a33e10212f2ee7175b129dbb330639f7b63db4",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "control-strip"
+      "name": "control-strip",
+      "hibr": "0.99.354"
+    },
+    "control-strip/workspaces": {
+      "title": "Workspaces",
+      "version": "1.0",
+      "kind": "control-strip",
+      "bundle": "bundles/control-strip/workspaces.hibr",
+      "sha256": "28d1d3c4f56b97922d3267872d5d158051fa890c495e4770c63fb27aca5e7943",
+      "about": "A Control Strip module for the workspace numbers, the same ones the menu bar can show (menubar/workspaces.hibr): the current one lit, a click on another goes there. The strip and the bar can each show them, or both, or neither (Gitea #393).",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "workspaces",
+      "hibr": "0.99.354"
     },
     "control-strip/shadow": {
       "title": "Shadow",
@@ -1252,11 +1265,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.40",
+      "version": "3.41",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "592dcf9c57a1d5e9f6f54be99e9c92214d06fc03b2cbb93e16871d197a556174",
-      "about": "The desktop's own words in العربية (ar): 1339 strings, read right to left.",
+      "sha256": "b04540d8d5d242278e95489da0fe18a042c98ca24316935b37746fa8f9bb1160",
+      "about": "The desktop's own words in العربية (ar): 1354 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1725,14 +1738,14 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.336"
+      "hibr": "0.99.354"
     },
     "catalogue": {
       "title": "Catalogue",
-      "version": "2.7",
+      "version": "2.8",
       "kind": "system",
       "bundle": "bundles/system/catalogue.hibr",
-      "sha256": "df679e4f494d80475a85b371a103e29aa312410dbab69726c198915a6a511dff",
+      "sha256": "8681a691b9fda6309f63badec873e6a1d8896403de668caa55be93fbf32a3398",
       "about": "The application catalogue: browse, install, update and remove\n\nApplications: the catalogue in a window. `apps` is the whole implementation and this is a window around it, the way the Vault accessory is a window around `vw` -- anything one can do the other can, because there is only one of them (Gitea #219).\n\nIt reads `apps -j`, never the columns `apps` prints for a person: the command answers JSON for exactly this, so the window and the command read one answer instead of one parsing the other's layout. Parsing a layout is how a window comes to disagree with its own command.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1943,14 +1956,27 @@
     },
     "control-strip": {
       "title": "Control Strip",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "35a7aa63c6999d6aef0278960af2b5a8c89a68719ecc1918c7cdf018fee64f90",
+      "sha256": "0d3f9e237d856476da33d9e059a33e10212f2ee7175b129dbb330639f7b63db4",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "control-strip"
+      "name": "control-strip",
+      "hibr": "0.99.354"
+    },
+    "workspaces": {
+      "title": "Workspaces",
+      "version": "1.0",
+      "kind": "control-strip",
+      "bundle": "bundles/control-strip/workspaces.hibr",
+      "sha256": "28d1d3c4f56b97922d3267872d5d158051fa890c495e4770c63fb27aca5e7943",
+      "about": "A Control Strip module for the workspace numbers, the same ones the menu bar can show (menubar/workspaces.hibr): the current one lit, a click on another goes there. The strip and the bar can each show them, or both, or neither (Gitea #393).",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "workspaces",
+      "hibr": "0.99.354"
     },
     "shadow": {
       "title": "Shadow",

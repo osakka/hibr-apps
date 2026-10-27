@@ -236,6 +236,12 @@ ENTHIBR["control-panel/power"]=0.99.353
 ENTHIBR["menubar/power"]=0.99.353
 # Pictures 1.1's Colours row is 0.99.314's (hibr Gitea #353).
 ENTHIBR["control-panel/pictures"]=0.99.314
+# Show Control Strip (CS_SHOW), a note's Frame (DT_NOTEFRAME) and where a
+# press on a strip module landed (CS_CLICKC) are 0.99.354's (hibr Gitea
+# #393, #398): an older desktop never declares them.
+ENTHIBR["control-panel/control-strip"]=0.99.354
+ENTHIBR["system/notifications"]=0.99.354
+ENTHIBR["control-strip/workspaces"]=0.99.354
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
