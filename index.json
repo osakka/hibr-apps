@@ -553,13 +553,13 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.354",
+      "hibr": "0.99.364",
       "parts": [
         {
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "7a0f7571b3c9dedd0c6e31341de13f0177faa0b163d10fe9bf9d569105488177"
+          "sha256": "e0e1d667716ce3302e70d81ebf8ab1e9921bfb048e29911ccd55c44653829ed6"
         }
       ]
     },
@@ -1799,7 +1799,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.354"
+      "hibr": "0.99.364"
     },
     "catalogue": {
       "title": "Catalogue",

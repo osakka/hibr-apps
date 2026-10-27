@@ -248,6 +248,9 @@ ENTHIBR["control-strip/workspaces"]=0.99.354
 ENTHIBR["control-panel/appearance"]=0.99.355
 ENTHIBR["control-panel/control-strip"]=0.99.355
 ENTHIBR["menubar/sound"]=0.99.355
+# Notifications 1.4's Frame offers Solid Reversed, which only 0.99.364's
+# notes draw; an older desktop would draw it as Single (hibr, the owner).
+ENTHIBR["system/notifications"]=0.99.364
 ENTHIBR["menubar/network"]=0.99.355
 ENTHIBR["menubar/bluetooth"]=0.99.355
 ENTHIBR["menubar/power"]=0.99.355
