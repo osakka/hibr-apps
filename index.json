@@ -665,6 +665,18 @@
       "name": "mouse",
       "hibr": "0.99.343"
     },
+    "control-panel/menubar": {
+      "title": "Menu Bar",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/menubar.hibr",
+      "sha256": "bae8f75d570db85ea4ed9cec26609a4a02e038fb26c99ec4d90537a3620c7c16",
+      "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "menubar",
+      "hibr": "0.99.356"
+    },
     "control-panel/windows": {
       "title": "Windows",
       "version": "1.4",
@@ -716,15 +728,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.7",
+      "version": "2.8",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "ff8375b667f429c436e713d37015f7ae758c6e5782f1c59c7f7f3faae4c9ee5e",
-      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
+      "sha256": "f07e855d72f191028b136cd374f4c6c20f162738cf231c24febc719020c727e3",
+      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.355"
+      "hibr": "0.99.356"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -835,15 +847,15 @@
     },
     "control-panel/control-strip": {
       "title": "Control Strip",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "c9eaede36652ae5569f319ee1060bb2fb63a16a8d65bc6491ec9ce2404c53c1e",
+      "sha256": "f9b0ab32dd75b505b083c7a578a97dfc4d9c451b303b7373e79c2729cd7c1802",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "control-strip",
-      "hibr": "0.99.355"
+      "hibr": "0.99.356"
     },
     "control-strip/workspaces": {
       "title": "Workspaces",
@@ -1837,6 +1849,18 @@
       "name": "mouse",
       "hibr": "0.99.343"
     },
+    "menubar": {
+      "title": "Menu Bar",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/menubar.hibr",
+      "sha256": "bae8f75d570db85ea4ed9cec26609a4a02e038fb26c99ec4d90537a3620c7c16",
+      "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "menubar",
+      "hibr": "0.99.356"
+    },
     "windows": {
       "title": "Windows",
       "version": "1.4",
@@ -1875,15 +1899,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.7",
+      "version": "2.8",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "ff8375b667f429c436e713d37015f7ae758c6e5782f1c59c7f7f3faae4c9ee5e",
-      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the menu bar's spacing and notification icon, the shadows, and how dialog buttons look. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
+      "sha256": "f07e855d72f191028b136cd374f4c6c20f162738cf231c24febc719020c727e3",
+      "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.355"
+      "hibr": "0.99.356"
     },
     "versions": {
       "title": "Versions",
@@ -1956,15 +1980,15 @@
     },
     "control-strip": {
       "title": "Control Strip",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "c9eaede36652ae5569f319ee1060bb2fb63a16a8d65bc6491ec9ce2404c53c1e",
+      "sha256": "f9b0ab32dd75b505b083c7a578a97dfc4d9c451b303b7373e79c2729cd7c1802",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "control-strip",
-      "hibr": "0.99.355"
+      "hibr": "0.99.356"
     },
     "workspaces": {
       "title": "Workspaces",

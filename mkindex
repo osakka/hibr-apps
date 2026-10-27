@@ -251,6 +251,11 @@ ENTHIBR["menubar/sound"]=0.99.355
 ENTHIBR["menubar/network"]=0.99.355
 ENTHIBR["menubar/bluetooth"]=0.99.355
 ENTHIBR["menubar/power"]=0.99.355
+# The Menu Bar pane takes Appearance's Menu Bar rows (hibr 0.99.356, Gitea
+# #396): Appearance 2.8 without it would lose them, so both need it.
+ENTHIBR["control-panel/appearance"]=0.99.356
+ENTHIBR["control-panel/menubar"]=0.99.356
+ENTHIBR["control-panel/control-strip"]=0.99.356
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
