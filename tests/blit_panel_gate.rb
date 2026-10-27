@@ -26,7 +26,7 @@ Dir.mktmpdir('blit-panel') do |root|
   Dir.mkdir(File.join(root,'input'))
   log=File.join(root,'server.log')
   env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0','BLIT_PANE_LAYOUT'=>'1x2',
-       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf'),
+       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Terminus16.psf'),
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input'),
        'BLIT_AUTH_TOKEN'=>'panel-test-token'}
   pid=spawn(env,BINARY,PORT.to_s,out:log,err:[:child,:out])

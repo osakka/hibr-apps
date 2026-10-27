@@ -108,8 +108,10 @@ matches the signed index. Server563 reports ready native KMS, saved-settings
 ownership, validkms environment fallback and SDL not applicable. This records
 configuration/API evidence, not visual acceptance of every desktop mode.
 
-Font-capable Blit0.1.564 adds `blit-modern` (native antialiased text/colour
-glyphs) and `blit-hibr-spleen16` (intentional retro pixel-art). Both appear in
+Blit's fonts are `blit-modern`, `blit-retro` and `blit-jetbrainless`
+(native antialiased text and colour glyphs; JetBrains Mono since Blit 0.2.35),
+and the pixel fonts `blit-terminus16` and `blit-spleen16` (renamed from
+`blit-hibr-*` in 0.2.35, ADR 0194). Both appear in
 the existing Font selector from API discovery; no panel-specific font list is
 maintained. The pixel-size slider continues to use the same API. Config-only
 563 does not have these profiles. `BLIT_PANEL_UI_FONT=blit-modern` and

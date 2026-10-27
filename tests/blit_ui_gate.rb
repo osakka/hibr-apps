@@ -53,7 +53,7 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     dt_close
   HIBR
   env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0','BLIT_AUTH_TOKEN'=>'',
-       'BLIT_PSF_FONT'=>ENV.fetch('BLIT_GATE_FONT',File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf')),
+       'BLIT_PSF_FONT'=>ENV.fetch('BLIT_GATE_FONT',File.join(BLIT,'assets/fonts/Blit-Terminus16.psf')),
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input')}
   log=File.join(root,'server.log')
   pid=spawn(env,BINARY,PORT.to_s,out:log,err:[:child,:out])

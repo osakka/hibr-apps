@@ -19,7 +19,7 @@ Dir.mktmpdir('blit-mouse') do |root|
   end
   env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0',
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>input,
-       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Hibr-Terminus16.psf')}
+       'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Terminus16.psf')}
   pid=spawn(env,ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server')),PORT.to_s,out:File.join(root,'server.log'),err:[:child,:out])
   begin
     Timeout.timeout(10){loop{begin;s=TCPSocket.new('127.0.0.1',PORT);s.close;break;rescue Errno::ECONNREFUSED;sleep 0.05;end}}
