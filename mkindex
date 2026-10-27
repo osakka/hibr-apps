@@ -261,6 +261,11 @@ ENTHIBR["control-panel/control-strip"]=0.99.356
 ENTHIBR["apps/files"]=0.99.357
 ENTHIBR["menubar/power"]=0.99.357
 ENTHIBR["menubar/sound"]=0.99.357
+# Power on the bar with or without a battery (hibr 0.99.358): the power
+# glyph, the strip module's dt_pwicon, and the pane's rows without the item.
+ENTHIBR["menubar/power"]=0.99.358
+ENTHIBR["control-panel/power"]=0.99.358
+ENTHIBR["control-strip/power"]=0.99.358
 # One Browser and one YouTube for both engines (hibr Gitea #376): they ask the
 # web module `web caps`, which is 0.99.317's, and the Browser pane's Allow Calls
 # and Meetings, with `web config webrtc`, is 0.99.322's. An older desktop would
