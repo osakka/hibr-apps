@@ -136,7 +136,8 @@ bw_watch() {
 
 # What the engine is started with, for whichever window starts it -- the
 # YouTube player asks for this too, since the two share one engine.  Chromium
-# is told its program and flags; WebKit has none.
+# is told its program and flags; WebKit has none. An engine can be named
+# (the Browser's own choice otherwise).
 bw_cfg() {
 	local x
 	if bw_has config; then
@@ -145,10 +146,12 @@ bw_cfg() {
 	fi
 	# Which engine a new tab opens in (Control Panel > Browser); an engine
 	# that is not there is an error when the tab opens, not a fall-through.
-	case $BW_ENGINE in
+	# An older module takes the empty word as nothing to change, a newer one as
+	# back to the default; the YouTube player names webkit, which plays video.
+	case ${1-$BW_ENGINE} in
 	webkit) web config engine wpe 2> /dev/null ;;
 	light) web config engine lx 2> /dev/null ;;
-	*) web config engine auto 2> /dev/null ;;
+	*) web config engine "" 2> /dev/null ;;
 	esac
 	# Calls and meetings need the page's process to have the machine's network,
 	# which this engine's sandbox takes away unless asked; off by default, and
