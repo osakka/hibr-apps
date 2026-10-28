@@ -41,7 +41,12 @@ fn cp_setver7() {
 	[ "$YT_MODE" = half ] && YT_MODE=follow
 	return 0
 }
-fn cp_set_ytquality(int? id = "", value = "") { YT_QUALITY=$value; cp_save; }
+fn cp_set_ytquality(int? id = "", value = "") {
+	YT_QUALITY=$value
+	cp_save
+	dt_needs youtube yt_qapply && yt_qapply
+	return 0
+}
 fn cp_set_ytfps(int? id = "", int? value = "") { YT_FPS=$value; cp_save; }
 fn cp_set_ytdetail(int? id = "", int? value = "") { YT_DETAIL=$value; cp_save; }
 

@@ -53,9 +53,11 @@ YT_BASE="${YT_BASE-https://www.youtube.com}"
 # the Image Viewer. A settings file from before 0.99.77 holds `half`, the
 # old default, and cp_setver7 brings that one -- and only that one -- here.
 YT_MODE="${YT_MODE-follow}"
-# auto asks for what the picture can show: 360p drawn as blocks or ASCII (a
-# window is about 120 by 80 picture pixels, so more is decoded and never seen),
-# 720p drawn as pixels. The others are a fixed ask.
+# auto asks for what the picture can show: 144p drawn as blocks or ASCII (a
+# window is about 120 by 80 picture pixels, which 256 by 144 already covers),
+# 480p drawn as pixels (a view up to 960 wide, where 144p is a stretched blur).
+# 720p is a fixed ask only: it arrives at 60 frames a second and costs about
+# twice the CPU of 480p, which is 30. The others are a fixed ask.
 YT_QUALITY="${YT_QUALITY-auto}"
 YT_AUTONEXT="${YT_AUTONEXT-1}"
 # Captions, when the video has them: off until asked for, c or Play > Captions.
@@ -1772,7 +1774,7 @@ fn yt_qeff() {
 	[ "$YT_QUALITY" = auto ] || { ret "$YT_QUALITY"; return 0; }
 	yt_tap && { ret tiny; return 0; }
 	m := yt_drawmode
-	[ "$m" = pixels ] && ret hd720 || ret medium
+	[ "$m" = pixels ] && ret large || ret tiny
 }
 
 # Tell every player playing now what it is asked for: it takes it at once, not
