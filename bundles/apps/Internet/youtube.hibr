@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.8
+app youtube "YouTube, in a window" 3.9
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -122,7 +122,12 @@ fn yt_ccword() {
 # (sound). Both are one app; only the carrying of the video differs.
 YT_CAPS=
 fn yt_has(c) {
-	[ -n "$YT_CAPS" ] || YT_CAPS := web caps 2> /dev/null
+	# WebKit is named first: the Browser's choice of engine (Control Panel >
+	# Browser) may have left the light engine the default, which plays no video.
+	if [ -z "$YT_CAPS" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		YT_CAPS := web caps 2> /dev/null
+	fi
 	case " $YT_CAPS " in *" $c "*) return 0 ;; esac
 	return 1
 }
