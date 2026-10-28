@@ -76,10 +76,10 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "909a290df5144b3c5cefba0fb65e89c400131204a160d4fc67577edcd999f5a1",
+      "sha256": "094c1ffea72051db281d8b798aaae556e3d6bcb39cfda3e8a9875958c442ff35",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -90,7 +90,7 @@
           "kind": "control-panel",
           "as": "filesview.hibr",
           "path": "bundles/control-panel/filesview.hibr",
-          "sha256": "572a17e8bd1f27502c4efe928fbaf932719b74ddae04e84bd431c8e2cb6a0367"
+          "sha256": "4f4c0d8d85b3a53058132b5a0b1b18edbc00b38e7b3fb3d99a8ab536609a659a"
         }
       ]
     },
@@ -601,10 +601,10 @@
     },
     "control-panel/shortcuts": {
       "title": "Shortcuts",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "dcbcf34ebf9a18ae7bac096afc0e24ccbbf121e5784017edea0ee37f526976a4",
+      "sha256": "e1b3f34856b71a46f754559aef1c46f7556695bd98cdab88d08ee3a8fa43e155",
       "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Above them all, Shortcut Key: which modifiers the desktop's own chords use (DT_MOD, Gitea #326) -- Alt, Super or Alt, or Super -- every row then showing what to press.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1320,11 +1320,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.46",
+      "version": "3.47",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "c1a95679db9ac42d22a0ec9ca7a94f44fa98de1ab47e65bf945e8033c105ba93",
-      "about": "The desktop's own words in العربية (ar): 1359 strings, read right to left.",
+      "sha256": "b8f61543c44af14ff2e597487ac84d864b00b8e5452574045b41f672d67db6ca",
+      "about": "The desktop's own words in العربية (ar): 1389 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1457,10 +1457,10 @@
     },
     "files": {
       "title": "Files",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "909a290df5144b3c5cefba0fb65e89c400131204a160d4fc67577edcd999f5a1",
+      "sha256": "094c1ffea72051db281d8b798aaae556e3d6bcb39cfda3e8a9875958c442ff35",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1842,10 +1842,10 @@
     },
     "shortcuts": {
       "title": "Shortcuts",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "dcbcf34ebf9a18ae7bac096afc0e24ccbbf121e5784017edea0ee37f526976a4",
+      "sha256": "e1b3f34856b71a46f754559aef1c46f7556695bd98cdab88d08ee3a8fa43e155",
       "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Above them all, Shortcut Key: which modifiers the desktop's own chords use (DT_MOD, Gitea #326) -- Alt, Super or Alt, or Super -- every row then showing what to press.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
