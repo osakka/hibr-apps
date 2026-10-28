@@ -22,7 +22,8 @@
 #
 # Engine: which engine a new tab opens in -- WebKit, the light engine
 # (hibr-lx), or whichever is installed, WebKit first. Tabs already open stay
-# in theirs. An engine that is not installed is said so when a tab opens.
+# in theirs. The module refuses a named engine that is not installed; the desktop
+# then opens the tab in Chromium, if there is one.
 
 strict
 
