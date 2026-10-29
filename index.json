@@ -708,6 +708,18 @@
       "hibr": "0.99.358",
       "needs": "menubar/power"
     },
+    "control-panel/loginmgr": {
+      "title": "Login Manager",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/loginmgr.hibr",
+      "sha256": "14a2f3e0e8b0100160d11ebe784c9db4c112c240a5ee0865d6869d1dc4c9450d",
+      "about": "The Control Panel pane for the login screen\n\nControl Panel > Login Manager (Gitea #389): how hibr's login screen looks and what it offers, and where it runs.\n\nIts settings are /etc/hibr/login.json, root's file, which the screen reads once when it starts. This pane reads it as you -- it is readable by everyone -- and changes it through hibr-loginset under pkexec, hibr's action org.hibr.loginscreen, which Administrative Access governs like any other: changes wait, marked, until Apply Changes, so several cost one password. A theme, a colour scheme and a saver are offered only from what the screen itself can read, which is what hibr ships and the system scope -- never anybody's home, since the screen is root.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "loginmgr",
+      "hibr": "0.99.391"
+    },
     "control-panel/datetime": {
       "title": "Date & Time",
       "version": "1.7",
@@ -734,15 +746,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.8",
+      "version": "2.9",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "f07e855d72f191028b136cd374f4c6c20f162738cf231c24febc719020c727e3",
+      "sha256": "bf839eacc213fded7d7c17927a144b6ef11a0a8beea122268a9b1dd0b84cc2ed",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.356"
+      "hibr": "0.99.391"
     },
     "control-panel/versions": {
       "title": "Versions",
@@ -1320,11 +1332,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.58",
+      "version": "3.59",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "0bbaf57ab9bd2f0be57c2d8df0e5051582587a1236ce5a484eaf73263e7966e7",
-      "about": "The desktop's own words in العربية (ar): 1454 strings, read right to left.",
+      "sha256": "a952a6722ffbd8036c856821cfcec8d04649ec5d919034ac4df802428a72c949",
+      "about": "The desktop's own words in العربية (ar): 1469 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1925,6 +1937,18 @@
       "name": "windows",
       "hibr": "0.99.327"
     },
+    "loginmgr": {
+      "title": "Login Manager",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/loginmgr.hibr",
+      "sha256": "14a2f3e0e8b0100160d11ebe784c9db4c112c240a5ee0865d6869d1dc4c9450d",
+      "about": "The Control Panel pane for the login screen\n\nControl Panel > Login Manager (Gitea #389): how hibr's login screen looks and what it offers, and where it runs.\n\nIts settings are /etc/hibr/login.json, root's file, which the screen reads once when it starts. This pane reads it as you -- it is readable by everyone -- and changes it through hibr-loginset under pkexec, hibr's action org.hibr.loginscreen, which Administrative Access governs like any other: changes wait, marked, until Apply Changes, so several cost one password. A theme, a colour scheme and a saver are offered only from what the screen itself can read, which is what hibr ships and the system scope -- never anybody's home, since the screen is root.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "loginmgr",
+      "hibr": "0.99.391"
+    },
     "datetime": {
       "title": "Date & Time",
       "version": "1.7",
@@ -1951,15 +1975,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.8",
+      "version": "2.9",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "f07e855d72f191028b136cd374f4c6c20f162738cf231c24febc719020c727e3",
+      "sha256": "bf839eacc213fded7d7c17927a144b6ef11a0a8beea122268a9b1dd0b84cc2ed",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.356"
+      "hibr": "0.99.391"
     },
     "versions": {
       "title": "Versions",
