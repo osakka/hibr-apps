@@ -76,10 +76,10 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "3.0",
+      "version": "3.1",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "2c6eecb2049262e7e33900a7b411c02e97d74a3018488973d8be46f5f67930f7",
+      "sha256": "266983bb2c442fb6024f98f60b13ec7a1044ec7f4f4fead916077b9b326ea553",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -90,7 +90,7 @@
           "kind": "control-panel",
           "as": "filesview.hibr",
           "path": "bundles/control-panel/filesview.hibr",
-          "sha256": "9357bf34d5e98160e343518e41965c05dbf919770257e3ec701ed4d10d090472"
+          "sha256": "ce89db77b586411b237b7eac976148b6da22ee86076ab9c5417a9692390e9f4f"
         }
       ]
     },
@@ -1320,11 +1320,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.54",
+      "version": "3.55",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "9f0ea042feb5bc95cbf59515fb3c9f6140e4ccb8b89998e6a775d71674e25d8c",
-      "about": "The desktop's own words in العربية (ar): 1446 strings, read right to left.",
+      "sha256": "5b295a96a764e388c9a5a2c3efa40e9ab3363ee41bf4fc302eee6fe4a4b6d487",
+      "about": "The desktop's own words in العربية (ar): 1447 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1457,10 +1457,10 @@
     },
     "files": {
       "title": "Files",
-      "version": "3.0",
+      "version": "3.1",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "2c6eecb2049262e7e33900a7b411c02e97d74a3018488973d8be46f5f67930f7",
+      "sha256": "266983bb2c442fb6024f98f60b13ec7a1044ec7f4f4fead916077b9b326ea553",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
