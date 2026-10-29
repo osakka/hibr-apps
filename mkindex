@@ -202,6 +202,9 @@ ENTHIBR["control-panel/filetypes"]=0.99.300
 # root with xscr root (hibr #404); an older xscr takes the extra arguments
 # and drops them without a word, so its options would do nothing there.
 ENTHIBR["apps/xscreen"]=0.99.373
+# X Screen 1.9 holds the pointer for relative motion with xscr rel and xscr
+# press, which 0.99.375 brings (hibr #404); an older xscr refuses both verbs.
+ENTHIBR["apps/xscreen"]=0.99.375
 # Network 1.1 has No Network Password and asks for the password a join
 # needs through nmcli --ask on a pty, which 0.99.301 brings (hibr #369).
 ENTHIBR["control-panel/networks"]=0.99.301
