@@ -198,6 +198,10 @@ ENTHIBR["apps/files"]=0.99.341
 ENTHIBR["apps/xscreen"]=0.99.300
 ENTHIBR["control-panel/datetime"]=0.99.300
 ENTHIBR["control-panel/filetypes"]=0.99.300
+# X Screen 1.8 hands Xvfb its own flags through xscr start and paints the
+# root with xscr root (hibr #404); an older xscr takes the extra arguments
+# and drops them without a word, so its options would do nothing there.
+ENTHIBR["apps/xscreen"]=0.99.373
 # Network 1.1 has No Network Password and asks for the password a join
 # needs through nmcli --ask on a pty, which 0.99.301 brings (hibr #369).
 ENTHIBR["control-panel/networks"]=0.99.301
