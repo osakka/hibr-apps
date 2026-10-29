@@ -55,10 +55,10 @@
     },
     "apps/xscreen": {
       "title": "X Screen",
-      "version": "2.0",
+      "version": "2.1",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "c2447af573eed7712dde65014ac655dfdf3944384141757d7a6172ba0da5554e",
+      "sha256": "3b8e6cb61742f3526b57321f88cf5d7ffb09606b293f5596f49f1e8482f577ec",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -70,7 +70,7 @@
           "kind": "control-panel",
           "as": "xscreenset.hibr",
           "path": "bundles/control-panel/xscreenset.hibr",
-          "sha256": "93d8be09fa3a709d5d8aeac5e33f0a985a9d3ce13b2d5c39b3177f4ae81313ca"
+          "sha256": "ab1f42a8ff4f96906f7b7ab40c32ade202a165df8ef1e0878d547f912bc0a8f1"
         }
       ]
     },
@@ -624,15 +624,15 @@
     },
     "control-panel/pictures": {
       "title": "Pictures",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "d348bd104257afb47192cdd42d286cf5557114408a1b6e2ac9071b771ca28ec4",
+      "sha256": "20da71fa3dcf802f24314b5355d439e1f4409bd9fcf323f943a0dba551118689",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pictures",
-      "hibr": "0.99.314"
+      "hibr": "0.99.377"
     },
     "control-panel/networks": {
       "title": "Network",
@@ -1320,11 +1320,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.50",
+      "version": "3.51",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "04ee272883f8baf27cd2b082be0404971305fadb6e8e937faec473e85896170a",
-      "about": "The desktop's own words in العربية (ar): 1421 strings, read right to left.",
+      "sha256": "71a92506c69a74a1bb123c2a3f04c38df2231426a1c9b07c1a79ac1c43d3df24",
+      "about": "The desktop's own words in العربية (ar): 1422 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1444,10 +1444,10 @@
     },
     "xscreen": {
       "title": "X Screen",
-      "version": "2.0",
+      "version": "2.1",
       "kind": "apps",
       "bundle": "bundles/apps/xscreen.hibr",
-      "sha256": "c2447af573eed7712dde65014ac655dfdf3944384141757d7a6172ba0da5554e",
+      "sha256": "3b8e6cb61742f3526b57321f88cf5d7ffb09606b293f5596f49f1e8482f577ec",
       "about": "X11 programs in windows of their own\n\nX11 programs in windows (Gitea #290, #291): Firefox, GTK and Qt programs, and anything else that speaks X11, run on the desktop. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing.\n\nThe programs are a list Control Panel > X Screen keeps -- a name, a command, how its window behaves and how it is drawn -- and each one is an entry under Applications > X Screen, opening a window titled for it and, once the program names its own window, `Name [its title]`. The app itself is hidden: an empty screen with nothing on it is nothing to choose.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1854,15 +1854,15 @@
     },
     "pictures": {
       "title": "Pictures",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "d348bd104257afb47192cdd42d286cf5557114408a1b6e2ac9071b771ca28ec4",
+      "sha256": "20da71fa3dcf802f24314b5355d439e1f4409bd9fcf323f943a0dba551118689",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pictures",
-      "hibr": "0.99.314"
+      "hibr": "0.99.377"
     },
     "networks": {
       "title": "Network",
