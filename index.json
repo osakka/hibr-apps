@@ -710,15 +710,15 @@
     },
     "control-panel/datetime": {
       "title": "Date & Time",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/datetime.hibr",
-      "sha256": "89eb2a95b0db77aaf79af99900ee94f8b1aeb1276404dbef26950d330fb23e66",
+      "sha256": "a666ae310521fa355fef3dab61960bbb00f5ef9b3abf108af59b7d06e85d449d",
       "about": "The Control Panel pane for the time, the date and the time zone\n\nthe Control Panel pane for the time, the date, and a small world map with a mark near the machine's own time zone, System 7's Date & Time control panel. A custom pane, since a map needs a body of its own rather than two columns of text.\n\nThe map data, its scoring, and the zone1970.tab lookup are all copied from examples/traceroute.hibr rather than redone: CLAUDE.md's own trap about that map says not to adjust one by eye, and the same is true of drawing a second one. What is copied is copied unchanged; only the projection's target size differs, since this map is a corner of a settings pane and not a full screen.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "datetime",
-      "hibr": "0.99.300"
+      "hibr": "0.99.390"
     },
     "control-panel/filetypes": {
       "title": "File Types",
@@ -1320,11 +1320,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.57",
+      "version": "3.58",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "b464cdf9c804cf11511028194ce2a941b69a59b1766435250038be2ee7f43d05",
-      "about": "The desktop's own words in العربية (ar): 1453 strings, read right to left.",
+      "sha256": "0bbaf57ab9bd2f0be57c2d8df0e5051582587a1236ce5a484eaf73263e7966e7",
+      "about": "The desktop's own words in العربية (ar): 1454 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1927,15 +1927,15 @@
     },
     "datetime": {
       "title": "Date & Time",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/datetime.hibr",
-      "sha256": "89eb2a95b0db77aaf79af99900ee94f8b1aeb1276404dbef26950d330fb23e66",
+      "sha256": "a666ae310521fa355fef3dab61960bbb00f5ef9b3abf108af59b7d06e85d449d",
       "about": "The Control Panel pane for the time, the date and the time zone\n\nthe Control Panel pane for the time, the date, and a small world map with a mark near the machine's own time zone, System 7's Date & Time control panel. A custom pane, since a map needs a body of its own rather than two columns of text.\n\nThe map data, its scoring, and the zone1970.tab lookup are all copied from examples/traceroute.hibr rather than redone: CLAUDE.md's own trap about that map says not to adjust one by eye, and the same is true of drawing a second one. What is copied is copied unchanged; only the projection's target size differs, since this map is a corner of a settings pane and not a full screen.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "datetime",
-      "hibr": "0.99.300"
+      "hibr": "0.99.390"
     },
     "filetypes": {
       "title": "File Types",
