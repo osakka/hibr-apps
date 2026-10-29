@@ -1,5 +1,17 @@
 # Blit Control Panel
 
+## Server: Ctrl-Alt-Backspace and Restart Blit (pane 0.1.19)
+
+The Blit pane has a **Server** section:
+- **Ctrl-Alt-Backspace stops Blit:** an on/off switch for the zap chord.
+  It applies at once through `PUT /v1/control/shutdown-key`, which Blit
+  saves itself. The chord and its modifiers stay as configured; only
+  `enabled` changes. The row shows only when the server reports the chord.
+- **Restart Blit…:** after a confirmation ("every session on it ends, and
+  you log in again"), it calls `POST /v1/control/restart`. Blit stops
+  cleanly and starts again in place, with no reboot. The pane reconnects by
+  itself when the server answers again.
+
 ## Blit Effects, live, with switches (pane 0.1.16)
 
 The owner's request: effects that apply as you change them, and switch off

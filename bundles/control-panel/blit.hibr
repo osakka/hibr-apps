@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.18
+app blit "API configuration and diagnostics for the Blit display server" 0.1.19
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -55,7 +55,7 @@ BCP_INVALID=0
 BCP_REPLY=
 BCP_EDITKEY=
 DAV_CODE=
-declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS BCP_FX
+declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS BCP_FX BCP_ZAP
 declare -gA BCP_DROP_KEY
 declare -ga BCP_CHOICES
 BCP_CHOICE_CURRENT=
@@ -63,6 +63,7 @@ json parse BCP_SNAPSHOT '{}'
 json parse BCP_LIVE '{}'
 json parse BCP_DRAFT '{}'
 json parse BCP_EFFECTS '{}'
+json parse BCP_ZAP '{}'
 json parse BCP_FX '{}'
 
 # Desktop settings use executable text and no secret permissions. Keep only
@@ -180,6 +181,12 @@ fn blit_cp_work(what, method = "GET", path = "", body = "", revision = "") {
                     raw := json emit BCP_HTTP
                     json parse 'reply[effects]' "$raw"
                 fi
+                # The chord that stops Blit (Ctrl-Alt-Backspace by default).
+                json parse 'reply[zap]' '{}'
+                if blit_cp_http GET /v1/control/shutdown-key; then
+                    raw := json emit BCP_HTTP
+                    json parse 'reply[zap]' "$raw"
+                fi
             fi
         fi
         if [ "$ok" = 0 ]; then raw := json emit BCP_HTTP; json parse reply "$raw"; fi
@@ -287,6 +294,8 @@ fn blit_cp_done(int n, int st) {
         json parse BCP_LIVE "$raw"
         raw := json get reply .effects
         json parse BCP_EFFECTS "${raw:-"{}"}"
+        raw := json get reply .zap
+        json parse BCP_ZAP "${raw:-"{}"}"
         raw := json get BCP_SNAPSHOT .settings.document
         # This pane's effects follow the server's, unless a change of its
         # own is still on its way there.
@@ -315,6 +324,18 @@ fn blit_cp_done(int n, int st) {
         if [ "$BCP_DIRTY" = 1 ] && [ "$BCP_BASE_REV" != "${BCP_SNAPSHOT[settings][revision]}" ]; then
             BCP_STATUS="Saved settings changed; reload before saving"
         fi
+        ;;
+    zap)
+        raw := json emit reply
+        json parse BCP_ZAP "$raw"
+        if [ "${BCP_ZAP[enabled]}" = true ]; then BCP_STATUS="Ctrl-Alt-Backspace now stops Blit"
+        else BCP_STATUS="Ctrl-Alt-Backspace no longer stops Blit"; fi
+        ;;
+    restart)
+        BCP_STATUS="Blit is restarting; log in again when the screen returns"
+        BCP_CONNECTION_READY=0
+        BCP_BASE_REV=-1
+        BCP_NEXT=$((EPOCHSECONDS + 3))
         ;;
     apply | retry)
         raw := json emit reply
@@ -548,6 +569,12 @@ fn blit_rows(int w) {
         blit_cp_row "$w" "$n" info "Font size" "Requires Blit 0.1.561+"
     fi
     n=$((n + 1))
+    blit_cp_row "$w" "$n" head Server; n=$((n + 1))
+    if [ -n "${BCP_ZAP[enabled]}" ]; then
+        on=off; [ "${BCP_ZAP[enabled]}" = true ] && on=on
+        blit_cp_row "$w" "$n" set "Ctrl-Alt-Backspace stops Blit" "$on" zap bool; n=$((n + 1))
+    fi
+    blit_cp_row "$w" "$n" action "Restart Blit${GL[ellipsis]:-...}" "" restart; n=$((n + 1))
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Measured frame rate" "${BCP_SNAPSHOT[runtime][performance][frame_rate_hz]} Hz"; n=$((n + 1))
     blit_cp_row "$w" "$n" info "Last render" "${BCP_SNAPSHOT[runtime][performance][last_render_ms]} ms"; n=$((n + 1))
@@ -834,10 +861,17 @@ fn blit_do(int w, key, int dir) {
     local -A payload
     # What sends a request waits for the one in flight (blit_cp_start
     # refuses a second anyway); what only edits the draft never waits.
-    case $key in reload | apply | retry | save) [ "$BCP_BUSY" = 0 ] || return 0 ;; esac
+    case $key in reload | apply | retry | save | zap | restart) [ "$BCP_BUSY" = 0 ] || return 0 ;; esac
     case $key in
     url | token) blit_cp_edit "$key"; return 0 ;;
     reload) BCP_CONNECTION_READY=0; BCP_DIRTY=0; BCP_BASE_REV=-1; blit_cp_start refresh; return 0 ;;
+    zap)
+        # Saved by Blit itself (PUT /v1/control/shutdown-key keeps the
+        # chord and its modifiers; only enabled changes here).
+        value=true; [ "${BCP_ZAP[enabled]}" = true ] && value=false
+        blit_cp_start zap PUT /v1/control/shutdown-key "{\"enabled\":$value}" ;;
+    restart)
+        dt_confirm "Restart Blit now? Every session on it ends, and you log in again." blit_cp_restart ;;
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
@@ -882,6 +916,13 @@ fn blit_do(int w, key, int dir) {
     export) dt_filepick save "Export Blit Configuration" "JSON:*.json" "$HOME" blit.json blit_cp_exported "" ;;
     import) dt_filepick open "Import Blit Configuration" "JSON:*.json" "$HOME" "" blit_cp_imported "" ;;
     esac
+    return 0
+}
+
+# The restart, once confirmed: Blit stops cleanly and starts again in place
+# (POST /v1/control/restart), with no reboot.
+fn blit_cp_restart() {
+    blit_cp_start restart POST /v1/control/restart "{}"
     return 0
 }
 

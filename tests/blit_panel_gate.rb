@@ -78,6 +78,32 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_cp_choose fallback wait
       blit_cp_choose fallback invalid
       [ "${BCP_DRAFT[login][fallback]}" = wait ] || exit 57
+      # Server section: the Ctrl-Alt-Backspace switch reads Blit's chord,
+      # turns it off and on again through Blit (which saves it), and
+      # Restart Blit, once confirmed, restarts the server in place.
+      [ "${BCP_ZAP[enabled]}" = true ] || { echo "zap not read: ${BCP_ZAP[enabled]}" >&2; exit 90; }
+      blit_do 44 zap 1
+      finish
+      [ "${BCP_ZAP[enabled]}" = false ] || { echo "zap not turned off: $BCP_STATUS" >&2; exit 91; }
+      blit_cp_http GET /v1/control/shutdown-key || exit 92
+      [ "${BCP_HTTP[enabled]}" = false ] || { echo 'Blit still has the zap on' >&2; exit 93; }
+      blit_do 44 zap 1
+      finish
+      [ "${BCP_ZAP[enabled]}" = true ] || { echo "zap not turned back on: $BCP_STATUS" >&2; exit 94; }
+      fn dt_confirm(question, then) { BCP_TEST_ASKED=$question; "$then"; }
+      BCP_TEST_ASKED=
+      blit_do 44 restart 1
+      finish
+      case "$BCP_TEST_ASKED" in 'Restart Blit now?'*) ;; *) echo 'restart was not confirmed first' >&2; exit 95 ;; esac
+      case "$BCP_STATUS" in 'Blit is restarting'*) ;; *) echo "restart not reported: $BCP_STATUS" >&2; exit 96 ;; esac
+      i=0
+      until blit_cp_http GET /v1/version; do
+          /bin/sleep 0.1; i=$((i + 1))
+          [ "$i" -lt 150 ] || { echo 'Blit did not come back after the restart' >&2; exit 97; }
+      done
+      blit_cp_start refresh
+      finish
+      [ "$BCP_BASE_REV" -ge 0 ] || { echo "refresh after restart failed: $BCP_STATUS" >&2; exit 98; }
       blit_cp_choose fallback first_available
       n := blit_rows 44
       [ "$n" -gt 20 ] || { echo 'pane rows missing' >&2; exit 1; }
@@ -456,7 +482,7 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on restart=confirmed+back'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil
