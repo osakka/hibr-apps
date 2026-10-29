@@ -297,6 +297,11 @@ ENTHIBR["control-panel/menubar"]=0.99.360
 ENTHIBR["apps/browser"]=0.99.325
 ENTHIBR["apps/browser"]=0.99.332   # Browser 2.6 passes dt_filepick an oncancel (0.99.332)
 ENTHIBR["apps/youtube"]=0.99.325
+# Files 3.0 has no path line: the folders above drop from the title on an
+# alt-click, which only a 0.99.380 window manager offers; and the Mouse
+# pane 1.7 sets DT_TITLEKEY, which an older desktop refuses under strict.
+ENTHIBR["apps/files"]=0.99.380
+ENTHIBR["control-panel/mouse"]=0.99.380
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
