@@ -1080,7 +1080,8 @@
       "about": "Two four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "mystify"
+      "name": "mystify",
+      "hibr": "0.99.395"
     },
     "themes/classic": {
       "title": "Classic",
@@ -2175,7 +2176,8 @@
       "about": "Two four-cornered shapes bouncing about the screen, each corner on its own course, leaving a short trail of themselves behind, their colours slowly turning.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "mystify"
+      "name": "mystify",
+      "hibr": "0.99.395"
     },
     "longwire-switchboard": {
       "title": "longwire-switchboard",
