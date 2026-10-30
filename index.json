@@ -364,10 +364,10 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "2.9",
+      "version": "2.10",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "829d5d45a84d1fde3789152cc969d38f3fd0b809911bb6641afb826966d09e35",
+      "sha256": "4797c84f99f2acd83d2600f5a3790abff78c62785f42c4d68005985f309485fd",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -380,7 +380,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "33f4d7d290dddf6ecd375ec0addb55ec6e40f884c53849ed6dc2f126f1f22722"
+          "sha256": "29a125067c42dab61b415d32753829f40fb5c65fb246842309a5f3435c07ea3f"
         },
         {
           "kind": "control-panel",
@@ -710,15 +710,15 @@
     },
     "control-panel/loginmgr": {
       "title": "Login Manager",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/loginmgr.hibr",
-      "sha256": "14a2f3e0e8b0100160d11ebe784c9db4c112c240a5ee0865d6869d1dc4c9450d",
+      "sha256": "35f426a753bca7ff3ba95d9c491b635d86220d8503af479643c3a8c02c32714e",
       "about": "The Control Panel pane for the login screen\n\nControl Panel > Login Manager (Gitea #389): how hibr's login screen looks and what it offers, and where it runs.\n\nIts settings are /etc/hibr/login.json, root's file, which the screen reads once when it starts. This pane reads it as you -- it is readable by everyone -- and changes it through hibr-loginset under pkexec, hibr's action org.hibr.loginscreen, which Administrative Access governs like any other: changes wait, marked, until Apply Changes, so several cost one password. A theme, a colour scheme and a saver are offered only from what the screen itself can read, which is what hibr ships and the system scope -- never anybody's home, since the screen is root.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "loginmgr",
-      "hibr": "0.99.391"
+      "hibr": "0.99.392"
     },
     "control-panel/datetime": {
       "title": "Date & Time",
@@ -1332,11 +1332,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.59",
+      "version": "3.60",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "a952a6722ffbd8036c856821cfcec8d04649ec5d919034ac4df802428a72c949",
-      "about": "The desktop's own words in العربية (ar): 1469 strings, read right to left.",
+      "sha256": "ce2707f7b4035dee19fd7785dc2870160b55980cf1709479c316a4c25c1f57db",
+      "about": "The desktop's own words in العربية (ar): 1479 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1663,10 +1663,10 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "2.9",
+      "version": "2.10",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "829d5d45a84d1fde3789152cc969d38f3fd0b809911bb6641afb826966d09e35",
+      "sha256": "4797c84f99f2acd83d2600f5a3790abff78c62785f42c4d68005985f309485fd",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1939,15 +1939,15 @@
     },
     "loginmgr": {
       "title": "Login Manager",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/loginmgr.hibr",
-      "sha256": "14a2f3e0e8b0100160d11ebe784c9db4c112c240a5ee0865d6869d1dc4c9450d",
+      "sha256": "35f426a753bca7ff3ba95d9c491b635d86220d8503af479643c3a8c02c32714e",
       "about": "The Control Panel pane for the login screen\n\nControl Panel > Login Manager (Gitea #389): how hibr's login screen looks and what it offers, and where it runs.\n\nIts settings are /etc/hibr/login.json, root's file, which the screen reads once when it starts. This pane reads it as you -- it is readable by everyone -- and changes it through hibr-loginset under pkexec, hibr's action org.hibr.loginscreen, which Administrative Access governs like any other: changes wait, marked, until Apply Changes, so several cost one password. A theme, a colour scheme and a saver are offered only from what the screen itself can read, which is what hibr ships and the system scope -- never anybody's home, since the screen is root.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "loginmgr",
-      "hibr": "0.99.391"
+      "hibr": "0.99.392"
     },
     "datetime": {
       "title": "Date & Time",

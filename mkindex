@@ -308,6 +308,9 @@ ENTHIBR["control-panel/datetime"]=0.99.390
 # Login Manager 1.0 runs its helper through lib/pkrun.hibr and its policy,
 # both first in 0.99.391 (Gitea #389).
 ENTHIBR["control-panel/loginmgr"]=0.99.391
+# Login Manager 1.1 writes a "language" key, which hibr-loginset takes
+# from 0.99.392 on (Gitea #389, cut 2).
+ENTHIBR["control-panel/loginmgr"]=0.99.392
 # Appearance 2.9 reads colour schemes through lib/colours.hibr, which
 # 0.99.391 moved out of the pane so the login screen shares it.
 ENTHIBR["control-panel/appearance"]=0.99.391
