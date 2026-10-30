@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.10
+app browser "The web, in a window" 2.11
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1467,8 +1467,8 @@ fn bw_pdfsaved(id = "", path = "", type = "") {
 # --- the menu a right-click opens ---------------------------------------------
 #
 # What is under the pointer is the engine's own hit test (`web at`, which needs no
-# script in the page), asked once for each place a menu is opened and kept for half a
-# minute: the desktop rebuilds an open menu every frame, and the question is a press
+# script in the page), asked once for each place a menu is opened and kept for three
+# seconds (a scroll or a new page makes the same cell another thing): the desktop rebuilds an open menu every frame, and the question is a press
 # on the page.  An engine that cannot say (`at` not in `web caps`) gets the items that
 # do not depend on it.
 declare -gA BWC
@@ -1494,7 +1494,7 @@ fn bw_under(int id) {
 	pt=${BW[$id]["pt"]:-3}
 	[ "$r" -ge "$pt" ] || return 1
 	key="$id:$t:$MB_CY:$MB_CX"
-	if [ -z "${BWC["$key"]+x}" ] || [ $((EPOCHSECONDS - ${BWC["$key:t"]:-0})) -gt 30 ]; then
+	if [ -z "${BWC["$key"]+x}" ] || [ $((EPOCHSECONDS - ${BWC["$key:t"]:-0})) -gt 3 ]; then
 		[ "${#BWC[@]}" -gt 100 ] && BWC=()
 		a := web at "$t" $((r - pt)) $((c - 1)) 2> /dev/null || a=
 		BWC["$key"]=$a
