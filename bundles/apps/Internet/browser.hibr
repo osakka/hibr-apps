@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.12
+app browser "The web, in a window" 2.13
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1573,6 +1573,9 @@ fn browser_context(int? id = "") {
 	local t=${BW[$id]["cur"]}
 
 	bw_under "$id" || true
+	# A page that took the right click for itself (a web app's own menu, a map) has had it: the
+	# press was sent to it to find out (`web at`), and no menu of ours goes over its own.
+	[ "$BW_AT_KIND" = page ] && return 0
 	dt_menu "Page"
 	case $BW_AT_KIND in
 	link | linkimage)
