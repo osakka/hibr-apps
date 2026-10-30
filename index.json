@@ -624,15 +624,15 @@
     },
     "control-panel/pictures": {
       "title": "Pictures",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "20da71fa3dcf802f24314b5355d439e1f4409bd9fcf323f943a0dba551118689",
+      "sha256": "7494922b66661bf4a20c8834adba5d79400a9555cffba44b4ab0a392f2e73ffd",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pictures",
-      "hibr": "0.99.377"
+      "hibr": "0.99.397"
     },
     "control-panel/networks": {
       "title": "Network",
@@ -1333,11 +1333,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.61",
+      "version": "3.62",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "df2bf548cb40c073aa5a8510f87f191f280b631fbe343d3299a375f89fadf7c2",
-      "about": "The desktop's own words in العربية (ar): 1493 strings, read right to left.",
+      "sha256": "b28b66451057fbe5acd8f6000b08b18a28df9148da861517db9e8ba84f620063",
+      "about": "The desktop's own words in العربية (ar): 1494 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1867,15 +1867,15 @@
     },
     "pictures": {
       "title": "Pictures",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "20da71fa3dcf802f24314b5355d439e1f4409bd9fcf323f943a0dba551118689",
+      "sha256": "7494922b66661bf4a20c8834adba5d79400a9555cffba44b4ab0a392f2e73ffd",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pictures",
-      "hibr": "0.99.377"
+      "hibr": "0.99.397"
     },
     "networks": {
       "title": "Network",
