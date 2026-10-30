@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.13
+app browser "The web, in a window" 2.14
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -974,6 +974,10 @@ fn bw_bar(int id, t, int w, int ar) {
 			BW[$id]["asel"]=
 		fi
 	else
+		# Not editing: the desktop keeps the rectangle of the last field this window drew and takes a left
+		# click in it for that field, drawn or not, so after an address was typed the bar could not be
+		# clicked (a right click, which it does not take, was the way in).  Nothing is a field here now.
+		[ "${DT_FIELD["id"]-}" = "$id" ] && DT_FIELD["rect"]=
 		u=
 		[ -n "$t" ] && u := web url "$t" 2> /dev/null
 		[ "$u" = about:blank ] && u=
