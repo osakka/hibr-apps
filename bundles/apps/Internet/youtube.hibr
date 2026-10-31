@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.18
+app youtube "YouTube, in a window" 3.19
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -1173,6 +1173,16 @@ fn youtube_awake(int id) {
 	[ "${YTI["shown"]}" != "$was" ]
 }
 
+# The desktop says when the window goes full screen and comes back
+# (dt_fulltell): the picture is laid out again for the new shape.
+fn youtube_fullscreen(int id, on) {
+	YT[$id]["fs"]=
+	[ "$on" = on ] && YT[$id]["fs"]=1
+	YT[$id]["sized"]=
+	YT[$id]["decl"]=
+	return 0
+}
+
 fn youtube_idle(int id) {
 	[ "${YT[$id]["view"]}" = play ] && yt_tick "$id"
 	return 0
@@ -1182,7 +1192,11 @@ fn youtube_draw(int id, int h, int w, int row, int col) {
 	dt_wclear "$id"
 	[ -n "${YT[$id]["searching"]}" ] && yt_results "$id"
 	YT[$id]["dkey"]=
-	if [ "${YT[$id]["mini"]}" = 1 ]; then
+	# Full screen is the picture alone, edge to edge, as the mini player is:
+	# the window has no frame then and its pane is the display, so the player's
+	# own layout (a heading row, the picture from column 1) ran a column past
+	# the pane and the picture fell back to half blocks.
+	if [ "${YT[$id]["mini"]}" = 1 ] || { [ -n "${YT[$id]["fs"]-}" ] && [ "${YT[$id]["view"]}" = play ]; }; then
 		yt_drawmini "$id" "$h" "$w"
 	elif [ "${YT[$id]["view"]}" = play ]; then
 		yt_drawplay "$id" "$h" "$w"
