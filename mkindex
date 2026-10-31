@@ -318,6 +318,16 @@ ENTHIBR["control-panel/appearance"]=0.99.391
 ENTHIBR["savers/mystify"]=0.99.395
 # 0.99.397 gave the console `imgfd`, which Pictures 1.3's Frames to Blit row sets.
 ENTHIBR["control-panel/pictures"]=0.99.397
+# 0.99.400 gave the desktop dt_jobvars, which the Bluetooth, network and
+# sound readers and Login Manager 1.2 read in; dt_vwjob, which Vault
+# settings 1.1 sets the timeout and clears the PIN with; and the shell's own
+# fix for a map key holding `=`, which Shortcuts 1.3's table of keys needs.
+ENTHIBR["menubar/network"]=0.99.400
+ENTHIBR["menubar/bluetooth"]=0.99.400
+ENTHIBR["menubar/sound"]=0.99.400
+ENTHIBR["control-panel/loginmgr"]=0.99.400
+ENTHIBR["apps/vault"]=0.99.400
+ENTHIBR["control-panel/shortcuts"]=0.99.400
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
