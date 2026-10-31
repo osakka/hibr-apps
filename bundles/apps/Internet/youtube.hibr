@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.12
+app youtube "YouTube, in a window" 3.13
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -690,7 +690,7 @@ fn yt_adopt(int id, vid) {
 # One step of playing: start the page's player once it is there, take up a
 # video where it was left, and at the end go on to the next.
 fn yt_tick(int id) {
-	local t=${YT[$id]["pt"]} p=${YT[$id]["p"]} s js m i e ms tm q
+	local t=${YT[$id]["pt"]} p=${YT[$id]["p"]} s js m i e ms tm q cc
 	local -a w
 
 	# Playing, its frames come as fast as the video's: the desktop holds
@@ -718,12 +718,14 @@ fn yt_tick(int id) {
 	fi
 	[ "${YT[$id]["state"]}" = playing ] && yt_noauto "$id"
 	if [ "${YT[$id]["state"]}" = loading ]; then
+		# In-process (:=), not $(...): a command substitution forks, and this
+		# runs on every tick while a video loads.
+		q := yt_qeff
+		cc := yt_ccword
 		if yt_tap; then
-			q := yt_qeff
-			js := yt_startjs_tap "$q" "$(yt_ccword)"
+			js := yt_startjs_tap "$q" "$cc"
 		else
-			q := yt_qeff
-			js := yt_startjs "$q" "${YT[$id]["vol"]:-100}" "${YT[$id]["vid"]}" "$(yt_ccword)"
+			js := yt_startjs "$q" "${YT[$id]["vol"]:-100}" "${YT[$id]["vid"]}" "$cc"
 		fi
 		s := web eval "$t" "$js" 2> /dev/null
 		if [ "$s" = ok ]; then

@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.16
+app browser "The web, in a window" 2.17
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -180,6 +180,10 @@ fn bw_has(c) {
 fn bw_apply(t) {
 	local on=on
 
+	# Its pictures are asked for and not waited on, where the module can: a
+	# frame shows the last one made and never holds the desktop while the
+	# engine is busy (docs/NONBLOCKING.md in hibr-browser).
+	bw_has renderasync && web set "$t" render async 2> /dev/null
 	[ "$BW_JS" = 1 ] || on=off
 	web set "$t" js "$on" 2> /dev/null
 	on=on
@@ -923,6 +927,10 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
 	bw_sound "$id"
 	BW[$id]["dkey"] := bw_drawkey "$id"
+	# Last, after every web call: each reads what the engine has said, and a
+	# picture asked for earlier can come in among them -- with the pipe then
+	# drained, nothing else would wake the desktop to draw it.
+	[ -n "$t" ] && web dirty "$t" 2> /dev/null && dt_want 30
 }
 
 # What the window shows, in one line: compared with the line kept when it was
@@ -971,14 +979,16 @@ fn browser_dirty(int id) {
 	DT_NOTEWIN=$nw
 	bw_drawmode
 	[ "$BW_DRAWN" = text ] && return 0
+	# The key first: its web calls read what the engine has said, so the
+	# checks after it see anything that came in meanwhile.
+	k := bw_drawkey "$id"
+	[ "$k" = "${BW[$id]["dkey"]-}" ] || return 0
 	web loading "$t" 2> /dev/null && return 0
 	web dirty "$t" 2> /dev/null && return 0
 	if bw_has dlstate; then
 		dl := bw_dlsay
 		[ -n "$dl" ] && return 0
 	fi
-	k := bw_drawkey "$id"
-	[ "$k" = "${BW[$id]["dkey"]-}" ] || return 0
 	return 1
 }
 
