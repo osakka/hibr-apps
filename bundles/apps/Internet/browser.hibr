@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.15
+app browser "The web, in a window" 2.16
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -701,7 +701,8 @@ fn bw_newtab(int id, url = "") {
 	bw_apply "$t"
 	[ -n "$app" ] && bw_wapply "$t" "$app"
 	bw_sndarm "$t"
-	[ -n "$url" ] && web go "$t" "$url"
+	# A tab starts blank: about:blank is not gone to (the light engine would fetch it, and fail).
+	[ -n "$url" ] && [ "$url" != about:blank ] && web go "$t" "$url"
 	bw_watch
 	BW[$id]["tabs"]="${BW[$id]["tabs"]:+${BW[$id]["tabs"]} }$t"
 	BW[$id]["cur"]=$t

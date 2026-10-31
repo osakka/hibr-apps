@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.11
+app youtube "YouTube, in a window" 3.12
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -1060,13 +1060,51 @@ fn youtube_idle(int id) {
 fn youtube_draw(int id, int h, int w, int row, int col) {
 	dt_wclear "$id"
 	[ -n "${YT[$id]["searching"]}" ] && yt_results "$id"
+	YT[$id]["dkey"]=
 	if [ "${YT[$id]["mini"]}" = 1 ]; then
 		yt_drawmini "$id" "$h" "$w"
 	elif [ "${YT[$id]["view"]}" = play ]; then
 		yt_drawplay "$id" "$h" "$w"
 	else
 		yt_drawlist "$id" "$h" "$w"
+		YT[$id]["dkey"] := yt_listkey "$id"
 	fi
+}
+
+# What the list shows, in one line, to be compared with the line kept when
+# it was last drawn: its entries and which are favourites, the chosen one,
+# the scroll position, the heading, any message, the size and the look.
+fn yt_listkey(int id) {
+	local i n=${YT[$id]["n"]:-0} top=${YT[$id]["top"]:-0} vis=${YT[$id]["vis"]:-1} k mk x
+
+	x := dt_searchrows "$id"
+	k="$n|${YT[$id]["sel"]}|$top|$vis|$x|${YT[$id]["kind"]}|${YT[$id]["head"]}|${YT[$id]["arg"]}|${YT[$id]["err"]}|${DT[$id]["h"]}x${DT[$id]["w"]}|$DT_FACE $DT_MIRRORON"
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$i" -lt $((top + vis + 1)) ]; do
+		mk=
+		[ -n "${YTF["${YR[$id][$i]["id"]}"]}" ] && mk=*
+		k+="|${YR[$id][$i]["id"]}$mk"
+		i=$((i + 1))
+	done
+	ret "$k"
+}
+
+# Whether the window has anything new to draw. Only the list can be left as
+# it is: a player has a picture and a bar that move, a search in progress
+# reads the page, and the search field has its cursor. Nothing in the list's
+# drawing asks for a frame of its own, so there is none to repeat here.
+fn youtube_dirty(int id) {
+	local k
+
+	[ "${YT[$id]["mini"]}" = 1 ] && return 0
+	[ "${YT[$id]["view"]}" = play ] && return 0
+	[ -n "${YT[$id]["searching"]}" ] && return 0
+	[ "${YT[$id]["state"]}" = loading ] && return 0
+	[ -n "${YT[$id]["dkey"]}" ] || return 0
+	dt_searchon "$id" && return 0
+	k := yt_listkey "$id"
+	[ "$k" = "${YT[$id]["dkey"]}" ] || return 0
+	return 1
 }
 
 # The list: the search field, a heading, then an entry to a row -- a
