@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.14
+app youtube "YouTube, in a window" 3.15
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -579,15 +579,52 @@ fn yt_next(int id, int dir) {
 # since a window is drawn more often than the clock moves.
 declare -gA YTP
 YTPID=
+# Whether the last answer the page gave is this window's and about the video
+# it is playing now, to stand while the next one is on its way.
+fn yt_pagelast(int id) {
+	[ "$YTPID" = "$id" ] && [ -n "${YTP["st"]}" ] || return 1
+	case ${YTP["u"]} in
+	*"v=${YT[$id]["vid"]}"*) return 0 ;;
+	esac
+	return 1
+}
+
 fn yt_page(int id) {
-	local js now nv
+	local js now nv rc
 
 	now=${EPOCHREALTIME/./}
 	now=${now:0:-3}
 	if [ "$YTPID" = "$id" ] && [ -n "${YT[$id]["pat"]}" ] && [ $((now - YT[$id]["pat"])) -lt 200 ] && [ -n "${YTP["st"]}" ]; then
 		return 0
 	fi
-	js := web eval "${YT[$id]["pt"]}" "$YT_PJS" 2> /dev/null || return 1
+	if yt_has evask; then
+		# Asked in one tick and read in a later one (web evask): a page busy
+		# with its video answers when it can, and the desktop does not wait.
+		# Until the answer is in, the last one stands, if it is this window's.
+		# An ask made for another video, or for another tab, is not this
+		# one's answer: dropped, and asked again.
+		if [ -n "${YT[$id]["pq"]-}" ] && [ "${YT[$id]["pqv"]}" != "${YT[$id]["pt"]} ${YT[$id]["vid"]}" ]; then
+			YT[$id]["pq"]=
+		fi
+		if [ -n "${YT[$id]["pq"]-}" ]; then
+			rc=0
+			js := web evget "${YT[$id]["pt"]}" "${YT[$id]["pq"]}" 2> /dev/null || rc=$?
+			if [ "$rc" = 1 ] && [ $((now - ${YT[$id]["pqat"]:-0})) -lt 3000 ]; then
+				yt_pagelast "$id"
+				return
+			fi
+			YT[$id]["pq"]=
+			[ "$rc" = 0 ] || return 1
+		else
+			YT[$id]["pq"] := web evask "${YT[$id]["pt"]}" "$YT_PJS" 2> /dev/null || return 1
+			YT[$id]["pqat"]=$now
+			YT[$id]["pqv"]="${YT[$id]["pt"]} ${YT[$id]["vid"]}"
+			yt_pagelast "$id"
+			return
+		fi
+	else
+		js := web eval "${YT[$id]["pt"]}" "$YT_PJS" 2> /dev/null || return 1
+	fi
 	[ -n "$js" ] || return 1
 	YTP=()
 	json parse YTP <<< "$js" 2> /dev/null || return 1
