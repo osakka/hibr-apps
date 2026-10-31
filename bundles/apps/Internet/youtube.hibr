@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.17
+app youtube "YouTube, in a window" 3.18
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -605,7 +605,10 @@ fn yt_page(int id, now = "") {
 	# `now`: this one answer is waited for, as it always was -- for the rare
 	# moment that has to know where the page is this instant (a new stream).
 	if ! yt_has evask || [ -n "$wait" ]; then
-		if [ "$YTPID" = "$id" ] && [ -n "${YT[$id]["pat"]}" ] && [ $((now - YT[$id]["pat"])) -lt 200 ] && [ -n "${YTP["st"]}" ]; then
+		# The last answer serves for 200 ms -- but not for `now`, which is
+		# asked when the page has just started a new stream: an answer from
+		# before it is about the last video, and sent the player to its end.
+		if [ -z "$wait" ] && [ "$YTPID" = "$id" ] && [ -n "${YT[$id]["pat"]}" ] && [ $((now - YT[$id]["pat"])) -lt 200 ] && [ -n "${YTP["st"]}" ]; then
 			return 0
 		fi
 		js := web eval "${YT[$id]["pt"]}" "$YT_PJS" 2> /dev/null || return 1
