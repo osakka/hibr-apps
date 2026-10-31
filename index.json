@@ -292,16 +292,16 @@
     },
     "apps/boxer": {
       "title": "Boxer",
-      "version": "1.24",
+      "version": "1.25",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "bb72b97b8db68abe5c8930beafa24e8efb0b63020ff21ae281e053e9232b0af8",
+      "sha256": "a023f2e1036c7942d7262d1d5311eecf93e21b3cc6b88f4f983a6eb897a6d619",
       "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "boxer",
       "hibr": "0.99.189",
-      "modules": "img retro",
+      "modules": "img retro fetch",
       "dir": "Games",
       "parts": [
         {
@@ -1622,16 +1622,16 @@
     },
     "boxer": {
       "title": "Boxer",
-      "version": "1.24",
+      "version": "1.25",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "bb72b97b8db68abe5c8930beafa24e8efb0b63020ff21ae281e053e9232b0af8",
+      "sha256": "a023f2e1036c7942d7262d1d5311eecf93e21b3cc6b88f4f983a6eb897a6d619",
       "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "boxer",
       "hibr": "0.99.189",
-      "modules": "img retro",
+      "modules": "img retro fetch",
       "dir": "Games"
     },
     "mail": {
