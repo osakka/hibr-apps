@@ -328,6 +328,8 @@ ENTHIBR["menubar/sound"]=0.99.400
 ENTHIBR["control-panel/loginmgr"]=0.99.400
 ENTHIBR["apps/vault"]=0.99.400
 ENTHIBR["control-panel/shortcuts"]=0.99.400
+# 0.99.403 gave the console `filmdetail`, which Pictures 1.4's Film Detail row sets.
+ENTHIBR["control-panel/pictures"]=0.99.403
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
