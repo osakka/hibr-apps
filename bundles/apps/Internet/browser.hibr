@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.14
+app browser "The web, in a window" 2.15
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -415,7 +415,7 @@ bw_heard() {
 	fi
 	if bw_has profiles; then
 		if x := web leaves 2> /dev/null; then
-			while IFS=$'\t' read -r k l; do
+				while IFS=$'\t' read -r k l; do
 				[ -n "$l" ] && dt_launch browser "$l"
 			done <<< "$x"
 		fi
@@ -444,7 +444,7 @@ bw_heard() {
 	# click raises its window.
 	if bw_has profiles; then
 		if x := web appnotes 2> /dev/null; then
-			while IFS=$'\t' read -r k l why; do
+				while IFS=$'\t' read -r k l why; do
 				bw_appnote "$k" "$l" "$why"
 			done <<< "$x"
 		fi
@@ -921,6 +921,64 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	fi
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
 	bw_sound "$id"
+	BW[$id]["dkey"] := bw_drawkey "$id"
+}
+
+# What the window shows, in one line: compared with the line kept when it was
+# last drawn, it says whether anything the picture is made from has changed.
+# Not the page's pixels -- web dirty says when those are new -- but what is
+# drawn around them: the tabs and their titles, the address, the scroll bar,
+# the size and the focus.
+fn bw_drawkey(int id) {
+	local t=${BW[$id]["cur"]} n k x
+
+	bw_tabs "$id"
+	k="$t|${BW_TABS[*]}|${DT[$id]["h"]}x${DT[$id]["w"]}|${BW[$id]["aed"]:-0}|${BW[$id]["abuf"]}|$DT_FACE $DT_IMGMODE $BW_MODE|${BW[$id]["sized"]}"
+	if [ -n "$t" ]; then
+		for n in "${BW_TABS[@]}"; do
+			x := web title "$n" 2> /dev/null || x=
+			k+="|$x"
+		done
+		x := web url "$t" 2> /dev/null || x=
+		k+="|$x"
+		x := web scroll "$t" 2> /dev/null || x=
+		k+="|$x"
+	fi
+	ret "$k"
+}
+
+# Whether the window has anything new to draw. A quiet page, with nothing
+# being typed and nothing downloading, was drawn on every frame a video
+# elsewhere asked for: 2.9 ms each on the owner's mini PC. What _draw does
+# besides drawing is done here when it is skipped: the browser's messages
+# are read (or its pipe would wake the desktop for ever). Everything that
+# asks for a frame of its own -- a page loading, one that changed since it
+# was last rendered, a download, the address field's cursor, sound -- is a
+# reason to draw, so there is no dt_want to repeat on the way out.
+fn browser_dirty(int id) {
+	local t=${BW[$id]["cur"]} nw=$DT_NOTEWIN dl k
+
+	[ -n "$t" ] && [ -n "$BW_FD" ] || return 0
+	[ -z "${BW[$id]["err"]}" ] || return 0
+	[ "${BW[$id]["aed"]}" = 1 ] && return 0
+	bw_has tap && return 0
+	# Not drawn yet: _draw sets the tab up (its size, its mode) before it listens.
+	[ -n "${BW[$id]["dkey"]-}" ] || return 0
+	DT_NOTEWIN=$id
+	web poll > /dev/null 2>&1
+	bw_heard
+	DT_NOTEWIN=$nw
+	bw_drawmode
+	[ "$BW_DRAWN" = text ] && return 0
+	web loading "$t" 2> /dev/null && return 0
+	web dirty "$t" 2> /dev/null && return 0
+	if bw_has dlstate; then
+		dl := bw_dlsay
+		[ -n "$dl" ] && return 0
+	fi
+	k := bw_drawkey "$id"
+	[ "$k" = "${BW[$id]["dkey"]-}" ] || return 0
+	return 1
 }
 
 # The tab strip on row 1: each tab, its close box, and + for another.
