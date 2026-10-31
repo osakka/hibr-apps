@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.13
+app youtube "YouTube, in a window" 3.14
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -138,6 +138,17 @@ fn yt_has(c) {
 }
 fn yt_tap() {
 	yt_has tap
+}
+
+# A script whose answer nothing reads -- play, pause, seek, volume, quality,
+# captions -- sent and not waited for where the engine can (`web send`), so a
+# key never holds the desktop while the page is busy; waited for where not.
+fn yt_send(t, js) {
+	if yt_has send; then
+		web send "$t" "$js" 2> /dev/null
+	else
+		web eval "$t" "$js" > /dev/null 2>&1
+	fi
 }
 
 # Whether the engine is here; the reason in the window when not.
@@ -245,7 +256,7 @@ fn yt_load(int id, kind, arg, head = "", push = 1) {
 	channel) u="$YT_BASE$arg/videos" ;;
 	esac
 	t := yt_tab "$id" st || return 0
-	web eval "$t" "window.ytInitialData=undefined" > /dev/null 2>&1
+	yt_send "$t" "window.ytInitialData=undefined"
 	web go "$t" "$u" 2> /dev/null
 	YT[$id]["searching"]=$EPOCHSECONDS
 }
@@ -851,7 +862,7 @@ fn yt_watch(int id) {
 	elif [ "${YTP["pa"]}" = 1 ] && [ "${YTP["en"]}" != 1 ] && [ "${YTI["pos"]%.*}" -le 3 ]; then
 		# Paused at the very start, and nobody here paused it: a play() the
 		# page turned down before it had anything to play. Asked again.
-		web eval "${YT[$id]["pt"]}" 'document.getElementById("movie_player").playVideo()' > /dev/null 2>&1
+		yt_send "${YT[$id]["pt"]}" 'document.getElementById("movie_player").playVideo()'
 		YT[$id]["pat"]=
 	elif [ "${YTP["st"]}" = -1 ] && [ "${YTI["pos"]%.*}" -gt 3 ]; then
 		YT[$id]["bad"]=$(( ${YT[$id]["bad"]:-0} + 1 ))
@@ -904,11 +915,11 @@ fn yt_toggle(int id) {
 	if [ "${YTI["paused"]}" = 1 ]; then
 		YT[$id]["upause"]=
 		yt_tap && media play "$p"
-		web eval "$t" 'document.getElementById("movie_player").playVideo()' > /dev/null 2>&1
+		yt_send "$t" 'document.getElementById("movie_player").playVideo()'
 	else
 		YT[$id]["upause"]=1
 		yt_tap && media pause "$p"
-		web eval "$t" 'document.getElementById("movie_player").pauseVideo()' > /dev/null 2>&1
+		yt_send "$t" 'document.getElementById("movie_player").pauseVideo()'
 		yt_histput "$id"
 	fi
 	YT[$id]["pat"]=
@@ -933,7 +944,7 @@ fn yt_seek(int id, to) {
 		media seek "$p" "$to"
 		web tapseek "$t" > /dev/null 2>&1
 	fi
-	web eval "$t" "document.getElementById(\"movie_player\").seekTo($to,true)" > /dev/null 2>&1
+	yt_send "$t" "document.getElementById(\"movie_player\").seekTo($to,true)"
 	YT[$id]["pat"]=
 }
 
@@ -1389,7 +1400,7 @@ fn youtube_key(int id, key) {
 			if yt_tap; then
 				media volume "${YT[$id]["p"]}" "$v" > /dev/null
 			else
-				web eval "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");if(p&&p.setVolume)p.setVolume($v);var e=document.querySelector(\"video\");if(e)e.volume=$v/100})()" > /dev/null 2>&1
+				yt_send "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");if(p&&p.setVolume)p.setVolume($v);var e=document.querySelector(\"video\");if(e)e.volume=$v/100})()"
 			fi
 			YT[$id]["vol"]=$v
 			YT[$id]["pat"]=
@@ -1855,7 +1866,7 @@ fn yt_qapply() {
 	q := yt_qeff
 	for id in "${!YT[@]}"; do
 		[ -n "${YT[$id]["p"]}" ] && [ -n "${YT[$id]["pt"]}" ] || continue
-		web eval "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.setPlaybackQualityRange(\"$q\",\"$q\")}catch(e){}})()" > /dev/null 2>&1
+		yt_send "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.setPlaybackQualityRange(\"$q\",\"$q\")}catch(e){}})()"
 	done
 }
 
@@ -1887,7 +1898,7 @@ fn yt_captions(int id = 0) {
 	local w
 	w := yt_ccword
 	[ -n "${YT[$id]["pt"]}" ] && [ -n "${YT[$id]["p"]}" ] &&
-		web eval "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.${w}Module(\"captions\")}catch(e){}})()" > /dev/null 2>&1
+		yt_send "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.${w}Module(\"captions\")}catch(e){}})()"
 	YT[$id]["pat"]=
 	dt_want 10
 }
