@@ -327,6 +327,9 @@ ENTHIBR["menubar/bluetooth"]=0.99.400
 ENTHIBR["menubar/sound"]=0.99.400
 ENTHIBR["control-panel/loginmgr"]=0.99.400
 ENTHIBR["apps/vault"]=0.99.400
+# Boxer 1.26 has no full-screen key of its own: Alt+Enter is the desktop's Full Screen key, which ships in
+# 0.99.403, so on an older desktop a game would have none. (Its player needs hibr-retro 0.1.7, a package.)
+ENTHIBR["apps/boxer"]=0.99.403
 ENTHIBR["control-panel/shortcuts"]=0.99.400
 # 0.99.403 gave the console `filmdetail`, which Pictures 1.4's Film Detail row sets.
 ENTHIBR["control-panel/pictures"]=0.99.403
