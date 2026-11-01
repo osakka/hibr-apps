@@ -27,7 +27,7 @@
 
 strict
 
-app browserset "The Control Panel pane for the Browser" 1.10
+app browserset "The Control Panel pane for the Browser" 1.11
 command -v cp_pane > /dev/null && cp_pane browserset "Browser" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app bwfield "Browser Setting" 8 64 "" "" fixed hidden
@@ -48,9 +48,9 @@ BW_LANG="${BW_LANG-}"
 BW_DNT="${BW_DNT-0}"
 BW_RTC="${BW_RTC-0}"
 BW_BLOCK="${BW_BLOCK-}"
-BW_PGEO="${BW_PGEO-refuse}"
-BW_PCAM="${BW_PCAM-refuse}"
-BW_PMIC="${BW_PMIC-refuse}"
+BW_PGEO="${BW_PGEO-ask}"
+BW_PCAM="${BW_PCAM-ask}"
+BW_PMIC="${BW_PMIC-ask}"
 BW_PNOTE="${BW_PNOTE-refuse}"
 BW_PPOP="${BW_PPOP-refuse}"
 BW_DL="${BW_DL-0}"
@@ -61,6 +61,12 @@ command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_ENGINE BW
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
 	BW_AUTOPLAY
 BS_PERMS=(refuse allow)
+# Location, camera and microphone may also be asked, site by site, where the
+# engine can wait for the answer (permask).
+BS_PERMSA=(ask allow refuse)
+fn bs_perms() {
+	bs_has permask && ret "${BS_PERMSA[*]}" || ret "${BS_PERMS[*]}"
+}
 
 # follow is Control Panel > Pictures; text draws the page's words alone.
 BS_MODES=(follow half pixels text)
@@ -163,7 +169,7 @@ fn browserset_rows(int w) {
 	n=$((n + 1))
 	CP[$w][$n]["text"]="Location"; bs_perm "$w" "$n" BW_PGEO pgeo
 	n=$((n + 1))
-	if [ "$BW_PGEO" = allow ]; then
+	if [ "$BW_PGEO" = allow ] || [ "$BW_PGEO" = ask ]; then
 		md=
 		dt_has dt_ploc && md := dt_ploc
 		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Position Given"
@@ -175,7 +181,7 @@ fn browserset_rows(int w) {
 	n=$((n + 1))
 	CP[$w][$n]["text"]="Microphone"; bs_perm "$w" "$n" BW_PMIC pmic
 	n=$((n + 1))
-	if [ "$BW_PCAM" = allow ] || [ "$BW_PMIC" = allow ]; then
+	if [ "$BW_PCAM" != refuse ] || [ "$BW_PMIC" != refuse ]; then
 		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Devices"
 		CP[$w][$n]["val"] := dt_tr "none here"
 		n=$((n + 1))
@@ -189,6 +195,13 @@ fn browserset_rows(int w) {
 	fi
 	if bs_has popupallow; then
 		CP[$w][$n]["text"]="Windows Pages Open on Their Own"; bs_perm "$w" "$n" BW_PPOP ppop
+		n=$((n + 1))
+	fi
+	if [ -r "${BW_SITES:-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/browser-sites.tsv}" ]; then
+		local -a sl
+		mapfile -t sl < "${BW_SITES:-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/browser-sites.tsv}"
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Sites Answered For Always"
+		CP[$w][$n]["val"]=${#sl[@]}
 		n=$((n + 1))
 	fi
 	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Reset Permissions"
@@ -253,9 +266,9 @@ fn browserset_do(int? w = "", k = "", int? dir = "") {
 		;;
 	BW_DARK | BW_DL | BW_AUTOPLAY | BW_RTC) cp_toggle "$k"; bs_tell ;;
 	BW_DNT) cp_toggle "$k"; bs_tell again ;;
-	pgeo) v := cp_next "$BW_PGEO" "$dir" "${BS_PERMS[@]}"; BW_PGEO=$v; bs_tell ;;
-	pcam) v := cp_next "$BW_PCAM" "$dir" "${BS_PERMS[@]}"; BW_PCAM=$v; bs_tell ;;
-	pmic) v := cp_next "$BW_PMIC" "$dir" "${BS_PERMS[@]}"; BW_PMIC=$v; bs_tell ;;
+	pgeo) l := bs_perms; v := cp_next "$BW_PGEO" "$dir" $l; BW_PGEO=$v; bs_tell ;;
+	pcam) l := bs_perms; v := cp_next "$BW_PCAM" "$dir" $l; BW_PCAM=$v; bs_tell ;;
+	pmic) l := bs_perms; v := cp_next "$BW_PMIC" "$dir" $l; BW_PMIC=$v; bs_tell ;;
 	ppop) v := cp_next "$BW_PPOP" "$dir" "${BS_PERMS[@]}"; BW_PPOP=$v; bs_tell ;;
 	pnote) v := cp_next "$BW_PNOTE" "$dir" "${BS_PERMS[@]}"; BW_PNOTE=$v
 		bs_tell again ;;
@@ -272,9 +285,9 @@ fn browserset_drop(int? w = "", int? r = "", int? c = "", k = "") {
 	mode) dt_droplist "$w" "$r" "$c" cp_set_bwmode "${BS_MODES[@]}" ;;
 	engine) dt_droplist "$w" "$r" "$c" cp_set_bwengine "${BS_ENGINES[@]}" ;;
 	zoom) dt_droplist "$w" "$r" "$c" cp_set_bwzoom "${BS_ZOOMS[@]}" ;;
-	pgeo) dt_droplist "$w" "$r" "$c" cp_set_bwpgeo "${BS_PERMS[@]}" ;;
-	pcam) dt_droplist "$w" "$r" "$c" cp_set_bwpcam "${BS_PERMS[@]}" ;;
-	pmic) dt_droplist "$w" "$r" "$c" cp_set_bwpmic "${BS_PERMS[@]}" ;;
+	pgeo) l := bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpgeo $l ;;
+	pcam) l := bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpcam $l ;;
+	pmic) l := bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpmic $l ;;
 	pnote) dt_droplist "$w" "$r" "$c" cp_set_bwpnote "${BS_PERMS[@]}" ;;
 	ppop) dt_droplist "$w" "$r" "$c" cp_set_bwppop "${BS_PERMS[@]}" ;;
 	esac
@@ -283,9 +296,14 @@ fn browserset_drop(int? w = "", int? r = "", int? c = "", k = "") {
 # Reset Permissions: every page's grants forgotten, and each of the four
 # back to refuse, as a fresh browser has them.
 bs_preset() {
+	# asked again, site by site, where the engine can wait for an answer; and
+	# the sites answered for "always" are forgotten
 	BW_PGEO=refuse
-	BW_PCAM=refuse
-	BW_PMIC=refuse
+	bs_has permask && BW_PGEO=ask
+	BW_PCAM=$BW_PGEO
+	BW_PMIC=$BW_PGEO
+	rm -f "${BW_SITES:-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/browser-sites.tsv}"
+	BW_SITESREAD=
 	BW_PNOTE=refuse
 	BW_PPOP=refuse
 	cp_save
