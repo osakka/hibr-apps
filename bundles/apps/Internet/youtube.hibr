@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.20
+app youtube "YouTube, in a window" 3.21
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -1373,6 +1373,25 @@ fn yt_picture(int id, w, h, row, col, md) {
 	esac
 	[ "$m" = pixels ] && [ "${YT[$id]["decl"]}" = "$w $h" ] && m=cells
 	if [ "${YT[$id]["sized"]}" != "$w $h $m" ]; then
+		# As pixels, the page no wider than the video itself (pixmax): a frame
+		# made at the window's own pixels is the video magnified before it is
+		# shown, and every frame is made, copied and handed on at that size --
+		# four times a 480p video's pixels at 3200x1800. The display scales it
+		# up to the window, which looks the same: the video has no more.
+		if yt_has pixmax; then
+			local pq pw=0
+			pq := yt_qeff
+			if [ "$m" = pixels ]; then
+				case $pq in
+				tiny) pw=256 ;; small) pw=426 ;; medium) pw=640 ;;
+				large) pw=854 ;; hd720) pw=1280 ;; hd1080) pw=1920 ;;
+				esac
+			fi
+			web set "$t" pixmax "$pw" 2> /dev/null
+		fi
+		# And its picture asked for and not waited on: a busy engine (150% of
+		# a slow machine's processor) held the desktop for every frame.
+		yt_has renderasync && web set "$t" render async 2> /dev/null
 		web size "$t" "$h" "$w" 2> /dev/null
 		web mode "$t" "$m" 2> /dev/null
 		YT[$id]["sized"]="$w $h $m"
@@ -1999,6 +2018,7 @@ fn yt_qapply() {
 	q := yt_qeff
 	for id in "${!YT[@]}"; do
 		[ -n "${YT[$id]["p"]}" ] && [ -n "${YT[$id]["pt"]}" ] || continue
+		YT[$id]["sized"]=		# laid out again: how wide its picture is made goes with the quality
 		yt_send "${YT[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.setPlaybackQualityRange(\"$q\",\"$q\")}catch(e){}})()"
 	done
 }
