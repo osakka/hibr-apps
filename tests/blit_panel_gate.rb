@@ -124,6 +124,21 @@ Dir.mktmpdir('blit-panel') do |root|
       finish
       blit_cp_http GET /v1/settings || exit 102
       [ "${BCP_HTTP[effective][hud][opacity]}" = 10 ] || { echo "opacity not clamped: ${BCP_HTTP[effective][hud][opacity]}" >&2; exit 102; }
+      # Pixel zoom per display (Blit ADR 0204): the row offers it, a choice
+      # reaches Blit, and 100 takes it off again.
+      zid=${BCP_SNAPSHOT[displays][displays][0][id]}
+      blit_cp_zoomable 0 || { echo "display $zid does not offer zoom" >&2; exit 103; }
+      blit_cp_choose "zoom:$zid" 200
+      finish
+      blit_cp_http GET "/v1/displays/$zid" || exit 104
+      [ "${BCP_HTTP[configuration][zoom]}" = 200 ] || { echo "zoom not set: ${BCP_HTTP[configuration][zoom]} $BCP_STATUS" >&2; exit 104; }
+      blit_cp_choose "zoom:$zid" 110
+      blit_cp_start refresh
+      finish
+      blit_cp_choose "zoom:$zid" 100
+      finish
+      blit_cp_http GET "/v1/displays/$zid" || exit 105
+      [ "${BCP_HTTP[configuration][zoom]}" = 100 ] || { echo "zoom not back to 100: ${BCP_HTTP[configuration][zoom]}" >&2; exit 105; }
       fn dt_confirm(question, then) { BCP_TEST_ASKED=$question; "$then"; }
       BCP_TEST_ASKED=
       blit_do 44 restart 1
@@ -516,7 +531,7 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity restart=confirmed+back'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity zoom=200+refused+100 restart=confirmed+back'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil

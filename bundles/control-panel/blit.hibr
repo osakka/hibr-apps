@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.22
+app blit "API configuration and diagnostics for the Blit display server" 0.1.23
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -336,6 +336,11 @@ fn blit_cp_done(int n, int st) {
         if [ "${BCP_ZAP[enabled]}" = true ]; then BCP_STATUS="Ctrl-Alt-Backspace now stops Blit"
         else BCP_STATUS="Ctrl-Alt-Backspace no longer stops Blit"; fi
         ;;
+    zoom)
+        BCP_STATUS="Zoom ${reply[configuration][zoom]:-set}% on ${reply[id]:-the display}"
+        BCP_LAST=0
+        BCP_NEXT=0
+        ;;
     restart)
         BCP_STATUS="Blit is restarting; log in again when the screen returns"
         BCP_CONNECTION_READY=0
@@ -470,6 +475,16 @@ fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
     CP[$w][$n][val]=$value; CP[$w][$n][key]=$key; CP[$w][$n][wtype]=$wtype
 }
 
+# Whether a display offers pixel zoom: Blit 0.3.26 lists it in capabilities.
+fn blit_cp_zoomable(int i) {
+    local j=0
+    while [ -n "${BCP_SNAPSHOT[displays][displays][$i][capabilities][$j]}" ]; do
+        [ "${BCP_SNAPSHOT[displays][displays][$i][capabilities][$j]}" != zoom ] || return 0
+        j=$((j + 1))
+    done
+    return 1
+}
+
 # Whether two settings documents differ in nothing but what the panes apply
 # live -- the font, the effects and the performance panel -- and the
 # revision a save gave them.
@@ -542,7 +557,14 @@ fn blit_rows(int w) {
     while [ -n "${BCP_SNAPSHOT[topology][outputs][0][layout][columns]}" ] &&
           [ -n "${BCP_SNAPSHOT[displays][displays][$i][id]}" ]; do
         output=${BCP_SNAPSHOT[displays][displays][$i][state][connector]:-${BCP_SNAPSHOT[displays][displays][$i][name]}}
-        blit_cp_row "$w" "$n" info "$output"; n=$((n + 1))
+        # Pixel zoom (Blit ADR 0204), live, on the display's own row: Blit
+        # 0.3.26 lists it; an older one gets the plain heading.
+        if blit_cp_zoomable "$i"; then
+            blit_cp_row "$w" "$n" set "$output zoom" "${BCP_SNAPSHOT[displays][displays][$i][configuration][zoom]:-100}%" "zoom:${BCP_SNAPSHOT[displays][displays][$i][id]}"
+        else
+            blit_cp_row "$w" "$n" info "$output"
+        fi
+        n=$((n + 1))
         blit_cp_row "$w" "$n" set Columns "${BCP_DRAFT[display_layouts][$output][columns]:-1}" "columns:$output" slider
         CP[$w][$n][after]="(${BCP_DRAFT[display_layouts][$output][columns]:-1})"
         CP[$w][$n][min]=1; CP[$w][$n][max]=8; n=$((n + 1))
@@ -883,6 +905,14 @@ fn blit_cp_choices(key) {
     compositor)
         BCP_CHOICES=(gles cpu)
         BCP_CHOICE_CURRENT=${BCP_DRAFT[server][kms_compositor]:-${BCP_SNAPSHOT[settings][effective][kms_compositor]}} ;;
+    zoom:*)
+        BCP_CHOICES=(100 125 150 175 200 250 300 400)
+        i=0
+        while [ -n "${BCP_SNAPSHOT[displays][displays][$i][id]}" ]; do
+            [ "${BCP_SNAPSHOT[displays][displays][$i][id]}" != "${key#zoom:}" ] ||
+                BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[displays][displays][$i][configuration][zoom]:-100}
+            i=$((i + 1))
+        done ;;
     frame_timing)
         BCP_CHOICES=(late immediate)
         BCP_CHOICE_CURRENT=${BCP_DRAFT[server][kms_frame_timing]:-${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}} ;;
@@ -919,7 +949,7 @@ fn blit_cp_choose(key, value) {
     # rest change the staged draft, which a background refresh leaves alone
     # once it has been edited. Refusing them all while a quiet refresh ran
     # dropped a click on a dropdown for as long as the refresh took.
-    [ "$BCP_BUSY" = 0 ] || [ "$key" != font ] || return 0
+    case $key in font | zoom:*) [ "$BCP_BUSY" = 0 ] || return 0 ;; esac
     blit_cp_choices "$key"
     for option in "${BCP_CHOICES[@]}"; do [ "$option" != "$value" ] || valid=1; done
     [ "$valid" = 1 ] || return 0
@@ -932,6 +962,7 @@ fn blit_cp_choose(key, value) {
     compositor) json set BCP_DRAFT .server.kms_compositor "$value" -s; BCP_DIRTY=1 ;;
     frame_timing) json set BCP_DRAFT .server.kms_frame_timing "$value" -s; BCP_DIRTY=1 ;;
     hud_corner) blit_cp_hud_apply corner "$value" string ;;
+    zoom:*) blit_cp_start zoom PATCH "/v1/displays/${key#zoom:}" "{\"configuration\":{\"zoom\":$value}}" ;;
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
@@ -981,7 +1012,7 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary | fallback | font | compositor | frame_timing | hud_corner)
+    primary | fallback | font | compositor | frame_timing | hud_corner | zoom:*)
         blit_cp_choices "$key"
         [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
         value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"

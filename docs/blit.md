@@ -1,5 +1,16 @@
 # Blit Control Panel
 
+## Zoom per display (pane 0.1.23)
+
+Under **Per-display grid**, each display that offers it (Blit 0.3.26,
+ADR 0204) shows its zoom on its own heading row ("DP-1 zoom 100%"): 100, 125, 150, 175, 200, 250, 300 or 400 %.
+A choice applies at once through `PATCH /v1/displays/{id}` with
+`{"configuration":{"zoom":N}}`, and Blit saves it for that monitor. This is
+pixel zoom: Blit composes the display at a smaller logical size and
+enlarges the image, so text and pictures become blocky, and that display
+gets fewer cells (its sessions resize). The pointer and the performance
+panel keep their normal size. Against an older Blit the row is absent.
+
 ## Panel opacity, and the panel rows fixed (pane 0.1.21–0.1.22)
 
 - **Panel opacity** (0.1.22): a slider, 10–100 %, for the panel's
