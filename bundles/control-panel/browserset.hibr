@@ -27,7 +27,7 @@
 
 strict
 
-app browserset "The Control Panel pane for the Browser" 1.11
+app browserset "The Control Panel pane for the Browser" 1.12
 command -v cp_pane > /dev/null && cp_pane browserset "Browser" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app bwfield "Browser Setting" 8 64 "" "" fixed hidden
@@ -64,8 +64,15 @@ BS_PERMS=(refuse allow)
 # Location, camera and microphone may also be asked, site by site, where the
 # engine can wait for the answer (permask).
 BS_PERMSA=(ask allow refuse)
+# The list for those three, into BS_PL (an array: a strict file does not split a
+# word into several).
+BS_PL=()
 fn bs_perms() {
-	bs_has permask && ret "${BS_PERMSA[*]}" || ret "${BS_PERMS[*]}"
+	if bs_has permask; then
+		BS_PL=("${BS_PERMSA[@]}")
+	else
+		BS_PL=("${BS_PERMS[@]}")
+	fi
 }
 
 # follow is Control Panel > Pictures; text draws the page's words alone.
@@ -90,7 +97,12 @@ fn cp_set_bwppop(int? id = "", value = "") { BW_PPOP=$value; cp_save; bs_tell; }
 
 # One permission's row: refuse or allow, a dropdown.
 fn bs_perm(int w, int n, var, key) {
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["val"]="${!var}"
+	local v=${!var}
+
+	# ask, with an engine that cannot wait for an answer, is what the Browser
+	# does then: refuse
+	[ "$v" = ask ] && ! bs_has permask && v=refuse
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["val"]=$v
 	CP[$w][$n]["key"]=$key
 }
 fn cp_set_bwzoom(int? id = "", int? value = "") {
@@ -266,9 +278,9 @@ fn browserset_do(int? w = "", k = "", int? dir = "") {
 		;;
 	BW_DARK | BW_DL | BW_AUTOPLAY | BW_RTC) cp_toggle "$k"; bs_tell ;;
 	BW_DNT) cp_toggle "$k"; bs_tell again ;;
-	pgeo) l := bs_perms; v := cp_next "$BW_PGEO" "$dir" $l; BW_PGEO=$v; bs_tell ;;
-	pcam) l := bs_perms; v := cp_next "$BW_PCAM" "$dir" $l; BW_PCAM=$v; bs_tell ;;
-	pmic) l := bs_perms; v := cp_next "$BW_PMIC" "$dir" $l; BW_PMIC=$v; bs_tell ;;
+	pgeo) bs_perms; v := cp_next "$BW_PGEO" "$dir" "${BS_PL[@]}"; BW_PGEO=$v; bs_tell ;;
+	pcam) bs_perms; v := cp_next "$BW_PCAM" "$dir" "${BS_PL[@]}"; BW_PCAM=$v; bs_tell ;;
+	pmic) bs_perms; v := cp_next "$BW_PMIC" "$dir" "${BS_PL[@]}"; BW_PMIC=$v; bs_tell ;;
 	ppop) v := cp_next "$BW_PPOP" "$dir" "${BS_PERMS[@]}"; BW_PPOP=$v; bs_tell ;;
 	pnote) v := cp_next "$BW_PNOTE" "$dir" "${BS_PERMS[@]}"; BW_PNOTE=$v
 		bs_tell again ;;
@@ -285,9 +297,9 @@ fn browserset_drop(int? w = "", int? r = "", int? c = "", k = "") {
 	mode) dt_droplist "$w" "$r" "$c" cp_set_bwmode "${BS_MODES[@]}" ;;
 	engine) dt_droplist "$w" "$r" "$c" cp_set_bwengine "${BS_ENGINES[@]}" ;;
 	zoom) dt_droplist "$w" "$r" "$c" cp_set_bwzoom "${BS_ZOOMS[@]}" ;;
-	pgeo) l := bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpgeo $l ;;
-	pcam) l := bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpcam $l ;;
-	pmic) l := bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpmic $l ;;
+	pgeo) bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpgeo "${BS_PL[@]}" ;;
+	pcam) bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpcam "${BS_PL[@]}" ;;
+	pmic) bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpmic "${BS_PL[@]}" ;;
 	pnote) dt_droplist "$w" "$r" "$c" cp_set_bwpnote "${BS_PERMS[@]}" ;;
 	ppop) dt_droplist "$w" "$r" "$c" cp_set_bwppop "${BS_PERMS[@]}" ;;
 	esac

@@ -380,7 +380,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "77b808cb17f155007d81e21718158ead9fe54fac2f101925103dfa84c72ce6ab"
+          "sha256": "be0ef96b85fbba41e75f60f897d80cf75c8bccf8d9f1a43b088c7143b0ddfc07"
         },
         {
           "kind": "control-panel",
