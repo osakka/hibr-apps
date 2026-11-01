@@ -1,5 +1,20 @@
 # Blit Control Panel
 
+## Zoom as a slider, and restart after update (pane 0.1.24)
+
+**Restart after update** (Blit 0.3.27, ADR 0205), in the Server section:
+`at-login-screen` (Blit restarts itself into a version installed by
+`apt upgrade` at the next login screen with nobody signed in) or `manual`
+(it only reports). While one is waiting, an **Update waiting** row shows the
+installed and running versions. Applied and saved at once. Absent against
+an older Blit.
+
+
+Each display's zoom is a slider on its own heading row ("DP-1 zoom"),
+100–400 %, shown while held and applied when let go, as the font size is;
+the arrow keys step 25 %. Against Blit 0.3.27 any 25 % step is taken;
+against 0.3.26 a position snaps to the nearest of its eight zooms.
+
 ## Zoom per display (pane 0.1.23)
 
 Under **Per-display grid**, each display that offers it (Blit 0.3.26,

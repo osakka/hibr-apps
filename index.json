@@ -292,10 +292,10 @@
     },
     "apps/boxer": {
       "title": "Boxer",
-      "version": "1.30",
+      "version": "1.31",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "5a1b7c92f795734a9d1f68cbf137a87078b2dbad055d02bea66c6e8e3590b597",
+      "sha256": "2548b73a595f8c50ef59ea54cc3eed7278e06b379c3d4439cbed8571de9a5f17",
       "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -308,13 +308,13 @@
           "kind": "apps",
           "as": "boxerplay.hibr",
           "path": "bundles/apps/boxerplay.hibr",
-          "sha256": "0cc3c8517b1e2fa445aeaa8f3df453dd9bb5a170224c6dc561fbc03926ba040d"
+          "sha256": "a93ceb78538d83e5f8a16977229b7bda1053d6e04a2f1474d9257d6577c04437"
         },
         {
           "kind": "control-panel",
           "as": "boxerset.hibr",
           "path": "bundles/control-panel/boxerset.hibr",
-          "sha256": "56c0517b25a1275ed590cfa3d0bc191f552a70a9992ad4c703d9109672da33ec"
+          "sha256": "6e8516e8cbe3b8ed9c7585e87c1d0b64bf71a7048c9e503dcd4e5754ad5ee917"
         }
       ]
     },
@@ -769,10 +769,10 @@
     },
     "control-panel/blit": {
       "title": "Blit",
-      "version": "0.1.23",
+      "version": "0.1.24",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "46361ee2d2beb3abbe736abf1ab887c93e8665da09cee797729a626df5520670",
+      "sha256": "05ccf89225816e031f0ae42cba5a21200837825aef3f9620fcec9dedf62c108a",
       "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request is hibr's own dav request, in a bounded background job of the desktop's (dt_job); no curl, and the token never on a command line. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested. The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps), not the Blit tree.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1622,10 +1622,10 @@
     },
     "boxer": {
       "title": "Boxer",
-      "version": "1.30",
+      "version": "1.31",
       "kind": "apps",
       "bundle": "bundles/apps/Games/boxer.hibr",
-      "sha256": "5a1b7c92f795734a9d1f68cbf137a87078b2dbad055d02bea66c6e8e3590b597",
+      "sha256": "2548b73a595f8c50ef59ea54cc3eed7278e06b379c3d4439cbed8571de9a5f17",
       "about": "DOS games, one folder to a game, in the way Boxer keeps them on a Mac. A game lives in a folder of its own, NAME.boxer, holding the game's drive C, its box art (.cover.png), the person's DOSBox settings and the game's saves. The games folder is ~/Dos Games, and Control Panel > Boxer (or BX_SHELF) names another. Files shows the folders, and a double click on one plays it, in a window of its own (boxerplay); a right click offers Get Info, where the program, sound card, MIDI, graphics and the game's name are set.\n\nThis window is for getting a game in. Drop a folder, a zip, a disc image or a program on it, or choose one with Import, and it is made into a NAME.boxer the way Boxer does it: an installer is run first, from the game's disc as D:.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1999,10 +1999,10 @@
     },
     "blit": {
       "title": "Blit",
-      "version": "0.1.23",
+      "version": "0.1.24",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "46361ee2d2beb3abbe736abf1ab887c93e8665da09cee797729a626df5520670",
+      "sha256": "05ccf89225816e031f0ae42cba5a21200837825aef3f9620fcec9dedf62c108a",
       "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request is hibr's own dav request, in a bounded background job of the desktop's (dt_job); no curl, and the token never on a command line. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested. The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps), not the Blit tree.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",

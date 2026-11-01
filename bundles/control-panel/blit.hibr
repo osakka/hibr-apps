@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.23
+app blit "API configuration and diagnostics for the Blit display server" 0.1.24
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -41,6 +41,11 @@ BCP_FX_BASE=
 BCP_HUD_BASE=
 BCP_HUD_HELD=
 BCP_HUD_HELDW=
+# A zoom held on a display's slider, its display and window, applied once
+# let go.
+BCP_ZOOM_HELD=
+BCP_ZOOM_HELDID=
+BCP_ZOOM_HELDW=
 # The settings document the draft was based on, to tell Blit saving the
 # pane's own font change from somebody else changing the settings (#364).
 BCP_BASE_DOC=
@@ -400,9 +405,7 @@ fn blit_cp_done(int n, int st) {
             raw := json get reply .document.hud 2> /dev/null || raw=
             [ -z "$raw" ] || [ "$raw" = null ] || json parse 'BCP_DRAFT[hud]' "$raw"
         fi
-        if [ "${BCP_SNAPSHOT[settings][document][hud][enabled]}" = true ]; then
-            BCP_STATUS="Performance panel on"
-        else BCP_STATUS="Performance panel off"; fi
+        BCP_STATUS="Applied and saved"
         BCP_LAST=0
         BCP_NEXT=0
         ;;
@@ -485,6 +488,36 @@ fn blit_cp_zoomable(int i) {
     return 1
 }
 
+# A display's zoom as Blit has it now.
+fn blit_cp_zoom_of(id) {
+    local i=0
+    while [ -n "${BCP_SNAPSHOT[displays][displays][$i][id]}" ]; do
+        if [ "${BCP_SNAPSHOT[displays][displays][$i][id]}" = "$id" ]; then
+            ret "${BCP_SNAPSHOT[displays][displays][$i][configuration][zoom]:-100}"; return 0
+        fi
+        i=$((i + 1))
+    done
+    ret 100
+}
+
+# A slider position as a zoom Blit takes: any 25 % step from 100 to 400
+# since Blit 0.3.27, the nearest of 0.3.26's eight before that.
+fn blit_cp_zoom_snap(int value) {
+    local v best=100 major minor patch
+    [ "$value" -ge 100 ] || value=100
+    [ "$value" -le 400 ] || value=400
+    IFS=. read -r major minor patch <<< "${BCP_SNAPSHOT[version][server_version]:-0.0.0}"
+    patch=${patch%%[!0-9]*}
+    if [ "${major:-0}" -gt 0 ] || [ "${minor:-0}" -gt 3 ] ||
+       { [ "${minor:-0}" = 3 ] && [ "${patch:-0}" -ge 27 ]; }; then
+        ret $(( (value + 12) / 25 * 25 )); return 0
+    fi
+    for v in 100 125 150 175 200 250 300 400; do
+        [ $(( v > value ? v - value : value - v )) -ge $(( best > value ? best - value : value - best )) ] || best=$v
+    done
+    ret "$best"
+}
+
 # Whether two settings documents differ in nothing but what the panes apply
 # live -- the font, the effects and the performance panel -- and the
 # revision a save gave them.
@@ -512,6 +545,9 @@ fn blit_cp_tick(int w) {
             v=$BCP_FONT_HELD
             BCP_FONT_HELD=
             blit_slide 0 font_size "$v"
+        fi
+        if [ -n "$BCP_ZOOM_HELD" ] && [ -z "${CP_MSLIDE[$BCP_ZOOM_HELDW]:-}" ]; then
+            blit_slide 0 "zoom:$BCP_ZOOM_HELDID" "$BCP_ZOOM_HELD"
         fi
         if [ -n "$BCP_HUD_HELD" ] && [ -z "${CP_MSLIDE[$BCP_HUD_HELDW]:-}" ]; then
             v=$BCP_HUD_HELD
@@ -560,7 +596,11 @@ fn blit_rows(int w) {
         # Pixel zoom (Blit ADR 0204), live, on the display's own row: Blit
         # 0.3.26 lists it; an older one gets the plain heading.
         if blit_cp_zoomable "$i"; then
-            blit_cp_row "$w" "$n" set "$output zoom" "${BCP_SNAPSHOT[displays][displays][$i][configuration][zoom]:-100}%" "zoom:${BCP_SNAPSHOT[displays][displays][$i][id]}"
+            local zid=${BCP_SNAPSHOT[displays][displays][$i][id]} zoom
+            zoom=${BCP_SNAPSHOT[displays][displays][$i][configuration][zoom]:-100}
+            [ "$BCP_ZOOM_HELDID" != "$zid" ] || [ -z "$BCP_ZOOM_HELD" ] || zoom=$BCP_ZOOM_HELD
+            blit_cp_row "$w" "$n" set "$output zoom" "$zoom" "zoom:$zid" slider
+            CP[$w][$n][min]=100; CP[$w][$n][max]=400; CP[$w][$n][after]="($zoom%)"
         else
             blit_cp_row "$w" "$n" info "$output"
         fi
@@ -626,6 +666,14 @@ fn blit_rows(int w) {
     if [ -n "${BCP_ZAP[enabled]}" ]; then
         on=off; [ "${BCP_ZAP[enabled]}" = true ] && on=on
         blit_cp_row "$w" "$n" set "Ctrl-Alt-Backspace stops Blit" "$on" zap bool; n=$((n + 1))
+    fi
+    # Restart after an update installed outside Blit's API (ADR 0205):
+    # Blit 0.3.27 has the setting and says when one is waiting.
+    if [ -n "${BCP_SNAPSHOT[settings][effective][restart_after_update]}" ]; then
+        blit_cp_row "$w" "$n" set "Restart after update" "${BCP_SNAPSHOT[settings][effective][restart_after_update]}" update_restart; n=$((n + 1))
+        if [ "${BCP_SNAPSHOT[diagnostics][update][restart_pending]}" = true ]; then
+            blit_cp_row "$w" "$n" info "Update waiting" "${BCP_SNAPSHOT[diagnostics][update][installed_version]} installed, ${BCP_SNAPSHOT[diagnostics][update][running_version]} running"; n=$((n + 1))
+        fi
     fi
     blit_cp_row "$w" "$n" action "Restart Blit${GL[ellipsis]:-...}" "" restart; n=$((n + 1))
     blit_cp_row "$w" "$n" head Diagnostics; n=$((n + 1))
@@ -865,6 +913,21 @@ fn blit_cp_hud_sections(which) {
     ret "[${out#,}]"
 }
 
+# Write one string field of a settings section into Blit's current
+# document, applied and saved at once like the panel's.
+fn blit_cp_live_apply(section, field, value) {
+    local raw body
+    local -A doc payload
+    raw := json get BCP_SNAPSHOT .settings.document 2> /dev/null || raw='{}'
+    json parse doc "${raw:-"{}"}"
+    json set doc ".$section.$field" "$value" -s
+    raw := json emit doc
+    json parse payload '{}'; json parse 'payload[document]' "$raw"
+    body := json emit payload
+    BCP_HUD_BASE=${BCP_SNAPSHOT[settings][revision]}
+    blit_cp_start hud PUT /v1/settings "$body" "$BCP_HUD_BASE"
+}
+
 # Write one field of the panel into Blit's current settings document: a
 # string, a JSON value (a list), or as is (true, false, a number). json set
 # stores what it is given as a string unless it reads as one of the last.
@@ -899,20 +962,15 @@ fn blit_cp_choices(key) {
         BCP_CHOICE_CURRENT=${BCP_DRAFT[login][preferred_pane_id]:-auto}
         [ "$BCP_CHOICE_CURRENT" != null ] || BCP_CHOICE_CURRENT=auto ;;
     fallback) BCP_CHOICES=(first_available wait); BCP_CHOICE_CURRENT=${BCP_DRAFT[login][fallback]:-first_available} ;;
+    update_restart)
+        BCP_CHOICES=(at-login-screen manual)
+        BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[settings][effective][restart_after_update]:-at-login-screen} ;;
     hud_corner)
         BCP_CHOICES=(top-right top-left bottom-right bottom-left)
         BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[settings][effective][hud][corner]:-top-right} ;;
     compositor)
         BCP_CHOICES=(gles cpu)
         BCP_CHOICE_CURRENT=${BCP_DRAFT[server][kms_compositor]:-${BCP_SNAPSHOT[settings][effective][kms_compositor]}} ;;
-    zoom:*)
-        BCP_CHOICES=(100 125 150 175 200 250 300 400)
-        i=0
-        while [ -n "${BCP_SNAPSHOT[displays][displays][$i][id]}" ]; do
-            [ "${BCP_SNAPSHOT[displays][displays][$i][id]}" != "${key#zoom:}" ] ||
-                BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[displays][displays][$i][configuration][zoom]:-100}
-            i=$((i + 1))
-        done ;;
     frame_timing)
         BCP_CHOICES=(late immediate)
         BCP_CHOICE_CURRENT=${BCP_DRAFT[server][kms_frame_timing]:-${BCP_SNAPSHOT[settings][effective][kms_frame_timing]}} ;;
@@ -949,7 +1007,7 @@ fn blit_cp_choose(key, value) {
     # rest change the staged draft, which a background refresh leaves alone
     # once it has been edited. Refusing them all while a quiet refresh ran
     # dropped a click on a dropdown for as long as the refresh took.
-    case $key in font | zoom:*) [ "$BCP_BUSY" = 0 ] || return 0 ;; esac
+    [ "$BCP_BUSY" = 0 ] || [ "$key" != font ] || return 0
     blit_cp_choices "$key"
     for option in "${BCP_CHOICES[@]}"; do [ "$option" != "$value" ] || valid=1; done
     [ "$valid" = 1 ] || return 0
@@ -962,7 +1020,7 @@ fn blit_cp_choose(key, value) {
     compositor) json set BCP_DRAFT .server.kms_compositor "$value" -s; BCP_DIRTY=1 ;;
     frame_timing) json set BCP_DRAFT .server.kms_frame_timing "$value" -s; BCP_DIRTY=1 ;;
     hud_corner) blit_cp_hud_apply corner "$value" string ;;
-    zoom:*) blit_cp_start zoom PATCH "/v1/displays/${key#zoom:}" "{\"configuration\":{\"zoom\":$value}}" ;;
+    update_restart) blit_cp_live_apply server restart_after_update "$value" ;;
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
@@ -1012,7 +1070,7 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary | fallback | font | compositor | frame_timing | hud_corner | zoom:*)
+    primary | fallback | font | compositor | frame_timing | hud_corner | update_restart)
         blit_cp_choices "$key"
         [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
         value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
@@ -1029,6 +1087,9 @@ fn blit_do(int w, key, int dir) {
         json parse payload '{}'; json parse 'payload[document]' "$raw"
         body := json emit payload
         blit_cp_start save PUT /v1/settings "$body" "$BCP_BASE_REV" ;;
+    zoom:*)
+        value := blit_cp_zoom_of "${key#zoom:}"
+        blit_slide "$w" "$key" "$((value + dir * 25))" ;;
     hud_opacity)
         value=${BCP_HUD_HELD:-${BCP_SNAPSHOT[settings][effective][hud][opacity]}}
         [ -n "$value" ] || return 0
@@ -1103,6 +1164,21 @@ fn blit_slide(int w, key, int value) {
         json parse "BCP_DRAFT[display_layouts][$output]" "$body"
         BCP_DIRTY=1 ;;
     fx:*) blit_cp_effect "$w" "$key" "$value" ;;
+    zoom:*)
+        value := blit_cp_zoom_snap "$value"
+        # Shown while held, applied when let go, like the font size: each
+        # step resizes that display's sessions.
+        if [ "$w" != 0 ] && [ -n "${CP_MSLIDE[$w]:-}" ]; then
+            BCP_ZOOM_HELD=$value; BCP_ZOOM_HELDID=${key#zoom:}; BCP_ZOOM_HELDW=$w
+            command -v dt_want > /dev/null && dt_want 50
+            return 0
+        fi
+        if [ "$BCP_BUSY" = 1 ]; then
+            BCP_ZOOM_HELD=$value; BCP_ZOOM_HELDID=${key#zoom:}; BCP_ZOOM_HELDW=0
+            return 0
+        fi
+        BCP_ZOOM_HELD=
+        blit_cp_start zoom PATCH "/v1/displays/${key#zoom:}" "{\"configuration\":{\"zoom\":$value}}" ;;
     hud_opacity)
         [ "$value" -ge 10 ] || value=10
         [ "$value" -le 100 ] || value=100
