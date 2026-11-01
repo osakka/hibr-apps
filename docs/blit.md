@@ -1,5 +1,18 @@
 # Blit Control Panel
 
+## Panel opacity, and the panel rows fixed (pane 0.1.21–0.1.22)
+
+- **Panel opacity** (0.1.22): a slider, 10–100 %, for the panel's
+  background and graph; text and border stay opaque. Shown while held,
+  applied when let go. Needs Blit 0.3.25 (`hud.opacity`); against an older
+  Blit the row is absent.
+- **Panel corner** and **Hibr section** (fixed in 0.1.21) never reached
+  Blit in 0.1.20. The corner went as a quoted string inside a string. The
+  section list collapsed into one word, because `$(…)` doesn't split into
+  words in a hibr `for`. And changing a section wiped the panel's other
+  fields. `blit_panel_gate` now drives all four rows against a real Blit
+  and checks what it saved.
+
 ## Diagnostics: the performance panel (pane 0.1.20)
 
 Blit 0.3.22 draws a small performance panel over everything (Blit ADR

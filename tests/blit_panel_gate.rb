@@ -90,6 +90,40 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_do 44 zap 1
       finish
       [ "${BCP_ZAP[enabled]}" = true ] || { echo "zap not turned back on: $BCP_STATUS" >&2; exit 94; }
+      # Diagnostics: the performance panel's switch, corner and hibr section
+      # each reach Blit's settings as the values Blit validates.
+      blit_cp_start refresh
+      finish
+      blit_do 44 hud 1
+      finish
+      blit_cp_http GET /v1/settings || exit 97
+      [ "${BCP_HTTP[effective][hud][enabled]}" = true ] || { echo "panel not on: $BCP_STATUS" >&2; exit 97; }
+      blit_cp_choose hud_corner bottom-left
+      finish
+      blit_cp_http GET /v1/settings || exit 98
+      [ "${BCP_HTTP[effective][hud][corner]}" = bottom-left ] || { echo "corner not set: $BCP_STATUS" >&2; exit 98; }
+      [ "${BCP_HTTP[effective][hud][enabled]}" = true ] || { echo "the corner turned the panel off" >&2; exit 98; }
+      blit_do 44 hud_hibr 1
+      finish
+      blit_cp_http GET /v1/settings || exit 99
+      raw := json get BCP_HTTP .effective.hud.sections
+      [ "$raw" = '["blit","graph"]' ] || { echo "hibr section not switched off: $raw $BCP_STATUS" >&2; exit 99; }
+      [ "${BCP_HTTP[effective][hud][corner]}" = bottom-left ] || { echo "the section reset the corner" >&2; exit 99; }
+      blit_do 44 hud_hibr 1
+      finish
+      blit_cp_http GET /v1/settings || exit 100
+      raw := json get BCP_HTTP .effective.hud.sections
+      [ "$raw" = '["blit","hibr","graph"]' ] || { echo "hibr section not switched on: $raw" >&2; exit 100; }
+      blit_cp_start refresh
+      finish
+      blit_do 44 hud_opacity -1
+      finish
+      blit_cp_http GET /v1/settings || exit 101
+      [ "${BCP_HTTP[effective][hud][opacity]}" = 90 ] || { echo "opacity not stepped: ${BCP_HTTP[effective][hud][opacity]} $BCP_STATUS" >&2; exit 101; }
+      blit_slide 0 hud_opacity 5
+      finish
+      blit_cp_http GET /v1/settings || exit 102
+      [ "${BCP_HTTP[effective][hud][opacity]}" = 10 ] || { echo "opacity not clamped: ${BCP_HTTP[effective][hud][opacity]}" >&2; exit 102; }
       fn dt_confirm(question, then) { BCP_TEST_ASKED=$question; "$then"; }
       BCP_TEST_ASKED=
       blit_do 44 restart 1
@@ -112,7 +146,7 @@ Dir.mktmpdir('blit-panel') do |root|
           [ "${CP[44][$i][wtype]}" != slider ] || sliders=$((sliders + 1))
           i=$((i + 1))
       done
-      [ "$sliders" = 3 ] || { echo "font size/columns/rows must use native sliders ($sliders)" >&2; exit 30; }
+      [ "$sliders" = 4 ] || { echo "font size/columns/rows/panel opacity must use native sliders ($sliders)" >&2; exit 30; }
       i=0; font_size_found=0
       while [ "$i" -lt "$n" ]; do
           [ "${CP[44][$i][key]}" != font_size ] || font_size_found=1
@@ -482,7 +516,7 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on restart=confirmed+back'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity restart=confirmed+back'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil

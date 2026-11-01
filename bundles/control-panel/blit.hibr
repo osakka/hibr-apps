@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.20
+app blit "API configuration and diagnostics for the Blit display server" 0.1.22
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -36,8 +36,11 @@ BCP_FX_HELDW=
 BCP_FX_PENDING=
 BCP_FX_RETRIES=0
 BCP_FX_BASE=
-# The performance panel: the revision its last change was written over.
+# The performance panel: the revision its last change was written over, and
+# an opacity held on the slider with its window, applied once let go.
 BCP_HUD_BASE=
+BCP_HUD_HELD=
+BCP_HUD_HELDW=
 # The settings document the draft was based on, to tell Blit saving the
 # pane's own font change from somebody else changing the settings (#364).
 BCP_BASE_DOC=
@@ -495,6 +498,11 @@ fn blit_cp_tick(int w) {
             BCP_FONT_HELD=
             blit_slide 0 font_size "$v"
         fi
+        if [ -n "$BCP_HUD_HELD" ] && [ -z "${CP_MSLIDE[$BCP_HUD_HELDW]:-}" ]; then
+            v=$BCP_HUD_HELD
+            BCP_HUD_HELD=
+            blit_slide 0 hud_opacity "$v"
+        fi
         if [ -n "$BCP_FX_HELDW" ] && [ -z "${CP_MSLIDE[$BCP_FX_HELDW]:-}" ]; then
             BCP_FX_HELDW=
             blit_cp_effects_apply
@@ -802,24 +810,32 @@ fn blit_cp_hud_rows(int w, int n) {
     [ "${BCP_SNAPSHOT[settings][effective][hud][enabled]}" != true ] || on=on
     blit_cp_row "$w" "$n" set "Performance panel" "$on" hud bool; n=$((n + 1))
     blit_cp_row "$w" "$n" set "Panel corner" "${BCP_SNAPSHOT[settings][effective][hud][corner]:-top-right}" hud_corner; n=$((n + 1))
-    case " $(blit_cp_hud_list) " in *" hibr "*) hibr=on ;; esac
+    blit_cp_hud_has hibr && hibr=on
     blit_cp_row "$w" "$n" set "Hibr section" "$hibr" hud_hibr bool; n=$((n + 1))
+    # Opacity arrived in Blit 0.3.25; an older Blit has no such field.
+    if [ -n "${BCP_SNAPSHOT[settings][effective][hud][opacity]}" ]; then
+        local opacity=${BCP_HUD_HELD:-${BCP_SNAPSHOT[settings][effective][hud][opacity]}}
+        blit_cp_row "$w" "$n" set "Panel opacity" "$opacity" hud_opacity slider
+        CP[$w][$n][min]=10; CP[$w][$n][max]=100; CP[$w][$n][after]="($opacity%)"; n=$((n + 1))
+    fi
     ret "$n"
 }
 
-# The panel's sections, space-separated, as Blit has them now.
-fn blit_cp_hud_list() {
-    local i=0 out=
+# Whether the panel shows a section, as Blit has it now.
+fn blit_cp_hud_has(which) {
+    local i=0
     while [ -n "${BCP_SNAPSHOT[settings][effective][hud][sections][$i]}" ]; do
-        out="$out ${BCP_SNAPSHOT[settings][effective][hud][sections][$i]}"; i=$((i + 1))
+        [ "${BCP_SNAPSHOT[settings][effective][hud][sections][$i]}" != "$which" ] || return 0
+        i=$((i + 1))
     done
-    printf '%s' "${out# }"
+    return 1
 }
 
 # The sections as a JSON list, with one switched in or out.
 fn blit_cp_hud_sections(which) {
-    local s out= have=0
-    for s in $(blit_cp_hud_list); do
+    local s i=0 out= have=0
+    while [ -n "${BCP_SNAPSHOT[settings][effective][hud][sections][$i]}" ]; do
+        s=${BCP_SNAPSHOT[settings][effective][hud][sections][$i]}; i=$((i + 1))
         if [ "$s" = "$which" ]; then have=1; continue; fi
         out="$out,\"$s\""
     done
@@ -827,13 +843,19 @@ fn blit_cp_hud_sections(which) {
     ret "[${out#,}]"
 }
 
-# Write one field of the panel into Blit's current settings document.
-fn blit_cp_hud_apply(field, value) {
+# Write one field of the panel into Blit's current settings document: a
+# string, a JSON value (a list), or as is (true, false, a number). json set
+# stores what it is given as a string unless it reads as one of the last.
+fn blit_cp_hud_apply(field, value, kind = "") {
     local raw body
     local -A doc payload
     raw := json get BCP_SNAPSHOT .settings.document 2> /dev/null || raw='{}'
     json parse doc "${raw:-"{}"}"
-    json set doc ".hud.$field" "$value"
+    case $kind in
+    string) json set doc ".hud.$field" "$value" -s ;;
+    json) json parse "doc[hud][$field]" "$value" ;;
+    *) json set doc ".hud.$field" "$value" ;;
+    esac
     raw := json emit doc
     json parse payload '{}'; json parse 'payload[document]' "$raw"
     body := json emit payload
@@ -909,7 +931,7 @@ fn blit_cp_choose(key, value) {
     fallback) json set BCP_DRAFT .login.fallback "$value" -s; BCP_DIRTY=1 ;;
     compositor) json set BCP_DRAFT .server.kms_compositor "$value" -s; BCP_DIRTY=1 ;;
     frame_timing) json set BCP_DRAFT .server.kms_frame_timing "$value" -s; BCP_DIRTY=1 ;;
-    hud_corner) blit_cp_hud_apply corner "\"$value\"" ;;
+    hud_corner) blit_cp_hud_apply corner "$value" string ;;
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
@@ -953,7 +975,7 @@ fn blit_do(int w, key, int dir) {
         blit_cp_hud_apply enabled "$value" ;;
     hud_hibr)
         value := blit_cp_hud_sections hibr
-        blit_cp_hud_apply sections "$value" ;;
+        blit_cp_hud_apply sections "$value" json ;;
     restart)
         dt_confirm "Restart Blit now? Every session on it ends, and you log in again." blit_cp_restart ;;
     enabled)
@@ -976,6 +998,10 @@ fn blit_do(int w, key, int dir) {
         json parse payload '{}'; json parse 'payload[document]' "$raw"
         body := json emit payload
         blit_cp_start save PUT /v1/settings "$body" "$BCP_BASE_REV" ;;
+    hud_opacity)
+        value=${BCP_HUD_HELD:-${BCP_SNAPSHOT[settings][effective][hud][opacity]}}
+        [ -n "$value" ] || return 0
+        blit_slide "$w" hud_opacity "$((value + dir * 10))" ;;
     font_size)
         value=${BCP_FONT_HELD:-${BCP_FONT_SIZE_PENDING:-${BCP_FONT_SIZE_REQUESTED:-${BCP_SNAPSHOT[fonts][active][size_px]}}}}
         [ -n "$value" ] && [ "$value" != null ] || return 0
@@ -1046,6 +1072,18 @@ fn blit_slide(int w, key, int value) {
         json parse "BCP_DRAFT[display_layouts][$output]" "$body"
         BCP_DIRTY=1 ;;
     fx:*) blit_cp_effect "$w" "$key" "$value" ;;
+    hud_opacity)
+        [ "$value" -ge 10 ] || value=10
+        [ "$value" -le 100 ] || value=100
+        # Shown while held, applied when let go, like the font size.
+        if [ "$w" != 0 ] && [ -n "${CP_MSLIDE[$w]:-}" ]; then
+            BCP_HUD_HELD=$value
+            BCP_HUD_HELDW=$w
+            command -v dt_want > /dev/null && dt_want 50
+            return 0
+        fi
+        [ "$BCP_BUSY" = 0 ] || { BCP_HUD_HELD=$value; BCP_HUD_HELDW=0; return 0; }
+        blit_cp_hud_apply opacity "$value" ;;
     esac
     return 0
 }
