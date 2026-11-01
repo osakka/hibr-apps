@@ -1,5 +1,19 @@
 # Blit Control Panel
 
+## Diagnostics: the performance panel (pane 0.1.20)
+
+Blit 0.3.22 draws a small performance panel over everything (Blit ADR
+0203). The **Diagnostics** section switches it:
+- **Performance panel:** on or off.
+- **Panel corner:** top-right, top-left, bottom-right or bottom-left.
+- **Hibr section:** whether the panel shows the lines Hibr sends about its
+  desktop.
+
+Each change applies at once and is saved, through `PUT /v1/settings` on the
+document's `hud` object, like the effects. A draft with staged edits is
+rebased rather than lost. Against an older Blit the section says
+"Requires Blit 0.3.22".
+
 ## Server: Ctrl-Alt-Backspace and Restart Blit (pane 0.1.19)
 
 The Blit pane has a **Server** section:
