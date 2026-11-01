@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.19
+app youtube "YouTube, in a window" 3.20
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -1378,15 +1378,26 @@ fn yt_picture(int id, w, h, row, col, md) {
 		YT[$id]["sized"]="$w $h $m"
 		YT[$id]["md"]=$m
 		YT[$id]["pfail"]=0
+		YT[$id]["pfat"]=
+		YT[$id]["sizedat"]=${EPOCHREALTIME/./}
 	fi
 	web render "$t" 2> /dev/null || return 1
 	if web draw "$t" "$row" "$col" -p "w$id" 2> /dev/null; then
 		YT[$id]["pfail"]=0
+		YT[$id]["pfat"]=
 		return 0
 	fi
+	# A draw fails both when the display turns the picture down and when the
+	# engine has no frame at this size yet -- every start, every new size --
+	# and three failures in a row were taken for a refusal: the video went on
+	# in half blocks until the window was resized. Turned down is two seconds
+	# of failures, from two seconds after the picture was laid out.
 	if [ "$m" = pixels ] && [ "${YT[$id]["state"]}" = playing ]; then
+		local nu=${EPOCHREALTIME/./}
 		YT[$id]["pfail"]=$(( ${YT[$id]["pfail"]:-0} + 1 ))
-		if [ "${YT[$id]["pfail"]}" -ge 3 ]; then
+		[ -n "${YT[$id]["pfat"]-}" ] || YT[$id]["pfat"]=$nu
+		if [ $(( (nu - YT[$id]["pfat"]) / 1000 )) -ge 2000 ] &&
+		   [ $(( (nu - ${YT[$id]["sizedat"]:-0}) / 1000 )) -ge 4000 ]; then
 			YT[$id]["decl"]="$w $h"
 			YT[$id]["sized"]=
 		fi
