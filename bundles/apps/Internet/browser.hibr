@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.29
+app browser "The web, in a window" 2.30
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -86,10 +86,14 @@ BW_PPOP="${BW_PPOP-refuse}"
 BW_DL="${BW_DL-0}"
 BW_DLDIR="${BW_DLDIR-$HOME/Downloads}"
 BW_AUTOPLAY="${BW_AUTOPLAY-0}"
+# Ads and trackers blocked (WebKit's, cap adblock): EasyList and EasyPrivacy,
+# from easylist.to, fetched again each week. On unless Control Panel > Browser
+# turns it off; a site can be let show its own (the site's menu).
+BW_ADBLOCK="${BW_ADBLOCK-1}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_JS \
 	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
-	BW_AUTOPLAY
+	BW_AUTOPLAY BW_ADBLOCK
 declare -gA BWX
 # A tab's sound: its player, the pipe into it, and when it was last
 # pressed, typed into or sent somewhere -- the moments a recording may
@@ -723,6 +727,7 @@ fn bw_appnote(tab, ti, bo = "") {
 fn bw_reapply(again = "") {
 	local id t
 
+	bw_adsync
 	for id in "${!BW[@]}"; do
 		[ -n "${BW[$id]["tabs"]+x}" ] || continue
 		bw_tabs "$id"
@@ -934,6 +939,8 @@ fn bw_newtab(int id, url = "") {
 	}
 	bw_wide
 	bw_apply "$t"
+	bw_adsync
+	bw_sitesync
 	[ -n "$app" ] && bw_wapply "$t" "$app"
 	bw_sndarm "$t"
 	# A tab starts blank: about:blank is not gone to (the light engine would fetch it, and fail).
@@ -2106,7 +2113,67 @@ fn bw_siteforget(host, kind, quiet = "") {
 		printf '%s\t%s\t%s\n' "${k%% *}" "${k#* }" "${BWSITE["$k"]}" >> "$BW_SITES.new"
 	done
 	mv -f "$BW_SITES.new" "$BW_SITES"
+	case $kind in js | images | ads) web site "$host" "$kind" default 2> /dev/null ;; esac
 	[ -n "$quiet" ] || dt_notep low "Forgotten: %s for %s" "$kind" "$host"
+}
+
+# The ad filter as Control Panel > Browser says, told to the module when it
+# changes (the module keeps it, and gives it to the engine at every start).
+BW_ADSENT=
+bw_adsync() {
+	local want=off
+
+	bw_has adblock || return 0
+	[ "$BW_ADBLOCK" = 1 ] && want=on
+	[ "$BW_ADSENT" = "$want" ] && return 0
+	web adblock "$want" 2> /dev/null && BW_ADSENT=$want
+	return 0
+}
+
+# The sites file's scripts, pictures and ads, told to the module once (it keeps
+# them for the engine); a change from the site's menu is told as it is made.
+BW_SITESSENT=
+bw_sitesync() {
+	local k h kind
+
+	[ -n "$BW_SITESSENT" ] && return 0
+	bw_has site || return 0
+	BW_SITESSENT=1
+	bw_sitesread
+	for k in "${!BWSITE[@]}"; do
+		h=${k%% *}
+		kind=${k#* }
+		case $kind:${BWSITE["$k"]} in
+		js:refuse | images:refuse) web site "$h" "$kind" 0 2> /dev/null ;;
+		ads:allow) web site "$h" ads 1 2> /dev/null ;;
+		esac
+	done
+	return 0
+}
+
+# A switch in the site's menu: scripts or pictures off for the site (refuse)
+# or back to the browser's own; its ads let through (allow) or blocked again.
+# Kept in the sites file (never from a Clean Window, which still has it for as
+# long as the engine runs), told to the engine, and the page loaded again.
+fn bw_siteflip(int id, host, kind) {
+	local t=${BW[$id]["cur"]} cur keep val
+
+	bw_sitesread
+	cur=${BWSITE["$host $kind"]-}
+	case $kind in
+	ads) [ "$cur" = allow ] && { keep=; val=default; } || { keep=allow; val=1; } ;;
+	*) [ "$cur" = refuse ] && { keep=; val=default; } || { keep=refuse; val=0; } ;;
+	esac
+	if [ "${BW[$id]["clean"]-}" != 1 ]; then
+		if [ -n "$keep" ]; then
+			bw_sitekeep "$host" "$kind" "$keep"
+		else
+			bw_siteforget "$host" "$kind" quiet
+		fi
+	fi
+	web site "$host" "$kind" "$val" 2> /dev/null
+	[ -n "$t" ] && web reload "$t" 2> /dev/null
+	dt_want 10
 }
 
 fn bw_clearsite(int id, host) {
@@ -2171,6 +2238,20 @@ fn bw_sitemenu(int id) {
 			any=1
 			dt_item "Forget ${k#* } (${BWSITE["$k"]})" "" bw_siteforget "$h" "${k#* }"
 		done
+		# the site's own switches, where the engine takes them (cap site; WebKit's,
+		# which the module lists for a light tab too, where they would do nothing)
+		if bw_tabhas "$t" site && ! bw_tabhas "$t" nopicture; then
+			local js=1 im=1 ab=1
+			[ "${BWSITE["$h js"]-}" = refuse ] && js=0
+			[ "${BWSITE["$h images"]-}" = refuse ] && im=0
+			[ "${BWSITE["$h ads"]-}" = allow ] && ab=0
+			dt_sep
+			dt_mark "Scripts on This Site" s "$js" bw_siteflip "$id" "$h" js
+			dt_mark "Pictures on This Site" p "$im" bw_siteflip "$id" "$h" images
+			if bw_tabhas "$t" adblock && [ "$BW_ADBLOCK" = 1 ]; then
+				dt_mark "Block Ads Here" a "$ab" bw_siteflip "$id" "$h" ads
+			fi
+		fi
 		if bw_tabhas "$t" clearsite && [ "${BW[$id]["clean"]-}" != 1 ]; then
 			dt_sep
 			dt_item "Clear This Site's Data" d bw_clearsite "$id" "$h"

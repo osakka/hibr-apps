@@ -27,7 +27,7 @@
 
 strict
 
-app browserset "The Control Panel pane for the Browser" 1.12
+app browserset "The Control Panel pane for the Browser" 1.13
 command -v cp_pane > /dev/null && cp_pane browserset "Browser" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app bwfield "Browser Setting" 8 64 "" "" fixed hidden
@@ -56,10 +56,11 @@ BW_PPOP="${BW_PPOP-refuse}"
 BW_DL="${BW_DL-0}"
 BW_DLDIR="${BW_DLDIR-$HOME/Downloads}"
 BW_AUTOPLAY="${BW_AUTOPLAY-0}"
+BW_ADBLOCK="${BW_ADBLOCK-1}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_ENGINE BW_JS \
 	BW_IMAGES BW_DARK BW_ZOOM BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
-	BW_AUTOPLAY
+	BW_AUTOPLAY BW_ADBLOCK
 BS_PERMS=(refuse allow)
 # Location, camera and microphone may also be asked, site by site, where the
 # engine can wait for the answer (permask).
@@ -175,6 +176,14 @@ fn browserset_rows(int w) {
 		CP[$w][$n]["val"]=off; [ "$BW_DNT" = 1 ] && CP[$w][$n]["val"]=on
 		CP[$w][$n]["key"]=BW_DNT; n=$((n + 1))
 	fi
+	# EasyList and EasyPrivacy (easylist.to), fetched again each week; a site
+	# can be let show its own from its menu in the Browser
+	if bs_has adblock; then
+		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Block Ads and Trackers (EasyList)"
+		CP[$w][$n]["wtype"]=bool
+		CP[$w][$n]["val"]=off; [ "$BW_ADBLOCK" = 1 ] && CP[$w][$n]["val"]=on
+		CP[$w][$n]["key"]=BW_ADBLOCK; n=$((n + 1))
+	fi
 	CP[$w][$n]["text"]="Block Addresses"; bs_row "$w" "$n" BW_BLOCK
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="What a Page May Have"
@@ -276,7 +285,7 @@ fn browserset_do(int? w = "", k = "", int? dir = "") {
 		BW_ZOOM=$v
 		bs_tell
 		;;
-	BW_DARK | BW_DL | BW_AUTOPLAY | BW_RTC) cp_toggle "$k"; bs_tell ;;
+	BW_DARK | BW_DL | BW_AUTOPLAY | BW_RTC | BW_ADBLOCK) cp_toggle "$k"; bs_tell ;;
 	BW_DNT) cp_toggle "$k"; bs_tell again ;;
 	pgeo) bs_perms; v := cp_next "$BW_PGEO" "$dir" "${BS_PL[@]}"; BW_PGEO=$v; bs_tell ;;
 	pcam) bs_perms; v := cp_next "$BW_PCAM" "$dir" "${BS_PL[@]}"; BW_PCAM=$v; bs_tell ;;
