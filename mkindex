@@ -334,6 +334,10 @@ ENTHIBR["control-panel/shortcuts"]=0.99.400
 # 0.99.403 gave the console `filmdetail`, which Pictures 1.4's Film Detail row sets.
 ENTHIBR["control-panel/pictures"]=0.99.403
 ENTHIBR["apps/youtube"]=0.99.413   # YouTube 3.24 asks for each frame as WebKit makes it; before 0.99.413 the wallpaper was repainted on each one (a whole core)
+# Sheet 1.7 runs its formulas in the contain module, and its pane writes
+# SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
+# hibr would run every formula as a dry run and say "contained" nowhere.
+ENTHIBR["apps/sheet"]=0.99.427
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

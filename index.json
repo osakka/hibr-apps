@@ -420,17 +420,25 @@
     },
     "apps/sheet": {
       "title": "Sheet",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "5f21475e35c9d53dde8ea9964ec4dc8de5703c88eec1b1fa04a828193cdd99dd",
+      "sha256": "2de1703439ce7390ba4666de403f8f952f42095d300b6b4716aec6f4f776284c",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sheet",
-      "hibr": "0.99.300",
+      "hibr": "0.99.427",
       "modules": "csv db math",
-      "dir": "Office"
+      "dir": "Office",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "sheetset.hibr",
+          "path": "bundles/control-panel/sheetset.hibr",
+          "sha256": "19f1ee1a5ad427d62e81707973b9ceb3ce821b60aea86a49f991c48a7ff921ec"
+        }
+      ]
     },
     "apps/dbase": {
       "title": "dBASE",
@@ -1333,11 +1341,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.70",
+      "version": "3.72",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "795717c6c40ce3d82e726881d5b06e841cb4e88b1d9571ea90f21009be002e17",
-      "about": "The desktop's own words in العربية (ar): 1517 strings, read right to left.",
+      "sha256": "76118ad57393ce61578044cf1f009e47fa640789dd908fcd4eff2da7bbebc864",
+      "about": "The desktop's own words in العربية (ar): 1520 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1706,15 +1714,15 @@
     },
     "sheet": {
       "title": "Sheet",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "5f21475e35c9d53dde8ea9964ec4dc8de5703c88eec1b1fa04a828193cdd99dd",
+      "sha256": "2de1703439ce7390ba4666de403f8f952f42095d300b6b4716aec6f4f776284c",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sheet",
-      "hibr": "0.99.300",
+      "hibr": "0.99.427",
       "modules": "csv db math",
       "dir": "Office"
     },
