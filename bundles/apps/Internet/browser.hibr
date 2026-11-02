@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.25
+app browser "The web, in a window" 2.26
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -96,6 +96,16 @@ declare -gA BWX
 # begin -- keyed by the tab, which is the browser's and so unique.
 declare -gA BWS BWSF BWSA
 BW_MARKS="${BW_MARKS-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/bookmarks.tsv}"
+# History: a page a line, `seconds<TAB>address<TAB>title`, the newest last; a
+# plain file, to read or delete like the bookmarks. Nothing from a Clean Window
+# or a web app's window goes in it, and only pages from the web (http, https).
+BW_HIST="${BW_HIST-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/browser-history.tsv}"
+BW_HISTMAX=5000
+BW_HISTREAD=
+BW_HISTN=0
+BW_HISTU=()			# the last addresses, newest last, for the History menu
+BW_HISTT=()
+declare -gA BWHL		# tab -> the address last kept for it
 BW_FD=
 BW_TABS=()
 BW_MARKT=()
@@ -1132,6 +1142,7 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 		bw_bar "$id" "$t" "$w" "$ar"
 	fi
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
+	bw_histnote "$id" "$t"
 	bw_askcheck "$id"
 	bw_askbar "$id" "$pt" "$w"
 	bw_sound "$id"
@@ -1275,6 +1286,12 @@ fn bw_bar(int id, t, int w, int ar) {
 		# window's bottom line, which said it before, is the page's now.
 		if [ -n "$t" ] && web loading "$t" 2> /dev/null; then
 			ld := dt_tr "Loading${GL[ellipsis]}"
+			lw := str width " $ld "
+		fi
+		# A light-engine tab says so at the end, quietly: what it does not do
+		# (find, video) is then no surprise, and Go > Reopen in WebKit is there.
+		if [ -n "$t" ] && bw_tabhas "$t" nopicture; then
+			ld="${ld:+$ld  }light"
 			lw := str width " $ld "
 		fi
 		# A download under way says so the same way, before it, and keeps the
@@ -1702,10 +1719,26 @@ fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 	local t=${BW[$id]["cur"]} pt=${BW[$id]["pt"]:-3} sr sc q
 
 	[ "$act" = press ] || return 0
+	# A middle press on a link opens it in a new tab behind this one, as
+	# other browsers do; asked of the engine without waiting, as the right
+	# press is (bw_atpoll). Anywhere else it does nothing.
+	if [ "$btn" = middle ]; then
+		bw_drawmode
+		if [ -n "$t" ] && [ "$r" -ge "$pt" ] && [ "$BW_DRAWN" != text ] && bw_tabhas "$t" atask &&
+		   q := web atask "$t" $((r - pt)) $((c - 1)) 2> /dev/null; then
+			BW[$id]["askq"]=$q
+			BW[$id]["askt"]=$t
+			BW[$id]["askm"]=1
+			BW[$id]["asks"]=$EPOCHSECONDS
+			dt_want 30
+		fi
+		return 0
+	fi
 	if [ "$btn" != right ]; then
 		browser_click "$id" "$r" "$c" "$btn"
 		return 0
 	fi
+	BW[$id]["askm"]=
 	sr=$((r + DT[$id]["row"]))
 	sc=$((c + DT[$id]["col"]))
 	dt_capped "$id" && sc=$((sc - 1))
@@ -1746,6 +1779,11 @@ fn bw_atpoll(int id) {
 		a=none		# no answer: the menu without what is under the pointer
 	fi
 	BW[$id]["askq"]=
+	if [ "${BW[$id]["askm"]-}" = 1 ]; then
+		BW[$id]["askm"]=
+		bw_bgtab "$id" "$a"
+		return 0
+	fi
 	[ "${#BWC[@]}" -gt 100 ] && BWC=()
 	BWC["$key"]=$a
 	BWC["$key:t"]=$EPOCHSECONDS
@@ -1754,6 +1792,52 @@ fn bw_atpoll(int id) {
 	dt_context_open browser "$id" "${BW[$id]["askr"]}" "${BW[$id]["askc"]}"
 	dt_want 10
 	return 0
+}
+
+# What a middle press found (`kind<TAB>link<TAB>picture<TAB>label`): a link
+# opened in a new tab, the one shown staying shown.
+fn bw_bgtab(int id, a) {
+	local k=${a%%$'\t'*} r h cur=${BW[$id]["cur"]}
+
+	case $k in link | linkimage) ;; *) return 0 ;; esac
+	r=${a#*$'\t'}
+	h=${r%%$'\t'*}
+	[ -n "$h" ] || return 0
+	bw_newtab "$id" "$h" || return 0
+	BW[$id]["cur"]=$cur
+	BW[$id]["sized"]=
+	BW[$id]["aed"]=
+	dt_want 10
+}
+
+# A light-engine tab's page again in WebKit, in the same place among the tabs:
+# for a page the light engine does not show well, or for what it does not do
+# (find, sound, video).
+fn bw_reopenwk(int id) {
+	local t=${BW[$id]["cur"]} u n x out=
+
+	[ -n "$t" ] || return 0
+	u := web url "$t" 2> /dev/null || u=
+	if ! n := web open "" "" wpe 2> /dev/null; then
+		dt_notep high "WebKit is not installed: this page can only be shown by the light engine"
+		return 0
+	fi
+	bw_wide
+	bw_apply "$n"
+	bw_sndarm "$n"
+	[ -n "$u" ] && [ "$u" != about:blank ] && web go "$n" "$u"
+	bw_tabs "$id"
+	for x in "${BW_TABS[@]}"; do
+		[ "$x" = "$t" ] && x=$n
+		out="${out:+$out }$x"
+	done
+	BW[$id]["tabs"]=$out
+	BW[$id]["cur"]=$n
+	BW[$id]["sized"]=
+	bw_sndstop "$t"
+	web close "$t" 2> /dev/null
+	unset BWTC["$t"]
+	dt_want 10
 }
 
 fn browser_wheel(int id, dir, int r = 0, int c = 0) {
@@ -1798,6 +1882,120 @@ fn browser_paste(int id, text, op = "") {
 	local t=${BW[$id]["cur"]}
 
 	[ -n "$t" ] && web type "$t" "$text" 2> /dev/null
+}
+
+# --- history ------------------------------------------------------------------
+
+# The file read once, into the menu's list (its last 50) and the count of lines.
+bw_histread() {
+	local tm u tt l
+
+	[ -n "$BW_HISTREAD" ] && return 0
+	BW_HISTREAD=1
+	BW_HISTU=()
+	BW_HISTT=()
+	BW_HISTN=0
+	[ -r "$BW_HIST" ] || return 0
+	while IFS= read -r l; do
+		tm=${l%%$'\t'*}
+		l=${l#*$'\t'}
+		u=${l%%$'\t'*}
+		tt=${l#*$'\t'}
+		[ -n "$u" ] || continue
+		BW_HISTU+=("$u")
+		BW_HISTT+=("$tt")
+		BW_HISTN=$((BW_HISTN + 1))
+		if [ "${#BW_HISTU[@]}" -gt 100 ]; then
+			BW_HISTU=("${BW_HISTU[@]:50}")
+			BW_HISTT=("${BW_HISTT[@]:50}")
+		fi
+	done < "$BW_HIST"
+}
+
+# Keep the page tab t shows, once it has loaded and when it is not the one last
+# kept for that tab.
+fn bw_histnote(int id, t) {
+	local u tt
+
+	[ -n "$t" ] || return 0
+	[ "${BW[$id]["clean"]-}" = 1 ] && return 0
+	[ -n "${BW[$id]["app"]-}" ] && return 0
+	u := web url "$t" 2> /dev/null || return 0
+	case $u in http://* | https://*) ;; *) return 0 ;; esac
+	[ "${BWHL["$t"]-}" = "$u" ] && return 0
+	web loading "$t" 2> /dev/null && return 0
+	BWHL["$t"]=$u
+	tt := web title "$t" 2> /dev/null || tt=
+	tt=${tt//$'\t'/ }
+	tt=${tt//$'\n'/ }
+	bw_histread
+	mkdir -p "${BW_HIST%/*}" 2> /dev/null
+	printf '%s\t%s\t%s\n' "$EPOCHSECONDS" "$u" "$tt" >> "$BW_HIST" 2> /dev/null || return 0
+	BW_HISTU+=("$u")
+	BW_HISTT+=("$tt")
+	BW_HISTN=$((BW_HISTN + 1))
+	# kept to its last BW_HISTMAX lines, cut back now and then rather than every time
+	[ "$BW_HISTN" -gt $((BW_HISTMAX + 500)) ] && bw_histtrim
+	return 0
+}
+
+bw_histtrim() {
+	local -a ls
+	local n
+
+	mapfile -t ls < "$BW_HIST" 2> /dev/null || return 0
+	n=${#ls[@]}
+	[ "$n" -gt "$BW_HISTMAX" ] || return 0
+	printf '%s\n' "${ls[@]:$((n - BW_HISTMAX))}" > "$BW_HIST.new" && mv -f "$BW_HIST.new" "$BW_HIST"
+	BW_HISTN=$BW_HISTMAX
+}
+
+bw_histclear() {
+	rm -f "${BW_HIST:?}"
+	BW_HISTU=()
+	BW_HISTT=()
+	BW_HISTN=0
+	BWHL=()
+	dt_notep low "History cleared"
+}
+
+# Text made safe to put in a page.
+fn bw_esc(s) {
+	s=${s//&/&amp;}
+	s=${s//</&lt;}
+	s=${s//>/&gt;}
+	s=${s//\"/&quot;}
+	ret "$s"
+}
+
+# Every page in the history as a page of its own, newest first, opened in a
+# tab: a list a person can read, follow and search (/) like any page.
+fn bw_histall(int id) {
+	local f="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-history.html" tm u tt d e
+	local -a ls
+	local i
+
+	mapfile -t ls < "$BW_HIST" 2> /dev/null || ls=()
+	mkdir -p "${f%/*}" 2> /dev/null
+	{
+		printf '<!doctype html><meta charset=utf-8><title>History</title>'
+		printf '<style>body{font:15px sans-serif;margin:1.5em}li{margin:.3em 0}small{color:#666}</style><h1>History</h1><ol>'
+		i=$((${#ls[@]} - 1))
+		while [ "$i" -ge 0 ]; do
+			tm=${ls[$i]%%$'\t'*}
+			e=${ls[$i]#*$'\t'}
+			u=${e%%$'\t'*}
+			tt=${e#*$'\t'}
+			u := bw_esc "$u"
+			tt := bw_esc "${tt:-$u}"
+			printf -v d '%(%Y-%m-%d %H:%M)T' "$tm"
+			printf '<li><a href="%s">%s</a> <small>%s %s</small></li>' "$u" "$tt" "$d" "$u"
+			i=$((i - 1))
+		done
+		printf '</ol>'
+		[ "${#ls[@]}" = 0 ] && printf '<p>Nothing yet.</p>'
+	} > "$f" 2> /dev/null || return 0
+	bw_newtab "$id" "file://$f"
 }
 
 # --- bookmarks ----------------------------------------------------------------
@@ -2136,6 +2334,7 @@ fn browser_context(int? id = "") {
 	dt_item "Back" b bw_back "$id"
 	dt_item "Forward" f bw_fwd "$id"
 	dt_item "Reload" r bw_reload "$id"
+	[ -n "$t" ] && [ -z "${BW[$id]["app"]-}" ] && bw_tabhas "$t" nopicture && dt_item "Reopen in WebKit" w bw_reopenwk "$id"
 	if [ -n "$t" ] && bw_tabhas "$t" source; then
 		dt_sep
 		dt_item "View Source" u bw_viewsource "$id"
@@ -2213,6 +2412,11 @@ browser_menus() {
 	dt_item "Reload" r bw_reload "$id"
 	dt_rowaccel f5
 	dt_item "Home" h bw_open "$id" "$BW_HOME"
+	if [ -n "${BW[$id]["cur"]}" ] && bw_tabhas "${BW[$id]["cur"]}" nopicture; then
+		dt_item "Reopen in WebKit" k bw_reopenwk "$id"
+	else
+		dt_dim "Reopen in WebKit"
+	fi
 	dt_sep
 	dt_item "Next Tab" n bw_steptab "$id" 1
 	dt_rowaccel ctrl-pagedown
@@ -2236,4 +2440,28 @@ browser_menus() {
 		dt_item "${BW_MARKT[$i]:0:40}" "" bw_open "$id" "${BW_MARKU[$i]}"
 		i=$((i + 1))
 	done
+	# History: the last pages, each once, newest first
+	dt_menu "History"
+	bw_histread
+	local -A seen=()
+	local n=0 hu ht
+	i=$((${#BW_HISTU[@]} - 1))
+	while [ "$i" -ge 0 ] && [ "$n" -lt 15 ]; do
+		hu=${BW_HISTU[$i]}
+		ht=${BW_HISTT[$i]}
+		i=$((i - 1))
+		[ -n "${seen["$hu"]+x}" ] && continue
+		seen["$hu"]=1
+		ht=${ht:-$hu}
+		dt_item "${ht:0:40}" "" bw_open "$id" "$hu"
+		n=$((n + 1))
+	done
+	[ "$n" -gt 0 ] && dt_sep
+	if [ -r "$BW_HIST" ]; then
+		dt_item "Show All History" s bw_histall "$id"
+		dt_item "Clear History" c bw_histclear
+	else
+		dt_dim "Show All History"
+		dt_dim "Clear History"
+	fi
 }
