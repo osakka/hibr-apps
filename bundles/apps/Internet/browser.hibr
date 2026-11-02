@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.31
+app browser "The web, in a window" 2.32
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1262,6 +1262,7 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	fi
 	bw_sitezoom "$id" "$t"
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
+	bw_movecheck "$id" "$t"
 	bw_histnote "$id" "$t"
 	if [ "$sr" = 1 ]; then
 		dt_searchdraw "$id" "$h" "$w"
@@ -1331,6 +1332,9 @@ fn bw_drawkey(int id) {
 fn browser_dirty(int id) {
 	local t=${BW[$id]["cur"]} nw=$DT_NOTEWIN dl k
 
+	# the live rate ends once the page is still, whether or not this frame
+	# draws the window (a window left alone would keep it on for ever)
+	bw_movecheck "$id" "$t"
 	bw_atpoll "$id"
 	bw_coverlist "$id"
 	bw_askcheck "$id"
@@ -1837,6 +1841,8 @@ fn browser_key(int id, key) {
 	[ -n "$t" ] || return 1
 	bw_sndarm "$t"
 	web key "$t" "$key" 2> /dev/null || return 1
+	# a key that scrolls the page glides it too
+	case $key in up | down | pageup | pagedown | home | end | space | shift-space) bw_moving "$id" ;; esac
 	return 0
 }
 
@@ -2339,12 +2345,52 @@ fn browser_wheel(int id, dir, int r = 0, int c = 0) {
 	# Over the cell the pointer is on, so a scrolling box on the page takes the
 	# wheel when it is over the box (an engine older than 0.5.3 takes no cell,
 	# ignores the two numbers, and scrolls what is in the middle of the page).
-	local pt=${BW[$id]["pt"]:-3} at=
-	[ "$r" -ge "$pt" ] && at="$((r - pt)) $((c - 1))"
+	# The row and column as two words: in a strict file an unquoted "$at"
+	# is not split, so "9 5" went as one word, the module took it for none,
+	# and every wheel scrolled the middle of the page -- a page's own menu or
+	# list beside its content never took the wheel (2.32).
+	local pt=${BW[$id]["pt"]:-3} n=3
+	local -a at=()
+	[ "$r" -ge "$pt" ] && at=("$((r - pt))" "$((c - 1))")
+	[ "$dir" = up ] && n=-3
 	case $dir in
-	up) web wheel "$t" -3 $at 2> /dev/null ;;
-	down) web wheel "$t" 3 $at 2> /dev/null ;;
+	up | down) web wheel "$t" "$n" "${at[@]}" 2> /dev/null ;;
 	esac
+	bw_moving "$id"
+	return 0
+}
+
+# The page is moving -- a wheel's glide (the engine animates it), a key that
+# scrolls: the desktop draws this window at its video rate (dt_live,
+# DT_LIVEMS, 33 ms) rather than the 70 ms it holds a window woken by
+# output to, until the page has been still a third of a second
+# (bw_movecheck), so a still page does not keep the desktop at 30 a second.
+fn bw_moving(int id) {
+	local now
+
+	dt_has dt_live || return 0
+	now := dt_ms
+	[ -z "${BW[$id]["livetill"]-}" ] && dt_live "$id" on
+	BW[$id]["livetill"]=$((now + 400))
+	return 0
+}
+
+fn bw_movecheck(int id, t) {
+	local now
+
+	[ -n "${BW[$id]["livetill"]-}" ] || return 0
+	now := dt_ms
+	# still changing: a little longer
+	if [ -n "$t" ] && web dirty "$t" 2> /dev/null; then
+		[ $((BW[$id]["livetill"] - now)) -lt 300 ] && BW[$id]["livetill"]=$((now + 300))
+		return 0
+	fi
+	if [ "$now" -ge "${BW[$id]["livetill"]}" ]; then
+		dt_live "$id"
+		BW[$id]["livetill"]=
+	else
+		dt_want $((BW[$id]["livetill"] - now))
+	fi
 	return 0
 }
 
