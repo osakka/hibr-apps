@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.23
+app browser "The web, in a window" 2.25
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -591,6 +591,8 @@ fn bw_askbar(int id, int r, int w) {
 	console put -p "w$id" "$r" 1 "$lb"
 	c=$(( ${#lab} + 2 ))
 	for a in "once:Allow Once" "always:Always Allow" "refuse:Refuse"; do
+		# a Clean Window remembers nothing for a site
+		[ "${a%%:*}" = always ] && [ "${BW[$id]["clean"]-}" = 1 ] && continue
 		lab=" ${a#*:} "
 		[ $((c + ${#lab})) -gt "$w" ] && continue
 		console pen "$DT_SELINK" "$DT_ACTIVE" bold
@@ -609,6 +611,11 @@ fn bw_askanswer(int id, how) {
 	case $how in
 	once) web permans "$k" allow 2> /dev/null ;;
 	always)
+		if [ "${BW[$id]["clean"]-}" = 1 ]; then
+			web permans "$k" allow 2> /dev/null
+			dt_want 10
+			return 0
+		fi
 		web permans "$k" allow 2> /dev/null
 		if [ "$w" = camera+microphone ]; then
 			bw_sitekeep "$h" camera allow
@@ -792,6 +799,8 @@ fn bw_appname(int id) {
 
 	if [ -n "$app" ]; then
 		ret "${WA["$app:name"]:-$app}"
+	elif [ "${BW[$id]["clean"]-}" = 1 ]; then
+		ret "Clean Window"
 	else
 		ret Browser
 	fi
@@ -862,6 +871,9 @@ fn bw_newtab(int id, url = "") {
 
 	[ -z "$url" ] && [ -n "$BW_HOME" ] && url := bw_addr "$BW_HOME"
 	[ -n "$app" ] && prof="$WA_DIR/$app/profile"
+	# A Clean Window's tabs are on one session the engine keeps in memory only
+	# (`web open URL :clean`), whichever engine is the default.
+	[ "${BW[$id]["clean"]-}" = 1 ] && prof=:clean
 	bw_cfg
 	t := web open "" "$prof" || {
 		BW[$id]["err"]="No browser engine to show pages with (or the one chosen in Control Panel > Browser is not installed) -- install hibr-browser (WebKit, light) or Chromium, or set HIBR_WPE or HIBR_WEB_BROWSER"
@@ -918,6 +930,7 @@ fn browser_open(int id, arg = "") {
 	BW[$id]["sized"]=
 	BW[$id]["err"]=
 	BW[$id]["app"]=
+	BW[$id]["clean"]=
 	case $arg in
 	webapp:*)
 		wa_open "$id" "${arg#webapp:}"
@@ -927,6 +940,17 @@ fn browser_open(int id, arg = "") {
 		BW[$id]["err"]="The web module is not installed"
 		return 0
 	}
+	case $arg in
+	clean:*)
+		arg=${arg#clean:}
+		if ! bw_has clean; then
+			BW[$id]["err"]="A Clean Window needs the WebKit engine (hibr-browser 0.5.20 or later)"
+			return 0
+		fi
+		BW[$id]["clean"]=1
+		dt_notep normal "Clean Window: nothing from it is kept when it closes. Sites and your network can still see you."
+		;;
+	esac
 	bw_newtab "$id" "$arg"
 }
 
@@ -968,6 +992,14 @@ fn browser_close(int id) {
 fn browser_stash(int id, dir) {
 	local t urls= u
 
+	BW[$id]["wclean"]=${BW[$id]["clean"]-}
+	# A Clean Window keeps no addresses, not even across a restart: it comes
+	# back empty.
+	if [ "${BW[$id]["clean"]-}" = 1 ]; then
+		BW[$id]["urls"]=
+		BW[$id]["wapp"]=
+		return 0
+	fi
 	bw_tabs "$id"
 	for t in "${BW_TABS[@]}"; do
 		u := web url "$t" 2> /dev/null
@@ -987,6 +1019,7 @@ fn browser_resume(int id) {
 	BW[$id]["cur"]=
 	BW[$id]["sized"]=
 	BW[$id]["app"]=${BW[$id]["wapp"]-}
+	BW[$id]["clean"]=${BW[$id]["wclean"]-}
 	[ -n "${BW[$id]["app"]}" ] && wa_load
 	BW_FD=
 	need web 2> /dev/null || return 0
@@ -1206,7 +1239,7 @@ fn bw_strip(int id, t, int w) {
 
 # Back, forward, reload and the address, on row ar.
 fn bw_bar(int id, t, int w, int ar) {
-	local lab u on=0 ld= lw=0 dl=
+	local lab u on=0 ld= lw=0 dl= sl= sw=0
 
 	console pen "$DT_INK" "$DT_FACE"
 	console put -p "w$id" "$ar" 1 " ${GL[larr]}  ${GL[rarr]}  ${GL[reload]}  "
@@ -1217,7 +1250,15 @@ fn bw_bar(int id, t, int w, int ar) {
 	dt_wreg "$id" "$ar" 7 3 reload
 	[ "${BW[$id]["aed"]}" = 1 ] && on=1
 	if [ "$on" = 1 ]; then
-		dt_textdraw "$id" "$ar" 11 $((w - 11)) "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" 1
+		# A paste here folds as other browsers' address bars fold it: a line
+		# break goes with the blanks around it, so an address a terminal
+		# wrapped (Claude Code's sign-in, ~600 characters) arrives whole, not
+		# with a space where the line broke (hibr 0.99.418, dt_pastefold).
+		if dt_has dt_pastefold; then
+			dt_textdraw "$id" "$ar" 11 $((w - 11)) "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" 1 url
+		else
+			dt_textdraw "$id" "$ar" 11 $((w - 11)) "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" 1
+		fi
 		if [ "${BW[$id]["asel"]-}" = 1 ]; then
 			[ -n "${DT_FIELD["text"]}" ] && DT_FIELD["anc"]=0
 			BW[$id]["asel"]=
@@ -1246,15 +1287,70 @@ fn bw_bar(int id, t, int w, int ar) {
 				dt_want 500
 			fi
 		fi
+		# How the page came, before its address: loud only when it is not
+		# secure. A secure page gets a quiet mark, since a padlock reads as
+		# "this site can be trusted" when it says only that the connection is
+		# private; a certificate the person chose to trust is never shown as
+		# secure. A click on the label says more (bw_secinfo).
+		sl= sw=0
+		if [ -n "$t" ] && [ -n "$u" ] && bw_has security; then
+			BW[$id]["sec"] := web security "$t" 2> /dev/null || BW[$id]["sec"]=
+			case ${BW[$id]["sec"]%%$'\t'*} in
+			secure) sl=" ${GL[vline]} " ;;
+			insecure | refused) sl := dt_tr " Not secure " ;;
+			accepted) sl := dt_tr " Not secure (certificate you accepted) " ;;
+			local) sl := dt_tr " Local file " ;;
+			esac
+			[ -n "$sl" ] && sw := str width "$sl"
+			# in a narrow window the long label gives way to the short one, never to nothing
+			if [ "$sw" -gt $((w - 11 - lw - 8)) ] && [ "${BW[$id]["sec"]%%$'\t'*}" = accepted ]; then
+				sl := dt_tr " Not secure "
+				sw := str width "$sl"
+			fi
+			[ "$sw" -gt $((w - 11 - lw - 8)) ] && sl= sw=0
+		fi
+		if [ -n "$sl" ]; then
+			case ${BW[$id]["sec"]%%$'\t'*} in
+			insecure | refused | accepted) console pen "$DT_INK" "$DT_WARN" ;;
+			*) console pen "$DT_DIM" "$DT_WELL" ;;
+			esac
+			console put -p "w$id" "$ar" 11 "$sl"
+		fi
 		console pen "$DT_INK" "$DT_WELL"
-		lab := str pad "${u:0:$((w - 11 - lw))}" $((w - 11 - lw))
-		console put -p "w$id" "$ar" 11 "$lab"
+		lab := str pad "${u:0:$((w - 11 - lw - sw))}" $((w - 11 - lw - sw))
+		console put -p "w$id" "$ar" $((11 + sw)) "$lab"
 		if [ -n "$ld" ]; then
 			console pen "$DT_DIM" "$DT_WELL"
 			console put -p "w$id" "$ar" $((w - lw)) " $ld "
 		fi
 	fi
+	# the label first: the first region a click is in is the one it is for
+	[ "$on" != 1 ] && [ "${sw:-0}" -gt 0 ] && dt_wreg "$id" "$ar" 11 "$sw" sec
 	dt_wreg "$id" "$ar" 11 $((w - 11)) addr
+	return 0
+}
+
+# What the label before the address means, said when it is clicked.
+fn bw_secinfo(int id) {
+	local s=${BW[$id]["sec"]-} st is un
+
+	st=${s%%$'\t'*}
+	s=${s#*$'\t'}
+	is=${s%%$'\t'*}
+	un=${s#*$'\t'}
+	case $st in
+	secure)
+		# the issuer's organisation, or its common name, from its distinguished name
+		case $is in
+		*O=*) is=${is#*O=}; is=${is%%,*} ;;
+		*CN=*) is=${is#*CN=}; is=${is%%,*} ;;
+		esac
+		dt_notep low "Secure connection: nobody on the way can read or change it. Certificate from %s, valid until %s. It says the connection is private, not that the site is honest." "${is:-an authority this browser trusts}" "${un:-?}" ;;
+	insecure) dt_notep high "Not secure: this page came over plain http, so anyone on the way can read or change it. Do not send passwords or card numbers here." ;;
+	refused) dt_notep high "Not secure: this site's certificate was refused, and the page shown is the warning about it." ;;
+	accepted) dt_notep high "Not secure: you chose to trust this site's certificate, which this browser does not. Anyone could be in the middle; it is trusted until the browser engine stops." ;;
+	local) dt_notep low "A file on this computer, not from the network." ;;
+	esac
 }
 
 # The page, from row pt for ph rows -- to the window's bottom row, since
@@ -1570,6 +1666,7 @@ fn browser_click(int id, int r, int c, btn = "") {
 	back) [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
 	forward) [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
 	reload) [ -n "$t" ] && web reload "$t"; return 0 ;;
+	sec) bw_secinfo "$id"; return 0 ;;
 	addr) bw_editaddr "$id"; return 0 ;;
 	link:*)
 		[ -n "$t" ] && [ -n "${BWX["$id:u${tag#link:}"]+x}" ] &&
@@ -2075,6 +2172,11 @@ browser_menus() {
 	fi
 	dt_menu "File"
 	dt_item "New Window" n dt_launch browser
+	if bw_has clean; then
+		dt_item "New Clean Window" e dt_launch browser clean:
+	else
+		dt_dim "New Clean Window"
+	fi
 	dt_item "New Tab" t bw_newtab "$id"
 	dt_rowaccel ctrl-t
 	dt_item "Open Location${GL[ellipsis]}" l bw_editaddr "$id"
@@ -2084,7 +2186,7 @@ browser_menus() {
 	else
 		dt_dim "Save as PDF${GL[ellipsis]}"
 	fi
-	if bw_has profiles && [ -n "${BW[$id]["cur"]}" ]; then
+	if bw_has profiles && [ -n "${BW[$id]["cur"]}" ] && [ "${BW[$id]["clean"]-}" != 1 ]; then
 		dt_item "Install as App${GL[ellipsis]}" i bw_install "$id"
 	else
 		dt_dim "Install as App${GL[ellipsis]}"
