@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.30
+app browser "The web, in a window" 2.31
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -90,6 +90,8 @@ BW_AUTOPLAY="${BW_AUTOPLAY-0}"
 # from easylist.to, fetched again each week. On unless Control Panel > Browser
 # turns it off; a site can be let show its own (the site's menu).
 BW_ADBLOCK="${BW_ADBLOCK-1}"
+# How often a changing page is drawn at most, in ms (bw_body).
+BW_FRAMEMS="${BW_FRAMEMS-33}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_JS \
 	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
@@ -1570,19 +1572,24 @@ fn bw_body(int id, t, int h, int w, int pt, int ph) {
 		}
 		return 0
 	fi
-	# Rendered when the page has changed, but no more often than a
-	# terminal's output is drawn (DT_TERMMS): a page animating flat out
-	# would otherwise be read and sent on every frame there is.
+	# Rendered when the page has changed, but no more often than BW_FRAMEMS
+	# allows: a page animating flat out would otherwise be read and sent on
+	# every frame there is. 33 ms (30 a second) where the picture is asked
+	# for and not waited on (renderasync), which costs the desktop a fraction
+	# of a millisecond a frame; a terminal's 70 (DT_TERMMS) where each render
+	# waits for the engine.
 	now := dt_ms
+	local fms=${DT_TERMMS:-70}
+	bw_has renderasync && fms=$BW_FRAMEMS
 	if [ "${BW[$id]["drawn"]}" != "$t" ]; then
 		web render "$t" && BW[$id]["drawn"]=$t
 		BW[$id]["rat"]=$now
 	elif web dirty "$t" 2> /dev/null; then
-		if [ $((now - ${BW[$id]["rat"]:-0})) -ge "${DT_TERMMS:-70}" ]; then
+		if [ $((now - ${BW[$id]["rat"]:-0})) -ge "$fms" ]; then
 			web render "$t"
 			BW[$id]["rat"]=$now
 		else
-			dt_want $((${BW[$id]["rat"]:-0} + ${DT_TERMMS:-70} - now))
+			dt_want $((${BW[$id]["rat"]:-0} + fms - now))
 		fi
 	fi
 	web draw "$t" "$pt" 1 -p "w$id"
