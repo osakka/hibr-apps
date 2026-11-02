@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.27
+app browser "The web, in a window" 2.28
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -412,6 +412,7 @@ bw_heard() {
 				# the notes' own history, is the list of what was downloaded.
 				tn := dt_tr "Downloaded %s" "${l##*/}"
 				dt_notify "$tn" dt_launch files "${l%/*}"
+				bw_dlkeep "$l"
 				;;
 			failed) dt_notep high "The download of %s did not finish: %s" "${l##*/}" "${why:-no reason given}" ;;
 			cancelled) dt_notep normal "Download of %s stopped" "${l##*/}" ;;
@@ -538,10 +539,17 @@ fn bw_permask(k, tab, kind, host) {
 		bw_tabs "$id"
 		for t in "${BW_TABS[@]}"; do
 			[ "$t" = "$tab" ] || continue
-			# one question at a time a window: a second is refused, as a
-			# browser that asks one thing at a time would leave it
+			# one question on show a window; the next ones wait their turn
+			# behind it (up to five; a page asking more is refused the rest)
 			if [ -n "${BW[$id]["askk"]-}" ]; then
-				web permans "$k" deny 2> /dev/null
+				local -a qq
+				read -ra qq <<< "${BW[$id]["askq2"]-}"
+				if [ "${#qq[@]}" -ge 5 ]; then
+					web permans "$k" deny 2> /dev/null
+				else
+					BW[$id]["askq2"]="${BW[$id]["askq2"]:+${BW[$id]["askq2"]} }$k|$tab|$kind|$host"
+				fi
+				dt_want 10
 				return 0
 			fi
 			BW[$id]["askk"]=$k
@@ -554,6 +562,24 @@ fn bw_permask(k, tab, kind, host) {
 	done
 	# a tab no Browser window has (YouTube's): nobody to ask
 	web permans "$k" deny 2> /dev/null
+}
+
+# The next question waiting in window id, on show now (bw_permask's queue).
+fn bw_asknext(int id) {
+	local -a qq
+	local e
+
+	read -ra qq <<< "${BW[$id]["askq2"]-}"
+	[ "${#qq[@]}" -gt 0 ] || return 0
+	e=${qq[0]}
+	BW[$id]["askq2"]="${qq[*]:1}"
+	BW[$id]["askk"]=${e%%|*}
+	e=${e#*|}
+	BW[$id]["askt"]=${e%%|*}
+	e=${e#*|}
+	BW[$id]["askw"]=${e%%|*}
+	BW[$id]["askh"]=${e#*|}
+	dt_want 10
 }
 
 # A question whose site is no longer on show -- its tab went to another site --
@@ -575,6 +601,7 @@ fn bw_askcheck(int id) {
 	[ -z "$u" ] || [ "$u" = "${BW[$id]["askh"]}" ] && return 0
 	BW[$id]["askk"]=
 	web permans "$k" deny 2> /dev/null
+	bw_asknext "$id"
 	return 0
 }
 
@@ -592,10 +619,25 @@ fn bw_askbar(int id, int r, int w) {
 	geolocation) what="your location" ;;
 	*) what=${BW[$id]["askw"]} ;;
 	esac
-	# the three answers need 36 columns; the site's name gives way to them
+	# The answers come first: 36 columns for the three (21 in a Clean Window,
+	# which has no Always), and the words before them give way -- first the
+	# count of questions waiting behind this one, then the site's name.
+	local bw=36 avail cnt= hl
+	[ "${BW[$id]["clean"]-}" = 1 ] && bw=21
+	avail=$((w - 2 - bw))
+	local -a qq
+	read -ra qq <<< "${BW[$id]["askq2"]-}"
+	[ "${#qq[@]}" -gt 0 ] && cnt="(+${#qq[@]}) "		# how many more wait behind this one
 	h=${BW[$id]["askh"]}
-	[ "${#h}" -gt $((w - 54)) ] && [ $((w - 54)) -gt 8 ] && h="${h:0:$((w - 55))}${GL[ellipsis]}"
 	lab := dt_tr " %s wants %s " "$h" "$what"
+	if [ $((${#lab} + ${#cnt})) -le "$avail" ]; then
+		lab="$lab$cnt"
+	elif [ "${#lab}" -gt "$avail" ]; then
+		hl=$((${#h} - (${#lab} - avail) - 1))
+		[ "$hl" -lt 4 ] && hl=4
+		h="${h:0:$hl}${GL[ellipsis]}"
+		lab := dt_tr " %s wants %s " "$h" "$what"
+	fi
 	console pen "$DT_INK" "$DT_WARN"
 	lb := str pad "$lab" "$w"
 	console put -p "w$id" "$r" 1 "$lb"
@@ -636,6 +678,7 @@ fn bw_askanswer(int id, how) {
 		;;
 	*) web permans "$k" deny 2> /dev/null ;;
 	esac
+	bw_asknext "$id"
 	dt_want 10
 }
 
@@ -917,6 +960,16 @@ fn bw_closetab(int id, t) {
 	bw_sndstop "$t"
 	# its question goes with it (the engine refuses it as the tab closes)
 	[ "${BW[$id]["askt"]-}" = "$t" ] && BW[$id]["askk"]=
+	# and its questions waiting behind (the engine refuses them as the tab closes)
+	local -a qq
+	local e q2=
+	read -ra qq <<< "${BW[$id]["askq2"]-}"
+	for e in "${qq[@]}"; do
+		x=${e#*|}
+		[ "${x%%|*}" = "$t" ] || q2="${q2:+$q2 }$e"
+	done
+	BW[$id]["askq2"]=$q2
+	[ -z "${BW[$id]["askk"]-}" ] && bw_asknext "$id"
 	web close "$t" 2> /dev/null
 	BW[$id]["tabs"]=$out
 	if [ "$n" = 0 ]; then
@@ -941,6 +994,7 @@ fn browser_open(int id, arg = "") {
 	BW[$id]["err"]=
 	BW[$id]["app"]=
 	BW[$id]["clean"]=
+	BW[$id]["askq2"]=
 	case $arg in
 	webapp:*)
 		wa_open "$id" "${arg#webapp:}"
@@ -1145,6 +1199,7 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 		[ "$ar" = 2 ] && bw_strip "$id" "$t" "$w"
 		bw_bar "$id" "$t" "$w" "$ar"
 	fi
+	bw_sitezoom "$id" "$t"
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
 	bw_histnote "$id" "$t"
 	if [ "$sr" = 1 ]; then
@@ -1958,7 +2013,7 @@ fn bw_host(u) {
 	ret "$u"
 }
 
-fn bw_siteforget(host, kind) {
+fn bw_siteforget(host, kind, quiet = "") {
 	local k
 
 	bw_sitesread
@@ -1969,7 +2024,7 @@ fn bw_siteforget(host, kind) {
 		printf '%s\t%s\t%s\n' "${k%% *}" "${k#* }" "${BWSITE["$k"]}" >> "$BW_SITES.new"
 	done
 	mv -f "$BW_SITES.new" "$BW_SITES"
-	dt_notep low "Forgotten: %s for %s" "$kind" "$host"
+	[ -n "$quiet" ] || dt_notep low "Forgotten: %s for %s" "$kind" "$host"
 }
 
 fn bw_clearsite(int id, host) {
@@ -2140,6 +2195,133 @@ fn browser_paste(int id, text, op = "") {
 	local t=${BW[$id]["cur"]}
 
 	[ -n "$t" ] && web type "$t" "$text" 2> /dev/null
+}
+
+# --- downloads -----------------------------------------------------------------
+# What was downloaded, a line each, `seconds<TAB>path`, the newest last: the
+# Downloads menu's list, a plain file like the history.
+BW_DLS="${BW_DLS-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/browser-downloads.tsv}"
+
+fn bw_dlkeep(path) {
+	mkdir -p "${BW_DLS%/*}" 2> /dev/null
+	printf '%s\t%s\n' "$EPOCHSECONDS" "$path" >> "$BW_DLS" 2> /dev/null
+	return 0
+}
+
+bw_dlsclear() {
+	rm -f "${BW_DLS:?}"
+	dt_notep low "Downloads list cleared (the files are where they were)"
+}
+
+fn bw_dlcancel1(n) {
+	web dlcancel "$n" 2> /dev/null
+	dt_want 10
+}
+
+# Downloads, at the end of the History menu (a menu of its own would push the
+# desktop's clock off an 80-column bar): those under way (a click stops one),
+# then the last ten finished, each opening its folder in Files.
+fn bw_dlmenu(int id) {
+	local x k nm got tot l p i n=0
+	local -a ls
+
+	dt_sep
+	if bw_has dlstate && x := web dlstate 2> /dev/null; then
+		while IFS=$'\t' read -r k nm got tot; do
+			[ -n "$k" ] || continue
+			if [ "${tot:-0}" -gt 0 ] 2> /dev/null; then
+				dt_item "Stop ${nm:0:30} ($((got * 100 / tot))%)" "" bw_dlcancel1 "$k"
+			else
+				dt_item "Stop ${nm:0:30}" "" bw_dlcancel1 "$k"
+			fi
+			n=$((n + 1))
+		done <<< "$x"
+		[ "$n" -gt 0 ] && dt_sep
+	fi
+	n=0
+	if [ -r "$BW_DLS" ]; then
+		mapfile -t ls < "$BW_DLS"
+		i=$((${#ls[@]} - 1))
+		while [ "$i" -ge 0 ] && [ "$n" -lt 10 ]; do
+			p=${ls[$i]#*$'\t'}
+			i=$((i - 1))
+			[ -n "$p" ] || continue
+			if [ -e "$p" ]; then
+				dt_item "${p##*/}" "" dt_launch files "${p%/*}"
+			else
+				dt_dim "${p##*/} (gone)"
+			fi
+			n=$((n + 1))
+		done
+	fi
+	[ "$n" = 0 ] && dt_dim "No downloads yet"
+	dt_sep
+	l=$BW_DLDIR
+	[ -d "$l" ] || l=$HOME
+	dt_item "Show Download Folder" f dt_launch files "$l"
+	if [ -r "$BW_DLS" ]; then
+		dt_item "Clear List" c bw_dlsclear
+	else
+		dt_dim "Clear List"
+	fi
+}
+
+# --- zoom, a site's own ------------------------------------------------------------
+# View > Zoom In, Zoom Out and Actual Size, for the page shown; what was chosen
+# for a site is kept with its other settings (the sites file, `host zoom N`)
+# and used again whenever a page of that site is shown -- but never written
+# from a Clean Window.
+declare -gA BWZ BWZH		# tab -> its zoom now; tab -> the host it was last set for
+
+fn bw_zoomnow(t) {
+	ret "${BWZ["$t"]:-${BW_ZOOM:-100}}"
+}
+
+fn bw_zoomby(int id, how) {
+	local t=${BW[$id]["cur"]} z u h
+	local -a steps=(30 50 67 80 90 100 110 125 150 175 200 250 300)
+	local i n
+
+	[ -n "$t" ] || return 0
+	z := bw_zoomnow "$t"
+	case $how in
+	in) n=${steps[-1]}; for i in "${steps[@]}"; do [ "$i" -gt "$z" ] && { n=$i; break; }; done ;;
+	out) n=${steps[0]}; for i in "${steps[@]}"; do [ "$i" -lt "$z" ] && n=$i; done ;;
+	*) n=${BW_ZOOM:-100} ;;
+	esac
+	web set "$t" zoom "$n" 2> /dev/null || return 0
+	BWZ["$t"]=$n
+	BW[$id]["sized"]=
+	u := web url "$t" 2> /dev/null || u=
+	h := bw_host "$u"
+	if [ -n "$h" ] && [ "${BW[$id]["clean"]-}" != 1 ] && [ -z "${BW[$id]["app"]-}" ]; then
+		bw_sitesread
+		if [ "$n" = "${BW_ZOOM:-100}" ]; then
+			[ -n "${BWSITE["$h zoom"]+x}" ] && bw_siteforget "$h" zoom quiet
+		else
+			bw_sitekeep "$h" zoom "$n"
+		fi
+	fi
+	dt_notep low "Zoom %s%%" "$n"
+	dt_want 10
+}
+
+# A tab's page on a site with a zoom of its own: set when the site changes.
+fn bw_sitezoom(int id, t) {
+	local u h z
+
+	[ -n "$t" ] && [ -z "${BW[$id]["app"]-}" ] || return 0
+	u := web url "$t" 2> /dev/null || return 0
+	h := bw_host "$u"
+	[ "${BWZH["$t"]-}" = "$h" ] && return 0
+	BWZH["$t"]=$h
+	bw_sitesread
+	z=${BWSITE["$h zoom"]:-${BW_ZOOM:-100}}
+	local now
+	now := bw_zoomnow "$t"
+	[ "$z" = "$now" ] && return 0
+	web set "$t" zoom "$z" 2> /dev/null && BWZ["$t"]=$z && BW[$id]["sized"]=
+	return 0
 }
 
 # --- history ------------------------------------------------------------------
@@ -2674,6 +2856,18 @@ browser_menus() {
 	dt_rowaccel ctrl-w
 	dt_item "Close Window" w dt_close_focused
 	dt_editmenu
+	local zn=
+	[ -n "${BW[$id]["cur"]}" ] && zn := bw_zoomnow "${BW[$id]["cur"]}"
+	dt_menu "View"
+	if [ -n "${BW[$id]["cur"]}" ]; then
+		dt_item "Zoom In" i bw_zoomby "$id" in
+		dt_item "Zoom Out" o bw_zoomby "$id" out
+		dt_item "Actual Size ($zn%)" a bw_zoomby "$id" reset
+	else
+		dt_dim "Zoom In"
+		dt_dim "Zoom Out"
+		dt_dim "Actual Size"
+	fi
 	dt_menu "Go"
 	dt_item "Back" b bw_back "$id"
 	dt_rowaccel alt-b
@@ -2745,4 +2939,5 @@ browser_menus() {
 		dt_dim "Show All History"
 		dt_dim "Clear History"
 	fi
+	bw_dlmenu "$id"
 }
