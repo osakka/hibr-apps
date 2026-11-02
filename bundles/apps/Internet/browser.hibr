@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.28
+app browser "The web, in a window" 2.29
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1030,6 +1030,7 @@ fn browser_close(int id) {
 		unset BWSA["$t"]
 		web close "$t" 2> /dev/null
 	done
+	dt_has dt_omnifree && dt_omnifree "$id"
 	unset "BW[$id]"
 	for t in "${!BWX[@]}"; do
 		[[ $t == "$id:"* ]] && unset BWX["$t"]
@@ -1148,7 +1149,58 @@ fn bw_editaddr(int id) {
 	BW[$id]["acur"]=${#u}
 	# All of it selected, so what is typed replaces it: the field's selection
 	# is set once it has been drawn, which is when it is the focused field.
-	BW[$id]["asel"]=1
+	if dt_has dt_omniselect; then
+		dt_omniselect "$id"
+		# what the suggestions are made from, read now, not at every key
+		bw_marks
+		bw_histread
+	else
+		BW[$id]["asel"]=1
+	fi
+}
+
+# The address bar's suggestions as the address is typed (hibr's dt_omnibox,
+# 0.99.421): bookmarks first, then pages from the history, newest first, each
+# once, whose address or title holds what was typed, whatever its case; then
+# a search for it. From what is already held -- the bookmarks and the history's
+# last hundred -- since this runs at every key.
+fn bw_suggest(int id, text) {
+	local q=${text,,} out= n=0 i u tt
+	local -A seen=()
+
+	[ -n "$q" ] || { ret ""; return 0; }
+	i=0
+	while [ "$i" -lt "${#BW_MARKU[@]}" ] && [ "$n" -lt 4 ]; do
+		u=${BW_MARKU[$i]}
+		tt=${BW_MARKT[$i]}
+		i=$((i + 1))
+		case "${u,,} ${tt,,}" in *"$q"*) ;; *) continue ;; esac
+		seen["$u"]=1
+		out+="${tt:-$u}"$'\t'"$u"$'\t'bookmark$'\n'
+		n=$((n + 1))
+	done
+	i=$((${#BW_HISTU[@]} - 1))
+	while [ "$i" -ge 0 ] && [ "$n" -lt 8 ]; do
+		u=${BW_HISTU[$i]}
+		tt=${BW_HISTT[$i]}
+		i=$((i - 1))
+		[ -n "${seen["$u"]+x}" ] && continue
+		case "${u,,} ${tt,,}" in *"$q"*) ;; *) continue ;; esac
+		seen["$u"]=1
+		out+="${tt:-$u}"$'\t'"$u"$'\t'history$'\n'
+		n=$((n + 1))
+	done
+	# a search for the words, unless they are an address already or no search
+	# engine is set (Control Panel > Browser can leave it empty)
+	case $text in
+	*://* | *.*[!.] | localhost*) ;;
+	*)
+		[ -n "$BW_SEARCH" ] || { ret "${out%$'\n'}"; return 0; }
+		u := bw_addr "$text"
+		out+="Search for $text"$'\t'"$u"$'\t'search$'\n'
+		;;
+	esac
+	ret "${out%$'\n'}"
 }
 
 # Go where the address bar says.
@@ -1219,6 +1271,8 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	bw_askbar "$id" "$pt" "$w"
 	bw_sound "$id"
 	BW[$id]["dkey"] := bw_drawkey "$id"
+	# The address bar's list of suggestions, last of all, over the page.
+	[ "${BW[$id]["aed"]}" = 1 ] && dt_has dt_omnilist && dt_omnilist "$id" "$h"
 	# Last, after every web call: each reads what the engine has said, and a
 	# picture asked for earlier can come in among them -- with the pipe then
 	# drained, nothing else would wake the desktop to draw it.
@@ -1249,6 +1303,10 @@ fn bw_drawkey(int id) {
 	fi
 	x := dt_searchq "$id"
 	k+="|$x"
+	if dt_has dt_omnisig; then
+		x := dt_omnisig "$id"
+		k+="|$x"
+	fi
 	dt_searchon "$id" && k+="|on"
 	ret "$k"
 }
@@ -1344,7 +1402,9 @@ fn bw_bar(int id, t, int w, int ar) {
 		# break goes with the blanks around it, so an address a terminal
 		# wrapped (Claude Code's sign-in, ~600 characters) arrives whole, not
 		# with a space where the line broke (hibr 0.99.418, dt_pastefold).
-		if dt_has dt_pastefold; then
+		if dt_has dt_omnidraw; then
+			dt_omnidraw "$id" "$ar" 11 $((w - 11)) "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" 1 url
+		elif dt_has dt_pastefold; then
 			dt_textdraw "$id" "$ar" 11 $((w - 11)) "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" 1 url
 		else
 			dt_textdraw "$id" "$ar" 11 $((w - 11)) "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" 1
@@ -1692,6 +1752,18 @@ fn bw_textmove(int id, k) {
 fn browser_key(int id, key) {
 	local t=${BW[$id]["cur"]} r k
 
+	if [ "${BW[$id]["aed"]}" = 1 ] && dt_has dt_omnikey; then
+		if r := dt_omnikey "$id" bw_suggest "${BW[$id]["abuf"]}" "${BW[$id]["acur"]}" "$key"; then
+			BW[$id]["abuf"]=${r% *}
+			BW[$id]["acur"]=${r##* }
+			return 0
+		fi
+		case $key in
+		enter) bw_goaddr "$id" ;;
+		escape | tab) BW[$id]["aed"]= ;;
+		esac
+		return 0
+	fi
 	if [ "${BW[$id]["aed"]}" = 1 ]; then
 		case $key in
 		enter) bw_goaddr "$id"; return 0 ;;
@@ -1814,6 +1886,16 @@ fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 	local t=${BW[$id]["cur"]} pt=${BW[$id]["pt"]:-3} sr sc q
 
 	[ "$act" = press ] || return 0
+	# A press on one of the address bar's suggestions goes there; anywhere
+	# else but the field it shuts the list (dt_omnihit, first with every press).
+	if [ "${BW[$id]["aed"]}" = 1 ] && dt_has dt_omnihit; then
+		local oa
+		if oa := dt_omnihit "$id" "$r" "$c" && [ -n "$oa" ]; then
+			BW[$id]["abuf"]=$oa
+			bw_goaddr "$id"
+			return 0
+		fi
+	fi
 	# A middle press on a link opens it in a new tab behind this one, as
 	# other browsers do; asked of the engine without waiting, as the right
 	# press is (bw_atpoll). Anywhere else it does nothing.
