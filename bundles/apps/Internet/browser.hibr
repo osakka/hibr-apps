@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.26
+app browser "The web, in a window" 2.27
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1132,6 +1132,10 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	fi
 	pt=$((ar + 1))
 	ph=$((h - pt + 1))
+	# the find bar, while there is one, takes the bottom row
+	local sr
+	sr := dt_searchrows "$id"
+	ph=$((ph - sr))
 	BW[$id]["pt"]=$pt
 	BW[$id]["ph"]=$ph
 	BW[$id]["w"]=$w
@@ -1143,6 +1147,19 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	fi
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
 	bw_histnote "$id" "$t"
+	if [ "$sr" = 1 ]; then
+		dt_searchdraw "$id" "$h" "$w"
+		local fcn fl
+		if [ -n "$t" ] && [ -n "${BW[$id]["fq"]-}" ] && fcn := web found "$t" 2> /dev/null; then
+			case $fcn in
+			0) fl := dt_tr " no matches " ;;
+			1) fl := dt_tr " 1 match " ;;
+			*) fl := dt_tr " %s matches " "$fcn" ;;
+			esac
+			console pen "$DT_DIM" "$DT_FACE"
+			console put -p "w$id" "$h" $((w - ${#fl} + 1)) "$fl"
+		fi
+	fi
 	bw_askcheck "$id"
 	bw_askbar "$id" "$pt" "$w"
 	bw_sound "$id"
@@ -1172,7 +1189,12 @@ fn bw_drawkey(int id) {
 		k+="|$x"
 		x := web scroll "$t" 2> /dev/null || x=
 		k+="|$x"
+		x := web found "$t" 2> /dev/null || x=
+		k+="|$x"
 	fi
+	x := dt_searchq "$id"
+	k+="|$x"
+	dt_searchon "$id" && k+="|on"
 	ret "$k"
 }
 
@@ -1218,7 +1240,7 @@ fn browser_dirty(int id) {
 
 # The tab strip on row 1: each tab, its close box, and + for another.
 fn bw_strip(int id, t, int w) {
-	local x=1 n tt lab g=${GL[vline]}
+	local x=1 n tt lab g=${GL[vline]} sm
 
 	console pen "$DT_DIM" "$DT_WELL"
 	lab := str repeat " " "$w"
@@ -1228,6 +1250,8 @@ fn bw_strip(int id, t, int w) {
 		[ -n "$tt" ] || tt := web url "$n" 2> /dev/null
 		[ -n "$tt" ] && [ "$tt" != about:blank ] || tt="New Tab"
 		tt=${tt:0:18}
+		sm := bw_soundmark "$n"
+		[ -n "$sm" ] && tt="$sm $tt"
 		lab=" $tt ${GL[cross]} "
 		[ $((x + ${#lab})) -gt $((w - 3)) ] && break
 		if [ "$n" = "$t" ]; then
@@ -1250,7 +1274,7 @@ fn bw_strip(int id, t, int w) {
 
 # Back, forward, reload and the address, on row ar.
 fn bw_bar(int id, t, int w, int ar) {
-	local lab u on=0 ld= lw=0 dl= sl= sw=0
+	local lab u on=0 ld= lw=0 dl= sl= sw=0 cl= cw=0 cc
 
 	console pen "$DT_INK" "$DT_FACE"
 	console put -p "w$id" "$ar" 1 " ${GL[larr]}  ${GL[rarr]}  ${GL[reload]}  "
@@ -1308,8 +1332,28 @@ fn bw_bar(int id, t, int w, int ar) {
 		# secure. A secure page gets a quiet mark, since a padlock reads as
 		# "this site can be trusted" when it says only that the connection is
 		# private; a certificate the person chose to trust is never shown as
-		# secure. A click on the label says more (bw_secinfo).
-		sl= sw=0
+		# secure. A click on the label opens the site's menu (bw_sitemenu).
+		# Before it, loudest of all, the camera, microphone or screen while
+		# the page is using one (cap capture); a click there opens the same menu,
+		# which can stop it. And with no tab strip, the tab's sound at the end.
+		sl= sw=0 cl= cw=0
+		if [ -n "$t" ] && bw_tabhas "$t" capture && cc := web capture "$t" 2> /dev/null; then
+			local cwds=
+			[ "${cc%% *}" = active ] && cwds+=" Camera"
+			cc=${cc#* }
+			[ "${cc%% *}" = active ] && cwds+=" Mic"
+			[ "${cc#* }" = active ] && cwds+=" Screen"
+			[ -n "$cwds" ] && cl=" ●$cwds "
+			[ -n "$cl" ] && cw := str width "$cl"
+		fi
+		if [ -n "$t" ] && [ "${#BW_TABS[@]}" -le 1 ]; then
+			local smk
+			smk := bw_soundmark "$t"
+			if [ -n "$smk" ]; then
+				ld="${ld:+$ld  }$smk"
+				lw := str width " $ld "
+			fi
+		fi
 		if [ -n "$t" ] && [ -n "$u" ] && bw_has security; then
 			BW[$id]["sec"] := web security "$t" 2> /dev/null || BW[$id]["sec"]=
 			case ${BW[$id]["sec"]%%$'\t'*} in
@@ -1320,54 +1364,37 @@ fn bw_bar(int id, t, int w, int ar) {
 			esac
 			[ -n "$sl" ] && sw := str width "$sl"
 			# in a narrow window the long label gives way to the short one, never to nothing
-			if [ "$sw" -gt $((w - 11 - lw - 8)) ] && [ "${BW[$id]["sec"]%%$'\t'*}" = accepted ]; then
+			if [ $((cw + sw)) -gt $((w - 11 - lw - 8)) ] && [ "${BW[$id]["sec"]%%$'\t'*}" = accepted ]; then
 				sl := dt_tr " Not secure "
 				sw := str width "$sl"
 			fi
-			[ "$sw" -gt $((w - 11 - lw - 8)) ] && sl= sw=0
+			[ $((cw + sw)) -gt $((w - 11 - lw - 8)) ] && sl= sw=0
+		fi
+		[ "$cw" -gt $((w - 11 - lw - 8)) ] && cl= cw=0
+		if [ -n "$cl" ]; then
+			console pen "$DT_INK" "$DT_WARN" bold
+			console put -p "w$id" "$ar" 11 "$cl"
 		fi
 		if [ -n "$sl" ]; then
 			case ${BW[$id]["sec"]%%$'\t'*} in
 			insecure | refused | accepted) console pen "$DT_INK" "$DT_WARN" ;;
 			*) console pen "$DT_DIM" "$DT_WELL" ;;
 			esac
-			console put -p "w$id" "$ar" 11 "$sl"
+			console put -p "w$id" "$ar" $((11 + cw)) "$sl"
 		fi
 		console pen "$DT_INK" "$DT_WELL"
-		lab := str pad "${u:0:$((w - 11 - lw - sw))}" $((w - 11 - lw - sw))
-		console put -p "w$id" "$ar" $((11 + sw)) "$lab"
+		lab := str pad "${u:0:$((w - 11 - lw - cw - sw))}" $((w - 11 - lw - cw - sw))
+		console put -p "w$id" "$ar" $((11 + cw + sw)) "$lab"
 		if [ -n "$ld" ]; then
 			console pen "$DT_DIM" "$DT_WELL"
 			console put -p "w$id" "$ar" $((w - lw)) " $ld "
 		fi
 	fi
 	# the label first: the first region a click is in is the one it is for
-	[ "$on" != 1 ] && [ "${sw:-0}" -gt 0 ] && dt_wreg "$id" "$ar" 11 "$sw" sec
+	[ "$on" != 1 ] && [ "${cw:-0}" -gt 0 ] && dt_wreg "$id" "$ar" 11 "$cw" cap
+	[ "$on" != 1 ] && [ "${sw:-0}" -gt 0 ] && dt_wreg "$id" "$ar" $((11 + ${cw:-0})) "$sw" sec
 	dt_wreg "$id" "$ar" 11 $((w - 11)) addr
 	return 0
-}
-
-# What the label before the address means, said when it is clicked.
-fn bw_secinfo(int id) {
-	local s=${BW[$id]["sec"]-} st is un
-
-	st=${s%%$'\t'*}
-	s=${s#*$'\t'}
-	is=${s%%$'\t'*}
-	un=${s#*$'\t'}
-	case $st in
-	secure)
-		# the issuer's organisation, or its common name, from its distinguished name
-		case $is in
-		*O=*) is=${is#*O=}; is=${is%%,*} ;;
-		*CN=*) is=${is#*CN=}; is=${is%%,*} ;;
-		esac
-		dt_notep low "Secure connection: nobody on the way can read or change it. Certificate from %s, valid until %s. It says the connection is private, not that the site is honest." "${is:-an authority this browser trusts}" "${un:-?}" ;;
-	insecure) dt_notep high "Not secure: this page came over plain http, so anyone on the way can read or change it. Do not send passwords or card numbers here." ;;
-	refused) dt_notep high "Not secure: this site's certificate was refused, and the page shown is the warning about it." ;;
-	accepted) dt_notep high "Not secure: you chose to trust this site's certificate, which this browser does not. Anyone could be in the middle; it is trusted until the browser engine stops." ;;
-	local) dt_notep low "A file on this computer, not from the network." ;;
-	esac
 }
 
 # The page, from row pt for ph rows -- to the window's bottom row, since
@@ -1620,6 +1647,12 @@ fn browser_key(int id, key) {
 		BW[$id]["acur"]=${r##* }
 		return 0
 	fi
+	if dt_searchon "$id"; then
+		bw_findkey "$id" "$key" && return 0
+	elif [ "$key" = / ] && [ -n "$t" ] && bw_tabhas "$t" find && bw_tabhas "$t" focusev && ! web focus "$t" 2> /dev/null; then
+		dt_searchopen "$id"
+		return 0
+	fi
 	# Back and Forward are alt-b and alt-f: a window's own key is looked at
 	# before the desktop's, so taking alt-left and alt-right meant the
 	# arrows did something different here from everywhere else -- the
@@ -1683,7 +1716,14 @@ fn browser_click(int id, int r, int c, btn = "") {
 	back) [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
 	forward) [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
 	reload) [ -n "$t" ] && web reload "$t"; return 0 ;;
-	sec) bw_secinfo "$id"; return 0 ;;
+	sec | cap)
+		BW[$id]["ctx"]=site
+		local sr2=$((r + DT[$id]["row"])) sc2=$((c + DT[$id]["col"]))
+		dt_capped "$id" && sc2=$((sc2 - 1))
+		dt_context_open browser "$id" "$sr2" "$sc2"
+		return 0
+		;;
+	dtsearch) browser_find "$id"; return 0 ;;
 	addr) bw_editaddr "$id"; return 0 ;;
 	link:*)
 		[ -n "$t" ] && [ -n "${BWX["$id:u${tag#link:}"]+x}" ] &&
@@ -1742,6 +1782,22 @@ fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 	sr=$((r + DT[$id]["row"]))
 	sc=$((c + DT[$id]["col"]))
 	dt_capped "$id" && sc=$((sc - 1))
+	# a tab in the strip has a menu of its own, and so does the label before the address
+	local tag
+	tag := dt_hit "$id" "$r" "$c" || tag=
+	case $tag in
+	tab:* | close:*)
+		BW[$id]["ctx"]="tab:${tag#*:}"
+		dt_context_open browser "$id" "$sr" "$sc"
+		return 0
+		;;
+	sec | cap)
+		BW[$id]["ctx"]=site
+		dt_context_open browser "$id" "$sr" "$sc"
+		return 0
+		;;
+	esac
+	BW[$id]["ctx"]=
 	bw_drawmode
 	if [ -n "$t" ] && [ "$r" -ge "$pt" ] && [ "$BW_DRAWN" != text ] && bw_tabhas "$t" atask &&
 	   q := web atask "$t" $((r - pt)) $((c - 1)) 2> /dev/null; then
@@ -1810,11 +1866,213 @@ fn bw_bgtab(int id, a) {
 	dt_want 10
 }
 
+# --- find in page ---------------------------------------------------------------
+# The desktop's one search (widgets/search.hibr): `/` opens a bar on the
+# window's bottom row, Edit > Find is `browser_find`. Different from Files in
+# one key: enter is the next match, as in every browser's find, not "close"
+# (up and down go back and on); escape closes it and takes the marks away. `/`
+# goes to the page instead while the page's focus is in a field (`web focus`,
+# which the engine keeps in every mode), so a slash typed in a search box is a
+# slash. WebKit's (cap find); a light tab's Find says where to go instead.
+# Without the engine's word on the focus (cap focusev, hibr-browser 0.5.22) a
+# page drawn as pixels could not tell, so `/` is the page's and Find is Edit's.
+fn browser_find(int id) {
+	local t=${BW[$id]["cur"]}
+
+	if [ -z "$t" ] || ! bw_tabhas "$t" find; then
+		dt_notep low "Find needs the WebKit engine: Go > Reopen in WebKit"
+		return 0
+	fi
+	dt_searchopen "$id"
+}
+
+# The query as it stands, given to the engine when it has changed.
+fn bw_findgo(int id) {
+	local t=${BW[$id]["cur"]} q
+
+	[ -n "$t" ] || return 0
+	q := dt_searchq "$id"
+	[ "$q" = "${BW[$id]["fq"]-}" ] && return 0
+	BW[$id]["fq"]=$q
+	if [ -n "$q" ]; then
+		web find "$t" "$q" 2> /dev/null
+	else
+		web findclear "$t" 2> /dev/null
+	fi
+	return 0
+}
+
+# A key while the find bar has the keyboard: status 0 when it was the bar's.
+fn bw_findkey(int id, key) {
+	local t=${BW[$id]["cur"]}
+
+	case $key in
+	enter | down) [ -n "$t" ] && web findnext "$t" 2> /dev/null; return 0 ;;
+	up | shift-enter) [ -n "$t" ] && web findprev "$t" 2> /dev/null; return 0 ;;
+	escape)
+		dt_searchclear "$id"
+		BW[$id]["fq"]=
+		[ -n "$t" ] && web findclear "$t" 2> /dev/null
+		return 0
+		;;
+	esac
+	dt_searchkey "$id" "$key" || return 1
+	bw_findgo "$id"
+	return 0
+}
+
+# --- a tab's sound, the site's menu ------------------------------------------------
+
+# Mute or unmute tab n (cap mute).
+fn bw_mute(int id, n) {
+	local a
+
+	a := web audible "$n" 2> /dev/null || true
+	if [ "${a#* }" = 1 ]; then
+		web set "$n" mute off 2> /dev/null
+	else
+		web set "$n" mute on 2> /dev/null
+	fi
+	dt_want 10
+}
+
+# The mark of tab n's sound: playing, muted, or nothing.
+fn bw_soundmark(n) {
+	local a
+
+	bw_tabhas "$n" mute || { ret ""; return 0; }
+	a := web audible "$n" 2> /dev/null || true
+	case $a in
+	"1 0") ret "♪" ;;
+	*" 1") ret "muted" ;;
+	*) ret "" ;;
+	esac
+}
+
+# The host of an address, for the site's permissions and data.
+fn bw_host(u) {
+	u=${u#*://}
+	u=${u%%/*}
+	u=${u##*@}
+	u=${u%:*}
+	ret "$u"
+}
+
+fn bw_siteforget(host, kind) {
+	local k
+
+	bw_sitesread
+	unset BWSITE["$host $kind"]
+	mkdir -p "${BW_SITES%/*}" 2> /dev/null
+	: > "$BW_SITES.new"
+	for k in "${!BWSITE[@]}"; do
+		printf '%s\t%s\t%s\n' "${k%% *}" "${k#* }" "${BWSITE["$k"]}" >> "$BW_SITES.new"
+	done
+	mv -f "$BW_SITES.new" "$BW_SITES"
+	dt_notep low "Forgotten: %s for %s" "$kind" "$host"
+}
+
+fn bw_clearsite(int id, host) {
+	local t=${BW[$id]["cur"]}
+
+	if web clear site "$host" "$t" 2> /dev/null; then
+		dt_notep low "Cleared what %s had kept: cookies, storage, cache" "$host"
+	else
+		dt_notep high "Could not clear %s's data" "$host"
+	fi
+}
+
+fn bw_capstop(int id, kind) {
+	local t=${BW[$id]["cur"]}
+
+	[ -n "$t" ] && web capstop "$t" "$kind" 2> /dev/null
+	dt_want 10
+}
+
+# The site's menu, from the label before the address: what the connection is,
+# what the page is using now, what was remembered for the site, and its data.
+fn bw_sitemenu(int id) {
+	local t=${BW[$id]["cur"]} u h s st is un c k
+
+	[ -n "$t" ] || return 0
+	u := web url "$t" 2> /dev/null || u=
+	h := bw_host "$u"
+	s=${BW[$id]["sec"]-}
+	st=${s%%$'\t'*}
+	s=${s#*$'\t'}
+	is=${s%%$'\t'*}
+	un=${s#*$'\t'}
+	case $is in
+	*O=*) is=${is#*O=}; is=${is%%,*} ;;
+	*CN=*) is=${is#*CN=}; is=${is%%,*} ;;
+	esac
+	dt_menu "Site"
+	case $st in
+	secure)
+		dt_dim "Secure connection: private, nobody can read it"
+		dt_dim "Certificate: ${is:-trusted}, until ${un:-?}"
+		dt_dim "(it says the connection is private, not that the site is honest)" ;;
+	insecure) dt_dim "Not secure: plain http, anyone on the way can read it" ;;
+	refused) dt_dim "Not secure: this site's certificate was refused" ;;
+	accepted) dt_dim "Not secure: a certificate you chose to trust" ;;
+	local) dt_dim "A file on this computer" ;;
+	*) dt_dim "No site" ;;
+	esac
+	if bw_tabhas "$t" capture && c := web capture "$t" 2> /dev/null; then
+		dt_sep
+		[ "${c%% *}" = active ] && dt_item "Stop Camera" c bw_capstop "$id" camera
+		c=${c#* }
+		[ "${c%% *}" = active ] && dt_item "Stop Microphone" m bw_capstop "$id" microphone
+		[ "${c#* }" = active ] && dt_item "Stop Sharing the Screen" s bw_capstop "$id" display
+	fi
+	if [ -n "$h" ]; then
+		bw_sitesread
+		local any=
+		for k in "${!BWSITE[@]}"; do
+			[ "${k%% *}" = "$h" ] || continue
+			[ -z "$any" ] && dt_sep
+			any=1
+			dt_item "Forget ${k#* } (${BWSITE["$k"]})" "" bw_siteforget "$h" "${k#* }"
+		done
+		if bw_tabhas "$t" clearsite && [ "${BW[$id]["clean"]-}" != 1 ]; then
+			dt_sep
+			dt_item "Clear This Site's Data" d bw_clearsite "$id" "$h"
+		fi
+	fi
+	dt_sep
+	if bw_tabhas "$t" nopicture; then
+		dt_dim "Engine: light"
+	else
+		dt_dim "Engine: WebKit"
+	fi
+}
+
+# The menu of tab n, from its place in the strip.
+fn bw_tabmenu(int id, n) {
+	local a
+
+	dt_menu "Tab"
+	if bw_tabhas "$n" mute; then
+		a := web audible "$n" 2> /dev/null || true
+		if [ "${a#* }" = 1 ]; then
+			dt_item "Unmute Tab" m bw_mute "$id" "$n"
+		else
+			dt_item "Mute Tab" m bw_mute "$id" "$n"
+		fi
+	else
+		dt_dim "Mute Tab"
+	fi
+	dt_item "Reload Tab" r web reload "$n"
+	[ -z "${BW[$id]["app"]-}" ] && bw_tabhas "$n" nopicture && dt_item "Reopen in WebKit" w bw_reopenwk "$id" "$n"
+	dt_sep
+	dt_item "Close Tab" c bw_closetab "$id" "$n"
+}
+
 # A light-engine tab's page again in WebKit, in the same place among the tabs:
 # for a page the light engine does not show well, or for what it does not do
 # (find, sound, video).
-fn bw_reopenwk(int id) {
-	local t=${BW[$id]["cur"]} u n x out=
+fn bw_reopenwk(int id, which = "") {
+	local t=${which:-${BW[$id]["cur"]}} u n x out= was=${BW[$id]["cur"]}
 
 	[ -n "$t" ] || return 0
 	u := web url "$t" 2> /dev/null || u=
@@ -1832,7 +2090,7 @@ fn bw_reopenwk(int id) {
 		out="${out:+$out }$x"
 	done
 	BW[$id]["tabs"]=$out
-	BW[$id]["cur"]=$n
+	[ "$was" = "$t" ] && BW[$id]["cur"]=$n
 	BW[$id]["sized"]=
 	bw_sndstop "$t"
 	web close "$t" 2> /dev/null
@@ -2307,6 +2565,10 @@ fn bw_pagesaved(id = "", path = "", type = "") {
 fn browser_context(int? id = "") {
 	local t=${BW[$id]["cur"]}
 
+	case ${BW[$id]["ctx"]-} in
+	tab:*) bw_tabmenu "$id" "${BW[$id]["ctx"]#tab:}"; return 0 ;;
+	site) bw_sitemenu "$id"; return 0 ;;
+	esac
 	bw_under "$id" || true
 	# A page that took the right click for itself (a web app's own menu, a map) has had it: the
 	# press was sent to it to find out (`web at`), and no menu of ours goes over its own.
@@ -2335,6 +2597,14 @@ fn browser_context(int? id = "") {
 	dt_item "Forward" f bw_fwd "$id"
 	dt_item "Reload" r bw_reload "$id"
 	[ -n "$t" ] && [ -z "${BW[$id]["app"]-}" ] && bw_tabhas "$t" nopicture && dt_item "Reopen in WebKit" w bw_reopenwk "$id"
+	if [ -n "$t" ] && bw_tabhas "$t" mute; then
+		local am
+		am := web audible "$t" 2> /dev/null || true
+		case $am in
+		*" 1") dt_item "Unmute Tab" m bw_mute "$id" "$t" ;;
+		"1 0") dt_item "Mute Tab" m bw_mute "$id" "$t" ;;
+		esac
+	fi
 	if [ -n "$t" ] && bw_tabhas "$t" source; then
 		dt_sep
 		dt_item "View Source" u bw_viewsource "$id"
@@ -2416,6 +2686,17 @@ browser_menus() {
 		dt_item "Reopen in WebKit" k bw_reopenwk "$id"
 	else
 		dt_dim "Reopen in WebKit"
+	fi
+	if [ -n "${BW[$id]["cur"]}" ] && bw_tabhas "${BW[$id]["cur"]}" mute; then
+		local gm
+		gm := web audible "${BW[$id]["cur"]}" 2> /dev/null || true
+		if [ "${gm#* }" = 1 ]; then
+			dt_item "Unmute Tab" m bw_mute "$id" "${BW[$id]["cur"]}"
+		else
+			dt_item "Mute Tab" m bw_mute "$id" "${BW[$id]["cur"]}"
+		fi
+	else
+		dt_dim "Mute Tab"
 	fi
 	dt_sep
 	dt_item "Next Tab" n bw_steptab "$id" 1
