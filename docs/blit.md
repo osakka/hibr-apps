@@ -1,5 +1,13 @@
 # Blit Control Panel
 
+## Mask type (pane 0.1.27)
+
+Blit 0.3.35 (ADR 0209) adds the **CRT mask**, a 0..100 slider, and its
+**Mask type**: a choice of aperture grille, slot mask or shadow mask,
+stored as Blit's 0..2. The type acts only with the mask's strength, so its
+row says "with CRT mask". The mask is drawn at the panel's own pixels and
+does not grow with zoom.
+
 ## Empty panes and burn-in's fade time (pane 0.1.26)
 
 Blit 0.3.34 reports whether a session draws in each pane (`has_view`). A

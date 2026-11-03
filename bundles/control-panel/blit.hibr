@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.26
+app blit "API configuration and diagnostics for the Blit display server" 0.1.27
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -804,6 +804,11 @@ fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
         if [ "$param" = color ]; then
             value := blit_cp_phosphor_name "$value"
             blit_cp_row "$w" "$n" set "$label (with Chroma)" "$value" "fxcolor:$name:$output:$ordinal"
+        elif [ "$param" = kind ]; then
+            # Blit ADR 0209: the mask's type, a choice; it acts only with
+            # the CRT mask's strength, which is drawn at the panel's own
+            # pixels and does not grow with zoom.
+            blit_cp_row "$w" "$n" set "$label (with CRT mask)" "${BCP_MASKS[$value]:-$value}" "fxkind:$name:$output:$ordinal"
         else
             blit_cp_row "$w" "$n" set "$label" "$value" "fx:$name:$output:$ordinal" slider
             CP[$w][$n][min]=$min; CP[$w][$n][max]=$max; CP[$w][$n][after]="($value$unit)"
@@ -821,6 +826,8 @@ fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
 # The phosphor colours offered, as Blit stores them (0xRRGGBB; 0 is white,
 # Blit ADR 0207), and the name shown for a stored value.
 BCP_PHOSPHORS=(white:0 green:3407718 amber:16756736)
+# The mask types Blit draws, by their kind number (ADR 0209; 0 is unset).
+BCP_MASKS=("aperture grille" "slot mask" "shadow mask")
 fn blit_cp_phosphor_name(int value) {
     local p
     for p in "${BCP_PHOSPHORS[@]}"; do
@@ -856,7 +863,7 @@ fn blit_cp_effect(int w, key, int value) {
     case $key in
     fxall)
         if [ "$value" = 1 ]; then json set BCP_FX .enabled true; else json set BCP_FX .enabled false; fi ;;
-    fxpane:* | fx:* | fxcolor:*)
+    fxpane:* | fx:* | fxcolor:* | fxkind:*)
         rest=${key#*:}
         if [ "${key%%:*}" != fxpane ]; then name=${rest%%:*}; rest=${rest#*:}; fi
         ordinal=${rest##*:}; output=${rest%:*}
@@ -1004,6 +1011,10 @@ fn blit_cp_choices(key) {
         rest=${key#fxcolor:}; name=${rest%%:*}; rest=${rest#*:}
         for raw in "${BCP_PHOSPHORS[@]}"; do BCP_CHOICES+=("${raw%%:*}"); done
         BCP_CHOICE_CURRENT := blit_cp_phosphor_name "${BCP_FX[${rest%:*}][${rest##*:}][$name][color]:-0}" ;;
+    fxkind:*)
+        rest=${key#fxkind:}; name=${rest%%:*}; rest=${rest#*:}
+        BCP_CHOICES=("${BCP_MASKS[@]}")
+        BCP_CHOICE_CURRENT=${BCP_MASKS[${BCP_FX[${rest%:*}][${rest##*:}][$name][kind]:-0}]} ;;
     hud_corner)
         BCP_CHOICES=(top-right top-left bottom-right bottom-left)
         BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[settings][effective][hud][corner]:-top-right} ;;
@@ -1064,6 +1075,12 @@ fn blit_cp_choose(key, value) {
         for option in "${BCP_PHOSPHORS[@]}"; do
             [ "${option%%:*}" != "$value" ] || { blit_cp_effect 0 "$key" "${option#*:}"; break; }
         done ;;
+    fxkind:*)
+        option=0
+        while [ -n "${BCP_MASKS[$option]}" ]; do
+            [ "${BCP_MASKS[$option]}" != "$value" ] || { blit_cp_effect 0 "$key" "$option"; break; }
+            option=$((option + 1))
+        done ;;
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
@@ -1113,7 +1130,7 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary | fallback | font | compositor | frame_timing | hud_corner | update_restart | fxcolor:*)
+    primary | fallback | font | compositor | frame_timing | hud_corner | update_restart | fxcolor:* | fxkind:*)
         blit_cp_choices "$key"
         [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
         value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"

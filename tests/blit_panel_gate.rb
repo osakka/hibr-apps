@@ -279,7 +279,7 @@ Dir.mktmpdir('blit-panel') do |root|
       done
       effects_listed=0; colours=0
       while [ -n "${BCP_EFFECTS[available][$effects_listed][name]}" ]; do
-          [ "${BCP_EFFECTS[available][$effects_listed][parameter]}" != color ] || colours=$((colours + 1))
+          case ${BCP_EFFECTS[available][$effects_listed][parameter]} in color | kind) colours=$((colours + 1)) ;; esac
           effects_listed=$((effects_listed + 1))
       done
       [ "$shown" = "12 (12 px)" ] || { echo "corner row: $shown" >&2; exit 73; }
@@ -305,6 +305,21 @@ Dir.mktmpdir('blit-panel') do |root|
           finish; served
           [ -z "${BCP_EFFECTS[panes][0][effects][brightness][level]}" ] &&
           [ -z "${BCP_EFFECTS[panes][0][effects][phosphor][color]}" ] || { echo 'tube controls not turned off' >&2; exit 89; }
+      fi
+      # Blit ADR 0209: the mask type is a choice of three, stored as 0..2.
+      if [ -n "${BCP_EFFECTS[available][16][name]}" ]; then
+          blit_effects_slide 44 "fx:mask:$eo:1" 40
+          blit_cp_choose "fxkind:mask_type:$eo:1" "shadow mask"
+          finish; served
+          [ "${BCP_EFFECTS[panes][0][effects][mask][amount]}" = 40 ] &&
+          [ "${BCP_EFFECTS[panes][0][effects][mask_type][kind]}" = 2 ] || { echo "mask not applied: $BCP_STATUS" >&2; exit 92; }
+          blit_cp_choices "fxkind:mask_type:$eo:1"
+          [ "$BCP_CHOICE_CURRENT" = "shadow mask" ] && [ "${#BCP_CHOICES[@]}" = 3 ] || { echo "mask choices: $BCP_CHOICE_CURRENT ${#BCP_CHOICES[@]}" >&2; exit 93; }
+          blit_effects_slide 44 "fx:mask:$eo:1" 0
+          blit_cp_choose "fxkind:mask_type:$eo:1" "aperture grille"
+          finish; served
+          [ -z "${BCP_EFFECTS[panes][0][effects][mask][amount]}" ] &&
+          [ -z "${BCP_EFFECTS[panes][0][effects][mask_type][kind]}" ] || { echo 'mask not turned off' >&2; exit 94; }
       fi
       # Blit 0.3.34: a pane no session draws in says so; burn-in shows its
       # fade time (ADR 0208).
