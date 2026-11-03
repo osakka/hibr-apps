@@ -306,6 +306,27 @@ Dir.mktmpdir('blit-panel') do |root|
           [ -z "${BCP_EFFECTS[panes][0][effects][brightness][level]}" ] &&
           [ -z "${BCP_EFFECTS[panes][0][effects][phosphor][color]}" ] || { echo 'tube controls not turned off' >&2; exit 89; }
       fi
+      # Blit 0.3.34: a pane no session draws in says so; burn-in shows its
+      # fade time (ADR 0208).
+      if [ -n "${BCP_EFFECTS[panes][0][has_view]}" ]; then
+          empty=0; expect=0; j=0
+          while [ -n "${BCP_EFFECTS[panes][$j][pane_id]}" ]; do
+              [ "${BCP_EFFECTS[panes][$j][has_view]}" != false ] || expect=$((expect + 1)); j=$((j + 1))
+          done
+          blit_effects_slide 44 "fx:burn_in:$eo:1" 50
+          finish; served
+          n := blit_effects_rows 999999
+          i=0; burn=
+          while [ "$i" -lt "$n" ]; do
+              [ "${CP[999999][$i][text]}" != "Nothing shown here" ] || empty=$((empty + 1))
+              [ "${CP[999999][$i][key]}" != "fx:burn_in:$eo:1" ] || burn=${CP[999999][$i][after]}
+              i=$((i + 1))
+          done
+          [ "$empty" = "$expect" ] && [ "$expect" -gt 0 ] || { echo "empty panes: shown $empty of $expect" >&2; exit 90; }
+          [ "$burn" = "(50%, fades in 0.8 s)" ] || { echo "burn-in row: $burn" >&2; exit 91; }
+          blit_effects_slide 44 "fx:burn_in:$eo:1" 0
+          finish; served
+      fi
       # Switches: off keeps the values and draws nothing; on brings them back.
       blit_effects_do 44 fxall 1
       finish; served

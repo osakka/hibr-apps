@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.25
+app blit "API configuration and diagnostics for the Blit display server" 0.1.26
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -764,6 +764,11 @@ fn blit_effects_rows(int w) {
         ordinal=${BCP_EFFECTS[panes][$i][pane_ordinal]}
         on=on; [ "${BCP_FX[$output][$ordinal][enabled]:-true}" != false ] || on=off
         blit_cp_row "$w" "$n" head "$output pane $ordinal"; n=$((n + 1))
+        # Blit 0.3.34: a pane no session draws in shows nothing, whatever is
+        # set for it (a held desktop is one session in one pane).
+        if [ "${BCP_EFFECTS[panes][$i][has_view]}" = false ]; then
+            blit_cp_row "$w" "$n" info "Nothing shown here" "effects apply when a session uses this pane"; n=$((n + 1))
+        fi
         blit_cp_row "$w" "$n" set "On" "$on" "fxpane:$output:$ordinal" bool; n=$((n + 1))
         n := blit_cp_effect_sliders "$w" "$n" "$output" "$ordinal"
         # Any effect it cannot draw says why (Blit ADR 0207 added more).
@@ -802,6 +807,11 @@ fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
         else
             blit_cp_row "$w" "$n" set "$label" "$value" "fx:$name:$output:$ordinal" slider
             CP[$w][$n][min]=$min; CP[$w][$n][max]=$max; CP[$w][$n][after]="($value$unit)"
+            # Blit ADR 0208: a trail is gone 0.16 s + 1.44 s x amount/100
+            # after a change; the time says more than the percentage.
+            if [ "$name" = burn_in ] && [ "$value" -gt 0 ]; then
+                CP[$w][$n][after]="($value%, fades in $(( (160 + 1440 * value / 100) / 1000 )).$(( (160 + 1440 * value / 100) % 1000 / 100 )) s)"
+            fi
         fi
         n=$((n + 1)); j=$((j + 1))
     done

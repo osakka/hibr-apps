@@ -1,5 +1,15 @@
 # Blit Control Panel
 
+## Empty panes and burn-in's fade time (pane 0.1.26)
+
+Blit 0.3.34 reports whether a session draws in each pane (`has_view`). A
+pane with none gets a **Nothing shown here** row under its heading: the
+effects set for it are kept but draw nothing until a session uses it. On
+the owner's mini PC the held desktop is one session in DP-1 pane 2, so pane
+1's effects were invisible with no hint why. **Burn-in** (Blit 0.3.33, ADR
+0208) shows its fade time beside the percentage, e.g. "(50%, fades in
+0.8 s)", from 0.16 s + 1.44 s x amount/100.
+
 ## Tube colour and static noise (pane 0.1.25)
 
 Blit 0.3.32 (ADR 0207) adds five pane effects, listed by Blit like the
