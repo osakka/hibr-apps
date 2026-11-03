@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.37
+app browser "The web, in a window" 2.38
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -640,8 +640,9 @@ fn bw_askbar(int id, int r, int w) {
 	# The answers come first: 36 columns for the three (21 in a Clean Window,
 	# which has no Always), and the words before them give way -- first the
 	# count of questions waiting behind this one, then the site's name.
-	local bw=36 avail cnt= hl
+	local bw=36 avail cnt= hl calls=
 	[ "${BW[$id]["clean"]-}" = 1 ] && bw=21
+	bw_askcalls "$id" && { calls=1; bw=$((bw + 18)); }
 	avail=$((w - 2 - bw))
 	local -a qq
 	read -ra qq <<< "${BW[$id]["askq2"]-}"
@@ -660,7 +661,10 @@ fn bw_askbar(int id, int r, int w) {
 	lb := str pad "$lab" "$w"
 	console put -p "w$id" "$r" 1 "$lb"
 	c=$(( ${#lab} + 2 ))
-	for a in "once:Allow Once" "always:Always Allow" "refuse:Refuse"; do
+	local -a ans=("once:Allow Once" "always:Always Allow" "refuse:Refuse")
+	# last, so a narrow bar gives up this one and never Refuse
+	[ -n "$calls" ] && ans+=("call:Allow for Calls")
+	for a in "${ans[@]}"; do
 		# a Clean Window remembers nothing for a site
 		[ "${a%%:*}" = always ] && [ "${BW[$id]["clean"]-}" = 1 ] && continue
 		lab=" ${a#*:} "
@@ -672,13 +676,44 @@ fn bw_askbar(int id, int r, int w) {
 	done
 }
 
+# Whether the question in window id is a camera or microphone one while calls
+# are off, on an engine that can turn them on as it runs (cap rtcnow) and carry
+# a call at all (cap webrtc): a page granted the camera then would still make
+# a call that carries nothing -- its process has no network -- and nobody
+# would know why. So the question offers Allow for Calls.
+fn bw_askcalls(int id) {
+	[ "$BW_RTC" = 1 ] && return 1
+	case ${BW[$id]["askw"]-} in camera | microphone | camera+microphone) ;; *) return 1 ;; esac
+	# the asking tab's own engine (the light engine asks nothing of the kind)
+	bw_tabhas "${BW[$id]["askt"]}" rtcnow && bw_tabhas "${BW[$id]["askt"]}" webrtc
+}
+
 # An answer to the question in window id.
 fn bw_askanswer(int id, how) {
-	local k=${BW[$id]["askk"]-} h=${BW[$id]["askh"]-} w=${BW[$id]["askw"]-}
+	local k=${BW[$id]["askk"]-} h=${BW[$id]["askh"]-} w=${BW[$id]["askw"]-} t=${BW[$id]["askt"]-}
 
 	[ -n "$k" ] || return 0
 	BW[$id]["askk"]=
 	case $how in
+	call)
+		# Calls on (Control Panel > Browser has the same switch), kept; the
+		# site may have what it asked for; and the page again in a process
+		# with the network, which asks again and is answered by what was kept.
+		# A Clean Window keeps nothing for a site, so there it asks once more.
+		web permans "$k" deny 2> /dev/null
+		BW_RTC=1
+		command -v dt_save > /dev/null && dt_save
+		web config webrtc on 2> /dev/null
+		if [ "${BW[$id]["clean"]-}" != 1 ]; then
+			if [ "$w" = camera+microphone ]; then
+				bw_sitekeep "$h" camera allow
+				bw_sitekeep "$h" microphone allow
+			else
+				bw_sitekeep "$h" "$w" allow
+			fi
+		fi
+		[ -n "$t" ] && web renew "$t" 2> /dev/null
+		;;
 	once) web permans "$k" allow 2> /dev/null ;;
 	always)
 		if [ "${BW[$id]["clean"]-}" = 1 ]; then
