@@ -50,12 +50,16 @@
 
 strict
 
-app browser "The web, in a window" 2.32
+app browser "The web, in a window" 2.33
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
 
 command -v dt_app > /dev/null && dt_app browser "Browser" 26 96 many "◎"
+# Every tab told whether it is on show and whether its window has the keyboard
+# (bw_presencetick), whatever the window is doing -- drawn, minimised, on
+# another workspace.
+command -v dt_ticker > /dev/null && dt_ticker bw_presencetick
 
 declare -gA BW
 command -v dt_keepstate > /dev/null && dt_keepstate browser BW
@@ -2021,6 +2025,46 @@ fn bw_bgtab(int id, a) {
 	BW[$id]["sized"]=
 	BW[$id]["aed"]=
 	dt_want 10
+}
+
+# --- what a page is told of where it is -------------------------------------------
+# A page asks whether it is on show and whether its window has the keyboard
+# (document.visibilityState, document.hasFocus()), and a chat or a mail page
+# sends its notifications only while the person is elsewhere. Every tab said
+# both, always, so WhatsApp as a web app never said a word. A tab is shown
+# when it is the one on show in a window that is not minimised or on another
+# workspace, and focused when that window has the keyboard; said to the
+# engine only when it changes (cap presence). A hidden tab is also one WebKit
+# slows the timers of, as any browser's background tab.
+declare -gA BWPR
+bw_presencetick() {
+	local id t cur vis foc s f want
+	[ "${#BW[@]}" -gt 0 ] || return 0
+	bw_has presence || return 0
+	for id in "${!BW[@]}"; do
+		[ -n "${BW[$id]["tabs"]+x}" ] || continue
+		cur=${BW[$id]["cur"]}
+		vis=1
+		foc=0
+		{ dt_has dt_away && dt_away "$id"; } && vis=0
+		{ dt_has dt_hidden && dt_hidden "$id"; } && vis=0
+		[ "${DT_FOCUS-}" = "$id" ] && foc=1
+		bw_tabs "$id"
+		for t in "${BW_TABS[@]}"; do
+			s=off
+			f=off
+			if [ "$t" = "$cur" ] && [ "$vis" = 1 ]; then
+				s=on
+				[ "$foc" = 1 ] && f=on
+			fi
+			want="$s $f"
+			[ "${BWPR["$t"]-}" = "$want" ] && continue
+			BWPR["$t"]=$want
+			web set "$t" shown "$s" 2> /dev/null
+			web set "$t" focused "$f" 2> /dev/null
+		done
+	done
+	return 0
 }
 
 # --- find in page ---------------------------------------------------------------
