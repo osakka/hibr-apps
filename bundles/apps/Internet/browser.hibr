@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.33
+app browser "The web, in a window" 2.34
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -60,6 +60,11 @@ command -v dt_app > /dev/null && dt_app browser "Browser" 26 96 many "◎"
 # (bw_presencetick), whatever the window is doing -- drawn, minimised, on
 # another workspace.
 command -v dt_ticker > /dev/null && dt_ticker bw_presencetick
+# The vault's login for the page's site filled into its sign-in form, on a key
+# the person can change (Control Panel > Shortcuts, under the Browser).
+# Alt-L by default: a terminal sends Alt-Shift-L as alt-L, which the desktop
+# does not yet take for alt-shift-l, so a Shift combination would not reach.
+command -v dt_appaction > /dev/null && dt_appaction browser vaultfill "Fill Sign-In from Vault" "mod-l"
 
 declare -gA BW
 command -v dt_keepstate > /dev/null && dt_keepstate browser BW
@@ -1267,6 +1272,7 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	bw_sitezoom "$id" "$t"
 	bw_body "$id" "$t" "$h" "$w" "$pt" "$ph"
 	bw_movecheck "$id" "$t"
+	bw_vaultdone "$id" "$t"
 	bw_histnote "$id" "$t"
 	if [ "$sr" = 1 ]; then
 		dt_searchdraw "$id" "$h" "$w"
@@ -1339,6 +1345,7 @@ fn browser_dirty(int id) {
 	# the live rate ends once the page is still, whether or not this frame
 	# draws the window (a window left alone would keep it on for ever)
 	bw_movecheck "$id" "$t"
+	bw_vaultdone "$id" "$t"
 	bw_atpoll "$id"
 	bw_coverlist "$id"
 	bw_askcheck "$id"
@@ -1404,7 +1411,7 @@ fn bw_strip(int id, t, int w) {
 
 # Back, forward, reload and the address, on row ar.
 fn bw_bar(int id, t, int w, int ar) {
-	local lab u on=0 ld= lw=0 dl= sl= sw=0 cl= cw=0 cc
+	local lab u on=0 ld= lw=0 dl= sl= sw=0 cl= cw=0 cc vl= vww=0
 
 	console pen "$DT_INK" "$DT_FACE"
 	console put -p "w$id" "$ar" 1 " ${GL[larr]}  ${GL[rarr]}  ${GL[reload]}  "
@@ -1468,7 +1475,13 @@ fn bw_bar(int id, t, int w, int ar) {
 		# Before it, loudest of all, the camera, microphone or screen while
 		# the page is using one (cap capture); a click there opens the same menu,
 		# which can stop it. And with no tab strip, the tab's sound at the end.
-		sl= sw=0 cl= cw=0
+		sl= sw=0 cl= cw=0 vl= vww=0
+		bw_vaultstate "$id" "$t"
+		case ${BW[$id]["vw"]-} in
+		0) vl := dt_tr " Vault " ;;
+		2) vl := dt_tr " Vault (locked) " ;;
+		esac
+		[ -n "$vl" ] && vww := str width "$vl"
 		if [ -n "$t" ] && bw_tabhas "$t" capture && cc := web capture "$t" 2> /dev/null; then
 			local cwds=
 			[ "${cc%% *}" = active ] && cwds+=" Camera"
@@ -1503,6 +1516,7 @@ fn bw_bar(int id, t, int w, int ar) {
 			[ $((cw + sw)) -gt $((w - 11 - lw - 8)) ] && sl= sw=0
 		fi
 		[ "$cw" -gt $((w - 11 - lw - 8)) ] && cl= cw=0
+		[ $((cw + sw + vww)) -gt $((w - 11 - lw - 8)) ] && vl= vww=0
 		if [ -n "$cl" ]; then
 			console pen "$DT_INK" "$DT_WARN" bold
 			console put -p "w$id" "$ar" 11 "$cl"
@@ -1514,9 +1528,13 @@ fn bw_bar(int id, t, int w, int ar) {
 			esac
 			console put -p "w$id" "$ar" $((11 + cw)) "$sl"
 		fi
+		if [ -n "$vl" ]; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+			console put -p "w$id" "$ar" $((11 + cw + sw)) "$vl"
+		fi
 		console pen "$DT_INK" "$DT_WELL"
-		lab := str pad "${u:0:$((w - 11 - lw - cw - sw))}" $((w - 11 - lw - cw - sw))
-		console put -p "w$id" "$ar" $((11 + cw + sw)) "$lab"
+		lab := str pad "${u:0:$((w - 11 - lw - cw - sw - vww))}" $((w - 11 - lw - cw - sw - vww))
+		console put -p "w$id" "$ar" $((11 + cw + sw + vww)) "$lab"
 		if [ -n "$ld" ]; then
 			console pen "$DT_DIM" "$DT_WELL"
 			console put -p "w$id" "$ar" $((w - lw)) " $ld "
@@ -1525,6 +1543,7 @@ fn bw_bar(int id, t, int w, int ar) {
 	# the label first: the first region a click is in is the one it is for
 	[ "$on" != 1 ] && [ "${cw:-0}" -gt 0 ] && dt_wreg "$id" "$ar" 11 "$cw" cap
 	[ "$on" != 1 ] && [ "${sw:-0}" -gt 0 ] && dt_wreg "$id" "$ar" $((11 + ${cw:-0})) "$sw" sec
+	[ "$on" != 1 ] && [ "${vww:-0}" -gt 0 ] && dt_wreg "$id" "$ar" $((11 + ${cw:-0} + ${sw:-0})) "$vww" vault
 	dt_wreg "$id" "$ar" 11 $((w - 11)) addr
 	return 0
 }
@@ -1796,6 +1815,10 @@ fn browser_key(int id, key) {
 		BW[$id]["acur"]=${r##* }
 		return 0
 	fi
+	if dt_has dt_akeyis && dt_akeyis browser vaultfill "$key"; then
+		bw_vaultfill "$id"
+		return 0
+	fi
 	if dt_searchon "$id"; then
 		bw_findkey "$id" "$key" && return 0
 	elif [ "$key" = / ] && [ -n "$t" ] && bw_tabhas "$t" find && bw_tabhas "$t" focusev && ! web focus "$t" 2> /dev/null; then
@@ -1875,6 +1898,7 @@ fn browser_click(int id, int r, int c, btn = "") {
 		return 0
 		;;
 	dtsearch) browser_find "$id"; return 0 ;;
+	vault) bw_vaultfill "$id"; return 0 ;;
 	addr) bw_editaddr "$id"; return 0 ;;
 	link:*)
 		[ -n "$t" ] && [ -n "${BWX["$id:u${tag#link:}"]+x}" ] &&
@@ -2025,6 +2049,163 @@ fn bw_bgtab(int id, a) {
 	BW[$id]["sized"]=
 	BW[$id]["aed"]=
 	dt_want 10
+}
+
+# --- the vault, for a page's sign-in form ------------------------------------------
+# The desktop's vault (hibr's vw, wm/vault.hibr) knows the person's logins; a
+# page with a sign-in form (`web loginform`, the engine's own watch) and a
+# login for its site gets a Vault mark before its address, and the mark, the
+# key (bw_vaultkey) or the menus fill the form -- never anything on its own:
+# a fill on page load is how a compromised page's hidden form takes a
+# password. The engine fills only if the page is still on the site matched,
+# over https or a file (`web fill`). The values go from the vault (dt_vwget,
+# a pipe) straight to the engine, held nowhere longer than the call. The
+# matching is the vault's (dt_vwmatch: the logins whose addresses match the
+# site, by each one's own rule), asked once a page and a form. With several,
+# the vault's picker chooses (dt_vwpick); with the vault locked, it offers to
+# unlock first. A two-factor code goes to the clipboard after a fill, cleared
+# as the vault clears what it copies.
+declare -gA BWVM		# tab -> "address TAB status TAB count" of its last match
+
+# How many lines text has that are not empty.
+fn bw_lines(text) {
+	local l n=0
+
+	while IFS= read -r l; do
+		[ -n "$l" ] && n=$((n + 1))
+	done <<< "$text"
+	ret "$n"
+}
+BW_VWWIN=
+
+# The vault's word on tab t's sign-in form, asked once an address: in
+# BW[$id]["vw"], 0 a login (BW[$id]["vwn"] of them), 1 none, 2 locked, empty
+# for no form or no vault.
+fn bw_vaultstate(int id, t) {
+	local u h m st=1 n=0
+
+	BW[$id]["vw"]=
+	[ -n "$t" ] && dt_has dt_vwmatch && bw_tabhas "$t" fill || return 0
+	h := web loginform "$t" 2> /dev/null || return 0
+	bw_vaultsafe "$t" || return 0
+	u := web url "$t" 2> /dev/null || u=
+	if [ "${BWVM["$t"]%%$'\t'*}" != "$u" ]; then
+		if m := dt_vwmatch "$h" 2> /dev/null; then
+			st=0
+			n := bw_lines "$m"
+		else
+			st=$?
+		fi
+		BWVM["$t"]="$u"$'\t'"$st"$'\t'"$n"
+	fi
+	m=${BWVM["$t"]#*$'\t'}
+	BW[$id]["vw"]=${m%%$'\t'*}
+	BW[$id]["vwn"]=${m#*$'\t'}
+	return 0
+}
+
+# Whether tab t's page is one a login may go to: a secure connection, a
+# certificate the person chose, or a file -- never plain http or the warning
+# page, which the engine would refuse anyway.
+fn bw_vaultsafe(t) {
+	local s
+
+	bw_has security || return 0
+	s := web security "$t" 2> /dev/null || return 0
+	case ${s%%$'\t'*} in insecure | refused) return 1 ;; esac
+	return 0
+}
+
+# Fill the page's sign-in form: the one login, or the vault's picker's choice.
+fn bw_vaultfill(int id) {
+	local t=${BW[$id]["cur"]} h m st
+
+	[ -n "$t" ] || return 0
+	if ! bw_tabhas "$t" fill; then
+		dt_notep low "Filling from the vault needs the WebKit engine"
+		return 0
+	fi
+	if ! h := web loginform "$t" 2> /dev/null; then
+		dt_notep low "This page has no sign-in form to fill"
+		return 0
+	fi
+	if ! dt_has dt_vwmatch; then
+		dt_notep low "Filling from the vault needs a newer hibr (its vault's dt_vwmatch)"
+		return 0
+	fi
+	if ! bw_vaultsafe "$t"; then
+		dt_notep high "Not filled: this page is not on a secure connection"
+		return 0
+	fi
+	# 3. asked again on the next frame: unlocking through the picker changes the answer
+	unset BWVM["$t"]
+	BW_VWWIN=$id
+	BW[$id]["vwhost"]=$h
+	m := dt_vwmatch "$h" 2> /dev/null
+	st=$?
+	case $st in
+	0)
+		local n
+		n := bw_lines "$m"
+		if [ "$n" = 1 ]; then
+			m=${m#*$'\t'}
+			bw_vaultfillid "${m%%$'\t'*}"
+		else
+			dt_vwpick "$h" bw_vaultfillid
+		fi
+		;;
+	2) dt_vwpick "$h" bw_vaultfillid ;;	# locked: the picker offers to unlock first
+	*) dt_notep low "The vault has no login for %s" "$h" ;;
+	esac
+	return 0
+}
+
+# One login, by the vault's id, into the window's page.
+fn bw_vaultfillid(item) {
+	local id=$BW_VWWIN t h u p
+
+	[ -n "$id" ] && [ -n "${BW[$id]["tabs"]+x}" ] || return 0
+	t=${BW[$id]["cur"]}
+	# the site as the page said it: empty for a file, which the engine checks as it checks a host
+	[ -n "$t" ] && [ -n "${BW[$id]["vwhost"]+x}" ] || return 0
+	h=${BW[$id]["vwhost"]}
+	dt_vwget username "$item" || { dt_notep high "The vault could not give that login"; return 0; }
+	u=$DT_VWOUT
+	DT_VWOUT=
+	dt_vwget password "$item" || { u=; dt_notep high "The vault could not give that login"; return 0; }
+	p=$DT_VWOUT
+	DT_VWOUT=
+	web fill "$t" "$h" "$u" "$p" 2> /dev/null
+	u=
+	p=
+	BW[$id]["fillwait"]=1
+	BW[$id]["fillat"]=$EPOCHSECONDS
+	# a two-factor code, where the login has one, to the clipboard for the page's next field
+	if dt_vwget totp "$item" 2> /dev/null && [ -n "$DT_VWOUT" ]; then
+		DT_VWOUT=
+		dt_vwcopy totp "$item"
+	fi
+	DT_VWOUT=
+	dt_want 10
+	return 0
+}
+
+# How the fill went, once the engine says: a page gone elsewhere got nothing.
+fn bw_vaultdone(int id, t) {
+	local r
+
+	[ "${BW[$id]["fillwait"]-}" = 1 ] && [ -n "$t" ] || return 0
+	if ! r := web filled "$t" 2> /dev/null; then
+		# no word yet: asked again soon, but not for ever (an engine gone mid-fill says nothing)
+		[ $((EPOCHSECONDS - ${BW[$id]["fillat"]:-0})) -le 3 ] && dt_want 50 || BW[$id]["fillwait"]=
+		return 0
+	fi
+	BW[$id]["fillwait"]=
+	case $r in
+	moved) dt_notep high "The page is no longer on the site the login is for: nothing was filled" ;;
+	nofield) dt_notep low "The sign-in form went before it could be filled" ;;
+	esac
+	return 0
 }
 
 # --- what a page is told of where it is -------------------------------------------
@@ -2661,10 +2842,11 @@ bw_histclear() {
 
 # Text made safe to put in a page.
 fn bw_esc(s) {
-	s=${s//&/&amp;}
-	s=${s//</&lt;}
-	s=${s//>/&gt;}
-	s=${s//\"/&quot;}
+	# the replacements quoted: an unquoted & in one is the text matched (hibr 0.99.428, as bash 5.2)
+	s=${s//&/"&amp;"}
+	s=${s//</"&lt;"}
+	s=${s//>/"&gt;"}
+	s=${s//\"/"&quot;"}
 	ret "$s"
 }
 
@@ -3038,6 +3220,7 @@ fn browser_context(int? id = "") {
 	dt_item "Back" b bw_back "$id"
 	dt_item "Forward" f bw_fwd "$id"
 	dt_item "Reload" r bw_reload "$id"
+	[ -n "$t" ] && bw_tabhas "$t" fill && dt_has dt_vwmatch && web loginform "$t" > /dev/null 2>&1 && dt_item "Fill Sign-In from Vault" v bw_vaultfill "$id"
 	[ -n "$t" ] && [ -z "${BW[$id]["app"]-}" ] && bw_tabhas "$t" nopicture && dt_item "Reopen in WebKit" w bw_reopenwk "$id"
 	if [ -n "$t" ] && bw_tabhas "$t" mute; then
 		local am
@@ -3101,6 +3284,12 @@ browser_menus() {
 		dt_item "Install as App${GL[ellipsis]}" i bw_install "$id"
 	else
 		dt_dim "Install as App${GL[ellipsis]}"
+	fi
+	if [ -n "${BW[$id]["cur"]}" ] && bw_tabhas "${BW[$id]["cur"]}" fill && dt_has dt_vwmatch; then
+		dt_item "Fill Sign-In from Vault" v bw_vaultfill "$id"
+		dt_has dt_akeyof && { local vk; vk := dt_akeyof browser vaultfill; [ -n "$vk" ] && dt_rowaccel "$vk"; }
+	else
+		dt_dim "Fill Sign-In from Vault"
 	fi
 	if bw_has dlstate && web dlstate > /dev/null 2>&1; then
 		dt_item "Cancel Download" d bw_dlstop
