@@ -212,10 +212,10 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "63daa7199d8259c8c8e67b7d7660cfc3066ba87817276eb85de724a9dbd59934",
+      "sha256": "f7c1582e1402206e19c788a0e311d2f3bdebf622174f648ddd5e4361d019dae7",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -228,7 +228,7 @@
           "kind": "control-panel",
           "as": "mailset.hibr",
           "path": "bundles/control-panel/mailset.hibr",
-          "sha256": "d060fac336d8023b2b841f7589f16ad8f8d02cac047968799af767d7119a14b3"
+          "sha256": "628e8b2cfdec05ca8e24fd8ebbaa50a556a1be20874202bb8ca55db14bcad2c0"
         }
       ]
     },
@@ -1341,11 +1341,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.72",
+      "version": "3.74",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "76118ad57393ce61578044cf1f009e47fa640789dd908fcd4eff2da7bbebc864",
-      "about": "The desktop's own words in العربية (ar): 1520 strings, read right to left.",
+      "sha256": "47aecc0050ab436e188734656e71b8021618e3ca12a862c1a874d41db940ce2b",
+      "about": "The desktop's own words in العربية (ar): 1527 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1570,10 +1570,10 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "2.4",
+      "version": "2.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "63daa7199d8259c8c8e67b7d7660cfc3066ba87817276eb85de724a9dbd59934",
+      "sha256": "f7c1582e1402206e19c788a0e311d2f3bdebf622174f648ddd5e4361d019dae7",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
