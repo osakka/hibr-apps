@@ -12,6 +12,19 @@
       "name": "calc",
       "dir": "Accessories"
     },
+    "apps/camera": {
+      "title": "Camera",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Accessories/camera.hibr",
+      "sha256": "e20485f38c437fcc7ce95f0ddb4191db556e3aa22f53a4ba614c88ef441a95c7",
+      "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, and Take Photo (space, or the button) to keep one in ~/Pictures/Camera. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and rewrites one small JPEG a few times a second, atomically, so the window never reads half a frame; the window draws it with the img module the way the Image Viewer draws a file. ffmpeg runs on a pty of the desktop's own (dt_watchstart), so it ends with the desktop however the desktop ends, and with the window when it closes. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "camera",
+      "modules": "img pty",
+      "dir": "Accessories"
+    },
     "apps/clock": {
       "title": "Clock",
       "version": "1.0",
@@ -1341,11 +1354,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.75",
+      "version": "3.76",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "ee788d0967dfa69247da38710719400f552974d969ab423741f31660dc7af4ed",
-      "about": "The desktop's own words in العربية (ar): 1530 strings, read right to left.",
+      "sha256": "1a41e6d78bccdcea822d64406fd44a4fbe32f948be7b29de74aa462fdbc536f5",
+      "about": "The desktop's own words in العربية (ar): 1540 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1436,6 +1449,19 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calc",
+      "dir": "Accessories"
+    },
+    "camera": {
+      "title": "Camera",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Accessories/camera.hibr",
+      "sha256": "e20485f38c437fcc7ce95f0ddb4191db556e3aa22f53a4ba614c88ef441a95c7",
+      "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, and Take Photo (space, or the button) to keep one in ~/Pictures/Camera. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and rewrites one small JPEG a few times a second, atomically, so the window never reads half a frame; the window draws it with the img module the way the Image Viewer draws a file. ffmpeg runs on a pty of the desktop's own (dt_watchstart), so it ends with the desktop however the desktop ends, and with the window when it closes. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "camera",
+      "modules": "img pty",
       "dir": "Accessories"
     },
     "imgview": {
