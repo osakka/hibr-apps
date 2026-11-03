@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.24
+app blit "API configuration and diagnostics for the Blit display server" 0.1.25
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -745,7 +745,8 @@ fn blit_cp_rendering_rows(int w, int n) {
 # way. The rows come from Blit's own list of effects, so a newer Blit's
 # effects appear here without a new pane, and an older one shows fewer.
 fn blit_effects_rows(int w) {
-    local n=0 i=0 output ordinal on reason
+    local n=0 i=0 output ordinal on reason raw
+    local -A unavailable
     blit_cp_tick "$w"
     blit_cp_row "$w" "$n" head "Blit pane effects (live)"; n=$((n + 1))
     blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
@@ -765,7 +766,11 @@ fn blit_effects_rows(int w) {
         blit_cp_row "$w" "$n" head "$output pane $ordinal"; n=$((n + 1))
         blit_cp_row "$w" "$n" set "On" "$on" "fxpane:$output:$ordinal" bool; n=$((n + 1))
         n := blit_cp_effect_sliders "$w" "$n" "$output" "$ordinal"
-        reason=${BCP_EFFECTS[panes][$i][unavailable][curvature]:-${BCP_EFFECTS[panes][$i][unavailable][glow]}}
+        # Any effect it cannot draw says why (Blit ADR 0207 added more).
+        reason=; unavailable=()
+        raw := json get BCP_EFFECTS ".panes[$i].unavailable" 2> /dev/null || raw='{}'
+        json parse unavailable "${raw:-"{}"}"
+        for raw in "${!unavailable[@]}"; do reason=${unavailable[$raw]}; break; done
         if [ -n "$reason" ]; then
             blit_cp_row "$w" "$n" info "Not drawn here" "$reason"; n=$((n + 1))
         fi
@@ -777,33 +782,53 @@ fn blit_effects_do(int w, key, int dir) { blit_do "$w" "$key" "$dir"; }
 fn blit_effects_slide(int w, key, int value) { blit_slide "$w" "$key" "$value"; }
 fn blit_effects_drop(int w, int r, int c, key) { blit_drop "$w" "$r" "$c" "$key"; }
 
-# One slider per effect Blit lists, for one pane.
+# One slider per effect Blit lists, for one pane. Its range is Blit's own:
+# brightness and contrast run -100..100 around 0 (Blit ADR 0207), and an
+# older Blit sends no minimum. A colour (the phosphor) is a choice instead.
 fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
-    local j=0 name param value label unit max
+    local j=0 name param value label unit max min
     while [ -n "${BCP_EFFECTS[available][$j][name]}" ]; do
         name=${BCP_EFFECTS[available][$j][name]}
         param=${BCP_EFFECTS[available][$j][parameter]}
         max=${BCP_EFFECTS[available][$j][maximum]}
+        min=${BCP_EFFECTS[available][$j][minimum]:-0}
         value=${BCP_FX[$output][$ordinal][$name][$param]:-0}
         unit=%; [ "$param" != radius_px ] || { unit=" px"; max=64; }
         # Blit's own title ("RGB shift"); an older Blit sends none.
         label=${BCP_EFFECTS[available][$j][title]:-${name^}}
-        blit_cp_row "$w" "$n" set "$label" "$value" "fx:$name:$output:$ordinal" slider
-        CP[$w][$n][min]=0; CP[$w][$n][max]=$max; CP[$w][$n][after]="($value$unit)"
+        if [ "$param" = color ]; then
+            value := blit_cp_phosphor_name "$value"
+            blit_cp_row "$w" "$n" set "$label (with Chroma)" "$value" "fxcolor:$name:$output:$ordinal"
+        else
+            blit_cp_row "$w" "$n" set "$label" "$value" "fx:$name:$output:$ordinal" slider
+            CP[$w][$n][min]=$min; CP[$w][$n][max]=$max; CP[$w][$n][after]="($value$unit)"
+        fi
         n=$((n + 1)); j=$((j + 1))
     done
     ret "$n"
 }
 
-# The parameter and the slider's top for an effect Blit lists.
+# The phosphor colours offered, as Blit stores them (0xRRGGBB; 0 is white,
+# Blit ADR 0207), and the name shown for a stored value.
+BCP_PHOSPHORS=(white:0 green:3407718 amber:16756736)
+fn blit_cp_phosphor_name(int value) {
+    local p
+    for p in "${BCP_PHOSPHORS[@]}"; do
+        [ "${p#*:}" != "$value" ] || { ret "${p%%:*}"; return 0; }
+    done
+    ret "$(printf '#%06x' "$value")"
+}
+
+# The parameter and the slider's range ("param min max") for an effect Blit
+# lists.
 fn blit_cp_effect_spec(name) {
     local j=0
     while [ -n "${BCP_EFFECTS[available][$j][name]}" ]; do
         if [ "${BCP_EFFECTS[available][$j][name]}" = "$name" ]; then
             if [ "${BCP_EFFECTS[available][$j][parameter]}" = radius_px ]; then
-                ret "radius_px 64"
+                ret "radius_px 0 64"
             else
-                ret "${BCP_EFFECTS[available][$j][parameter]} ${BCP_EFFECTS[available][$j][maximum]}"
+                ret "${BCP_EFFECTS[available][$j][parameter]} ${BCP_EFFECTS[available][$j][minimum]:-0} ${BCP_EFFECTS[available][$j][maximum]}"
             fi
             return 0
         fi
@@ -816,14 +841,14 @@ fn blit_cp_effect_spec(name) {
 # pane's switch (fxpane:output:ordinal) or the master switch (fxall, with
 # value 0/1). An effect at 0 is left out of the pane's entry.
 fn blit_cp_effect(int w, key, int value) {
-    local rest output ordinal name spec param max raw
+    local rest output ordinal name spec param min max raw
     local -A entry
     case $key in
     fxall)
         if [ "$value" = 1 ]; then json set BCP_FX .enabled true; else json set BCP_FX .enabled false; fi ;;
-    fxpane:* | fx:*)
+    fxpane:* | fx:* | fxcolor:*)
         rest=${key#*:}
-        if [ "${key%%:*}" = fx ]; then name=${rest%%:*}; rest=${rest#*:}; fi
+        if [ "${key%%:*}" != fxpane ]; then name=${rest%%:*}; rest=${rest#*:}; fi
         ordinal=${rest##*:}; output=${rest%:*}
         # Connector names never hold a dot, so the plain path reaches them.
         raw := json get BCP_FX ".$output.$ordinal" 2> /dev/null || raw=
@@ -833,8 +858,8 @@ fn blit_cp_effect(int w, key, int value) {
             if [ "$value" = 1 ]; then unset entry["enabled"]; else json set entry .enabled false; fi
         else
             spec := blit_cp_effect_spec "$name" || return 0
-            param=${spec% *}; max=${spec#* }
-            [ "$value" -ge 0 ] && [ "$value" -le "$max" ] || return 0
+            param=${spec%% *}; max=${spec##* }; min=${spec#* }; min=${min% *}
+            [ "$value" -ge "$min" ] && [ "$value" -le "$max" ] || return 0
             if [ "$value" = 0 ]; then unset entry["$name"]
             else json set entry ".$name.$param" "$value"; fi
         fi
@@ -950,7 +975,7 @@ fn blit_cp_hud_apply(field, value, kind = "") {
 
 # One choice source and selection path for native popups and keyboard stepping.
 fn blit_cp_choices(key) {
-    local i=0 raw
+    local i=0 raw rest name
     local -A cfg
     BCP_CHOICES=(); BCP_CHOICE_CURRENT=
     case $key in
@@ -965,6 +990,10 @@ fn blit_cp_choices(key) {
     update_restart)
         BCP_CHOICES=(at-login-screen manual)
         BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[settings][effective][restart_after_update]:-at-login-screen} ;;
+    fxcolor:*)
+        rest=${key#fxcolor:}; name=${rest%%:*}; rest=${rest#*:}
+        for raw in "${BCP_PHOSPHORS[@]}"; do BCP_CHOICES+=("${raw%%:*}"); done
+        BCP_CHOICE_CURRENT := blit_cp_phosphor_name "${BCP_FX[${rest%:*}][${rest##*:}][$name][color]:-0}" ;;
     hud_corner)
         BCP_CHOICES=(top-right top-left bottom-right bottom-left)
         BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[settings][effective][hud][corner]:-top-right} ;;
@@ -1021,6 +1050,10 @@ fn blit_cp_choose(key, value) {
     frame_timing) json set BCP_DRAFT .server.kms_frame_timing "$value" -s; BCP_DIRTY=1 ;;
     hud_corner) blit_cp_hud_apply corner "$value" string ;;
     update_restart) blit_cp_live_apply server restart_after_update "$value" ;;
+    fxcolor:*)
+        for option in "${BCP_PHOSPHORS[@]}"; do
+            [ "${option%%:*}" != "$value" ] || { blit_cp_effect 0 "$key" "${option#*:}"; break; }
+        done ;;
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
@@ -1070,7 +1103,7 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary | fallback | font | compositor | frame_timing | hud_corner | update_restart)
+    primary | fallback | font | compositor | frame_timing | hud_corner | update_restart | fxcolor:*)
         blit_cp_choices "$key"
         [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
         value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
@@ -1112,7 +1145,7 @@ fn blit_do(int w, key, int dir) {
         ordinal=${output##*:}; output=${output%:*}
         local spec param step=5
         spec := blit_cp_effect_spec "$value" || return 0
-        param=${spec% *}
+        param=${spec%% *}
         [ "$param" != radius_px ] || step=1
         blit_cp_effect 0 "$key" "$(( ${BCP_FX[$output][$ordinal][$value][$param]:-0} + dir * step ))" ;;
     export) dt_filepick save "Export Blit Configuration" "JSON:*.json" "$HOME" blit.json blit_cp_exported "" ;;

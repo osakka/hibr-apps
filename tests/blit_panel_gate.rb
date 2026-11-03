@@ -277,10 +277,35 @@ Dir.mktmpdir('blit-panel') do |root|
           [ "${CP[999999][$i][wtype]}" != bool ] || switches=$((switches + 1))
           i=$((i + 1))
       done
-      effects_listed=0
-      while [ -n "${BCP_EFFECTS[available][$effects_listed][name]}" ]; do effects_listed=$((effects_listed + 1)); done
+      effects_listed=0; colours=0
+      while [ -n "${BCP_EFFECTS[available][$effects_listed][name]}" ]; do
+          [ "${BCP_EFFECTS[available][$effects_listed][parameter]}" != color ] || colours=$((colours + 1))
+          effects_listed=$((effects_listed + 1))
+      done
       [ "$shown" = "12 (12 px)" ] || { echo "corner row: $shown" >&2; exit 73; }
-      [ "$sliders" = $((effects_listed * 2)) ] && [ "$switches" = 3 ] || { echo "effects pane layout: sliders=$sliders switches=$switches" >&2; exit 77; }
+      [ "$sliders" = $(((effects_listed - colours) * 2)) ] && [ "$switches" = 3 ] || { echo "effects pane layout: sliders=$sliders switches=$switches" >&2; exit 77; }
+      # Blit ADR 0207: brightness runs -100..100 around 0, and the phosphor is
+      # a choice of colours stored as 0xRRGGBB.
+      if [ "$colours" -gt 0 ]; then
+          i=0; bmin=; phos=
+          while [ "$i" -lt "$n" ]; do
+              [ "${CP[999999][$i][key]}" != "fx:brightness:$eo:1" ] || bmin=${CP[999999][$i][min]}
+              [ "${CP[999999][$i][key]}" != "fxcolor:phosphor:$eo:1" ] || phos=${CP[999999][$i][val]}
+              i=$((i + 1))
+          done
+          [ "$bmin" = -100 ] && [ "$phos" = white ] || { echo "tube rows: brightness min=$bmin phosphor=$phos" >&2; exit 87; }
+          blit_effects_slide 44 "fx:brightness:$eo:1" -40
+          finish; served
+          blit_cp_choose "fxcolor:phosphor:$eo:1" amber
+          finish; served
+          [ "${BCP_EFFECTS[panes][0][effects][brightness][level]}" = -40 ] &&
+          [ "${BCP_EFFECTS[panes][0][effects][phosphor][color]}" = 16756736 ] || { echo "tube controls not applied: $BCP_STATUS" >&2; exit 88; }
+          blit_effects_slide 44 "fx:brightness:$eo:1" 0
+          blit_cp_choose "fxcolor:phosphor:$eo:1" white
+          finish; served
+          [ -z "${BCP_EFFECTS[panes][0][effects][brightness][level]}" ] &&
+          [ -z "${BCP_EFFECTS[panes][0][effects][phosphor][color]}" ] || { echo 'tube controls not turned off' >&2; exit 89; }
+      fi
       # Switches: off keeps the values and draws nothing; on brings them back.
       blit_effects_do 44 fxall 1
       finish; served

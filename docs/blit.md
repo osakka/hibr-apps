@@ -1,5 +1,17 @@
 # Blit Control Panel
 
+## Tube colour and static noise (pane 0.1.25)
+
+Blit 0.3.32 (ADR 0207) adds five pane effects, listed by Blit like the
+others: **Static noise**, **Chroma**, **Phosphor**, **Brightness** and
+**Contrast**. The pane takes each slider's range from Blit, so brightness
+and contrast run from -100 to 100 with 0 in the middle (an older Blit sends
+no minimum, and 0 is the bottom). **Phosphor** is a choice of white, green
+or amber, stored as Blit's 0xRRGGBB value; it tints the picture only
+through **Chroma**, so its row says "with Chroma". A pane's "Not drawn here"
+row now gives the reason for any effect it cannot draw, not only curvature
+and glow, so the new effects on the CPU compositor are explained too.
+
 ## Zoom as a slider, and restart after update (pane 0.1.24)
 
 **Restart after update** (Blit 0.3.27, ADR 0205), in the Server section:
