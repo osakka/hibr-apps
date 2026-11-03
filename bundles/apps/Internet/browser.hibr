@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.35
+app browser "The web, in a window" 2.36
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1323,6 +1323,8 @@ fn bw_drawkey(int id) {
 	fi
 	x := dt_searchq "$id"
 	k+="|$x"
+	# the vault's answer for the page: the Vault mark comes with it, a job after the page
+	[ -n "$t" ] && k+="|${BWVM["$t"]-}"
 	if dt_has dt_omnisig; then
 		x := dt_omnisig "$id"
 		k+="|$x"
@@ -2093,6 +2095,13 @@ fn bw_vaultstate(int id, t) {
 	BW[$id]["vw"]=
 	[ -n "$t" ] && dt_has dt_vwmatch && dt_has dt_jobvars && bw_tabhas "$t" fill || return 0
 	h := web loginform "$t" 2> /dev/null || return 0
+	# no vault set up on this desktop: no mark, nothing asked (the vault's
+	# match says 2 for that as for locked; only locked is worth a mark)
+	if dt_has dt_vwstate; then
+		local vs
+		vs := dt_vwstate
+		case $vs in absent | none) return 0 ;; esac
+	fi
 	bw_vaultsafe "$t" || return 0
 	u := web url "$t" 2> /dev/null || u=
 	if [ "${BWVM["$t"]%%$'\t'*}" != "$u" ]; then
