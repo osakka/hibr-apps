@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.34
+app browser "The web, in a window" 2.35
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -2078,29 +2078,57 @@ fn bw_lines(text) {
 }
 BW_VWWIN=
 
-# The vault's word on tab t's sign-in form, asked once an address: in
-# BW[$id]["vw"], 0 a login (BW[$id]["vwn"] of them), 1 none, 2 locked, empty
-# for no form or no vault.
+# The vault's word on tab t's sign-in form, asked once an address -- in a job
+# (dt_jobvars), never in a frame: matching starts a vw that decrypts the vault,
+# a stall in any callback. Read here from what the job left: in BW[$id]["vw"],
+# 0 a login (BW[$id]["vwn"] of them), 1 none, 2 locked, empty for no form, no
+# vault, or the job still out.
+declare -gA BWVL		# tab -> the vault's matching lines, "name TAB id TAB user", for its last address
+BWVJ_HOST=
+BWVJ_OUT=
+BWVJ_ST=1
 fn bw_vaultstate(int id, t) {
-	local u h m st=1 n=0
+	local u h m
 
 	BW[$id]["vw"]=
-	[ -n "$t" ] && dt_has dt_vwmatch && bw_tabhas "$t" fill || return 0
+	[ -n "$t" ] && dt_has dt_vwmatch && dt_has dt_jobvars && bw_tabhas "$t" fill || return 0
 	h := web loginform "$t" 2> /dev/null || return 0
 	bw_vaultsafe "$t" || return 0
 	u := web url "$t" 2> /dev/null || u=
 	if [ "${BWVM["$t"]%%$'\t'*}" != "$u" ]; then
-		if m := dt_vwmatch "$h" 2> /dev/null; then
-			st=0
-			n := bw_lines "$m"
-		else
-			st=$?
-		fi
-		BWVM["$t"]="$u"$'\t'"$st"$'\t'"$n"
+		BWVM["$t"]="$u"$'\t'"out"$'\t'0
+		BWVJ_HOST=$h
+		dt_jobvars vault "$t" bw_vaultjobdone bw_vaultjob BWVJ_OUT BWVJ_ST || BWVM["$t"]="$u"$'\t'1$'\t'0
 	fi
 	m=${BWVM["$t"]#*$'\t'}
+	case ${m%%$'\t'*} in out) return 0 ;; esac
 	BW[$id]["vw"]=${m%%$'\t'*}
 	BW[$id]["vwn"]=${m#*$'\t'}
+	return 0
+}
+
+# The job: the vault asked, in a process of its own.
+bw_vaultjob() {
+	BWVJ_OUT=
+	if BWVJ_OUT := dt_vwmatch "$BWVJ_HOST"; then
+		BWVJ_ST=0
+	else
+		BWVJ_ST=$?
+	fi
+	return 0
+}
+
+# Its answer, kept for the tab it was asked for (if that tab is still on the address).
+fn bw_vaultjobdone(int n, int st) {
+	local t=${DTJ[$n]["tag"]} u k
+
+	[ -n "${BWVM["$t"]+x}" ] || return 0
+	u=${BWVM["$t"]%%$'\t'*}
+	k := bw_lines "$BWVJ_OUT"
+	BWVM["$t"]="$u"$'\t'"$BWVJ_ST"$'\t'"$k"
+	BWVL["$t"]=$BWVJ_OUT
+	BWVJ_OUT=
+	dt_want 10
 	return 0
 }
 
@@ -2137,12 +2165,17 @@ fn bw_vaultfill(int id) {
 		dt_notep high "Not filled: this page is not on a secure connection"
 		return 0
 	fi
-	# 3. asked again on the next frame: unlocking through the picker changes the answer
-	unset BWVM["$t"]
 	BW_VWWIN=$id
 	BW[$id]["vwhost"]=$h
-	m := dt_vwmatch "$h" 2> /dev/null
-	st=$?
+	# what the job found for this page (bw_vaultstate): never a vw here but the one read of the login itself
+	m=${BWVM["$t"]#*$'\t'}
+	st=${m%%$'\t'*}
+	m=${BWVL["$t"]-}
+	# asked again after this: unlocking through the picker changes the answer
+	unset BWVM["$t"]
+	case $st in
+	out | "") dt_notep low "Still asking the vault: try again in a moment"; return 0 ;;
+	esac
 	case $st in
 	0)
 		local n
