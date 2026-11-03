@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.36
+app browser "The web, in a window" 2.37
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -61,10 +61,13 @@ command -v dt_app > /dev/null && dt_app browser "Browser" 26 96 many "◎"
 # another workspace.
 command -v dt_ticker > /dev/null && dt_ticker bw_presencetick
 # The vault's login for the page's site filled into its sign-in form, on a key
-# the person can change (Control Panel > Shortcuts, under the Browser).
-# Alt-L by default: a terminal sends Alt-Shift-L as alt-L, which the desktop
-# does not yet take for alt-shift-l, so a Shift combination would not reach.
-command -v dt_appaction > /dev/null && dt_appaction browser vaultfill "Fill Sign-In from Vault" "mod-l"
+# the person can change (Control Panel > Shortcuts). Since hibr 0.99.432 that
+# is the desktop's own Fill Sign-In key (DT_KEYS signin), one row for every
+# window; before it, a Browser action of its own. Alt-L by default either way:
+# a terminal sends Alt-Shift-L as alt-L, which the desktop does not yet take
+# for alt-shift-l, so a Shift combination would not reach.
+command -v dt_vwfill > /dev/null ||
+	{ command -v dt_appaction > /dev/null && dt_appaction browser vaultfill "Fill Sign-In from Vault" "mod-l"; }
 
 declare -gA BW
 command -v dt_keepstate > /dev/null && dt_keepstate browser BW
@@ -1817,7 +1820,7 @@ fn browser_key(int id, key) {
 		BW[$id]["acur"]=${r##* }
 		return 0
 	fi
-	if dt_has dt_akeyis && dt_akeyis browser vaultfill "$key"; then
+	if bw_vaultkeyis "$key"; then
 		bw_vaultfill "$id"
 		return 0
 	fi
@@ -2154,6 +2157,27 @@ fn bw_vaultsafe(t) {
 }
 
 # Fill the page's sign-in form: the one login, or the vault's picker's choice.
+# Whether key is the Fill Sign-In key: the desktop's (hibr 0.99.432 on), or
+# the Browser's own action before that.
+fn bw_vaultkeyis(key) {
+	if dt_has dt_vwfill; then
+		dt_keyis signin "$key"
+	else
+		dt_has dt_akeyis && dt_akeyis browser vaultfill "$key"
+	fi
+}
+
+# The Fill Sign-In key as set now, empty for none.
+fn bw_vaultkeyof() {
+	local k=
+	if dt_has dt_vwfill; then
+		k=${DT_KEYS["signin"]-}
+	elif dt_has dt_akeyof; then
+		k := dt_akeyof browser vaultfill
+	fi
+	ret "$k"
+}
+
 fn bw_vaultfill(int id) {
 	local t=${BW[$id]["cur"]} h m st
 
@@ -3329,7 +3353,9 @@ browser_menus() {
 	fi
 	if [ -n "${BW[$id]["cur"]}" ] && bw_tabhas "${BW[$id]["cur"]}" fill && dt_has dt_vwmatch; then
 		dt_item "Fill Sign-In from Vault" v bw_vaultfill "$id"
-		dt_has dt_akeyof && { local vk; vk := dt_akeyof browser vaultfill; [ -n "$vk" ] && dt_rowaccel "$vk"; }
+		local vk
+		vk := bw_vaultkeyof
+		[ -n "$vk" ] && dt_rowaccel "$vk"
 	else
 		dt_dim "Fill Sign-In from Vault"
 	fi
