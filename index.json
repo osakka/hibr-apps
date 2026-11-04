@@ -389,15 +389,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "3.9",
+      "version": "3.10",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "ca75d4a615c826f9cc0fcf6e65d330b6b4df309b77ca4e2a72c71798c68ae83f",
+      "sha256": "776b587529d67c4594919c15e3cda55f4c59cc08a427c92015310a9cfea6cb2b",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.380",
+      "hibr": "0.99.439",
       "parts": [
         {
           "kind": "control-panel",
@@ -555,7 +555,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.364",
+      "hibr": "0.99.438",
       "parts": [
         {
           "kind": "control-panel",
@@ -895,7 +895,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.327"
+      "hibr": "0.99.438"
     },
     "control-strip/cursor": {
       "title": "Cursor",
@@ -1402,11 +1402,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.77",
+      "version": "3.78",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "10c147ec48d9d0cdbc896a0219a59dac118b2d7218a09cb8fa80ed7c2a2d7e48",
-      "about": "The desktop's own words in العربية (ar): 1543 strings, read right to left.",
+      "sha256": "543159970f0f914b17a915d20c270e8fbfedcdb8bef097449e58c6603abec2fd",
+      "about": "The desktop's own words in العربية (ar): 1548 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1768,15 +1768,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "3.9",
+      "version": "3.10",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "ca75d4a615c826f9cc0fcf6e65d330b6b4df309b77ca4e2a72c71798c68ae83f",
+      "sha256": "776b587529d67c4594919c15e3cda55f4c59cc08a427c92015310a9cfea6cb2b",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.380"
+      "hibr": "0.99.439"
     },
     "switchboard": {
       "title": "Switchboard",
@@ -1886,7 +1886,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.364"
+      "hibr": "0.99.438"
     },
     "screenshot": {
       "title": "Screenshot…",
@@ -2147,7 +2147,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.327"
+      "hibr": "0.99.438"
     },
     "cursor": {
       "title": "Cursor",

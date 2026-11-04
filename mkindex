@@ -338,6 +338,16 @@ ENTHIBR["apps/youtube"]=0.99.413   # YouTube 3.24 asks for each frame as WebKit 
 # SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
 # hibr would run every formula as a dry run and say "contained" nowhere.
 ENTHIBR["apps/sheet"]=0.99.427
+# Windows 1.5 offers chalk and slate for Frame, Title Bar and Buttons and
+# the mac placement, which only a 0.99.438 window manager draws; the
+# Notifications pane (with the Notifications app) sets DT_NOTECOLOUR,
+# which an older desktop never declares (hibr 0.99.438).
+ENTHIBR["control-panel/windows"]=0.99.438
+ENTHIBR["system/notifications"]=0.99.438
+# Files 3.10 reaches servers through dt_locof and the location functions
+# of wm/locations.hibr, first in 0.99.439 (hibr Gitea #475, ADR 0053):
+# on an older desktop it would not list a folder at all.
+ENTHIBR["apps/files"]=0.99.439
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
