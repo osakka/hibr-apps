@@ -561,7 +561,7 @@
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "e0e1d667716ce3302e70d81ebf8ab1e9921bfb048e29911ccd55c44653829ed6"
+          "sha256": "6f2d11e7a81e29ecb761830869e3df638a741bbd273116f8862b9f5f7b4613b2"
         }
       ]
     },
@@ -887,10 +887,10 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "4110cd1d48dd0f248cc8ec189913aefea45696cfdaeabca67761eaf9f8160130",
+      "sha256": "1d5ac6c5a94493a5096db7d061cc6509a673f752404328f2bb1ff00478ebad6b",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1104,6 +1104,18 @@
       "author": "Omar Sakka",
       "name": "toasters"
     },
+    "themes/chalk": {
+      "title": "Chalk",
+      "version": "1.0",
+      "kind": "themes",
+      "bundle": "bundles/themes/chalk.json",
+      "sha256": "ef438eb10c460df2e56942d84b15e11cbf1c9afef3fdcbf9e85b0c9c76a43407",
+      "about": "Blit's Chalk windows: a striped title bar framed in ink, close on the left and shade and zoom on the right, a one-line frame, and the alerts and notes to match. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere it falls back to plain lines.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "chalk",
+      "hibr": "0.99.187"
+    },
     "themes/charcoal": {
       "title": "Charcoal",
       "version": "1.2",
@@ -1196,6 +1208,18 @@
         }
       ]
     },
+    "themes/slate": {
+      "title": "Slate",
+      "version": "1.0",
+      "kind": "themes",
+      "bundle": "bundles/themes/slate.json",
+      "sha256": "2dc51ed13635ae2a4e1180afd62b884444b20160224fc4d827a91d2c7f27a00a",
+      "about": "Blit's Slate windows: a grey title bar with its boxes together on the right, a bevelled frame, and the alerts and notes to match; under a dark colour scheme it draws Slate's dark set. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere it falls back to plain lines.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "slate",
+      "hibr": "0.99.187"
+    },
     "colours/amber": {
       "title": "Amber",
       "version": "1.0",
@@ -1218,6 +1242,18 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "black",
+      "hibr": "0.99.187"
+    },
+    "colours/chalk": {
+      "title": "Chalk",
+      "version": "1.0",
+      "kind": "colours",
+      "bundle": "bundles/colours/chalk.json",
+      "sha256": "ad8d405ee1fac34c11ef6b590eed5f3ad86d3007b81e3dd98e7947b031ab8ee4",
+      "about": "Black on white over a grey desktop, the way Blit's Chalk windows are drawn.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "chalk",
       "hibr": "0.99.187"
     },
     "colours/charcoal": {
@@ -1328,6 +1364,18 @@
       "name": "paper",
       "hibr": "0.99.187"
     },
+    "colours/pewter": {
+      "title": "Pewter",
+      "version": "1.0",
+      "kind": "colours",
+      "bundle": "bundles/colours/pewter.json",
+      "sha256": "01a610d5a9525bb2cbc482ba83b77dd88d4e97de3f2fb1f538c78415a07e5457",
+      "about": "Light grey faces on a cool grey desktop, black ink and a blue accent: Blit's Slate windows in their light set.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "pewter",
+      "hibr": "0.99.187"
+    },
     "colours/phosphor": {
       "title": "Phosphor",
       "version": "1.0",
@@ -1354,11 +1402,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.76",
+      "version": "3.77",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "1a41e6d78bccdcea822d64406fd44a4fbe32f948be7b29de74aa462fdbc536f5",
-      "about": "The desktop's own words in العربية (ar): 1540 strings, read right to left.",
+      "sha256": "10c147ec48d9d0cdbc896a0219a59dac118b2d7218a09cb8fa80ed7c2a2d7e48",
+      "about": "The desktop's own words in العربية (ar): 1543 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2091,10 +2139,10 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "4110cd1d48dd0f248cc8ec189913aefea45696cfdaeabca67761eaf9f8160130",
+      "sha256": "1d5ac6c5a94493a5096db7d061cc6509a673f752404328f2bb1ff00478ebad6b",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
