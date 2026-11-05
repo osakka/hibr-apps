@@ -347,15 +347,15 @@
     },
     "apps/archives": {
       "title": "Archives",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/archives.hibr",
-      "sha256": "6af203f003896b2db075090a08307a13cb31a722b7c48f2c75938ebd0f1ec0aa",
+      "sha256": "332fc9197c17a7dd4e987509ad5b15b45c9caf1d6789b47201e194ee59a724bb",
       "about": "Show archives as folders in Files, compress and extract them\n\nan archive in Files is a folder (Gitea #475, ADR 0053).\n\nA catalogue extension: it opens no window of its own. It registers a location, archive://FILE/path, which Files shows read-only, an opener that sends an archive there, and the verbs Compress, Extract Here and Extract To. Removed, an archive is a plain file again and Files is exactly as it was: Files names none of this.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "archives",
-      "hibr": "0.99.441",
+      "hibr": "0.99.442",
       "parts": [
         {
           "kind": "control-panel",
@@ -1434,11 +1434,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.80",
+      "version": "3.81",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "bed96fa7b6779913ef3549d31ff5c758a2e4de4622fc9521867e96c3b41e73af",
-      "about": "The desktop's own words in العربية (ar): 1562 strings, read right to left.",
+      "sha256": "36c6f9dc14a2cc5b915260f819c888577e6d566b473379618a22bedd50387439",
+      "about": "The desktop's own words in العربية (ar): 1560 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1774,15 +1774,15 @@
     },
     "archives": {
       "title": "Archives",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/archives.hibr",
-      "sha256": "6af203f003896b2db075090a08307a13cb31a722b7c48f2c75938ebd0f1ec0aa",
+      "sha256": "332fc9197c17a7dd4e987509ad5b15b45c9caf1d6789b47201e194ee59a724bb",
       "about": "Show archives as folders in Files, compress and extract them\n\nan archive in Files is a folder (Gitea #475, ADR 0053).\n\nA catalogue extension: it opens no window of its own. It registers a location, archive://FILE/path, which Files shows read-only, an opener that sends an archive there, and the verbs Compress, Extract Here and Extract To. Removed, an archive is a plain file again and Files is exactly as it was: Files names none of this.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "archives",
-      "hibr": "0.99.441"
+      "hibr": "0.99.442"
     },
     "calendar": {
       "title": "Calendar",

@@ -358,7 +358,9 @@ ENTHIBR["colours/pewter-dark"]=0.99.440
 # 0.99.441; Archives 1.0 needs that release's location owner and verbs,
 # which an older desktop refuses outright (hibr Gitea #475).
 ENTHIBR["apps/files"]=0.99.441
-ENTHIBR["apps/archives"]=0.99.441
+# Archives 1.1 copies through _copyplan and _copyrun, which the copy window
+# reaches only from 0.99.442 (hibr ADR 0053).
+ENTHIBR["apps/archives"]=0.99.442
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
