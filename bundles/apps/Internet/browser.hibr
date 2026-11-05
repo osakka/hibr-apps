@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.39
+app browser "The web, in a window" 2.40
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -2996,7 +2996,7 @@ fn bw_histall(int id) {
 # engine -- what a meeting page finds of the camera and the microphone).
 # Someone who cannot get a call going types the address, or File >
 # Diagnostics, and reads the page out; nothing in them is sent anywhere.
-BW_VERSION="2.39"
+BW_VERSION="2.40"
 
 fn bw_arow(k, v) {
 	local x
@@ -3026,9 +3026,29 @@ fn bw_gstver() {
 	ret "not found"
 }
 
+# Whether a GStreamer plugin file is installed (the camera needs video4linux2; the portal way, pipewire), into yes/no.
+fn bw_gstplug(so) {
+	local f
+
+	for f in /usr/lib/*/gstreamer-1.0/$so /usr/lib64/gstreamer-1.0/$so /usr/lib/gstreamer-1.0/$so; do
+		[ -e "$f" ] && { ret yes; return 0; }
+	done
+	ret no
+}
+
+# What a camera device offers, as ffmpeg lists it (a few lines), when ffmpeg is there; the Camera app needs it, and it opens the device
+# for a moment only.
+fn bw_camformats(dev) {
+	local o
+
+	command -v ffmpeg > /dev/null || { ret "ffmpeg is not installed, so not listed"; return 0; }
+	o=$(timeout 4 ffmpeg -hide_banner -f v4l2 -list_formats all -i "$dev" 2>&1 | grep -E "Raw|Compressed|Not a video capture" | head -4 | tr '\n' ';')
+	ret "${o:-nothing listed}"
+}
+
 # The page called name (browser, diagnostics, camera) written into the cache, and its file's address.
 fn bw_aboutpage(name) {
-	local f d n x caps pk g rtc=off gv hv gm
+	local f d n x caps pk g rtc=off gv hv gm fv
 	local -a cams=()
 
 	f="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-$name.html"
@@ -3083,6 +3103,20 @@ fn bw_aboutpage(name) {
 				bw_arow "Camera device" "$x"
 			done
 			bw_arow "Camera access" "$gv"
+			for d in /dev/video*; do
+				[ -e "$d" ] || continue
+				x=no
+				[ -r "$d" ] && [ -w "$d" ] && x=yes
+				bw_arow "May open $d" "$x"
+				fv := bw_camformats "$d"
+				bw_arow "Formats of $d" "$fv"
+			done
+			fv := bw_gstplug libgstvideo4linux2.so
+			bw_arow "GStreamer camera part (video4linux2)" "$fv"
+			fv := bw_gstplug libgstjpeg.so
+			bw_arow "GStreamer picture decoding (jpeg)" "$fv"
+			fv := bw_gstplug libgstpipewire.so
+			bw_arow "GStreamer PipeWire part" "$fv"
 			bw_arow "Sound server" "$gm"
 			bw_arow "GStreamer" "$hv"
 			bw_arow "hibr-browser package" "${pk:-not installed from a package}"
@@ -3099,7 +3133,7 @@ fn bw_aboutpage(name) {
 			printf '%s' 'say("Page can use media devices",String(!!navigator.mediaDevices)+(window.isSecureContext?"":" (not a secure page)"),!!navigator.mediaDevices);'
 			printf '%s' 'if(navigator.permissions)["camera","microphone"].forEach(function(n){navigator.permissions.query({name:n}).then(function(r){say("Permission for "+n,r.state,r.state!="denied");},function(e){say("Permission for "+n,"error "+e.name,false);});});'
 			printf '%s' 'if(navigator.mediaDevices){'
-			printf '%s' 'navigator.mediaDevices.enumerateDevices().then(function(d){var v=d.filter(function(x){return x.kind=="videoinput"}).length,a=d.filter(function(x){return x.kind=="audioinput"}).length;say("Cameras the page can list",String(v),v>0);say("Microphones the page can list",String(a),a>0);},function(e){say("Listing devices","error "+e.name,false);});'
+			printf '%s' 'navigator.mediaDevices.enumerateDevices().then(function(d){var v=d.filter(function(x){return x.kind=="videoinput"}).length,a=d.filter(function(x){return x.kind=="audioinput"}).length;say("Cameras listed",String(v),v>0);say("Microphones listed",String(a),a>0);},function(e){say("Listing devices","error "+e.name,false);});'
 			printf '%s' 'navigator.mediaDevices.getUserMedia({video:true}).then(function(s){say("Opening the camera","works: "+s.getVideoTracks().map(function(t){return t.label}).join(" / "),true);s.getTracks().forEach(function(t){t.stop()});},function(e){say("Opening the camera","failed: "+e.name+" "+e.message,false);});'
 			printf '%s' 'navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){say("Opening the microphone","works: "+s.getAudioTracks().map(function(t){return t.label}).join(" / "),true);s.getTracks().forEach(function(t){t.stop()});},function(e){say("Opening the microphone","failed: "+e.name+" "+e.message,false);});'
 			printf '%s' '}</script>'
