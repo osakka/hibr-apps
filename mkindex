@@ -354,7 +354,11 @@ ENTHIBR["colours/pewter-dark"]=0.99.440
 # Files 3.10 reaches servers through dt_locof and the location functions
 # of wm/locations.hibr, first in 0.99.439 (hibr Gitea #475, ADR 0053):
 # on an older desktop it would not list a folder at all.
-ENTHIBR["apps/files"]=0.99.439
+# Files 3.11 passes a selection to dt_openverbs, which took one path before
+# 0.99.441; Archives 1.0 needs that release's location owner and verbs,
+# which an older desktop refuses outright (hibr Gitea #475).
+ENTHIBR["apps/files"]=0.99.441
+ENTHIBR["apps/archives"]=0.99.441
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
