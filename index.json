@@ -630,15 +630,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.10",
+      "version": "2.11",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "3227b597adffde253992e94f2151bbd24112260f580878f330a7ed7305261bc2",
+      "sha256": "7531e8fb419d948dea9519183ca6684478f3d1b5db0573edbd610f947f1c8a69",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.440"
+      "hibr": "0.99.443"
     },
     "control-panel/blit": {
       "title": "Blit",
@@ -1969,15 +1969,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.10",
+      "version": "2.11",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "3227b597adffde253992e94f2151bbd24112260f580878f330a7ed7305261bc2",
+      "sha256": "7531e8fb419d948dea9519183ca6684478f3d1b5db0573edbd610f947f1c8a69",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.440"
+      "hibr": "0.99.443"
     },
     "blit": {
       "title": "Blit",
