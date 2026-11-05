@@ -409,10 +409,10 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "3.11",
+      "version": "3.12",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "a9d9a2de739a0dbb355db9b955087d5dc6c6d5f971f4eab3b12dd2295d6a1bfc",
+      "sha256": "e61560eb9bd9ba07062cbeec9157dc8a4d6f11051050c27713cb1c0255151c94",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -567,10 +567,10 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "846a879877e7a815acf60579b8d0476a5bc142efa80922352b991aa9588a48fb",
+      "sha256": "c64b71268edb18cb5d75e67e3fc893d8374e8de033b78582cd664e07a0c0526f",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -581,7 +581,7 @@
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "a0939571748c08dead23bcfafd42e2deb23c5c0cdd6ea412f1ad2ea4f1b0c471"
+          "sha256": "a7fb5849cb9ba18dfc60914eb84a987ea7a3acb9297b5d6f3e1dc2abf27f807a"
         }
       ]
     },
@@ -1812,10 +1812,10 @@
     },
     "files": {
       "title": "Files",
-      "version": "3.11",
+      "version": "3.12",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "a9d9a2de739a0dbb355db9b955087d5dc6c6d5f971f4eab3b12dd2295d6a1bfc",
+      "sha256": "e61560eb9bd9ba07062cbeec9157dc8a4d6f11051050c27713cb1c0255151c94",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1922,10 +1922,10 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "846a879877e7a815acf60579b8d0476a5bc142efa80922352b991aa9588a48fb",
+      "sha256": "c64b71268edb18cb5d75e67e3fc893d8374e8de033b78582cd664e07a0c0526f",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
