@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.38
+app browser "The web, in a window" 2.39
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -136,6 +136,15 @@ fn bw_addr(t) {
 
 	t=${t#"${t%%[! ]*}"}
 	t=${t%"${t##*[! ]}"}
+	case $t in
+	about:browser | about:diagnostics | about:camera)
+		# the Browser's own pages (bw_aboutpage)
+		if q := bw_aboutpage "${t#about:}"; then
+			ret "$q"
+			return 0
+		fi
+		;;
+	esac
 	case $t in
 	*://* | about:* | data:* | file:*) ret "$t"; return 0 ;;
 	esac
@@ -2981,6 +2990,134 @@ fn bw_histall(int id) {
 	bw_newtab "$id" "file://$f"
 }
 
+# The Browser's own pages, built when asked for and shown from a file in the
+# cache: about:browser (what this Browser is and where it keeps things) and
+# about:diagnostics (what is under it, and -- run by the page, in this very
+# engine -- what a meeting page finds of the camera and the microphone).
+# Someone who cannot get a call going types the address, or File >
+# Diagnostics, and reads the page out; nothing in them is sent anywhere.
+BW_VERSION="2.39"
+
+fn bw_arow(k, v) {
+	local x
+
+	x := bw_esc "$v"
+	printf '<tr><td>%s</td><td>%s</td></tr>' "$k" "$x"
+}
+
+fn bw_apagehead(title, other, otherlab) {
+	printf '<!doctype html><meta charset=utf-8><title>%s</title>' "$title"
+	printf '<style>body{font:15px sans-serif;margin:1.5em;max-width:46em}h1{font-size:1.3em}h2{font-size:1.05em;margin:1.2em 0 .3em}'
+	printf 'td{padding:.1em 1.5em .1em 0;vertical-align:top}td:first-child{white-space:nowrap}.ok{color:#080}.no{color:#b00}small{color:#666}</style>'
+	printf '<h1>%s</h1><p><small>Pages of the Browser: <a href="%s">%s</a></small></p>' "$title" "$other" "$otherlab"
+}
+
+# GStreamer's version, from the name of its library (libgstreamer-1.0.so.0.2602.2 is 1.26.2); calls need 1.26.
+fn bw_gstver() {
+	local f x m
+
+	for f in /usr/lib/*/libgstreamer-1.0.so.0.* /usr/lib64/libgstreamer-1.0.so.0.* /usr/lib/libgstreamer-1.0.so.0.*; do
+		[ -e "$f" ] || continue
+		x=${f##*so.0.}
+		m=${x%%.*}
+		ret "1.$((m / 100)).${x#*.}"
+		return 0
+	done
+	ret "not found"
+}
+
+# The page called name (browser, diagnostics, camera) written into the cache, and its file's address.
+fn bw_aboutpage(name) {
+	local f d n x caps pk g rtc=off gv hv gm
+	local -a cams=()
+
+	f="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-$name.html"
+	mkdir -p "${f%/*}" 2> /dev/null
+	caps := web caps 2> /dev/null || caps=
+	[ "$BW_RTC" = 1 ] && rtc=on
+	case $name in
+	browser)
+		{
+			bw_apagehead "About Browser" about:diagnostics "Diagnostics"
+			printf '<h2>This Browser</h2><table>'
+			bw_arow "Version" "$BW_VERSION"
+			bw_arow "hibr" "${HIBR_VERSION:-unknown}"
+			bw_arow "Engine for new tabs" "${BW_ENGINE:-auto}"
+			bw_arow "What the engine can do" "$caps"
+			printf '</table><h2>Where it keeps things</h2><table>'
+			bw_arow "Profile folder (cookies, logins)" "${BW_PROFILE:-the engine's own}"
+			bw_arow "History" "$BW_HIST"
+			bw_arow "Bookmarks" "$BW_MARKS"
+			bw_arow "Site settings" "$BW_SITES"
+			bw_arow "Downloads" "${BW_DLDIR:-the default folder}"
+			printf '</table><h2>Settings</h2><table>'
+			bw_arow "Home page" "${BW_HOME:-none}"
+			bw_arow "Search" "$BW_SEARCH"
+			bw_arow "Allow Calls and Meetings" "$rtc"
+			bw_arow "Camera permission" "$BW_PCAM"
+			bw_arow "Microphone permission" "$BW_PMIC"
+			printf '</table>'
+		} > "$f" 2> /dev/null || return 1
+		;;
+	diagnostics | camera)
+		f="${f%/*}/browser-diagnostics.html"
+		for d in /sys/class/video4linux/*; do
+			[ -r "$d/name" ] || continue
+			n=
+			read -r n < "$d/name" 2> /dev/null
+			cams+=("${d##*/}: $n")
+		done
+		[ "${#cams[@]}" = 0 ] && cams=("none found (no /dev/video device)")
+		pk=$(dpkg-query -W -f='${Version}' hibr-browser 2> /dev/null)
+		g=$(id -nG 2> /dev/null)
+		gv=no
+		case " $g " in *" video "*) gv="yes (in the video group)" ;; *) gv="no (not in the video group; groups: $g)" ;; esac
+		gm="not found"
+		[ -S "${XDG_RUNTIME_DIR:-/run/user/$UID}/pulse/native" ] && gm="found (PulseAudio or PipeWire)"
+		hv := bw_gstver
+		{
+			bw_apagehead "Diagnostics" about:browser "About Browser"
+			printf '<h2>What a meeting page finds <small>(it asks as a meeting would: answer Allow Once)</small></h2><div id=o>Working...</div>'
+			printf '<h2>This computer</h2><table>'
+			for x in "${cams[@]}"; do
+				bw_arow "Camera device" "$x"
+			done
+			bw_arow "Camera access" "$gv"
+			bw_arow "Sound server" "$gm"
+			bw_arow "GStreamer" "$hv"
+			bw_arow "hibr-browser package" "${pk:-not installed from a package}"
+			bw_arow "hibr / Browser" "${HIBR_VERSION:-?} / $BW_VERSION"
+			x=no; bw_has webrtc && x=yes
+			bw_arow "This engine can carry calls" "$x (WebKit with GStreamer 1.26 or newer)"
+			bw_arow "Allow Calls and Meetings" "$rtc"
+			bw_arow "Camera / microphone permission setting" "$BW_PCAM / $BW_PMIC"
+			bw_arow "Engine" "$caps"
+			printf '</table>'
+			printf '%s' '<script>'
+			printf '%s' 'var o=document.getElementById("o"),rows=[];'
+			printf '%s' 'function say(k,v,ok){rows.push("<tr><td>"+k+"</td><td class="+(ok?"ok":"no")+">"+v+"</td></tr>");o.innerHTML="<table>"+rows.join("")+"</table>";}'
+			printf '%s' 'say("Page can use media devices",String(!!navigator.mediaDevices)+(window.isSecureContext?"":" (not a secure page)"),!!navigator.mediaDevices);'
+			printf '%s' 'if(navigator.permissions)["camera","microphone"].forEach(function(n){navigator.permissions.query({name:n}).then(function(r){say("Permission for "+n,r.state,r.state!="denied");},function(e){say("Permission for "+n,"error "+e.name,false);});});'
+			printf '%s' 'if(navigator.mediaDevices){'
+			printf '%s' 'navigator.mediaDevices.enumerateDevices().then(function(d){var v=d.filter(function(x){return x.kind=="videoinput"}).length,a=d.filter(function(x){return x.kind=="audioinput"}).length;say("Cameras the page can list",String(v),v>0);say("Microphones the page can list",String(a),a>0);},function(e){say("Listing devices","error "+e.name,false);});'
+			printf '%s' 'navigator.mediaDevices.getUserMedia({video:true}).then(function(s){say("Opening the camera","works: "+s.getVideoTracks().map(function(t){return t.label}).join(" / "),true);s.getTracks().forEach(function(t){t.stop()});},function(e){say("Opening the camera","failed: "+e.name+" "+e.message,false);});'
+			printf '%s' 'navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){say("Opening the microphone","works: "+s.getAudioTracks().map(function(t){return t.label}).join(" / "),true);s.getTracks().forEach(function(t){t.stop()});},function(e){say("Opening the microphone","failed: "+e.name+" "+e.message,false);});'
+			printf '%s' '}</script>'
+		} > "$f" 2> /dev/null || return 1
+		;;
+	*) return 1 ;;
+	esac
+	ret "file://$f"
+}
+
+# One of those pages in a tab of this window.
+fn bw_about(int id, name) {
+	local a
+
+	a := bw_aboutpage "$name" || return 0
+	bw_newtab "$id" "$a"
+}
+
 # --- bookmarks ----------------------------------------------------------------
 
 # Every bookmark, titles into BW_MARKT and addresses into BW_MARKU.
@@ -3394,6 +3531,8 @@ browser_menus() {
 	else
 		dt_dim "Fill Sign-In from Vault"
 	fi
+	dt_item "Diagnostics${GL[ellipsis]}" m bw_about "$id" diagnostics
+	dt_item "Browser Information${GL[ellipsis]}" o bw_about "$id" browser
 	if bw_has dlstate && web dlstate > /dev/null 2>&1; then
 		dt_item "Cancel Download" d bw_dlstop
 	else
