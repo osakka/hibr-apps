@@ -1126,15 +1126,15 @@
     },
     "themes/chalk": {
       "title": "Chalk",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "themes",
       "bundle": "bundles/themes/chalk.json",
-      "sha256": "4d6650301b44c914236a8a6846561a350b259150f97f58bff53c3b1b8a72d47a",
+      "sha256": "0c7f17a77927a979edcfdcf0824f21149b4e3e39746ee3729eb3b6f280deb9c8",
       "about": "Blit's Chalk windows: a striped title bar framed in ink, close on the left and shade and zoom on the right, a one-line frame, Blit's capped dialog buttons and a thin shadow. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere the frame, title bar and buttons are drawn as plain lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "chalk",
-      "hibr": "0.99.440"
+      "hibr": "0.99.446"
     },
     "themes/charcoal": {
       "title": "Charcoal",
@@ -1230,15 +1230,15 @@
     },
     "themes/slate": {
       "title": "Slate",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "themes",
       "bundle": "bundles/themes/slate.json",
-      "sha256": "d95f5455e3f8b40dfeedaba4342b8f11ced6b6f597374a7bd56ed05bd733dbb5",
+      "sha256": "b72a2fbe622d8acd78cabe295bc6a441b9635c17e412d8352269587f4a53e9cf",
       "about": "Blit's Slate windows: a grey title bar with its boxes together on the right, a bevelled frame, Blit's capped dialog buttons and a thin shadow, coloured by the Pewter scheme -- choose Pewter Dark for the dark look. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere the frame, title bar and buttons are drawn as plain lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "slate",
-      "hibr": "0.99.440"
+      "hibr": "0.99.446"
     },
     "colours/amber": {
       "title": "Amber",

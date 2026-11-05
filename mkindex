@@ -348,8 +348,8 @@ ENTHIBR["control-panel/windows"]=0.99.440
 # Appearance 2.11 sets DT_SHADOWINK, which only a 0.99.443 desktop declares.
 ENTHIBR["control-panel/appearance"]=0.99.443
 ENTHIBR["system/notifications"]=0.99.440
-ENTHIBR["themes/chalk"]=0.99.440
-ENTHIBR["themes/slate"]=0.99.440
+ENTHIBR["themes/chalk"]=0.99.446
+ENTHIBR["themes/slate"]=0.99.446
 ENTHIBR["colours/pewter"]=0.99.440
 ENTHIBR["colours/pewter-dark"]=0.99.440
 # Files 3.10 reaches servers through dt_locof and the location functions
