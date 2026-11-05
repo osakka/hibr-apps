@@ -547,21 +547,21 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "cf91ae8b2af046ddcf41de2bb4b7132a8415257b46331c0f58c95d812fe58de7",
+      "sha256": "846a879877e7a815acf60579b8d0476a5bc142efa80922352b991aa9588a48fb",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.438",
+      "hibr": "0.99.440",
       "parts": [
         {
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "6f2d11e7a81e29ecb761830869e3df638a741bbd273116f8862b9f5f7b4613b2"
+          "sha256": "a0939571748c08dead23bcfafd42e2deb23c5c0cdd6ea412f1ad2ea4f1b0c471"
         }
       ]
     },
@@ -610,15 +610,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.9",
+      "version": "2.10",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "bf839eacc213fded7d7c17927a144b6ef11a0a8beea122268a9b1dd0b84cc2ed",
+      "sha256": "3227b597adffde253992e94f2151bbd24112260f580878f330a7ed7305261bc2",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.391"
+      "hibr": "0.99.440"
     },
     "control-panel/blit": {
       "title": "Blit",
@@ -887,15 +887,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "1d5ac6c5a94493a5096db7d061cc6509a673f752404328f2bb1ff00478ebad6b",
+      "sha256": "2aed32441359e031b79287a8ad240cce38980785edce293c51ba06d9d92c70f0",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.438"
+      "hibr": "0.99.440"
     },
     "control-strip/cursor": {
       "title": "Cursor",
@@ -1106,15 +1106,15 @@
     },
     "themes/chalk": {
       "title": "Chalk",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "themes",
       "bundle": "bundles/themes/chalk.json",
-      "sha256": "ef438eb10c460df2e56942d84b15e11cbf1c9afef3fdcbf9e85b0c9c76a43407",
-      "about": "Blit's Chalk windows: a striped title bar framed in ink, close on the left and shade and zoom on the right, a one-line frame, and the alerts and notes to match. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere it falls back to plain lines.",
+      "sha256": "4d6650301b44c914236a8a6846561a350b259150f97f58bff53c3b1b8a72d47a",
+      "about": "Blit's Chalk windows: a striped title bar framed in ink, close on the left and shade and zoom on the right, a one-line frame, Blit's capped dialog buttons and a thin shadow. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere the frame, title bar and buttons are drawn as plain lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "chalk",
-      "hibr": "0.99.187"
+      "hibr": "0.99.440"
     },
     "themes/charcoal": {
       "title": "Charcoal",
@@ -1210,15 +1210,15 @@
     },
     "themes/slate": {
       "title": "Slate",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "themes",
       "bundle": "bundles/themes/slate.json",
-      "sha256": "2dc51ed13635ae2a4e1180afd62b884444b20160224fc4d827a91d2c7f27a00a",
-      "about": "Blit's Slate windows: a grey title bar with its boxes together on the right, a bevelled frame, and the alerts and notes to match; under a dark colour scheme it draws Slate's dark set. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere it falls back to plain lines.",
+      "sha256": "d95f5455e3f8b40dfeedaba4342b8f11ced6b6f597374a7bd56ed05bd733dbb5",
+      "about": "Blit's Slate windows: a grey title bar with its boxes together on the right, a bevelled frame, Blit's capped dialog buttons and a thin shadow, coloured by the Pewter scheme -- choose Pewter Dark for the dark look. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere the frame, title bar and buttons are drawn as plain lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "slate",
-      "hibr": "0.99.187"
+      "hibr": "0.99.440"
     },
     "colours/amber": {
       "title": "Amber",
@@ -1364,17 +1364,29 @@
       "name": "paper",
       "hibr": "0.99.187"
     },
-    "colours/pewter": {
-      "title": "Pewter",
+    "colours/pewter-dark": {
+      "title": "Pewter Dark",
       "version": "1.0",
       "kind": "colours",
+      "bundle": "bundles/colours/pewter-dark.json",
+      "sha256": "11ac1d5756a1045114c5f9940cfac76eb72380fe39ed44ac82938e04314c3999",
+      "about": "Pewter in the dark: charcoal-grey faces and title bars, pale grey ink and a soft blue accent -- Slate's dark look, drawn by Blit in these colours.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "pewter-dark",
+      "hibr": "0.99.440"
+    },
+    "colours/pewter": {
+      "title": "Pewter",
+      "version": "1.1",
+      "kind": "colours",
       "bundle": "bundles/colours/pewter.json",
-      "sha256": "01a610d5a9525bb2cbc482ba83b77dd88d4e97de3f2fb1f538c78415a07e5457",
-      "about": "Light grey faces on a cool grey desktop, black ink and a blue accent: Blit's Slate windows in their light set.",
+      "sha256": "f80ac09f4ec414ae42db2610755a3948f5c44814ea19012a1df035161e59cc17",
+      "about": "Light grey faces on a cool grey desktop, black ink and a blue accent, with grey title bars: the colours Slate is drawn in by Blit.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pewter",
-      "hibr": "0.99.187"
+      "hibr": "0.99.440"
     },
     "colours/phosphor": {
       "title": "Phosphor",
@@ -1402,10 +1414,10 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.78",
+      "version": "3.79",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "543159970f0f914b17a915d20c270e8fbfedcdb8bef097449e58c6603abec2fd",
+      "sha256": "79da17c01e9c4997755f0a4a096497ff6ceccab022138369d45e49b1ab8e5894",
       "about": "The desktop's own words in العربية (ar): 1548 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1878,15 +1890,15 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "cf91ae8b2af046ddcf41de2bb4b7132a8415257b46331c0f58c95d812fe58de7",
+      "sha256": "846a879877e7a815acf60579b8d0476a5bc142efa80922352b991aa9588a48fb",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.438"
+      "hibr": "0.99.440"
     },
     "screenshot": {
       "title": "Screenshot…",
@@ -1925,15 +1937,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.9",
+      "version": "2.10",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "bf839eacc213fded7d7c17927a144b6ef11a0a8beea122268a9b1dd0b84cc2ed",
+      "sha256": "3227b597adffde253992e94f2151bbd24112260f580878f330a7ed7305261bc2",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.391"
+      "hibr": "0.99.440"
     },
     "blit": {
       "title": "Blit",
@@ -2139,15 +2151,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.5",
+      "version": "1.6",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "1d5ac6c5a94493a5096db7d061cc6509a673f752404328f2bb1ff00478ebad6b",
+      "sha256": "2aed32441359e031b79287a8ad240cce38980785edce293c51ba06d9d92c70f0",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, which side its buttons dock to, where its title sits, which glyphs the buttons are drawn with, Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.438"
+      "hibr": "0.99.440"
     },
     "cursor": {
       "title": "Cursor",

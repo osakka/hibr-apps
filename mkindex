@@ -338,12 +338,19 @@ ENTHIBR["apps/youtube"]=0.99.413   # YouTube 3.24 asks for each frame as WebKit 
 # SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
 # hibr would run every formula as a dry run and say "contained" nowhere.
 ENTHIBR["apps/sheet"]=0.99.427
-# Windows 1.5 offers chalk and slate for Frame, Title Bar and Buttons and
-# the mac placement, which only a 0.99.438 window manager draws; the
-# Notifications pane (with the Notifications app) sets DT_NOTECOLOUR,
-# which an older desktop never declares (hibr 0.99.438).
-ENTHIBR["control-panel/windows"]=0.99.438
-ENTHIBR["system/notifications"]=0.99.438
+# Windows 1.6 offers chalk and slate for Frame, Title Bar and Window
+# Buttons and the split placement, Appearance 2.10 the Thin shadow, and
+# Notifications 1.5 its Chalk and Slate frames: each is drawn only by the
+# 0.99.440 window manager, where every setting draws its own part. Chalk
+# and Slate 1.1 ask for those values, so an older desktop would refuse or
+# misdraw them, and Pewter's `highlight` is a role it never reads.
+ENTHIBR["control-panel/windows"]=0.99.440
+ENTHIBR["control-panel/appearance"]=0.99.440
+ENTHIBR["system/notifications"]=0.99.440
+ENTHIBR["themes/chalk"]=0.99.440
+ENTHIBR["themes/slate"]=0.99.440
+ENTHIBR["colours/pewter"]=0.99.440
+ENTHIBR["colours/pewter-dark"]=0.99.440
 # Files 3.10 reaches servers through dt_locof and the location functions
 # of wm/locations.hibr, first in 0.99.439 (hibr Gitea #475, ADR 0053):
 # on an older desktop it would not list a folder at all.
