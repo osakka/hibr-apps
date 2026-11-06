@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.27
+app blit "API configuration and diagnostics for the Blit display server" 0.1.28
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -662,6 +662,11 @@ fn blit_rows(int w) {
         blit_cp_row "$w" "$n" info "Font size" "Requires Blit 0.1.561+"
     fi
     n=$((n + 1))
+    # How text is hinted (Blit 0.3.47+, ADR 0218 there); fitted icons ignore it.
+    local hinting=${BCP_SNAPSHOT[fonts][active][hinting]}
+    if [ -n "$hinting" ] && [ "$hinting" != null ]; then
+        blit_cp_row "$w" "$n" set "Hinting" "$hinting" hinting; n=$((n + 1))
+    fi
     blit_cp_row "$w" "$n" head Server; n=$((n + 1))
     if [ -n "${BCP_ZAP[enabled]}" ]; then
         on=off; [ "${BCP_ZAP[enabled]}" = true ] && on=on
@@ -1030,6 +1035,7 @@ fn blit_cp_choices(key) {
             i=$((i + 1))
         done
         BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[fonts][active][id]} ;;
+    hinting) BCP_CHOICES=(full light none); BCP_CHOICE_CURRENT=${BCP_SNAPSHOT[fonts][active][hinting]:-full} ;;
     shape) BCP_CHOICES=(arrow hand precision); BCP_CHOICE_CURRENT=${BCP_DRAFT[pointer][shape]:-arrow} ;;
     palette) BCP_CHOICES=(pearl obsidian neon amber); BCP_CHOICE_CURRENT=${BCP_DRAFT[pointer][palette]:-pearl} ;;
     device)
@@ -1057,7 +1063,7 @@ fn blit_cp_choose(key, value) {
     # rest change the staged draft, which a background refresh leaves alone
     # once it has been edited. Refusing them all while a quiet refresh ran
     # dropped a click on a dropdown for as long as the refresh took.
-    [ "$BCP_BUSY" = 0 ] || [ "$key" != font ] || return 0
+    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ]; } || return 0
     blit_cp_choices "$key"
     for option in "${BCP_CHOICES[@]}"; do [ "$option" != "$value" ] || valid=1; done
     [ "$valid" = 1 ] || return 0
@@ -1084,6 +1090,9 @@ fn blit_cp_choose(key, value) {
     font)
         json parse payload '{}'; json set payload .font_id "$value" -s
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
+    hinting)
+        json parse payload '{}'; json set payload .hinting "$value" -s
+        body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
     shape | palette) json set BCP_DRAFT ".pointer.$key" "$value" -s; BCP_DIRTY=1 ;;
     device) BCP_POINTER_ID=$value ;;
     acceleration) option=0; [ "$value" != adaptive ] || option=1; blit_mouse_slide 0 acceleration "$option" ;;
@@ -1095,7 +1104,7 @@ fn blit_cp_selected(int w, value) {
     blit_cp_choose "${BCP_DROP_KEY[$w]}" "$value"
 }
 fn blit_drop(int w, int r, int c, key) {
-    [ "$BCP_BUSY" = 0 ] || [ "$key" != font ] || return 0
+    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ]; } || return 0
     blit_cp_choices "$key"
     [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
     BCP_DROP_KEY[$w]=$key

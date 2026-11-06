@@ -1,5 +1,14 @@
 # Blit Control Panel
 
+## Hinting (pane 0.1.28)
+
+Under **Font**, a **Hinting** row chooses how Blit hints text: `full` (the
+default), `light` or `none`. It applies at once and is saved, like the font
+and its size, through Blit's font API (`PUT /v1/fonts {"hinting": ...}`), and
+needs Blit 0.3.47 or later; with an older Blit the row is not shown. Icons are
+fitted by Blit and ignore it. The icon colour choice is not here: it changes
+every Blit icon on the desktop, so it lives under Appearance.
+
 ## Mask type (pane 0.1.27)
 
 Blit 0.3.35 (ADR 0209) adds the **CRT mask**, a 0..100 slider, and its

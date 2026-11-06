@@ -468,6 +468,26 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_slide 44 font_size 64
       finish
       [ "${BCP_SNAPSHOT[fonts][active][size_px]}" = 64 ] || exit 46
+      # Hinting (Blit 0.3.47+): a choice row, applied live through the font API.
+      n := blit_rows 44
+      i=0; hinting_found=0
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[44][$i][key]}" != hinting ] || hinting_found=1
+          i=$((i + 1))
+      done
+      [ "$hinting_found" = 1 ] || { echo 'hinting row missing' >&2; exit 108; }
+      # Drawing the rows may start a quiet refresh; a choice that sends a
+      # request is refused while one is in flight, as the font's is.
+      finish
+      blit_cp_choose hinting light
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][hinting]}" = light ] || { echo "hinting failed: $BCP_STATUS" >&2; exit 109; }
+      blit_cp_choose hinting sideways
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][hinting]}" = light ] || { echo 'unknown hinting accepted' >&2; exit 110; }
+      blit_cp_choose hinting full
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][hinting]}" = full ] || exit 111
       blit_slide 44 font_size 7
       blit_slide 44 font_size 65
       [ "$BCP_BUSY" = 0 ] || exit 47
@@ -601,8 +621,11 @@ Dir.mktmpdir('blit-panel') do |root|
       source /usr/share/hibr/desktop/wm/jobs.hibr
       source '#{BUNDLE}'
       # Match the installed session: cp_panes sources bundles first,
-      # dt_open loads preferences afterwards, and only then a pane runs.
-      source "$DT_CONF"
+      # dt_load reads the preferences afterwards (desktop.json since Hibr
+      # keeps them as JSON), and only then a pane runs.
+      declare -gA DT_CONFJ
+      json parse DT_CONFJ < "$DT_CONF"
+      dt_keepload BCP_URL
       [ "$BCP_URL" = 'http://127.0.0.1:#{PORT}' ] || exit 2
       blit_cp_start refresh
       [ "$BCP_TOKEN" = panel-test-token ] || exit 1
@@ -611,7 +634,7 @@ Dir.mktmpdir('blit-panel') do |root|
     HIBR
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
-    abort('token was written into executable desktop settings') if File.read(File.join(root,'config/hibr/desktop.hibr')).include?('panel-test-token')
+    abort('token was written into the desktop settings') if File.read(File.join(root,'config/hibr/desktop.json')).include?('panel-test-token')
     puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity zoom=slider_210to200+160to150+100 restart_after_update=manual+at-login-screen restart=confirmed+back'
   ensure
     File.chmod(0700,root)
