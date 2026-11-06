@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.4.0
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.4.1
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -359,6 +359,59 @@ fn wtp_rate(int b) {
 	else ret "${b}B"; fi
 }
 
+# ---- the firewall section (M2, ADR 0027) ------------------------------------------------------------------------------
+# The rules are the file /etc/wiretap/rules (anyone may read it); changing them is `wiretap fw` and the root helper behind pkexec.
+# The pane shows them and has one switch: apply them (on) or remove the table (off). WT_FW_STATE (a file that exists when on) is for tests.
+fn wtp_fw_rules() {
+	local f
+	f=${WT_RULES:-/etc/wiretap/rules}
+	[ -r "$f" ] && cat "$f"
+	return 0
+}
+
+fn wtp_fw_active() {
+	if [ -n "${WT_FW_STATE:-}" ]; then [ -e "$WT_FW_STATE" ]; return $?; fi
+	command -v systemctl > /dev/null 2>&1 && systemctl is-active --quiet wiretap-rules.service 2> /dev/null
+}
+
+fn wtp_fw_set(verb) {
+	local h
+	h=${WT_RULES_HELPER:-/usr/libexec/wiretap-rules}
+	if [ ! -x "$h" ]; then wta_say "Wiretap: the firewall helper is not installed"; return 1; fi
+	if [ -n "${WT_RULES_HELPER:-}" ]; then "$h" "$verb" < /dev/null > /dev/null 2>&1
+	else (pkexec "$h" "$verb" < /dev/null > /dev/null 2>&1 &); fi
+}
+
+# adds the Firewall rows at CP[$w][$n..] and returns the new n
+fn wtp_fw_rows(int w, int n) {
+	local l t k cnt on
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Firewall"; n=$((n + 1))
+	cnt=0
+	while IFS= read -r l; do
+		t=${l%%#*}
+		[ -n "${t//[[:space:]]/}" ] || continue
+		cnt=$((cnt + 1))
+	done < <(wtp_fw_rules)
+	if [ "$cnt" = 0 ]; then
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Rules"; CP[$w][$n]["val"]="none: everything is allowed (wiretap fw block HOST PORT --tcp)"; n=$((n + 1))
+		ret "$n"; return 0
+	fi
+	on=off; wtp_fw_active && on=on
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Firewall"; CP[$w][$n]["val"]=$on; CP[$w][$n]["key"]=DT_WTFW; n=$((n + 1))
+	k=0
+	while IFS= read -r l; do
+		t=${l%%#*}
+		[ -n "${t//[[:space:]]/}" ] || continue
+		k=$((k + 1))
+		[ "$k" -le 5 ] || break
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="  $k"; CP[$w][$n]["val"]=$t; n=$((n + 1))
+	done < <(wtp_fw_rules)
+	if [ "$cnt" -gt 5 ]; then
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="  ..."; CP[$w][$n]["val"]="$((cnt - 5)) more (wiretap fw)"; n=$((n + 1))
+	fi
+	ret "$n"
+}
+
 fn wiretap_rows(int w) {
 	local n=0 i k name
 
@@ -370,6 +423,7 @@ fn wiretap_rows(int w) {
 	fi
 	if [ "$WTP_UP" = 0 ]; then
 		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Service"; CP[$w][$n]["val"]="not running (wiretap on, or join the group wiretap and log in again)"; n=$((n + 1))
+		n := wtp_fw_rows "$w" "$n"
 		ret "$n"; return 0
 	fi
 	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Service"; CP[$w][$n]["val"] := wtp_get .version "?"; n=$((n + 1))
@@ -395,12 +449,14 @@ fn wiretap_rows(int w) {
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with a graph beside the tap"; CP[$w][$n]["val"]=$([ "$DT_WTGAUGE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTGAUGE; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with the download rate"; CP[$w][$n]["val"]=$([ "$DT_WTRATE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTRATE; n=$((n + 1))
+	n := wtp_fw_rows "$w" "$n"
 	ret "$n"
 }
 
 fn wiretap_do(int? w = "", k = "", int? dir = "") {
 	case $k in
 	DT_WTBAR | DT_WTGAUGE | DT_WTRATE | DT_WTNEW | DT_WTBIG | DT_WTHOST) cp_toggle "$k" ;;
+	DT_WTFW) if wtp_fw_active; then wtp_fw_set off; else wtp_fw_set on; fi ;;
 	esac
 	cp_save
 }
