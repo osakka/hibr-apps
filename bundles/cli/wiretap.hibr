@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.1.6
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.2.0
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.1.6}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.2.0}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -45,13 +45,14 @@ usage: wiretap <command>
   show                       how the node is, in a few lines
   top [N]                    who is talking now: the busiest N programs (default 10), by their last five seconds
   usage [N]                  who has used the most since the node started
+  hosts [N] [--names]        who it is talking to: the biggest N remote addresses (default 20), with the program, bytes and how long ago
   graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
   watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
   status                     the raw status (JSON)
   doctor                     say whether it can see everything, and what is out of step
   version                    this script's version, the installed engine's, and the running node's
 
-  --json after top, usage, graph or show prints the node's JSON instead
+  --json after top, usage, hosts, graph or show prints the node's JSON instead
 EOF
 }
 
@@ -182,6 +183,34 @@ fn wt_table(by, int n) {
 	return 0
 }
 
+# The remote addresses, biggest first: address, the program that last spoke to it, bytes down and up, and when it was last heard.
+# --names also looks each one up (the service cannot: it has no IP sockets); a lookup that takes over two seconds is left as the address.
+fn wt_hosts(int n, int names) {
+	local H HJ i cnt a app rx tx last nm now
+
+	wt_need
+	H := wt hosts "$n" || { echo "wiretap: $ERRMSG" >&2; exit 1; }
+	json parse HJ "$H"
+	now := json get HJ .now
+	cnt := json len HJ .hosts
+	printf '%-40s %-14s %9s %9s %6s\n' ADDRESS APP DOWN UP AGO
+	for ((i = 0; i < cnt; i++)); do
+		a := json get HJ ".hosts[$i].addr"
+		app := json get HJ ".hosts[$i].app"
+		rx := json get HJ ".hosts[$i].rx"
+		tx := json get HJ ".hosts[$i].tx"
+		last := json get HJ ".hosts[$i].last"
+		nm=$a
+		if [ "$names" = 1 ]; then
+			nm=$(timeout 2 getent hosts "$a" 2> /dev/null | { read -r _ x _; echo "${x:-}"; })
+			nm=${nm:-$a}
+		fi
+		printf '%-40s %-14s %9s %9s %5ss\n' "$nm" "$app" "$(wt_human "$rx")" "$(wt_human "$tx")" "$((now - last))"
+	done
+	[ "$cnt" -gt 0 ] || echo "(no remote hosts yet)"
+	return 0
+}
+
 declare -ga BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
 
 # A mirrored graph of the last `secs` seconds: download above the line, upload below it, hung from it.
@@ -278,10 +307,12 @@ fn wt_doctor() {
 }
 
 json=0
+names=0
 args=()
 for a in "$@"; do
 	case $a in
 	--json) json=1 ;;
+	--names) names=1 ;;
 	*) args+=("$a") ;;
 	esac
 done
@@ -304,6 +335,8 @@ top)
 usage)
 	wt_need
 	if [ "$json" = 1 ]; then run wt apps; else wt_table total "${args[1]:-10}"; fi ;;
+hosts)
+	if [ "$json" = 1 ]; then wt_need; run wt hosts "${args[1]:-20}"; else wt_hosts "${args[1]:-20}" "$names"; fi ;;
 graph)
 	if [ "$json" = 1 ]; then wt_need; run wt series 1 "${args[1]:-60}"; else wt_graph "${args[1]:-60}" "${args[2]:-5}"; fi ;;
 watch)
