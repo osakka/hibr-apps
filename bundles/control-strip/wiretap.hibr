@@ -10,7 +10,7 @@
 
 strict
 
-app wtstrip "A Control Strip module for wiretap: traffic at a glance" 0.1.5
+app wtstrip "A Control Strip module for wiretap: traffic at a glance" 0.1.6
 # needs: control-panel/wiretap
 command -v cs_module > /dev/null && cs_module wtstrip Wiretap 1
 
@@ -19,12 +19,12 @@ fn wtstrip_shown() {
 	dt_has wtp_poll
 }
 
-# What the glyph is, by glyph set: one cell, so "T" for a tap until Blit's one-cell tap arrives (ADR 0013).
+# One cell: Blit's one-cell tap (wiretap-1, on while a node answers, wiretap-1-off), a "T" on any other display (ADR 0013).
 fn wtstrip_g() {
-	case ${DT_GLYPHSET-unicode} in
-	ascii) ret "T" ;;
-	*) ret "T" ;;
-	esac
+	local g=
+
+	if dt_has wtp_logo; then g := wtp_logo "$([ "${WTP_UP:-0}" = 1 ] && echo on || echo off)" 1; fi
+	ret "${g:-T}"
 }
 
 fn wtstrip_draw(int row, int col) {

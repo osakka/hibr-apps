@@ -13,9 +13,13 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.1.5
+app wtview "Wiretap: a live graph and every app's traffic" 0.1.6
 # needs: control-panel/wiretap
-command -v dt_app > /dev/null && dt_app wtview "Wiretap" 26 90 once "T"
+if command -v dt_app > /dev/null; then
+	tile=
+	if command -v wtp_logo > /dev/null; then tile := wtp_logo off 1; fi
+	dt_app wtview "Wiretap" 26 90 once "${tile:-T}"
+fi
 
 declare -gA WV
 WV_SCALES=(1m 1h 24h 7d)

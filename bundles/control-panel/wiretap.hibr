@@ -8,10 +8,9 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.5
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.6
 # modules: wiretap
 # needs: cli/wiretap
-command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "T" app
 
 # Whether the menu bar item (menubar/wiretap.hibr, in the same bundle) is shown.
 DT_WTBAR="${DT_WTBAR-1}"; DT_WTGAUGE="${DT_WTGAUGE-0}"; DT_WTRATE="${DT_WTRATE-0}"
@@ -22,7 +21,7 @@ command -v dt_keep > /dev/null && { dt_keep DT_WTBAR; dt_keep DT_WTGAUGE; dt_kee
 # the badge is only in force under the Blit glyph set. Under Blit with no such id (an older Blit) it prints "" and the caller keeps what it had; the
 # unicode and nerd sets get 🚰 and ascii gets "T" (Blit's own suggestion).
 declare -g WTP_LOGOREAD=0
-fn wtp_logo(state = on) {
+fn wtp_logo(state = on, int cells = 2) {
 	local g=
 
 	if [ "$WTP_LOGOREAD" = 0 ] && [ "${DT_GLYPHSET-}" = blit ] && dt_has dt_bg; then
@@ -30,14 +29,22 @@ fn wtp_logo(state = on) {
 		dt_blitread
 		dt_bg wiretapon wiretap-left wiretap-right
 		dt_bg wiretapoff wiretap-off-left wiretap-off-right
+		dt_bg wiretap1on wiretap-1
+		dt_bg wiretap1off wiretap-1-off
 	fi
 	case ${DT_GLYPHSET-unicode} in
-	blit) g=${GL["wiretap$state"]-} ;;
+	blit) if [ "$cells" = 1 ]; then g=${GL["wiretap1$state"]-}; else g=${GL["wiretap$state"]-}; fi ;;
 	ascii) g="T" ;;
-	*) g="🚰" ;;		# U+1F6B0 POTABLE WATER, a tap: the unicode and nerd sets' two-cell spot
+	*) if [ "$cells" = 1 ]; then g="T"; else g="🚰"; fi ;;		# U+1F6B0 POTABLE WATER, a tap: the unicode and nerd sets' two-cell spot
 	esac
 	ret "$g"
 }
+
+# The pane tile wears the one-cell tap (Blit 0.3.53: wiretap-1, wiretap-1-off), a "T" elsewhere: the glyph is read once, when the pane is registered.
+if command -v cp_pane > /dev/null; then
+	tile := wtp_logo off 1
+	cp_pane wiretap "Wiretap" "${tile:-T}" app
+fi
 
 # The module is the package's (`mod load wiretap`); WT_MOD names a file for a build tree. Nothing here hardcodes build/ (the rule longwire writes as its adr/0046).
 WTP_LOADED=0
@@ -62,7 +69,7 @@ fn wtp_sock() {
 
 # --- alerts (ADR 0014): read from the same poll, said through the desktop's notifications, nothing in the engine -----------------------------
 # Two, each a setting of the pane: a program the machine has never heard talking before (DT_WTNEW), and one uploading a lot (DT_WTBIG: at least WT_BIG
-# bytes, 20 MB by default, in the engine's last 5 s). The names already known are kept in a file of their own ($XDG_STATE_HOME/wiretap/known); the first
+# bytes a second, 4 MB by default, averaged over the engine's last 5 s: rx5 and tx5 are rates). The names already known are kept in a file of their own ($XDG_STATE_HOME/wiretap/known); the first
 # run takes everything talking now as known, so it does not announce the whole desktop. A program is told about once, an upload once in ten minutes.
 DT_WTNEW="${DT_WTNEW-1}"
 DT_WTBIG="${DT_WTBIG-1}"
@@ -80,7 +87,7 @@ fn wta_file() {
 
 # Called after each poll; looks at the apps once per poll. Returns nothing.
 fn wta_scan() {
-	local i name tx rx f first=0 big=${WT_BIG:-20000000}
+	local i name tx rx f first=0 big=${WT_BIG:-4000000}
 
 	[ "$WTP_UP" = 1 ] || return 0
 	[ "$WTP_T" != "$WTA_SCANT" ] || return 0
@@ -107,7 +114,7 @@ fn wta_scan() {
 		fi
 		if [ "$DT_WTBIG" = 1 ] && [ "${tx:-0}" -ge "$big" ] && [ $((SECONDS - ${WTA_BIGAT["$name"]--1000000})) -ge 600 ]; then
 			WTA_BIGAT["$name"]=$SECONDS
-			rx := wtp_rate $((tx / 5))
+			rx := wtp_rate "$tx"
 			wta_say "$name is uploading: $rx/s"
 		fi
 	done
