@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.2
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.3
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -58,13 +58,14 @@ fn wtb_meter(int v, int max, int cols) {
 # The panel: a title row, `half` rows of download, the axis, `half` rows of upload, the apps, and the blank last row every
 # drop-down ends with.
 fn wtap_popdraw(int r, int c, int h, int w) {
-	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols logo
+	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols logo lo
 
 	wtb_load
 	nh=${#WTB_HI[@]}
 	console pen "$DT_INK" "$DT_FACE" bold
 	logo := wtp_logo "$([ "$WTP_UP" = 1 ] && echo on || echo off)"
 	console put "$r" $((c + 1)) "${logo:+$logo }Wiretap"
+	lo=0; [ -n "$logo" ] && lo=3; [ "${DT_GLYPHSET-}" = ascii ] && [ -n "$logo" ] && lo=2		# the badge's cells and a space: the rates start after the title
 	if [ "$WTP_MOD" = 0 ]; then
 		console pen "$DT_WARN" "$DT_FACE"
 		console put $((r + 2)) $((c + 1)) "module not installed"
@@ -83,10 +84,10 @@ fn wtap_popdraw(int r, int c, int h, int w) {
 
 	console pen "$DT_GOOD" "$DT_FACE"
 	line := wtp_rate "$inr"
-	console put "$r" $((c + 10)) "↓ $line/s"
+	console put "$r" $((c + 10 + lo)) "↓ $line/s"
 	console pen "$DT_INFO" "$DT_FACE"
 	line := wtp_rate "$outr"
-	console put "$r" $((c + 24)) "↑ $line/s"
+	console put "$r" $((c + 24 + lo)) "↑ $line/s"
 	console pen "$DT_DIM" "$DT_FACE"
 	line := wtp_rate "$max"
 	console put "$r" $((c + w - ${#line} - 6)) "max $line"

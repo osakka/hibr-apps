@@ -8,10 +8,10 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.2
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.3
 # modules: wiretap
 # needs: cli/wiretap
-command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "◎" app
+command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "T" app
 
 # Whether the menu bar item (menubar/wiretap.hibr, in the same bundle) is shown.
 DT_WTBAR="${DT_WTBAR-1}"
@@ -19,7 +19,8 @@ command -v dt_keep > /dev/null && dt_keep DT_WTBAR
 
 # The tap, Blit's colour badge of two cells (ids wiretap-left/-right for a node that answers, wiretap-off-left/-right for none; Blit 0.3.52, ADR 0013).
 # Named by id, never by code point: dt_bg looks the id up in Blit's own catalogue and leaves the name alone where this Blit has no such id, and
-# the badge is only in force under the Blit glyph set. Prints the badge, or "" where there is none, so the caller keeps what it had (the bullseye).
+# the badge is only in force under the Blit glyph set. Under Blit with no such id (an older Blit) it prints "" and the caller keeps what it had; the
+# unicode and nerd sets get 🚰 and ascii gets "T" (Blit's own suggestion).
 declare -g WTP_LOGOREAD=0
 fn wtp_logo(state = on) {
 	local g=
@@ -30,7 +31,11 @@ fn wtp_logo(state = on) {
 		dt_bg wiretapon wiretap-left wiretap-right
 		dt_bg wiretapoff wiretap-off-left wiretap-off-right
 	fi
-	[ "${DT_GLYPHSET-}" = blit ] && g=${GL["wiretap$state"]-}
+	case ${DT_GLYPHSET-unicode} in
+	blit) g=${GL["wiretap$state"]-} ;;
+	ascii) g="T" ;;
+	*) g="🚰" ;;		# U+1F6B0 POTABLE WATER, a tap: the unicode and nerd sets' two-cell spot
+	esac
 	ret "$g"
 }
 

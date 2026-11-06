@@ -13,9 +13,9 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.1.2
+app wtview "Wiretap: a live graph and every app's traffic" 0.1.3
 # needs: control-panel/wiretap
-command -v dt_app > /dev/null && dt_app wtview "Wiretap" 26 90 once "◎"
+command -v dt_app > /dev/null && dt_app wtview "Wiretap" 26 90 once "T"
 
 declare -gA WV
 WV_SCALES=(1m 1h 24h 7d)
