@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.1.4
+app wtview "Wiretap: a live graph and every app's traffic" 0.1.5
 # needs: control-panel/wiretap
 command -v dt_app > /dev/null && dt_app wtview "Wiretap" 26 90 once "T"
 

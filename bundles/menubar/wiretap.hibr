@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.4
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.5
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -147,9 +147,36 @@ fn wtap_popmouse(act, int row, int col) { :; }
 
 fn wtb_open() { dt_baripop wtb wtap 21 50; }
 
-# Every frame: the bar item, a sparkline of the last eight seconds and the rate; made again only when it changes.
+# Click or right-click: a menu, not the graph straight away (ADR 0015). The menu says how it is going and opens the Tap, the window or the settings.
+fn wtb_menu() { dt_barmenu wtb wtb; return 0; }
+
+fn wtb_context(id = "") {
+	local i rr tr
+
+	wtp_poll
+	dt_menu "Wiretap"
+	if [ "$WTP_UP" = 1 ]; then
+		rr := wtp_last in; rr := wtp_rate "$rr"
+		tr := wtp_last out; tr := wtp_rate "$tr"
+		dt_dim "Down $rr/s, up $tr/s"
+	else
+		dt_dim "No node running (systemctl enable --now wiretap)"
+	fi
+	dt_item "Show the Graph" g wtb_open
+	if dt_has dt_launch; then dt_item "Open Wiretap${GL[ellipsis]}" o dt_launch wtview; fi
+	dt_sep
+	if dt_has panel_goto; then
+		dt_item "Wiretap Settings${GL[ellipsis]}" s dt_panelpane wiretap
+	else
+		dt_dim "Wiretap Settings${GL[ellipsis]}"
+	fi
+	return 0
+}
+
+# Every frame: the bar item. The tap, always; and, each when the pane has it on, a sparkline of the last eight seconds (DT_WTGAUGE) and the download rate
+# (DT_WTRATE). Made again only when it changes.
 fn wtb_tick() {
-	local t i n k sp= v max=1 inr=0 line logo
+	local t= i n k sp= v max=1 inr=0 line logo up=0
 
 	dt_has wtp_poll || return 0
 	if [ "${DT_WTBAR-1}" != 1 ]; then
@@ -159,23 +186,28 @@ fn wtb_tick() {
 	wtb_load
 	wta_scan
 	n=${#WTB_HI[@]}
-	if [ "$WTP_UP" = 1 ] && [ "$n" -gt 0 ]; then
-		for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do [ "${WTB_HI[$i]}" -gt "$max" ] && max=${WTB_HI[$i]}; done
-		for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do
-			k=$((WTB_HI[i] * 8 / max)); [ "$k" -gt 8 ] && k=8
-			sp+="${WTB_BLK[$k]}"
-		done
-		inr=${WTB_HI[$((n - 1))]}
-		line := wtp_rate "$inr"
-		logo := wtp_logo on
-		t="${logo:+$logo }$sp ↓$line"
-	else
-		logo := wtp_logo off
-		t="${logo:+$logo }net ○"
+	[ "$WTP_UP" = 1 ] && [ "$n" -gt 0 ] && up=1
+	logo := wtp_logo "$([ "$up" = 1 ] && echo on || echo off)"
+	t=$logo
+	if [ "$up" = 1 ]; then
+		if [ "${DT_WTGAUGE-0}" = 1 ]; then
+			for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do [ "${WTB_HI[$i]}" -gt "$max" ] && max=${WTB_HI[$i]}; done
+			for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do
+				k=$((WTB_HI[i] * 8 / max)); [ "$k" -gt 8 ] && k=8
+				sp+="${WTB_BLK[$k]}"
+			done
+			t+="${t:+ }$sp"
+		fi
+		if [ "${DT_WTRATE-0}" = 1 ]; then
+			line := wtp_rate "${WTB_HI[$((n - 1))]}"
+			t+="${t:+ }↓$line"
+		fi
 	fi
+	[ -n "$t" ] || t="net"		# a Blit without the tap yet, and the other two off: something to click
 	if [ "$t" != "$WTB_KEY" ]; then
 		WTB_KEY=$t
-		dt_baritem wtb "$t" wtb_open
+		dt_baritem wtb "$t" wtb_menu
+		dt_bariright wtb wtb_menu
 	fi
 	dt_want 1500
 	return 0

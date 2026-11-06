@@ -8,14 +8,14 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.4
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.5
 # modules: wiretap
 # needs: cli/wiretap
 command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "T" app
 
 # Whether the menu bar item (menubar/wiretap.hibr, in the same bundle) is shown.
-DT_WTBAR="${DT_WTBAR-1}"
-command -v dt_keep > /dev/null && dt_keep DT_WTBAR
+DT_WTBAR="${DT_WTBAR-1}"; DT_WTGAUGE="${DT_WTGAUGE-0}"; DT_WTRATE="${DT_WTRATE-0}"
+command -v dt_keep > /dev/null && { dt_keep DT_WTBAR; dt_keep DT_WTGAUGE; dt_keep DT_WTRATE; }
 
 # The tap, Blit's colour badge of two cells (ids wiretap-left/-right for a node that answers, wiretap-off-left/-right for none; Blit 0.3.52, ADR 0013).
 # Named by id, never by code point: dt_bg looks the id up in Blit's own catalogue and leaves the name alone where this Blit has no such id, and
@@ -256,12 +256,14 @@ fn wiretap_rows(int w) {
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program talks for the first time"; CP[$w][$n]["val"]=$([ "$DT_WTNEW" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTNEW; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program uploads a lot"; CP[$w][$n]["val"]=$([ "$DT_WTBIG" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBIG; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with a graph beside the tap"; CP[$w][$n]["val"]=$([ "$DT_WTGAUGE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTGAUGE; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with the download rate"; CP[$w][$n]["val"]=$([ "$DT_WTRATE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTRATE; n=$((n + 1))
 	ret "$n"
 }
 
 fn wiretap_do(int? w = "", k = "", int? dir = "") {
 	case $k in
-	DT_WTBAR | DT_WTNEW | DT_WTBIG) cp_toggle "$k" ;;
+	DT_WTBAR | DT_WTGAUGE | DT_WTRATE | DT_WTNEW | DT_WTBIG) cp_toggle "$k" ;;
 	esac
 	cp_save
 }
