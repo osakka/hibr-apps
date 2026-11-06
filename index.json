@@ -14,15 +14,15 @@
     },
     "apps/camera": {
       "title": "Camera",
-      "version": "1.0",
+      "version": "2.0",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/camera.hibr",
-      "sha256": "e20485f38c437fcc7ce95f0ddb4191db556e3aa22f53a4ba614c88ef441a95c7",
-      "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, and Take Photo (space, or the button) to keep one in ~/Pictures/Camera. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and rewrites one small JPEG a few times a second, atomically, so the window never reads half a frame; the window draws it with the img module the way the Image Viewer draws a file. ffmpeg runs on a pty of the desktop's own (dt_watchstart), so it ends with the desktop however the desktop ends, and with the window when it closes. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them.",
+      "sha256": "3e4d7f64f5e31aa25e17f17a85e15be0ca96c96e7267d6df5396585fbc13387c",
+      "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, Take Photo (space, or the button) to keep one in ~/Pictures/Camera, and Record (r) to keep the picture as a film in ~/Videos/Camera, without sound. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and streams it down a pipe into a media player, the path a film takes, so the picture moves at the camera's own rate. Beside that it rewrites one full size JPEG twice a second, which is what a photo copies. ffmpeg writes to that pipe, so it ends with the player, however the desktop ends. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them and among the sizes the camera says it offers.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "camera",
-      "modules": "img pty",
+      "modules": "media pty",
       "dir": "Accessories"
     },
     "apps/clock": {
@@ -409,15 +409,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "3.12",
+      "version": "3.13",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "e61560eb9bd9ba07062cbeec9157dc8a4d6f11051050c27713cb1c0255151c94",
+      "sha256": "2182cf33503fcacf11a1a5f4604536800dfd3ff83cc9f2c170459bffbe76acf3",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.441",
+      "hibr": "0.99.451",
       "parts": [
         {
           "kind": "control-panel",
@@ -630,15 +630,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.12",
+      "version": "2.13",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "4d36bdc66b4a9992295b686f71a7d423feae69084df71b35836673ea7044d299",
+      "sha256": "db1a9cf1ae94f723b6daa9f7d69899a39666a0824fd287a99d7cd50c7c9aac74",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.443"
+      "hibr": "0.99.451"
     },
     "control-panel/blit": {
       "title": "Blit",
@@ -1126,15 +1126,15 @@
     },
     "themes/chalk": {
       "title": "Chalk",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "themes",
       "bundle": "bundles/themes/chalk.json",
-      "sha256": "0c7f17a77927a979edcfdcf0824f21149b4e3e39746ee3729eb3b6f280deb9c8",
+      "sha256": "89ca01cced2fe116e6d890b739690b78d043bd068ebaf66c7229e7560c285341",
       "about": "Blit's Chalk windows: a striped title bar framed in ink, close on the left and shade and zoom on the right, a one-line frame, Blit's capped dialog buttons and a thin shadow. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere the frame, title bar and buttons are drawn as plain lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "chalk",
-      "hibr": "0.99.446"
+      "hibr": "0.99.451"
     },
     "themes/charcoal": {
       "title": "Charcoal",
@@ -1230,15 +1230,15 @@
     },
     "themes/slate": {
       "title": "Slate",
-      "version": "1.2",
+      "version": "1.3",
       "kind": "themes",
       "bundle": "bundles/themes/slate.json",
-      "sha256": "b72a2fbe622d8acd78cabe295bc6a441b9635c17e412d8352269587f4a53e9cf",
+      "sha256": "08c360e0130a5c3d28155f825f5ca44a4ac492d6a301477e75b14b9d14ed3c85",
       "about": "Blit's Slate windows: a grey title bar with its boxes together on the right, a bevelled frame, Blit's capped dialog buttons and a thin shadow, coloured by the Pewter scheme -- choose Pewter Dark for the dark look. It needs Blit's glyphs (Appearance > Glyphs: Blit); elsewhere the frame, title bar and buttons are drawn as plain lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "slate",
-      "hibr": "0.99.446"
+      "hibr": "0.99.451"
     },
     "colours/amber": {
       "title": "Amber",
@@ -1360,6 +1360,18 @@
       "name": "midnight",
       "hibr": "0.99.187"
     },
+    "colours/navy": {
+      "title": "Navy",
+      "version": "1.1",
+      "kind": "colours",
+      "bundle": "bundles/colours/navy.json",
+      "sha256": "13b9669d5f38d5f07a0e96ecc3891c7ab7bbd1f940e9e638ebea8406d3632f19",
+      "about": "Light grey on blue-black with a pale blue accent: midnight, a shade cooler.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "navy",
+      "hibr": "0.99.187"
+    },
     "colours/neon": {
       "title": "Neon",
       "version": "1.0",
@@ -1420,25 +1432,13 @@
       "name": "phosphor",
       "hibr": "0.99.187"
     },
-    "colours/slate": {
-      "title": "Slate",
-      "version": "1.0",
-      "kind": "colours",
-      "bundle": "bundles/colours/slate.json",
-      "sha256": "3e66c3d78a6dfc4241745a3c13e9b2b13df9bc96286e06272c3424824ce02e3f",
-      "about": "Light grey on blue-black with a pale blue accent: midnight, a shade cooler.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "slate",
-      "hibr": "0.99.187"
-    },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.82",
+      "version": "3.83",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "3a6caae46c8b7321638245ce0a493df556d94f353fd834df1c1ca67065ccfc90",
-      "about": "The desktop's own words in العربية (ar): 1555 strings, read right to left.",
+      "sha256": "1a38b0254ed8e727e46719a91a58824d3cbc0e2974f609539b2994a0db1fd1c6",
+      "about": "The desktop's own words in العربية (ar): 1560 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1533,15 +1533,15 @@
     },
     "camera": {
       "title": "Camera",
-      "version": "1.0",
+      "version": "2.0",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/camera.hibr",
-      "sha256": "e20485f38c437fcc7ce95f0ddb4191db556e3aa22f53a4ba614c88ef441a95c7",
-      "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, and Take Photo (space, or the button) to keep one in ~/Pictures/Camera. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and rewrites one small JPEG a few times a second, atomically, so the window never reads half a frame; the window draws it with the img module the way the Image Viewer draws a file. ffmpeg runs on a pty of the desktop's own (dt_watchstart), so it ends with the desktop however the desktop ends, and with the window when it closes. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them.",
+      "sha256": "3e4d7f64f5e31aa25e17f17a85e15be0ca96c96e7267d6df5396585fbc13387c",
+      "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, Take Photo (space, or the button) to keep one in ~/Pictures/Camera, and Record (r) to keep the picture as a film in ~/Videos/Camera, without sound. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and streams it down a pipe into a media player, the path a film takes, so the picture moves at the camera's own rate. Beside that it rewrites one full size JPEG twice a second, which is what a photo copies. ffmpeg writes to that pipe, so it ends with the player, however the desktop ends. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them and among the sizes the camera says it offers.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "camera",
-      "modules": "img pty",
+      "modules": "media pty",
       "dir": "Accessories"
     },
     "imgview": {
@@ -1812,15 +1812,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "3.12",
+      "version": "3.13",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "e61560eb9bd9ba07062cbeec9157dc8a4d6f11051050c27713cb1c0255151c94",
+      "sha256": "2182cf33503fcacf11a1a5f4604536800dfd3ff83cc9f2c170459bffbe76acf3",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.441"
+      "hibr": "0.99.451"
     },
     "switchboard": {
       "title": "Switchboard",
@@ -1969,15 +1969,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.12",
+      "version": "2.13",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "4d36bdc66b4a9992295b686f71a7d423feae69084df71b35836673ea7044d299",
+      "sha256": "db1a9cf1ae94f723b6daa9f7d69899a39666a0824fd287a99d7cd50c7c9aac74",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.443"
+      "hibr": "0.99.451"
     },
     "blit": {
       "title": "Blit",
