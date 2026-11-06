@@ -36,7 +36,7 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.26
+app youtube "YouTube, in a window" 3.27
 # part: control-panel/tube.hibr
 # modules: media web
 
@@ -96,7 +96,7 @@ YT_RJS='(function(){var d=window.ytInitialData;if(!d)return "";function t(x){ret
 
 # Where YouTube's player is: its state, the time, the length, the title,
 # and whether it is showing its own error.
-YT_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
+YT_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,pq:(p.getPlaybackQuality?p.getPlaybackQuality():""),u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
 
 # Start YouTube's player once it is there: the quality asked for, the
 # volume, captions off, and the page cut down to the video. That is done by
@@ -1573,7 +1573,7 @@ fn yt_drawplay(int id, int h, int w) {
 	# apart. `media info`'s own `drawn` says what happened (#199).
 	[ "$md" = pixels ] && [ "${YTI["drawn"]}" = cells ] &&
 		pm="$pm (drawn as blocks: the display declined)"
-	l := yt_qlab "$YT_QUALITY"
+	l := yt_qbar "$id"
 	lab=" $a / $b  $st  vol ${YTI["volume"]}  $l  ${pm}"
 	fill=0
 	[ "${dur%.*}" -gt 0 ] 2> /dev/null && fill=$(( ${pos%.*} * w / ${dur%.*} ))
@@ -1620,6 +1620,7 @@ fn youtube_key(int id, key) {
 		m) yt_mode; return 0 ;;
 		c) yt_captions "$id"; return 0 ;;
 		q) yt_quality "$id"; return 0 ;;
+		Q) yt_quality "$id" -1; return 0 ;;
 		h) yt_load "$id" history ""; return 0 ;;
 		v) yt_load "$id" favourites ""; return 0 ;;
 		escape | backspace)
@@ -1782,7 +1783,7 @@ fn youtube_paste(int id, text, op = "") {
 }
 
 youtube_menus() {
-	local id=$DT_FOCUS v on q l x qc kq
+	local id=$DT_FOCUS v on q l x qc
 
 	# Every key the window takes is here, beside its item: the line of
 	# hints under the list and the player went, and their rows with it.
@@ -1862,8 +1863,7 @@ youtube_menus() {
 		[ "$qc" = "$q" ] && on=1
 		l := yt_qlab "$q"
 		x := dt_tr "Quality %s" "$l"
-		kq := yt_qkey "$q"
-		dt_mark "$x" "$kq" "$on" yt_setquality "$q"
+		dt_mark "$x" "" "$on" yt_setquality "$q"
 	done
 	dt_menu "Picture"
 	for v in "${YT_MODES[@]}"; do
@@ -1969,6 +1969,7 @@ fn youtube_context(int? id = "") {
 			dt_mark "Captions" c "${YT_CAPTIONS:-0}" yt_captions "$id"
 			dt_item "Next Picture" x yt_mode
 			dt_item "Next Quality" y yt_quality "$id"
+			dt_item "Previous Quality" z yt_quality "$id" -1
 			dt_sep
 			dt_item "Mini Player" i yt_mini "$id"
 		else
@@ -2081,15 +2082,42 @@ fn yt_qlab(q) {
 	esac
 }
 
-# The key a level has in the Quality menu, each its own (the first character of
-# the words would be 1 for four of them).
-fn yt_qkey(q) {
-	case $q in
-	auto) ret a ;;
-	144p) ret 1 ;; 240p) ret 2 ;; 360p) ret 3 ;; 480p) ret 4 ;;
-	720p) ret 7 ;; 1080p) ret 8 ;; 1440p) ret 9 ;; 2160p) ret 0 ;;
+# A level as YouTube's player names the one it is playing now (getPlaybackQuality), as one of the list;
+# nothing for a name that is not one (small, or "unknown" before it has started).
+fn yt_qfromname(n) {
+	case $n in
+	tiny) ret 144p ;;
+	small) ret 240p ;;
+	medium) ret 360p ;;
+	large) ret 480p ;;
+	hd720) ret 720p ;;
+	hd1080) ret 1080p ;;
+	hd1440) ret 1440p ;;
+	hd2160 | highres) ret 2160p ;;
 	*) ret "" ;;
 	esac
+}
+
+# What the bar says of the quality: what was asked for, and -- from the player -- what it plays, when
+# they differ or the setting is auto: "720p", "auto (480p)", "1440p (now 1080p)".
+fn yt_qbar(int id) {
+	local want have= n
+
+	want := yt_qnorm "$YT_QUALITY"
+	if yt_pageknown "$id"; then
+		have := yt_qfromname "${YTP["pq"]-}"
+	fi
+	if [ "$want" = auto ]; then
+		[ -n "$have" ] && { ret "auto ($have)"; return 0; }
+		ret auto
+		return 0
+	fi
+	n := yt_qlab "$want"
+	if [ -n "$have" ] && [ "$have" != "$want" ]; then
+		ret "$n (now $have)"
+		return 0
+	fi
+	ret "$n"
 }
 
 # YouTube's name for a level, for its player (setPlaybackQualityRange): the only place they are.
@@ -2167,7 +2195,7 @@ fn yt_setquality(q) {
 }
 
 # The next level up, and round to the lowest after the highest.
-fn yt_quality(int id = 0) {
+fn yt_quality(int id = 0, int dir = 1) {
 	local i q l
 
 	local qc
@@ -2175,7 +2203,7 @@ fn yt_quality(int id = 0) {
 	for i in "${!YT_QUALITIES[@]}"; do
 		[ "${YT_QUALITIES[$i]}" = "$qc" ] && break
 	done
-	q=${YT_QUALITIES[$(( (i + 1) % ${#YT_QUALITIES[@]} ))]}
+	q=${YT_QUALITIES[$(( (i + dir + ${#YT_QUALITIES[@]}) % ${#YT_QUALITIES[@]} ))]}
 	yt_setquality "$q"
 	l := yt_qlab "$q"
 	dt_notep low "Quality %s" "$l"
