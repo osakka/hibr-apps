@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.2.2
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.2.3
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -58,7 +58,7 @@ fn wtb_meter(int v, int max, int cols) {
 # The panel: a title row, `half` rows of download, the axis, `half` rows of upload, the apps, and the blank last row every
 # drop-down ends with.
 fn wtap_popdraw(int r, int c, int h, int w) {
-	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols logo lo
+	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols logo lo hue
 
 	wtb_load
 	nh=${#WTB_HI[@]}
@@ -117,10 +117,10 @@ fn wtap_popdraw(int r, int c, int h, int w) {
 		done
 	done
 
-	# the busiest apps: one hue for one measure (download over the last five seconds), the biggest sets the scale
+	# the busiest apps: each in its own hue (ADR 0019), one measure (download over the last five seconds), the biggest sets the scale
 	console pen "$DT_INK" "$DT_FACE" bold
 	console put $((r + 2 + 2 * half)) $((c + 1)) "Top apps  down, last 5 s"
-	mcols=$((cols - 26))
+	mcols=$((cols - 27))
 	for ((i = 0; i < 5; i++)); do
 		v := wtp_app ".apps[$i].rx5" 0
 		[ "${v:-0}" -gt "$amax" ] && amax=$v
@@ -130,13 +130,16 @@ fn wtap_popdraw(int r, int c, int h, int w) {
 		[ -n "$name" ] || break
 		rx := wtp_app ".apps[$i].rx5" 0
 		row=$((r + 3 + 2 * half + i))
+		hue := wtp_hue "$name"
+		console pen "$hue" "$DT_FACE"
+		console put "$row" $((c + 1)) "▌"
 		console pen "$DT_INK" "$DT_FACE"
-		console put "$row" $((c + 1)) "${name:0:14}"
-		console pen "$DT_GOOD" "$DT_FACE"
+		console put "$row" $((c + 2)) "${name:0:14}"
+		console pen "$hue" "$DT_FACE"
 		line := wtb_meter "${rx:-0}" "$amax" "$mcols"
-		console put "$row" $((c + 16)) "$line"
+		console put "$row" $((c + 17)) "$line"
 		console pen "$DT_DIM" "$DT_FACE"
-		line := wtp_rate "$(( ${rx:-0} / 5 ))"
+		line := wtp_rate "${rx:-0}"
 		console put "$row" $((c + 17 + mcols)) "$line/s"
 	done
 	dt_want 1000

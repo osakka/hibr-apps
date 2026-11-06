@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.2.2
+app wtview "Wiretap: a live graph and every app's traffic" 0.2.3
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -109,13 +109,13 @@ fn wv_graph(int id, int h, int w) {
 }
 
 fn wv_usage(int id, int h, int w) {
-	local n i name pid rx tx rx5 tx5 vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r
+	local n i name pid rx tx rx5 tx5 vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r hue
 
 	n := json len WTP_A .apps 2> /dev/null || n=0
 	n=${n:-0}
 	WV[$id]["n"]=$n
 	console pen "$DT_DIM" "$DT_FACE" bold
-	printf -v line "%-22s %7s %10s %10s %11s %11s" APP PID "DOWN/s" "UP/s" "DOWN total" "UP total"
+	printf -v line "  %-20s %7s %10s %10s %11s %11s" APP PID "DOWN/s" "UP/s" "DOWN total" "UP total"
 	wv_put "$id" 2 2 "$line"
 	[ "$sel" -ge "$n" ] && sel=$((n > 0 ? n - 1 : 0))
 	[ "$sel" -lt "$top" ] && top=$sel
@@ -131,22 +131,25 @@ fn wv_usage(int id, int h, int w) {
 		local a b c d
 		a := wtp_rate "$rx5"; b := wtp_rate "$tx5"; c := wtp_rate "$rx"; d := wtp_rate "$tx"
 		[ "$pid" = 0 ] && pid=-
-		printf -v line "%-22s %7s %10s %10s %11s %11s" "${name:0:22}" "$pid" "$a" "$b" "$c" "$d"
+		printf -v line "  %-20s %7s %10s %10s %11s %11s" "${name:0:20}" "$pid" "$a" "$b" "$c" "$d"
 		wv_put "$id" "$r" 2 "$line"
+		hue := wtp_hue "$name"
+		if [ "$i" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
+		wv_put "$id" "$r" 2 "▌"
 	done
 }
 
 # Who the machine talks to (ADR 0016, 0018): one row per remote address, the program that last spoke to it, bytes each way, and how long ago.
 # Addresses, not names: the service cannot look names up, and a lookup here would stall the window (wiretap hosts --names does it in a terminal).
 fn wv_hosts(int id, int h, int w) {
-	local n i a app rx tx last now vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r b c
+	local n i a app rx tx last now vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r b c hue
 
 	wtp_hosts
 	n := json len WTP_H .hosts 2> /dev/null || n=0
 	n=${n:-0}
 	WV[$id]["n"]=$n
 	console pen "$DT_DIM" "$DT_FACE" bold
-	printf -v line "%-39s %-14s %10s %10s %8s" ADDRESS APP "DOWN" "UP" "AGO"
+	printf -v line "%-39s   %-12s %10s %10s %8s" ADDRESS APP "DOWN" "UP" "AGO"
 	wv_put "$id" 2 2 "$line"
 	if [ "$n" = 0 ]; then
 		console pen "$DT_DIM" "$DT_FACE"
@@ -166,8 +169,11 @@ fn wv_hosts(int id, int h, int w) {
 		r=$((3 + i - top))
 		if [ "$i" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
 		b := wtp_rate "$rx"; c := wtp_rate "$tx"
-		printf -v line "%-39s %-14s %10s %10s %7ss" "${a:0:39}" "${app:0:14}" "$b" "$c" "$((now - last))"
+		printf -v line "%-39s   %-12s %10s %10s %7ss" "${a:0:39}" "${app:0:12}" "$b" "$c" "$((now - last))"
 		wv_put "$id" "$r" 2 "$line"
+		hue := wtp_hue "$app"
+		if [ "$i" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
+		wv_put "$id" "$r" 42 "▌"
 	done
 }
 

@@ -8,13 +8,51 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.2.2
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.2.3
 # modules: wiretap
 # needs: cli/wiretap
 
 # Whether the menu bar item (menubar/wiretap.hibr, in the same bundle) is shown.
 DT_WTBAR="${DT_WTBAR-1}"; DT_WTGAUGE="${DT_WTGAUGE-0}"; DT_WTRATE="${DT_WTRATE-0}"
 command -v dt_keep > /dev/null && { dt_keep DT_WTBAR; dt_keep DT_WTGAUGE; dt_keep DT_WTRATE; }
+
+# --- one colour per program (ADR 0019) ----------------------------------------------------------------------------------------------------
+# A categorical palette in a fixed order: the first program seen gets the first hue, the next the next, after eight they repeat. A colour follows
+# the program for as long as the desktop runs, not its rank in the list. The eight hues are the validated default of the dataviz method (adjacent
+# colour-blind distance >= 8, normal-vision >= 15, in both modes); the light column is for a light desktop face, the dark for a dark one. The buckets in
+# brackets ((unattributed), (root), (user N), (other)) never get a hue: they are DIM, so they cannot be mistaken for a program.
+# A mark carries identity and the name beside it is text in the ordinary ink; the palette is not used for words.
+declare -ga WTP_PALL=("#2a78d6" "#eb6834" "#1baf7a" "#eda100" "#e87ba4" "#008300" "#6250d6" "#e34948")
+declare -ga WTP_PALD=("#3987e5" "#d95926" "#199e70" "#c98500" "#d55181" "#008300" "#9085e9" "#e66767")
+declare -gA WTP_HUE
+declare -gi WTP_HUEN=0 WTP_DARK=-1
+
+# Is the desktop's face dark? From its own colour (#rrggbb); anything else is taken as dark.
+fn wtp_isdark() {
+	local f=${DT_FACE-} r g b
+
+	if [ "$WTP_DARK" -lt 0 ]; then
+		WTP_DARK=1
+		if [ "${#f}" = 7 ] && [ "${f:0:1}" = "#" ]; then
+			r=$((16#${f:1:2})); g=$((16#${f:3:2})); b=$((16#${f:5:2}))
+			[ $(((299 * r + 587 * g + 114 * b) / 1000)) -ge 128 ] && WTP_DARK=0
+		fi
+	fi
+	[ "$WTP_DARK" = 1 ]
+}
+
+# The colour for a program name.
+fn wtp_hue(name) {
+	local slot
+
+	case $name in "" | "("*) ret "${DT_DIM-#888888}"; return 0 ;; esac
+	if [ -z "${WTP_HUE["$name"]-}" ]; then
+		WTP_HUE["$name"]=$((WTP_HUEN % 8 + 1))
+		WTP_HUEN=$((WTP_HUEN + 1))
+	fi
+	slot=$((WTP_HUE["$name"] - 1))
+	if wtp_isdark; then ret "${WTP_PALD[$slot]}"; else ret "${WTP_PALL[$slot]}"; fi
+}
 
 # The tap, Blit's colour badge of two cells (ids wiretap-left/-right for a node that answers, wiretap-off-left/-right for none; Blit 0.3.52, ADR 0013).
 # Named by id, never by code point: dt_bg looks the id up in Blit's own catalogue and leaves the name alone where this Blit has no such id, and
