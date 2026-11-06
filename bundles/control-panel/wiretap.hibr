@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.1
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.2
 # modules: wiretap
 # needs: cli/wiretap
 command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "◎" app
@@ -16,6 +16,23 @@ command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "◎" app
 # Whether the menu bar item (menubar/wiretap.hibr, in the same bundle) is shown.
 DT_WTBAR="${DT_WTBAR-1}"
 command -v dt_keep > /dev/null && dt_keep DT_WTBAR
+
+# The tap, Blit's colour badge of two cells (ids wiretap-left/-right for a node that answers, wiretap-off-left/-right for none; Blit 0.3.52, ADR 0013).
+# Named by id, never by code point: dt_bg looks the id up in Blit's own catalogue and leaves the name alone where this Blit has no such id, and
+# the badge is only in force under the Blit glyph set. Prints the badge, or "" where there is none, so the caller keeps what it had (the bullseye).
+declare -g WTP_LOGOREAD=0
+fn wtp_logo(state = on) {
+	local g=
+
+	if [ "$WTP_LOGOREAD" = 0 ] && [ "${DT_GLYPHSET-}" = blit ] && dt_has dt_bg; then
+		WTP_LOGOREAD=1
+		dt_blitread
+		dt_bg wiretapon wiretap-left wiretap-right
+		dt_bg wiretapoff wiretap-off-left wiretap-off-right
+	fi
+	[ "${DT_GLYPHSET-}" = blit ] && g=${GL["wiretap$state"]-}
+	ret "$g"
+}
 
 # The module is the package's (`mod load wiretap`); WT_MOD names a file for a build tree. Nothing here hardcodes build/ (the rule longwire writes as its adr/0046).
 WTP_LOADED=0

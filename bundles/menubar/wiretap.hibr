@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.1
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.2
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -58,12 +58,13 @@ fn wtb_meter(int v, int max, int cols) {
 # The panel: a title row, `half` rows of download, the axis, `half` rows of upload, the apps, and the blank last row every
 # drop-down ends with.
 fn wtap_popdraw(int r, int c, int h, int w) {
-	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols
+	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols logo
 
 	wtb_load
 	nh=${#WTB_HI[@]}
 	console pen "$DT_INK" "$DT_FACE" bold
-	console put "$r" $((c + 1)) "Wiretap"
+	logo := wtp_logo "$([ "$WTP_UP" = 1 ] && echo on || echo off)"
+	console put "$r" $((c + 1)) "${logo:+$logo }Wiretap"
 	if [ "$WTP_MOD" = 0 ]; then
 		console pen "$DT_WARN" "$DT_FACE"
 		console put $((r + 2)) $((c + 1)) "module not installed"
@@ -147,7 +148,7 @@ fn wtb_open() { dt_baripop wtb wtap 21 50; }
 
 # Every frame: the bar item, a sparkline of the last eight seconds and the rate; made again only when it changes.
 fn wtb_tick() {
-	local t i n k sp= v max=1 inr=0 line
+	local t i n k sp= v max=1 inr=0 line logo
 
 	dt_has wtp_poll || return 0
 	if [ "${DT_WTBAR-1}" != 1 ]; then
@@ -164,9 +165,11 @@ fn wtb_tick() {
 		done
 		inr=${WTB_HI[$((n - 1))]}
 		line := wtp_rate "$inr"
-		t="$sp ↓$line"
+		logo := wtp_logo on
+		t="${logo:+$logo }$sp ↓$line"
 	else
-		t="net ○"
+		logo := wtp_logo off
+		t="${logo:+$logo }net ○"
 	fi
 	if [ "$t" != "$WTB_KEY" ]; then
 		WTB_KEY=$t
