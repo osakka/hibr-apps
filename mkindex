@@ -359,6 +359,8 @@ ENTHIBR["control-panel/appearance"]=0.99.451
 ENTHIBR["control-panel/windows"]=0.99.452
 ENTHIBR["control-panel/appearance"]=0.99.452
 ENTHIBR["themes/chalk"]=0.99.452
+# Menu Bar 1.3 offers the monogram, which only a 0.99.453 desktop names.
+ENTHIBR["control-panel/menubar"]=0.99.453
 ENTHIBR["colours/pewter"]=0.99.440
 ENTHIBR["colours/pewter-dark"]=0.99.440
 # Files 3.10 reaches servers through dt_locof and the location functions
