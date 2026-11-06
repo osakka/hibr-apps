@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.3.2
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.4.0
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.3.2}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.4.0}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -49,6 +49,8 @@ usage: wiretap <command>
   graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
   watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
   status                     the raw status (JSON)
+  fw [list]                  the firewall rules, numbered;  fw block|allow HOST [PORT] [--tcp|--udp] [--in] [--uid N] [--cgroup /P] [--first]
+                             adds one, fw rm N removes one, fw on | off turns the firewall on or off (asks for an administrator; docs/CLI.md)
   doctor                     say whether it can see everything, and what is out of step
   version                    this script's version, the installed engine's, and the running node's
 
@@ -211,6 +213,118 @@ fn wt_hosts(int n, int names) {
 	return 0
 }
 
+# ---- the firewall (M2, ADR 0022-0026) -------------------------------------------------------------------------------
+# The rules live in /etc/wiretap/rules (readable by anyone); only /usr/libexec/wiretap-rules, through pkexec, changes them.
+WT_RULES=${WT_RULES:-/etc/wiretap/rules}
+
+# wt_fw_priv VERB: the root helper, rules (if any) on this function's standard input. WT_RULES_HELPER names another program (a test,
+# or your own); it is run as you, so it grants nothing.
+fn wt_fw_priv(v) {
+	local h
+	h=${WT_RULES_HELPER:-/usr/libexec/wiretap-rules}
+	[ -x "$h" ] || { echo "wiretap: the firewall helper is not installed ($h)" >&2; return 1; }
+	if [ -n "${WT_RULES_HELPER:-}" ] || [ "$(id -u)" = 0 ]; then
+		"$h" "$v"
+	elif command -v pkexec > /dev/null 2>&1; then
+		pkexec "$h" "$v"
+	else
+		echo "wiretap: changing the firewall needs polkit (pkexec), or run this as root" >&2
+		return 1
+	fi
+}
+
+fn wt_fw_text() {
+	[ -r "$WT_RULES" ] && cat "$WT_RULES"
+	return 0
+}
+
+# the rules numbered, comments and blank lines left out
+fn wt_fw_list() {
+	local l t n
+	n=0
+	while IFS= read -r l; do
+		t=${l%%#*}
+		[ -n "${t//[[:space:]]/}" ] || continue
+		n=$((n + 1))
+		printf '%3d  %s\n' "$n" "$t"
+	done < <(wt_fw_text)
+	[ "$n" -gt 0 ] || echo "(no rules: everything is allowed)"
+	return 0
+}
+
+# wt_fw_set TEXT: check the whole text with the engine first (so a mistake costs no password), then hand it to the helper
+fn wt_fw_set(text) {
+	local f
+	f=$(mktemp) || return 1
+	printf '%s\n' "$text" > "$f"
+	if ! wt fwrender "$f" > /dev/null; then
+		echo "wiretap: ${ERRMSG:-the rules are not valid}" >&2
+		rm -f "$f"
+		return 1
+	fi
+	rm -f "$f"
+	printf '%s\n' "$text" | wt_fw_priv apply || return 1
+	echo "wiretap: firewall rules applied"
+}
+
+# fw block|allow HOST [PORT] [--tcp|--udp] [--in] [--uid N] [--cgroup /PATH] [--first]
+fn wt_fw_add(...a) {
+	local act host port proto dir who first rule old i x hostset
+	hostset=0; act=${a[0]}; host=any; port=any; proto=any; dir=out; who=any; first=0
+	for ((i = 1; i < ${#a[@]}; i++)); do
+		x=${a[$i]}
+		case $x in
+		--tcp) proto=tcp ;;
+		--udp) proto=udp ;;
+		--in) dir=in ;;
+		--first) first=1 ;;
+		--uid) i=$((i + 1)); who=uid:${a[$i]:-} ;;
+		--cgroup) i=$((i + 1)); who=cgroup:${a[$i]:-} ;;
+		-*) echo "wiretap: fw $act: unknown option $x" >&2; return 2 ;;
+		*)
+			if [ "$hostset" = 0 ]; then host=$x; hostset=1
+			else port=$x; fi ;;
+		esac
+	done
+	rule="$act $dir $proto $who $host $port"
+	old=$(wt_fw_text)
+	if [ -z "$old" ]; then wt_fw_set "$rule"
+	elif [ "$first" = 1 ]; then wt_fw_set "$rule
+$old"
+	else wt_fw_set "$old
+$rule"; fi
+}
+
+# fw rm N: take the Nth rule out
+fn wt_fw_rm(n) {
+	local l t k out
+	case $n in ''|*[!0-9]*) echo "wiretap: fw rm N: N is the rule's number from  wiretap fw" >&2; return 2 ;; esac
+	k=0; out=""
+	while IFS= read -r l; do
+		t=${l%%#*}
+		if [ -n "${t//[[:space:]]/}" ]; then
+			k=$((k + 1))
+			[ "$k" = "$n" ] && continue
+		fi
+		out="$out$l
+"
+	done < <(wt_fw_text)
+	[ "$n" -ge 1 ] && [ "$n" -le "$k" ] || { echo "wiretap: there is no rule $n" >&2; return 1; }
+	wt_fw_set "$out"
+}
+
+fn wt_fw(...a) {
+	case ${a[0]:-list} in
+	list | "") wt_fw_list ;;
+	block | allow) wt_fw_add "${a[@]}" ;;
+	rm) wt_fw_rm "${a[1]:-}" ;;
+	on) wt_fw_priv on < /dev/null && echo "wiretap: firewall on" ;;
+	off) wt_fw_priv off < /dev/null && echo "wiretap: firewall off (the rules are kept; wiretap fw on)" ;;
+	render) wt fwrender "$WT_RULES" || { echo "wiretap: ${ERRMSG:-failed}" >&2; return 1; } ;;
+	*) echo "usage: wiretap fw [list | block|allow HOST [PORT] [--tcp|--udp] [--in] [--uid N] [--cgroup /PATH] [--first] | rm N | on | off | render]" >&2; return 2 ;;
+	esac
+}
+
 declare -ga BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
 
 # A mirrored graph of the last `secs` seconds: download above the line, upload below it, hung from it.
@@ -346,6 +460,7 @@ watch)
 		wt_table rate 20
 		sleep 1
 	done ;;
+fw) wt_fw "${args[@]:1}" ;;
 doctor) wt_doctor ;;
 version)
 	echo "wiretap $SELF_VERSION"
