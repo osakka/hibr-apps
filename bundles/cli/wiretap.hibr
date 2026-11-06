@@ -1,0 +1,315 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# wiretap -- the command. It starts and stops the engine through the module's `wt` builtin and shows what the engine sees:
+# who is talking (top, usage), how much (graph), and whether it can see at all (show, doctor). Read-only: nothing here
+# changes a firewall (that is M2). See docs/CLI.md.
+
+# What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.1.0
+# modules: wiretap
+
+strict
+
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.1.0}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+
+# Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
+fn wt_findsock() {
+	if [ -n "${WT_SOCK:-}" ]; then
+		ret "$WT_SOCK"
+	elif [ -S /run/wiretap/ctl ]; then
+		ret /run/wiretap/ctl
+	elif [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+		ret "$XDG_RUNTIME_DIR/wiretap/ctl"
+	else
+		ret "$HOME/.wiretap/ctl"
+	fi
+}
+WT_SOCK := wt_findsock
+export WT_SOCK
+
+mod load "${WT_MOD:-wiretap}" || { echo "wiretap: the wiretap module is not installed" >&2; exit 1; }
+
+# wt reports failures in $ERRMSG; say them the way a command would.
+fn run(...cmd) {
+	"${cmd[@]}" || { echo "wiretap: ${ERRMSG:-failed}" >&2; exit 1; }
+}
+
+fn usage() {
+	cat <<EOF
+usage: wiretap <command>
+
+  (nothing)                  turn it on if it is off, then say how it is
+  on                         start the node in the background (a service machine starts it for you)
+  off | down                 stop the node
+  show                       how the node is, in a few lines
+  top [N]                    who is talking now: the busiest N programs (default 10), by their last five seconds
+  usage [N]                  who has used the most since the node started
+  graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
+  watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
+  status                     the raw status (JSON)
+  doctor                     say whether it can see everything, and what is out of step
+  version                    this script's version, the installed engine's, and the running node's
+
+  --json after top, usage, graph or show prints the node's JSON instead
+EOF
+}
+
+# 1234 -> 1.2K, 5300000 -> 5.0M
+fn wt_human(int b) {
+	if [ "$b" -ge 1073741824 ]; then
+		echo "$((b / 1073741824)).$((b % 1073741824 * 10 / 1073741824))G"
+	elif [ "$b" -ge 1048576 ]; then
+		echo "$((b / 1048576)).$((b % 1048576 * 10 / 1048576))M"
+	elif [ "$b" -ge 1024 ]; then
+		echo "$((b / 1024)).$((b % 1024 * 10 / 1024))K"
+	else
+		echo "${b}B"
+	fi
+}
+
+# Is a node answering? Fills WT_ST with its status.
+declare -g WT_ST AJ SJ
+fn wt_up() {
+	local st
+
+	if st := wt status 2> /dev/null && json parse WT_ST "$st" 2> /dev/null; then
+		return 0
+	fi
+	return 1
+}
+
+fn wt_need() {
+	wt_up || { echo "wiretap: it is not running. Start it with: wiretap on" >&2; exit 1; }
+}
+
+fn wt_on() {
+	if wt_up; then
+		echo "wiretap: already running"
+		return 0
+	fi
+	local i
+	local -a extra
+	read -ra extra <<< "${WT_ARGS:-}"		# WT_ARGS: extra options for the engine, such as --no-capture
+	# History is kept across restarts (ADR 0009) unless the person says otherwise: WT_STATE names the file, WT_STATE=none turns it off.
+	case " ${extra[*]:-} " in
+	*" --state "*) ;;
+	*)
+		local st=${WT_STATE:-${XDG_STATE_HOME:-$HOME/.local/state}/wiretap/history}
+		if [ "$st" != none ]; then
+			mkdir -p -m 700 "${st%/*}" 2> /dev/null
+			extra+=(--state "$st")
+		fi ;;
+	esac
+	run wt start "${extra[@]}" > /dev/null
+	for ((i = 0; i < 20; i++)); do
+		wt_up && return 0
+		sleep 0.1
+	done
+	echo "wiretap: started, but it does not answer yet (wiretap doctor)" >&2
+	return 1
+}
+
+fn wt_show() {
+	local v cap note pk dr un
+
+	wt_need
+	v := json get WT_ST .version
+	cap := json get WT_ST .capture
+	note := json get WT_ST .capture_note
+	pk := json get WT_ST .packets
+	dr := json get WT_ST .kernel_dropped
+	un := json get WT_ST .processes_unreadable
+	echo "wiretap $v is running ($WT_SOCK)"
+	if [ "$cap" = true ]; then
+		echo "  seeing packets: yes ($pk so far, $dr dropped by the kernel)"
+	else
+		echo "  seeing packets: NO: $note"
+	fi
+	[ "${un:-0}" -gt 0 ] && echo "  $un processes could not be read: their traffic shows as (root) or (user N)"
+	return 0
+}
+
+# The apps, as parallel arrays, sorted by the key given: rate (the last five seconds) or total.
+declare -ga A_NAME=() A_PID=() A_OK=() A_RX=() A_TX=() A_RX5=() A_TX5=()
+fn wt_apps(by) {
+	local j cnt A i k t
+	local -a key
+
+	A_NAME=(); A_PID=(); A_OK=(); A_RX=(); A_TX=(); A_RX5=(); A_TX5=(); key=()
+	A := wt apps || return 1
+	json parse AJ "$A" || return 1
+	cnt := json len AJ .apps
+	for ((i = 0; i < ${cnt:-0}; i++)); do
+		A_NAME+=("$(json get AJ ".apps[$i].name")")
+		A_PID+=("$(json get AJ ".apps[$i].pid")")
+		A_OK+=("$(json get AJ ".apps[$i].attributed")")
+		A_RX+=("$(json get AJ ".apps[$i].rx")")
+		A_TX+=("$(json get AJ ".apps[$i].tx")")
+		A_RX5+=("$(json get AJ ".apps[$i].rx5")")
+		A_TX5+=("$(json get AJ ".apps[$i].tx5")")
+	done
+	# the node sends them biggest by total; for "by rate", sort here (a few dozen rows: an insertion sort is plenty)
+	[ "$by" = rate ] || return 0
+	for ((i = 0; i < ${#A_NAME[@]}; i++)); do key[$i]=$((A_RX5[i] + A_TX5[i])); done
+	for ((i = 1; i < ${#A_NAME[@]}; i++)); do
+		j=$i
+		while [ "$j" -gt 0 ] && [ "${key[$((j - 1))]}" -lt "${key[$j]}" ]; do
+			for k in A_NAME A_PID A_OK A_RX A_TX A_RX5 A_TX5 key; do
+				eval "t=\${$k[$j]}; $k[$j]=\${$k[$((j - 1))]}; $k[$((j - 1))]=\$t"
+			done
+			j=$((j - 1))
+		done
+	done
+	return 0
+}
+
+fn wt_table(by, int n) {
+	local i shown=0 mark tot
+
+	wt_apps "$by" || { echo "wiretap: $ERRMSG" >&2; exit 1; }
+	printf '%-20s %7s %9s %9s %9s\n' APP PID DOWN/s UP/s TOTAL
+	for ((i = 0; i < ${#A_NAME[@]} && shown < n; i++)); do
+		tot=$((A_RX[i] + A_TX[i]))
+		[ "$tot" -gt 0 ] || continue
+		if [ "$by" = rate ] && [ $((A_RX5[i] + A_TX5[i])) -eq 0 ]; then continue; fi
+		mark=
+		[ "${A_OK[$i]}" = true ] || mark="  ?"
+		printf '%-20s %7s %9s %9s %9s%s\n' "${A_NAME[$i]}" "${A_PID[$i]}" "$(wt_human "${A_RX5[$i]}")" "$(wt_human "${A_TX5[$i]}")" "$(wt_human "$tot")" "$mark"
+		shown=$((shown + 1))
+	done
+	[ "$shown" -gt 0 ] || echo "(nothing talking just now)"
+	return 0
+}
+
+declare -ga BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+
+# A mirrored graph of the last `secs` seconds: download above the line, upload below it, hung from it.
+fn wt_graph(int secs, int rows) {
+	local S i r max=1 v e cnt line half
+	local -a din dout
+	local g_in= g_out= rev= off= rst=
+
+	wt_need
+	S := wt series 1 "$secs" || { echo "wiretap: $ERRMSG" >&2; exit 1; }
+	json parse SJ "$S"
+	cnt := json len SJ .in
+	for ((i = 0; i < cnt; i++)); do
+		din[$i]="$(json get SJ ".in[$i]")"
+		dout[$i]="$(json get SJ ".out[$i]")"
+		[ "${din[$i]}" -gt "$max" ] && max=${din[$i]}
+		[ "${dout[$i]}" -gt "$max" ] && max=${dout[$i]}
+	done
+	if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+		g_in=$'\e[32m'; g_out=$'\e[36m'; rev=$'\e[7m'; off=$'\e[27m'; rst=$'\e[0m'
+	fi
+	printf 'down %s/s   up %s/s   scale %s/s   last %ds\n' "$(wt_human "${din[$((cnt - 1))]}")" "$(wt_human "${dout[$((cnt - 1))]}")" "$(wt_human "$max")" "$cnt"
+	for ((r = rows - 1; r >= 0; r--)); do
+		line=
+		for ((i = 0; i < cnt; i++)); do
+			e=$((din[i] * rows * 8 / max - r * 8))
+			[ "$e" -gt 8 ] && e=8
+			[ "$e" -lt 0 ] && e=0
+			line+="${BLK[$e]}"
+		done
+		printf '%s%s%s\n' "$g_in" "$line" "$rst"
+	done
+	line=
+	for ((i = 0; i < cnt; i++)); do line+="─"; done
+	printf '%s\n' "$line"
+	for ((r = 0; r < rows; r++)); do
+		line=
+		for ((i = 0; i < cnt; i++)); do
+			e=$((dout[i] * rows * 8 / max - r * 8))
+			[ "$e" -gt 8 ] && e=8
+			[ "$e" -lt 0 ] && e=0
+			if [ "$e" -eq 0 ]; then line+=" "; else line+="$rev${BLK[$((8 - e))]}$off"; fi
+		done
+		printf '%s%s%s\n' "$g_out" "$line" "$rst"
+	done
+	return 0
+}
+
+fn wt_doctor() {
+	local mod run cap un bad=0 note
+
+	echo "script    $SELF_VERSION"
+	if mod := wt version 2> /dev/null; then
+		echo "engine    $mod (the installed module)"
+		[ "$mod" = "$SELF_VERSION" ] || { echo "          out of step with the script"; bad=1; }
+	else
+		echo "engine    NOT FOUND: install the wiretap package"
+		bad=1
+	fi
+	if wt_up; then
+		run := json get WT_ST .version
+		cap := json get WT_ST .capture
+		un := json get WT_ST .processes_unreadable
+		note := json get WT_ST .capture_note
+		echo "node      $run, answering on $WT_SOCK"
+		[ "$run" = "$mod" ] || { echo "          the running node is not the installed engine: turn it off and on"; bad=1; }
+		if [ "$cap" = true ]; then
+			echo "packets   being captured"
+		else
+			echo "packets   NOT captured: $note"
+			echo "          (the service has CAP_NET_RAW; a node you start yourself does not)"
+			bad=1
+		fi
+		if [ "${un:-0}" -gt 0 ]; then
+			echo "processes $un could not be read: that traffic is shown as (root) or (user N)"
+			echo "          (the service has CAP_SYS_PTRACE and CAP_DAC_READ_SEARCH; a node you start yourself does not)"
+		else
+			echo "processes all readable"
+		fi
+	else
+		echo "node      not running ($WT_SOCK)"
+		bad=1
+	fi
+	[ "$bad" = 0 ] && echo "all well"
+	return $bad
+}
+
+json=0
+args=()
+for a in "$@"; do
+	case $a in
+	--json) json=1 ;;
+	*) args+=("$a") ;;
+	esac
+done
+cmd=${args[0]:-}
+
+case $cmd in
+"")
+	wt_up || wt_on || exit 1
+	wt_show ;;
+on) wt_on ;;
+off | down)
+	run wt stop > /dev/null
+	echo "wiretap: stopped" ;;
+status) wt_need; run wt status ;;
+show)
+	if [ "$json" = 1 ]; then wt_need; run wt status; else wt_show; fi ;;
+top)
+	wt_need
+	if [ "$json" = 1 ]; then run wt apps; else wt_table rate "${args[1]:-10}"; fi ;;
+usage)
+	wt_need
+	if [ "$json" = 1 ]; then run wt apps; else wt_table total "${args[1]:-10}"; fi ;;
+graph)
+	if [ "$json" = 1 ]; then wt_need; run wt series 1 "${args[1]:-60}"; else wt_graph "${args[1]:-60}" "${args[2]:-5}"; fi ;;
+watch)
+	wt_need
+	while :; do
+		printf '\e[H\e[2J'
+		wt_table rate 20
+		sleep 1
+	done ;;
+doctor) wt_doctor ;;
+version)
+	echo "wiretap $SELF_VERSION"
+	if v := wt version 2> /dev/null; then echo "engine  $v"; fi
+	if wt_up; then r := json get WT_ST .version; echo "node    $r"; fi ;;
+help | -h | --help) usage ;;
+*) usage >&2; exit 2 ;;
+esac

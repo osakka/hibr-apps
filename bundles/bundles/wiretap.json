@@ -1,0 +1,11 @@
+{
+ "title": "Wiretap",
+ "about": "Wiretap in the desktop: a drop-down on the menu bar with a live graph and the busiest apps, a Control Strip module, a Control Panel pane, and a window with a graph over a minute to a week and every app's traffic.",
+ "members": [
+  "cli/wiretap",
+  "control-panel/wiretap",
+  "menubar/wiretap",
+  "control-strip/wiretap",
+  "apps/wiretap"
+ ]
+}

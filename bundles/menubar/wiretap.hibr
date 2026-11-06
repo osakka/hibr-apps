@@ -1,0 +1,184 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# menubar/wiretap -- wiretap on the menu bar, and the Tap: a click on the item drops a panel with the last minute of traffic as
+# a mirrored graph (download above the axis, upload below), the current rates, and the five busiest apps with a meter each.
+# It reads the node through the pane's reader (control-panel/wiretap.hibr: wtp_poll, wtp_last, wtp_app; ADR 0005), so the
+# desktop asks the node once a second however many faces are showing. `_popdraw` asks for its own next frame with dt_want, so
+# the graph moves with no input (proved in M0, tests/m0_tap.py).
+#
+# overlay: its bar item and its pop-up are the desktop's own, drawn over the finished frame.
+
+strict
+
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.0
+# needs: control-panel/wiretap
+
+declare -ag WTB_HI=() WTB_HO=()
+declare -g WTB_SEEN=-1 WTB_KEY=
+declare -ag WTB_BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+
+# Copy the series out of the parsed JSON into arrays, once per poll, not once per frame.
+fn wtb_load() {
+	local n i v
+
+	wtp_poll
+	[ "$WTP_T" != "$WTB_SEEN" ] || return 0
+	WTB_SEEN=$WTP_T
+	WTB_HI=(); WTB_HO=()
+	[ "$WTP_UP" = 1 ] || return 0
+	n := wtp_series .count 0
+	for ((i = 0; i < ${n:-0}; i++)); do
+		v := wtp_series ".in[$i]" 0; WTB_HI+=("${v:-0}")
+		v := wtp_series ".out[$i]" 0; WTB_HO+=("${v:-0}")
+	done
+}
+
+# eighths (0..8) of a rows-high column for v of max, for row r counted from the axis outward.
+fn wtb_eighths(int v, int max, int rows, int r) {
+	local e=$((max > 0 ? v * rows * 8 / max : 0))
+
+	e=$((e - r * 8))
+	[ "$e" -gt 8 ] && e=8
+	[ "$e" -lt 0 ] && e=0
+	ret "$e"
+}
+
+# A meter of cols cells, full for v of max, in eighths.
+fn wtb_meter(int v, int max, int cols) {
+	local e=$((max > 0 ? v * cols * 8 / max : 0)) i full s=
+
+	[ "$e" -gt $((cols * 8)) ] && e=$((cols * 8))
+	full=$((e / 8))
+	for ((i = 0; i < full; i++)); do s+="█"; done
+	[ "$full" -lt "$cols" ] && [ $((e % 8)) -gt 0 ] && s+="${WTB_BLK[$((e % 8))]}"
+	ret "$s"
+}
+
+# The panel: a title row, `half` rows of download, the axis, `half` rows of upload, the apps, and the blank last row every
+# drop-down ends with.
+fn wtap_popdraw(int r, int c, int h, int w) {
+	local half=5 cols=$((w - 2)) nh i k v e rr max=1 row line inr outr name rx amax=1 mcols
+
+	wtb_load
+	nh=${#WTB_HI[@]}
+	console pen "$DT_INK" "$DT_FACE" bold
+	console put "$r" $((c + 1)) "Wiretap"
+	if [ "$WTP_MOD" = 0 ]; then
+		console pen "$DT_WARN" "$DT_FACE"
+		console put $((r + 2)) $((c + 1)) "module not installed"
+		dt_want 2000; return 0
+	fi
+	if [ "$WTP_UP" = 0 ]; then
+		console pen "$DT_WARN" "$DT_FACE"
+		console put $((r + 2)) $((c + 1)) "not running: wiretap on"
+		console pen "$DT_DIM" "$DT_FACE"
+		console put $((r + 3)) $((c + 1)) "or join group wiretap, log in again"
+		dt_want 2000; return 0
+	fi
+	for v in "${WTB_HI[@]}" "${WTB_HO[@]}"; do [ "$v" -gt "$max" ] && max=$v; done
+	inr=0; outr=0
+	[ "$nh" -gt 0 ] && { inr=${WTB_HI[$((nh - 1))]}; outr=${WTB_HO[$((nh - 1))]}; }
+
+	console pen "$DT_GOOD" "$DT_FACE"
+	line := wtp_rate "$inr"
+	console put "$r" $((c + 10)) "↓ $line/s"
+	console pen "$DT_INFO" "$DT_FACE"
+	line := wtp_rate "$outr"
+	console put "$r" $((c + 24)) "↑ $line/s"
+	console pen "$DT_DIM" "$DT_FACE"
+	line := wtp_rate "$max"
+	console put "$r" $((c + w - ${#line} - 6)) "max $line"
+
+	# the download half, tallest row on top
+	for ((rr = half - 1; rr >= 0; rr--)); do
+		row=$((r + 1 + (half - 1 - rr)))
+		for ((i = 0; i < cols; i++)); do
+			k=$((nh - cols + i))
+			e=0
+			[ "$k" -ge 0 ] && e := wtb_eighths "${WTB_HI[$k]}" "$max" "$half" "$rr"
+			[ "$e" -gt 0 ] && { console pen "$DT_GOOD" "$DT_FACE"; console put "$row" $((c + 1 + i)) "${WTB_BLK[$e]}"; }
+		done
+	done
+	console pen "$DT_DIM" "$DT_FACE"
+	line=
+	for ((i = 0; i < cols; i++)); do line+="${GL[hline]:-─}"; done
+	console put $((r + 1 + half)) $((c + 1)) "$line"
+	# the upload half: the flipped block with the colours swapped, so a bar hangs from the axis
+	for ((rr = 0; rr < half; rr++)); do
+		row=$((r + 2 + half + rr))
+		for ((i = 0; i < cols; i++)); do
+			k=$((nh - cols + i))
+			e=0
+			[ "$k" -ge 0 ] && e := wtb_eighths "${WTB_HO[$k]}" "$max" "$half" "$rr"
+			[ "$e" -gt 0 ] && { console pen "$DT_FACE" "$DT_INFO"; console put "$row" $((c + 1 + i)) "${WTB_BLK[$((8 - e))]}"; }
+		done
+	done
+
+	# the busiest apps: one hue for one measure (download over the last five seconds), the biggest sets the scale
+	console pen "$DT_INK" "$DT_FACE" bold
+	console put $((r + 2 + 2 * half)) $((c + 1)) "Top apps  down, last 5 s"
+	mcols=$((cols - 26))
+	for ((i = 0; i < 5; i++)); do
+		v := wtp_app ".apps[$i].rx5" 0
+		[ "${v:-0}" -gt "$amax" ] && amax=$v
+	done
+	for ((i = 0; i < 5; i++)); do
+		name := wtp_app ".apps[$i].name" ""
+		[ -n "$name" ] || break
+		rx := wtp_app ".apps[$i].rx5" 0
+		row=$((r + 3 + 2 * half + i))
+		console pen "$DT_INK" "$DT_FACE"
+		console put "$row" $((c + 1)) "${name:0:14}"
+		console pen "$DT_GOOD" "$DT_FACE"
+		line := wtb_meter "${rx:-0}" "$amax" "$mcols"
+		console put "$row" $((c + 16)) "$line"
+		console pen "$DT_DIM" "$DT_FACE"
+		line := wtp_rate "$(( ${rx:-0} / 5 ))"
+		console put "$row" $((c + 17 + mcols)) "$line/s"
+	done
+	dt_want 1000
+	return 0
+}
+
+fn wtap_popmouse(act, int row, int col) { :; }
+
+fn wtb_open() { dt_baripop wtb wtap 21 50; }
+
+# Every frame: the bar item, a sparkline of the last eight seconds and the rate; made again only when it changes.
+fn wtb_tick() {
+	local t i n k sp= v max=1 inr=0 line
+
+	dt_has wtp_poll || return 0
+	if [ "${DT_WTBAR-1}" != 1 ]; then
+		dt_baritem wtb ""
+		return 0
+	fi
+	wtb_load
+	n=${#WTB_HI[@]}
+	if [ "$WTP_UP" = 1 ] && [ "$n" -gt 0 ]; then
+		for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do [ "${WTB_HI[$i]}" -gt "$max" ] && max=${WTB_HI[$i]}; done
+		for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do
+			k=$((WTB_HI[i] * 8 / max)); [ "$k" -gt 8 ] && k=8
+			sp+="${WTB_BLK[$k]}"
+		done
+		inr=${WTB_HI[$((n - 1))]}
+		line := wtp_rate "$inr"
+		t="$sp ↓$line"
+	else
+		t="net ○"
+	fi
+	if [ "$t" != "$WTB_KEY" ]; then
+		WTB_KEY=$t
+		dt_baritem wtb "$t" wtb_open
+	fi
+	dt_want 1500
+	return 0
+}
+
+fn wtb_refresh() { WTB_KEY=; wtb_tick; }
+
+dt_baritem wtb ""
+dt_bariswitch wtb DT_WTBAR wtb_refresh
+dt_barilabel wtb "Wiretap"
+dt_ticker wtb_tick

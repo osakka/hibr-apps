@@ -1,0 +1,205 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# wiretap (the window) -- the big view the drop-down has no room for: a mirrored download/upload graph over a timescale you pick
+# (1 minute, 1 hour, 24 hours, 7 days) and a Usage table of every app the engine has seen. It reads the node only through the
+# Control Panel pane's reader (control-panel/wiretap.hibr, ADR 0005): wtp_poll, wtp_range, wtp_app. Read-only: it never changes a
+# firewall. Every key is in the menus (docs/adr/0049 of longwire, the habit kept here).
+#
+# Called wtview: wiretap is the Control Panel pane's prefix (a pane with a wiretap_draw would be taken for one that draws itself).
+#
+#   1 2 3 4   timescale: 1 minute, 1 hour, 24 hours, 7 days      g  Graph      u  Usage      tab  the other one
+#   up/down   in Usage, the selected row                         
+
+strict
+
+app wtview "Wiretap: a live graph and every app's traffic" 0.1.0
+# needs: control-panel/wiretap
+command -v dt_app > /dev/null && dt_app wtview "Wiretap" 26 90 once "◎"
+
+declare -gA WV
+WV_SCALES=(1m 1h 24h 7d)
+WV_LABELS=("1 min" "1 hour" "24 hours" "7 days")
+WV_AGE=("60 s ago" "1 h ago" "24 h ago" "7 d ago")
+declare -ag WV_BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
+
+fn wtview_open(int id, ...rest) {
+	WV[$id]["view"]=graph
+	WV[$id]["scale"]=0
+	WV[$id]["sel"]=0
+	WV[$id]["top"]=0
+	return 0
+}
+
+fn wv_put(int id, int r, int c, text) { console put -p "w$id" "$r" "$c" "$text"; }
+
+# eighths (0..8) of a rows-high column for v of max, for row r counted from the axis outward.
+fn wv_eighths(int v, int max, int rows, int r) {
+	local e=$((max > 0 ? v * rows * 8 / max : 0))
+
+	e=$((e - r * 8))
+	[ "$e" -gt 8 ] && e=8
+	[ "$e" -lt 0 ] && e=0
+	ret "$e"
+}
+
+# The tab row and the timescale buttons.
+fn wv_head(int id, int w) {
+	local s=${WV[$id]["scale"]} i col
+
+	console pen "$DT_INK" "$DT_FACE" bold
+	if [ "${WV[$id]["view"]}" = graph ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
+	wv_put "$id" 1 2 " Graph "
+	if [ "${WV[$id]["view"]}" = usage ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
+	wv_put "$id" 1 10 " Usage "
+	col=$((w - 34))
+	for i in 0 1 2 3; do
+		if [ "$i" = "$s" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
+		wv_put "$id" 1 "$col" " ${WV_LABELS[$i]} "
+		col=$((col + ${#WV_LABELS[$i]} + 3))
+	done
+}
+
+fn wv_graph(int id, int h, int w) {
+	local half=$(((h - 5) / 2)) cols=$((w - 4)) n i k rr row max=1 v e line inr outr s=${WV[$id]["scale"]}
+
+	wtp_range "${WV_SCALES[$s]}" "$cols"
+	n=${#WTP_RI[@]}
+	for v in "${WTP_RI[@]}" "${WTP_RO[@]}"; do [ "$v" -gt "$max" ] && max=$v; done
+	inr=0; outr=0
+	[ "$n" -gt 0 ] && { inr=${WTP_RI[$((n - 1))]}; outr=${WTP_RO[$((n - 1))]}; }
+	console pen "$DT_GOOD" "$DT_FACE" bold
+	line := wtp_rate "$inr"
+	wv_put "$id" 2 2 "↓ $line/s"
+	console pen "$DT_INFO" "$DT_FACE" bold
+	line := wtp_rate "$outr"
+	wv_put "$id" 2 18 "↑ $line/s"
+	console pen "$DT_DIM" "$DT_FACE"
+	line := wtp_rate "$max"
+	wv_put "$id" 2 $((w - ${#line} - 8)) "scale $line/s"
+	for ((rr = half - 1; rr >= 0; rr--)); do
+		row=$((3 + (half - 1 - rr)))
+		for ((i = 0; i < n; i++)); do
+			k=$((cols - n + i))
+			e := wv_eighths "${WTP_RI[$i]}" "$max" "$half" "$rr"
+			[ "$e" -gt 0 ] && { console pen "$DT_GOOD" "$DT_FACE"; wv_put "$id" "$row" $((2 + k)) "${WV_BLK[$e]}"; }
+		done
+	done
+	console pen "$DT_DIM" "$DT_FACE"
+	line=
+	for ((i = 0; i < cols; i++)); do line+="${GL[hline]:-─}"; done
+	wv_put "$id" $((3 + half)) 2 "$line"
+	for ((rr = 0; rr < half; rr++)); do
+		row=$((4 + half + rr))
+		for ((i = 0; i < n; i++)); do
+			k=$((cols - n + i))
+			e := wv_eighths "${WTP_RO[$i]}" "$max" "$half" "$rr"
+			[ "$e" -gt 0 ] && { console pen "$DT_FACE" "$DT_INFO"; wv_put "$id" "$row" $((2 + k)) "${WV_BLK[$((8 - e))]}"; }
+		done
+	done
+	console pen "$DT_DIM" "$DT_FACE"
+	wv_put "$id" $((4 + 2 * half)) 2 "${WV_AGE[$s]}"
+	wv_put "$id" $((4 + 2 * half)) $((cols - 1)) "now"
+}
+
+fn wv_usage(int id, int h, int w) {
+	local n i name pid rx tx rx5 tx5 vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r
+
+	n := json len WTP_A .apps 2> /dev/null || n=0
+	n=${n:-0}
+	WV[$id]["n"]=$n
+	console pen "$DT_DIM" "$DT_FACE" bold
+	printf -v line "%-22s %7s %10s %10s %11s %11s" APP PID "DOWN/s" "UP/s" "DOWN total" "UP total"
+	wv_put "$id" 2 2 "$line"
+	[ "$sel" -ge "$n" ] && sel=$((n > 0 ? n - 1 : 0))
+	[ "$sel" -lt "$top" ] && top=$sel
+	[ "$sel" -ge $((top + vis)) ] && top=$((sel - vis + 1))
+	WV[$id]["sel"]=$sel; WV[$id]["top"]=$top
+	for ((i = top; i < n && i < top + vis; i++)); do
+		name := wtp_app ".apps[$i].name" ""
+		pid := wtp_app ".apps[$i].pid" 0
+		rx := wtp_app ".apps[$i].rx" 0; tx := wtp_app ".apps[$i].tx" 0
+		rx5 := wtp_app ".apps[$i].rx5" 0; tx5 := wtp_app ".apps[$i].tx5" 0
+		r=$((3 + i - top))
+		if [ "$i" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
+		local a b c d
+		a := wtp_rate "$((rx5 / 5))"; b := wtp_rate "$((tx5 / 5))"; c := wtp_rate "$rx"; d := wtp_rate "$tx"
+		[ "$pid" = 0 ] && pid=-
+		printf -v line "%-22s %7s %10s %10s %11s %11s" "${name:0:22}" "$pid" "$a" "$b" "$c" "$d"
+		wv_put "$id" "$r" 2 "$line"
+	done
+}
+
+fn wtview_draw(int id, int h, int w, int row, int col) {
+	WV[$id]["w"]=$w
+	wtp_poll
+	console pen "$DT_INK" "$DT_FACE"
+	if [ "$WTP_MOD" = 0 ]; then
+		wv_put "$id" 2 2 "The wiretap module is not installed. Install the package (apt install wiretap)."
+		return 0
+	fi
+	if [ "$WTP_UP" = 0 ]; then
+		console pen "$DT_WARN" "$DT_FACE"
+		wv_put "$id" 2 2 "No wiretap node answers."
+		console pen "$DT_INK" "$DT_FACE"
+		wv_put "$id" 4 2 "Start one with:  wiretap on"
+		wv_put "$id" 5 2 "or, for the service, join the group wiretap and log in again."
+		dt_want 2000
+		return 0
+	fi
+	wv_head "$id" "$w"
+	if [ "${WV[$id]["view"]}" = usage ]; then wv_usage "$id" "$h" "$w"; else wv_graph "$id" "$h" "$w"; fi
+	dt_want 1000
+}
+
+fn wtview_key(int id, key) {
+	local n=${WV[$id]["n"]:-0}
+
+	case $key in
+	1|2|3|4) WV[$id]["scale"]=$((key - 1)); WTP_RKEY= ;;
+	g) WV[$id]["view"]=graph ;;
+	u) WV[$id]["view"]=usage ;;
+	tab|$'\t') if [ "${WV[$id]["view"]}" = graph ]; then WV[$id]["view"]=usage; else WV[$id]["view"]=graph; fi ;;
+	up) [ "${WV[$id]["sel"]}" -gt 0 ] && WV[$id]["sel"]=$((WV[$id]["sel"] - 1)) ;;
+	down) [ "${WV[$id]["sel"]}" -lt $((n - 1)) ] && WV[$id]["sel"]=$((WV[$id]["sel"] + 1)) ;;
+	*) return 1 ;;
+	esac
+	return 0
+}
+
+fn wtview_click(int id, int row, int col, button) {
+	local w=${WV[$id]["w"]:-90} i c
+
+	if [ "$row" = 1 ]; then
+		if [ "$col" -ge 2 ] && [ "$col" -le 9 ]; then WV[$id]["view"]=graph; return 0; fi
+		if [ "$col" -ge 10 ] && [ "$col" -le 17 ]; then WV[$id]["view"]=usage; return 0; fi
+		c=$((w - 34))
+		for i in 0 1 2 3; do
+			if [ "$col" -ge "$c" ] && [ "$col" -lt $((c + ${#WV_LABELS[$i]} + 2)) ]; then WV[$id]["scale"]=$i; WTP_RKEY=; return 0; fi
+			c=$((c + ${#WV_LABELS[$i]} + 3))
+		done
+	elif [ "${WV[$id]["view"]}" = usage ] && [ "$row" -ge 3 ]; then
+		WV[$id]["sel"]=$((${WV[$id]["top"]} + row - 3))
+	fi
+	return 0
+}
+
+wtview_menus() {
+	local id=$DT_FOCUS
+
+	dt_menu "File"
+	dt_item "Close Window" w dt_close_focused
+	dt_editmenu
+	dt_menu "View"
+	dt_mark "Graph" g "$([ "${WV[$id]["view"]}" = graph ] && echo 1 || echo 0)" wtview_key "$id" g
+	dt_mark "Usage" u "$([ "${WV[$id]["view"]}" = usage ] && echo 1 || echo 0)" wtview_key "$id" u
+	dt_sep
+	dt_mark "1 Minute" 1 "$([ "${WV[$id]["scale"]}" = 0 ] && echo 1 || echo 0)" wtview_key "$id" 1
+	dt_mark "1 Hour" 2 "$([ "${WV[$id]["scale"]}" = 1 ] && echo 1 || echo 0)" wtview_key "$id" 2
+	dt_mark "24 Hours" 3 "$([ "${WV[$id]["scale"]}" = 2 ] && echo 1 || echo 0)" wtview_key "$id" 3
+	dt_mark "7 Days" 4 "$([ "${WV[$id]["scale"]}" = 3 ] && echo 1 || echo 0)" wtview_key "$id" 4
+	if dt_has panel_goto; then
+		dt_sep
+		dt_item "Wiretap Settings${GL[ellipsis]}" s dt_panelpane wiretap
+	fi
+}

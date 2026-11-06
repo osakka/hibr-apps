@@ -1,0 +1,191 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# wiretap -- the Control Panel pane for wiretap, the network monitor: whether the engine is up, what it can see, what the
+# machine is sending and receiving, and who is talking. It is also the node reader: the Tap (menubar/wiretap.hibr) and the
+# Control Strip module call wtp_poll / wtp_get / wtp_series from here, so the desktop asks the node once a second however many
+# faces are showing (docs/adr/0005-the-pane-owns-the-node-reader.md). Read-only: it never starts a firewall or asks for privilege.
+
+strict
+
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.0
+# modules: wiretap
+# needs: cli/wiretap
+command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "◎" app
+
+# Whether the menu bar item (menubar/wiretap.hibr, in the same bundle) is shown.
+DT_WTBAR="${DT_WTBAR-1}"
+command -v dt_keep > /dev/null && dt_keep DT_WTBAR
+
+# The module is the package's (`mod load wiretap`); WT_MOD names a file for a build tree. Nothing here hardcodes build/ (the rule longwire writes as its adr/0046).
+WTP_LOADED=0
+fn wtp_load() {
+	[ "$WTP_LOADED" = 1 ] && return 0
+	mod load "${WT_MOD:-wiretap}" 2> /dev/null || return 1
+	WTP_LOADED=1
+}
+
+# Where the node's control socket is: WT_SOCK; else the system service's; else this user's own (as the command).
+fn wtp_sock() {
+	if [ -n "${WT_SOCK:-}" ]; then
+		ret "$WT_SOCK"
+	elif [ -S /run/wiretap/ctl ]; then
+		ret /run/wiretap/ctl
+	elif [ -n "${XDG_RUNTIME_DIR:-}" ]; then
+		ret "$XDG_RUNTIME_DIR/wiretap/ctl"
+	else
+		ret "$HOME/.wiretap/ctl"
+	fi
+}
+
+declare -g WT_SOCK="${WT_SOCK:-}"
+declare -g WTP_S="" WTP_A="" WTP_SER=""	# parsed status, apps, series
+declare -gi WTP_T=-1 WTP_UP=0 WTP_MOD=1	# last poll (SECONDS), whether a node answered, whether the module loaded
+
+# Read the node at most once a second: status, apps and the last minute of series. WTP_UP says whether a node answered; WTP_MOD
+# whether the module is installed at all (the pane says which of the two is wrong).
+fn wtp_poll() {
+	local st ap se
+
+	[ "$WTP_T" -lt 0 ] || [ $((SECONDS - WTP_T)) -ge 1 ] || return 0
+	WTP_T=$SECONDS
+	WT_SOCK := wtp_sock		# looked for every poll: a service started after the desktop is found without a restart
+	export WT_SOCK
+	if ! wtp_load; then
+		WTP_MOD=0; WTP_UP=0
+		return 0
+	fi
+	WTP_MOD=1
+	if st := wt status 2> /dev/null && json parse WTP_S "$st" 2> /dev/null; then
+		WTP_UP=1
+		if ap := wt apps 2> /dev/null; then json parse WTP_A "$ap" 2> /dev/null || WTP_A=""; fi
+		if se := wt series 1 60 2> /dev/null; then json parse WTP_SER "$se" 2> /dev/null || WTP_SER=""; fi
+		return 0
+	fi
+	WTP_UP=0
+}
+
+# A timescale as the node's resolution and sample count: seconds per sample, samples, and seconds per sample as a rate divisor.
+# 1m: 60 one-second samples; 1h: 60 one-minute; 24h: 1440 one-minute; 7d: 168 one-hour.
+fn wtp_scale(sc) {
+	case $sc in
+	1m) ret "1 60" ;;
+	1h) ret "60 60" ;;
+	24h) ret "60 1440" ;;
+	7d) ret "3600 168" ;;
+	*) return 1 ;;
+	esac
+}
+
+declare -ag WTP_RI=() WTP_RO=()		# the last wtp_range: bytes per second, oldest first, at most `cols` of them
+declare -g WTP_RKEY="" WTP_RNG="" WTP_RSEEN=-1000000
+
+# The traffic over a timescale (1m, 1h, 24h, 7d), as at most `cols` rates in WTP_RI (down) and WTP_RO (up), oldest first. The
+# one-minute scale is read every second, the others every ten. More samples than columns are averaged into columns.
+fn wtp_range(sc, int cols) {
+	local sp secs cnt body n i j v lo hi sumi sumo grp key every=10
+
+	sp := wtp_scale "$sc" || return 1
+	secs=${sp% *}; cnt=${sp#* }
+	[ "$sc" = 1m ] && every=1
+	key="$sc/$cols"
+	if [ "$key" = "$WTP_RKEY" ] && [ $((SECONDS - WTP_RSEEN)) -lt "$every" ]; then return 0; fi
+	WTP_RKEY=$key; WTP_RSEEN=$SECONDS
+	WTP_RI=(); WTP_RO=()
+	[ "$WTP_UP" = 1 ] || return 0
+	body := wt series "$secs" "$cnt" 2> /dev/null || return 0
+	json parse WTP_RNG "$body" 2> /dev/null || return 0
+	n := json get WTP_RNG .count 2> /dev/null || return 0
+	[ "${n:-0}" -gt 0 ] || return 0
+	[ "$cols" -ge 1 ] || return 0
+	grp=$(((n + cols - 1) / cols))
+	for ((i = 0; i < n; i += grp)); do
+		sumi=0; sumo=0; hi=$((i + grp)); [ "$hi" -gt "$n" ] && hi=$n
+		for ((j = i; j < hi; j++)); do
+			v := json get WTP_RNG ".in[$j]"; sumi=$((sumi + ${v:-0}))
+			v := json get WTP_RNG ".out[$j]"; sumo=$((sumo + ${v:-0}))
+		done
+		WTP_RI+=($((sumi / ((hi - i) * secs))))
+		WTP_RO+=($((sumo / ((hi - i) * secs))))
+	done
+}
+
+# One value from the status, by path (".in", ".capture"), or the default.
+fn wtp_get(path, def = "") {
+	local v
+
+	if v := json get WTP_S "$path" 2> /dev/null; then ret "$v"; else ret "$def"; fi
+}
+
+# One value from the apps list, by path (".apps[0].name"), or the default.
+fn wtp_app(path, def = "") {
+	local v
+
+	if v := json get WTP_A "$path" 2> /dev/null; then ret "$v"; else ret "$def"; fi
+}
+
+# One value from the last minute of series, by path, or the default.
+fn wtp_series(path, def = "") {
+	local v
+
+	if v := json get WTP_SER "$path" 2> /dev/null; then ret "$v"; else ret "$def"; fi
+}
+
+# The newest value of the series "in" or "out" (bytes in the last second); 0 when there is none yet.
+fn wtp_last(dir) {
+	local n v
+
+	n := wtp_series .count 0
+	[ "${n:-0}" -gt 0 ] || { ret 0; return 0; }
+	v := wtp_series ".$dir[$((n - 1))]" 0
+	ret "${v:-0}"
+}
+
+# 12.3K, 1.2M ...
+fn wtp_rate(int b) {
+	if [ "$b" -ge 1048576 ]; then ret "$((b / 1048576)).$((b % 1048576 * 10 / 1048576))M"
+	elif [ "$b" -ge 1024 ]; then ret "$((b / 1024)).$((b % 1024 * 10 / 1024))K"
+	else ret "${b}B"; fi
+}
+
+fn wiretap_rows(int w) {
+	local n=0 i k name
+
+	wtp_poll
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Engine"; n=$((n + 1))
+	if [ "$WTP_MOD" = 0 ]; then
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Module"; CP[$w][$n]["val"]="not installed (apt install wiretap)"; n=$((n + 1))
+		ret "$n"; return 0
+	fi
+	if [ "$WTP_UP" = 0 ]; then
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Service"; CP[$w][$n]["val"]="not running (wiretap on, or join the group wiretap and log in again)"; n=$((n + 1))
+		ret "$n"; return 0
+	fi
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Service"; CP[$w][$n]["val"] := wtp_get .version "?"; n=$((n + 1))
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Capture"; CP[$w][$n]["val"] := wtp_get .capture_note "$(wtp_get .capture)"; n=$((n + 1))
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Unreadable processes"; CP[$w][$n]["val"] := wtp_get .processes_unreadable 0; n=$((n + 1))
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Right now"; n=$((n + 1))
+	k := wtp_last in
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Down"; CP[$w][$n]["val"] := wtp_rate "$k"; n=$((n + 1))
+	k := wtp_last out
+	CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Up"; CP[$w][$n]["val"] := wtp_rate "$k"; n=$((n + 1))
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Top apps (down, last 5 s)"; n=$((n + 1))
+	for ((i = 0; i < 5; i++)); do
+		name := wtp_app ".apps[$i].name" ""
+		[ -n "$name" ] || break
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="$name"
+		k := wtp_app ".apps[$i].rx5" 0; CP[$w][$n]["val"] := wtp_rate "${k:-0}"
+		n=$((n + 1))
+	done
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
+	ret "$n"
+}
+
+fn wiretap_do(int? w = "", k = "", int? dir = "") {
+	case $k in
+	DT_WTBAR) cp_toggle "$k" ;;
+	esac
+	cp_save
+}
+
+fn wiretap_drop(int? w = "", int? r = "", int? c = "", k = "") { :; }

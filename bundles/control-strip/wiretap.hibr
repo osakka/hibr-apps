@@ -1,0 +1,61 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# wiretap -- a Control Strip module for wiretap: one glyph, dim when no node answers, in the theme's info colour when the
+# machine is quiet and its good colour while bytes are moving (a warning colour for alerts arrives with the alert rules, M1
+# window). A click opens a small menu: Wiretap Settings. The strip and the menu bar item can each show it, or both, or neither.
+#
+# Called wtstrip: wiretap is the Control Panel pane's prefix, and a pane with a wiretap_draw would be taken for one that draws
+# itself (the reason longwire's is lwstrip).
+
+strict
+
+app wtstrip "A Control Strip module for wiretap: traffic at a glance" 0.1.0
+# needs: control-panel/wiretap
+command -v cs_module > /dev/null && cs_module wtstrip Wiretap 1
+
+# Wherever the pane is (the module reads the node through the pane's functions).
+fn wtstrip_shown() {
+	dt_has wtp_poll
+}
+
+# What the glyph is, by glyph set: the unicode and nerd sets draw a bullseye, ascii writes "o".
+fn wtstrip_g() {
+	case ${DT_GLYPHSET-unicode} in
+	ascii) ret "o" ;;
+	*) ret "◎" ;;
+	esac
+}
+
+fn wtstrip_draw(int row, int col) {
+	local ink=$DT_DIM g in=0 out=0
+
+	g := wtstrip_g
+	if dt_has wtp_poll; then
+		wtp_poll
+		if [ "$WTP_UP" = 1 ]; then
+			ink=$DT_INFO
+			in := wtp_last in
+			out := wtp_last out
+			[ $((in + out)) -gt 0 ] && ink=$DT_GOOD
+		fi
+	fi
+	console pen "$ink" "$DT_FACE"
+	console put "$row" "$col" "$g"
+	[ "$ink" = "$DT_DIM" ] || dt_want 1500
+}
+
+fn wtstrip_click(int row, int col) {
+	dt_context_open wtstrip "" "$row" "$col"
+	return 0
+}
+
+fn wtstrip_context(id = "") {
+	dt_menu "Wiretap"
+	if dt_has panel_goto; then
+		dt_item "Wiretap Settings${GL[ellipsis]}" s dt_panelpane wiretap
+	else
+		dt_dim "Wiretap Settings${GL[ellipsis]}"
+	fi
+	return 0
+}
