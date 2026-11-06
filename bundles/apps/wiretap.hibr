@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.2.3
+app wtview "Wiretap: a live graph and every app's traffic" 0.3.0
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -66,14 +66,54 @@ fn wv_head(int id, int w) {
 	done
 }
 
+# One half of the ribbon (ADR 0020): the last minute, a column a second, each column stacked from the axis outwards in the colour of
+# each program in rank order and the rest (the buckets and the programs that did not make the top eight) in DIM on top. dir is rx
+# (above the axis, hung upwards) or tx (below it). A cell is coloured by the program at its middle, the top cell by the top of the column.
+fn wv_stack(int id, dir, int half, int cols, int n, int max) {
+	local i j rr row k e ht lo cum pos c tot sum seg
+	local -a bound
+
+	for ((i = 0; i < n; i++)); do
+		if [ "$dir" = rx ]; then tot=${WTP_RI[$i]}; else tot=${WTP_RO[$i]}; fi
+		ht=$((tot * half * 8 / max))
+		cum=0; bound=()
+		for ((j = 0; j < WTP_ASCNT; j++)); do
+			if [ "$dir" = rx ]; then v=${WTP_ASRX[$((j * 60 + i))]}; else v=${WTP_ASTX[$((j * 60 + i))]}; fi
+			cum=$((cum + v * half * 8 / max))
+			bound+=("$cum")
+		done
+		for ((rr = 0; rr < half; rr++)); do
+			e=$((ht - rr * 8)); [ "$e" -gt 8 ] && e=8
+			[ "$e" -gt 0 ] || break
+			pos=$((rr * 8 + 4)); [ "$pos" -ge "$ht" ] && pos=$((ht - 1))
+			c=-1
+			for ((j = 0; j < WTP_ASCNT; j++)); do
+				if [ "$pos" -lt "${bound[$j]}" ]; then c=$j; break; fi
+			done
+			if [ "$c" -ge 0 ]; then hue := wtp_hue "${WTP_ASN[$c]}"; else hue=$DT_DIM; fi
+			k=$((cols - n + i))
+			if [ "$dir" = rx ]; then
+				row=$((3 + (half - 1 - rr)))
+				console pen "$hue" "$DT_FACE"; wv_put "$id" "$row" $((2 + k)) "${WV_BLK[$e]}"
+			else
+				row=$((4 + half + rr))
+				console pen "$DT_FACE" "$hue"; wv_put "$id" "$row" $((2 + k)) "${WV_BLK[$((8 - e))]}"
+			fi
+		done
+	done
+}
+
 fn wv_graph(int id, int h, int w) {
-	local half=$(((h - 5) / 2)) cols=$((w - 4)) n i k rr row max=1 v e line inr outr s=${WV[$id]["scale"]}
+	local half=$(((h - 5) / 2)) cols=$((w - 4)) n i j k rr row max=1 v e line inr outr hue by=0 s=${WV[$id]["scale"]}
 
 	wtp_range "${WV_SCALES[$s]}" "$cols"
 	n=${#WTP_RI[@]}
 	for v in "${WTP_RI[@]}" "${WTP_RO[@]}"; do [ "$v" -gt "$max" ] && max=$v; done
 	inr=0; outr=0
 	[ "$n" -gt 0 ] && { inr=${WTP_RI[$((n - 1))]}; outr=${WTP_RO[$((n - 1))]}; }
+	if [ "$s" = 0 ] && [ "${WV[$id]["by"]:-1}" = 1 ] && [ "$n" = 60 ]; then
+		wtp_appseries && [ "$WTP_ASCNT" -gt 0 ] && by=1
+	fi
 	console pen "$DT_GOOD" "$DT_FACE" bold
 	line := wtp_rate "$inr"
 	wv_put "$id" 2 2 "↓ $line/s"
@@ -83,6 +123,9 @@ fn wv_graph(int id, int h, int w) {
 	console pen "$DT_DIM" "$DT_FACE"
 	line := wtp_rate "$max"
 	wv_put "$id" 2 $((w - ${#line} - 8)) "scale $line/s"
+	if [ "$by" = 1 ]; then
+		wv_stack "$id" rx "$half" "$cols" "$n" "$max"
+	else
 	for ((rr = half - 1; rr >= 0; rr--)); do
 		row=$((3 + (half - 1 - rr)))
 		for ((i = 0; i < n; i++)); do
@@ -91,10 +134,14 @@ fn wv_graph(int id, int h, int w) {
 			[ "$e" -gt 0 ] && { console pen "$DT_GOOD" "$DT_FACE"; wv_put "$id" "$row" $((2 + k)) "${WV_BLK[$e]}"; }
 		done
 	done
+	fi
 	console pen "$DT_DIM" "$DT_FACE"
 	line=
 	for ((i = 0; i < cols; i++)); do line+="${GL[hline]:-─}"; done
 	wv_put "$id" $((3 + half)) 2 "$line"
+	if [ "$by" = 1 ]; then
+		wv_stack "$id" tx "$half" "$cols" "$n" "$max"
+	else
 	for ((rr = 0; rr < half; rr++)); do
 		row=$((4 + half + rr))
 		for ((i = 0; i < n; i++)); do
@@ -103,9 +150,20 @@ fn wv_graph(int id, int h, int w) {
 			[ "$e" -gt 0 ] && { console pen "$DT_FACE" "$DT_INFO"; wv_put "$id" "$row" $((2 + k)) "${WV_BLK[$((8 - e))]}"; }
 		done
 	done
+	fi
 	console pen "$DT_DIM" "$DT_FACE"
 	wv_put "$id" $((4 + 2 * half)) 2 "${WV_AGE[$s]}"
 	wv_put "$id" $((4 + 2 * half)) $((cols - 1)) "now"
+	if [ "$by" = 1 ]; then			# the legend: a swatch and the name of each program in the ribbon, in the row of the time labels
+		k=12
+		for ((j = 0; j < WTP_ASCNT; j++)); do
+			[ $((k + ${#WTP_ASN[$j]} + 3)) -lt $((cols - 6)) ] || break
+			hue := wtp_hue "${WTP_ASN[$j]}"
+			console pen "$hue" "$DT_FACE"; wv_put "$id" $((4 + 2 * half)) "$k" "▌"
+			console pen "$DT_INK" "$DT_FACE"; wv_put "$id" $((4 + 2 * half)) $((k + 1)) "${WTP_ASN[$j]}"
+			k=$((k + ${#WTP_ASN[$j]} + 3))
+		done
+	fi
 }
 
 fn wv_usage(int id, int h, int w) {
@@ -211,6 +269,7 @@ fn wtview_key(int id, key) {
 	g) WV[$id]["view"]=graph ;;
 	u) WV[$id]["view"]=usage ;;
 	h) WV[$id]["view"]=hosts ;;
+	c) WV[$id]["by"]=$((1 - ${WV[$id]["by"]:-1})) ;;
 	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; *) WV[$id]["view"]=graph ;; esac ;;
 	up) [ "${WV[$id]["sel"]}" -gt 0 ] && WV[$id]["sel"]=$((WV[$id]["sel"] - 1)) ;;
 	down) [ "${WV[$id]["sel"]}" -lt $((n - 1)) ] && WV[$id]["sel"]=$((WV[$id]["sel"] + 1)) ;;
@@ -246,6 +305,7 @@ wtview_menus() {
 	dt_menu "View"
 	dt_mark "Graph" g "$([ "${WV[$id]["view"]}" = graph ] && echo 1 || echo 0)" wtview_key "$id" g
 	dt_mark "Usage" u "$([ "${WV[$id]["view"]}" = usage ] && echo 1 || echo 0)" wtview_key "$id" u
+	dt_mark "Colour by Program (1 minute)" c "${WV[$id]["by"]:-1}" wtview_key "$id" c
 	dt_mark "Hosts" h "$([ "${WV[$id]["view"]}" = hosts ] && echo 1 || echo 0)" wtview_key "$id" h
 	dt_sep
 	dt_mark "1 Minute" 1 "$([ "${WV[$id]["scale"]}" = 0 ] && echo 1 || echo 0)" wtview_key "$id" 1

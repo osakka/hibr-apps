@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.2.3
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.3.0
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -58,6 +58,31 @@ fn wtp_hue(name) {
 # Named by id, never by code point: dt_bg looks the id up in Blit's own catalogue and leaves the name alone where this Blit has no such id, and
 # the badge is only in force under the Blit glyph set. Under Blit with no such id (an older Blit) it prints "" and the caller keeps what it had; the
 # unicode and nerd sets get 🚰 and ascii gets "T" (Blit's own suggestion).
+# The busiest programs' last 60 seconds, for the colour ribbon (ADR 0020): WTP_ASN the names, WTP_ASRX / WTP_ASTX the bytes, program j's
+# second i at index j*60+i (oldest second first). At most once a second; WTP_ASCNT is how many programs there are.
+declare -ga WTP_ASN=() WTP_ASRX=() WTP_ASTX=()
+declare -gi WTP_ASCNT=0 WTP_ASAT=-100
+fn wtp_appseries() {
+	local r j i name v AS
+
+	[ "$WTP_UP" = 1 ] || { WTP_ASCNT=0; return 1; }
+	[ $((SECONDS - WTP_ASAT)) -ge 1 ] || return 0
+	WTP_ASAT=$SECONDS
+	WTP_ASN=(); WTP_ASRX=(); WTP_ASTX=(); WTP_ASCNT=0
+	r := wt appseries 8 2> /dev/null || return 1
+	json parse AS "$r" 2> /dev/null || return 1
+	for ((j = 0; j < 8; j++)); do
+		name := json get AS ".apps[$j].name" 2> /dev/null || break
+		WTP_ASN+=("$name")
+		for ((i = 0; i < 60; i++)); do
+			v := json get AS ".apps[$j].rx[$i]"; WTP_ASRX+=("${v:-0}")
+			v := json get AS ".apps[$j].tx[$i]"; WTP_ASTX+=("${v:-0}")
+		done
+	done
+	WTP_ASCNT=${#WTP_ASN[@]}
+	return 0
+}
+
 # The remote addresses (ADR 0016), asked for at most every two seconds: WTP_H holds the reply.
 declare -g WTP_H="" WTP_HAT=-100
 fn wtp_hosts() {
