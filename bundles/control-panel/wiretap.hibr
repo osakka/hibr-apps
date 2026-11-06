@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.3
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.1.4
 # modules: wiretap
 # needs: cli/wiretap
 command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "T" app
@@ -58,6 +58,59 @@ fn wtp_sock() {
 	else
 		ret "$HOME/.wiretap/ctl"
 	fi
+}
+
+# --- alerts (ADR 0014): read from the same poll, said through the desktop's notifications, nothing in the engine -----------------------------
+# Two, each a setting of the pane: a program the machine has never heard talking before (DT_WTNEW), and one uploading a lot (DT_WTBIG: at least WT_BIG
+# bytes, 20 MB by default, in the engine's last 5 s). The names already known are kept in a file of their own ($XDG_STATE_HOME/wiretap/known); the first
+# run takes everything talking now as known, so it does not announce the whole desktop. A program is told about once, an upload once in ten minutes.
+DT_WTNEW="${DT_WTNEW-1}"
+DT_WTBIG="${DT_WTBIG-1}"
+command -v dt_keep > /dev/null && { dt_keep DT_WTNEW; dt_keep DT_WTBIG; }
+declare -gA WTA_KNOWN WTA_BIGAT
+declare -g WTA_READ=0 WTA_SCANT=-1 WTA_FILE=""
+
+fn wta_say(text) {
+	if dt_has dt_notify; then dt_notify "$text" dt_panelpane wiretap; else echo "alert: $text" >&2; fi
+}
+
+fn wta_file() {
+	ret "${WT_KNOWN:-${XDG_STATE_HOME:-$HOME/.local/state}/wiretap/known}"
+}
+
+# Called after each poll; looks at the apps once per poll. Returns nothing.
+fn wta_scan() {
+	local i name tx rx f first=0 big=${WT_BIG:-20000000}
+
+	[ "$WTP_UP" = 1 ] || return 0
+	[ "$WTP_T" != "$WTA_SCANT" ] || return 0
+	WTA_SCANT=$WTP_T
+	f := wta_file
+	if [ "$WTA_READ" = 0 ]; then
+		WTA_READ=1
+		if [ -r "$f" ]; then
+			while IFS= read -r name; do [ -n "$name" ] && WTA_KNOWN["$name"]=1; done < "$f"
+		else
+			first=1
+		fi
+	fi
+	for ((i = 0; i < 64; i++)); do
+		name := wtp_app ".apps[$i].name" ""
+		[ -n "$name" ] || break
+		case $name in "("*) continue ;; esac
+		rx := wtp_app ".apps[$i].rx5" 0
+		tx := wtp_app ".apps[$i].tx5" 0
+		if [ -z "${WTA_KNOWN["$name"]-}" ] && [ $((${rx:-0} + ${tx:-0})) -gt 0 ]; then
+			WTA_KNOWN["$name"]=1
+			mkdir -p "${f%/*}" 2> /dev/null && printf '%s\n' "$name" >> "$f"
+			[ "$first" = 1 ] || [ "$DT_WTNEW" != 1 ] || wta_say "New on the network: $name"
+		fi
+		if [ "$DT_WTBIG" = 1 ] && [ "${tx:-0}" -ge "$big" ] && [ $((SECONDS - ${WTA_BIGAT["$name"]--1000000})) -ge 600 ]; then
+			WTA_BIGAT["$name"]=$SECONDS
+			rx := wtp_rate $((tx / 5))
+			wta_say "$name is uploading: $rx/s"
+		fi
+	done
 }
 
 declare -g WT_SOCK="${WT_SOCK:-}"
@@ -199,13 +252,16 @@ fn wiretap_rows(int w) {
 		k := wtp_app ".apps[$i].rx5" 0; CP[$w][$n]["val"] := wtp_rate "${k:-0}"
 		n=$((n + 1))
 	done
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Alerts"; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program talks for the first time"; CP[$w][$n]["val"]=$([ "$DT_WTNEW" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTNEW; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program uploads a lot"; CP[$w][$n]["val"]=$([ "$DT_WTBIG" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBIG; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
 	ret "$n"
 }
 
 fn wiretap_do(int? w = "", k = "", int? dir = "") {
 	case $k in
-	DT_WTBAR) cp_toggle "$k" ;;
+	DT_WTBAR | DT_WTNEW | DT_WTBIG) cp_toggle "$k" ;;
 	esac
 	cp_save
 }

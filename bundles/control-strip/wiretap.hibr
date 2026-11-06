@@ -10,7 +10,7 @@
 
 strict
 
-app wtstrip "A Control Strip module for wiretap: traffic at a glance" 0.1.3
+app wtstrip "A Control Strip module for wiretap: traffic at a glance" 0.1.4
 # needs: control-panel/wiretap
 command -v cs_module > /dev/null && cs_module wtstrip Wiretap 1
 

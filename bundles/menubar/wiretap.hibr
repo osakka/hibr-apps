@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.3
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.1.4
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -157,6 +157,7 @@ fn wtb_tick() {
 		return 0
 	fi
 	wtb_load
+	wta_scan
 	n=${#WTB_HI[@]}
 	if [ "$WTP_UP" = 1 ] && [ "$n" -gt 0 ]; then
 		for ((i = n > 8 ? n - 8 : 0; i < n; i++)); do [ "${WTB_HI[$i]}" -gt "$max" ] && max=${WTB_HI[$i]}; done
