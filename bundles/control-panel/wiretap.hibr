@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.3.0
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.3.2
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -148,7 +148,8 @@ fn wtp_sock() {
 # run takes everything talking now as known, so it does not announce the whole desktop. A program is told about once, an upload once in ten minutes.
 DT_WTNEW="${DT_WTNEW-1}"
 DT_WTBIG="${DT_WTBIG-1}"
-command -v dt_keep > /dev/null && { dt_keep DT_WTNEW; dt_keep DT_WTBIG; }
+DT_WTHOST="${DT_WTHOST-0}"
+command -v dt_keep > /dev/null && { dt_keep DT_WTNEW; dt_keep DT_WTBIG; dt_keep DT_WTHOST; }
 declare -gA WTA_KNOWN WTA_BIGAT
 declare -g WTA_READ=0 WTA_SCANT=-1 WTA_FILE=""
 
@@ -158,6 +159,58 @@ fn wta_say(text) {
 
 fn wta_file() {
 	ret "${WT_KNOWN:-${XDG_STATE_HOME:-$HOME/.local/state}/wiretap/known}"
+}
+
+# Is this a public address? Private, loopback, link-local and multicast ones are the local network's own business and never a "new host".
+fn wta_public(a) {
+	case $a in
+	10.* | 127.* | 192.168.* | 169.254.* | 224.* | 225.* | 226.* | 227.* | 228.* | 229.* | 23?.* | 24?.* | 25?.*) return 1 ;;
+	172.1[6-9].* | 172.2?.* | 172.3[01].*) return 1 ;;
+	::1 | fe[89abAB]?:* | f[cdCD]??:* | [fF][fF]??:*) return 1 ;;
+	esac
+	return 0
+}
+
+# New hosts (DT_WTHOST, off by default: addresses change all the time). A pair of the program that last spoke to an address and the address,
+# not seen before, public, after the first run (which takes everything as known). Told in one note a minute at most, with how many; the pairs are kept
+# in a file beside the known programs, up to 5000, after which it stops learning and stops telling. ADR 0021.
+declare -gA WTA_HKNOWN
+declare -g WTA_HREAD=0 WTA_HFULL=0 WTA_HLAST=-1000
+declare -gi WTA_HN=0
+fn wta_hosts() {
+	local f i n a app key first=0 hn=0 hsample=
+
+	[ "$DT_WTHOST" = 1 ] && [ "$WTA_HFULL" = 0 ] || return 0
+	wtp_hosts || return 0
+	f := wta_file
+	f="${f%/*}/hosts"
+	if [ "$WTA_HREAD" = 0 ]; then
+		WTA_HREAD=1
+		if [ -r "$f" ]; then
+			while IFS= read -r key; do [ -n "$key" ] && { WTA_HKNOWN["$key"]=1; WTA_HN=$((WTA_HN + 1)); }; done < "$f"
+		else
+			first=1
+		fi
+	fi
+	for ((i = 0; i < 200; i++)); do
+		a := json get WTP_H ".hosts[$i].addr" 2> /dev/null || break
+		[ -n "$a" ] || break
+		app := json get WTP_H ".hosts[$i].app" ""
+		key="$app $a"
+		[ -z "${WTA_HKNOWN["$key"]-}" ] || continue
+		if [ "$WTA_HN" -ge 5000 ]; then WTA_HFULL=1; break; fi
+		WTA_HKNOWN["$key"]=1; WTA_HN=$((WTA_HN + 1))
+		mkdir -p "${f%/*}" 2> /dev/null && printf '%s\n' "$key" >> "$f"
+		[ "$first" = 1 ] && continue
+		wta_public "$a" || continue
+		case $app in "(unattributed)") continue ;; esac
+		hn=$((hn + 1))
+		[ -n "$hsample" ] || hsample="$app to $a"
+	done
+	if [ "$hn" -gt 0 ] && [ $((SECONDS - WTA_HLAST)) -ge 60 ]; then
+		WTA_HLAST=$SECONDS
+		if [ "$hn" = 1 ]; then wta_say "New host: $hsample"; else wta_say "$hn new hosts, the first $hsample"; fi
+	fi
 }
 
 # Called after each poll; looks at the apps once per poll. Returns nothing.
@@ -193,6 +246,7 @@ fn wta_scan() {
 			wta_say "$name is uploading: $rx/s"
 		fi
 	done
+	wta_hosts
 }
 
 declare -g WT_SOCK="${WT_SOCK:-}"
@@ -337,6 +391,7 @@ fn wiretap_rows(int w) {
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Alerts"; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program talks for the first time"; CP[$w][$n]["val"]=$([ "$DT_WTNEW" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTNEW; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program uploads a lot"; CP[$w][$n]["val"]=$([ "$DT_WTBIG" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBIG; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program reaches a new public host"; CP[$w][$n]["val"]=$([ "$DT_WTHOST" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTHOST; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with a graph beside the tap"; CP[$w][$n]["val"]=$([ "$DT_WTGAUGE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTGAUGE; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with the download rate"; CP[$w][$n]["val"]=$([ "$DT_WTRATE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTRATE; n=$((n + 1))
@@ -345,7 +400,7 @@ fn wiretap_rows(int w) {
 
 fn wiretap_do(int? w = "", k = "", int? dir = "") {
 	case $k in
-	DT_WTBAR | DT_WTGAUGE | DT_WTRATE | DT_WTNEW | DT_WTBIG) cp_toggle "$k" ;;
+	DT_WTBAR | DT_WTGAUGE | DT_WTRATE | DT_WTNEW | DT_WTBIG | DT_WTHOST) cp_toggle "$k" ;;
 	esac
 	cp_save
 }

@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.3.0
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.3.2
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -150,7 +150,7 @@ fn wtap_popmouse(act, int row, int col) { :; }
 
 fn wtb_open() { dt_baripop wtb wtap 21 50; }
 
-# Right-click: a menu with everything else (ADR 0015, as changed by 0017): how it is going, the Tap, the window, the settings. A left click opens the Tap itself.
+# Right-click: a menu with everything else (ADR 0015, as changed by 0017): how it is going, the window, the settings. A left click opens the Tap (the graph) itself, so the menu does not repeat it.
 fn wtb_menu() { dt_barmenu wtb wtb; return 0; }
 
 fn wtb_context(id = "") {
@@ -165,7 +165,6 @@ fn wtb_context(id = "") {
 	else
 		dt_dim "No node running (systemctl enable --now wiretap)"
 	fi
-	dt_item "Show the Graph" g wtb_open
 	if dt_has dt_launch; then dt_item "Open Wiretap${GL[ellipsis]}" o dt_launch wtview; fi
 	dt_sep
 	if dt_has panel_goto; then
