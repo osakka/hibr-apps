@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.2.1
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.2.2
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.2.1}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.2.2}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {

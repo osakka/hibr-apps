@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.2.1
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.2.2
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -20,6 +20,18 @@ command -v dt_keep > /dev/null && { dt_keep DT_WTBAR; dt_keep DT_WTGAUGE; dt_kee
 # Named by id, never by code point: dt_bg looks the id up in Blit's own catalogue and leaves the name alone where this Blit has no such id, and
 # the badge is only in force under the Blit glyph set. Under Blit with no such id (an older Blit) it prints "" and the caller keeps what it had; the
 # unicode and nerd sets get 🚰 and ascii gets "T" (Blit's own suggestion).
+# The remote addresses (ADR 0016), asked for at most every two seconds: WTP_H holds the reply.
+declare -g WTP_H="" WTP_HAT=-100
+fn wtp_hosts() {
+	local h
+
+	[ "$WTP_UP" = 1 ] || return 1
+	[ $((SECONDS - WTP_HAT)) -ge 2 ] || return 0
+	WTP_HAT=$SECONDS
+	if h := wt hosts 200 2> /dev/null; then json parse WTP_H "$h" 2> /dev/null || WTP_H=""; fi
+	return 0
+}
+
 declare -g WTP_LOGOREAD=0
 fn wtp_logo(state = on, int cells = 2) {
 	local g=

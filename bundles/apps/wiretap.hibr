@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.2.1
+app wtview "Wiretap: a live graph and every app's traffic" 0.2.2
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -56,6 +56,8 @@ fn wv_head(int id, int w) {
 	wv_put "$id" 1 2 " Graph "
 	if [ "${WV[$id]["view"]}" = usage ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
 	wv_put "$id" 1 10 " Usage "
+	if [ "${WV[$id]["view"]}" = hosts ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
+	wv_put "$id" 1 18 " Hosts "
 	col=$((w - 34))
 	for i in 0 1 2 3; do
 		if [ "$i" = "$s" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
@@ -127,9 +129,44 @@ fn wv_usage(int id, int h, int w) {
 		r=$((3 + i - top))
 		if [ "$i" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
 		local a b c d
-		a := wtp_rate "$((rx5 / 5))"; b := wtp_rate "$((tx5 / 5))"; c := wtp_rate "$rx"; d := wtp_rate "$tx"
+		a := wtp_rate "$rx5"; b := wtp_rate "$tx5"; c := wtp_rate "$rx"; d := wtp_rate "$tx"
 		[ "$pid" = 0 ] && pid=-
 		printf -v line "%-22s %7s %10s %10s %11s %11s" "${name:0:22}" "$pid" "$a" "$b" "$c" "$d"
+		wv_put "$id" "$r" 2 "$line"
+	done
+}
+
+# Who the machine talks to (ADR 0016, 0018): one row per remote address, the program that last spoke to it, bytes each way, and how long ago.
+# Addresses, not names: the service cannot look names up, and a lookup here would stall the window (wiretap hosts --names does it in a terminal).
+fn wv_hosts(int id, int h, int w) {
+	local n i a app rx tx last now vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r b c
+
+	wtp_hosts
+	n := json len WTP_H .hosts 2> /dev/null || n=0
+	n=${n:-0}
+	WV[$id]["n"]=$n
+	console pen "$DT_DIM" "$DT_FACE" bold
+	printf -v line "%-39s %-14s %10s %10s %8s" ADDRESS APP "DOWN" "UP" "AGO"
+	wv_put "$id" 2 2 "$line"
+	if [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		wv_put "$id" 4 2 "No remote hosts yet."
+		return 0
+	fi
+	now := json get WTP_H .now
+	[ "$sel" -ge "$n" ] && sel=$((n > 0 ? n - 1 : 0))
+	[ "$sel" -lt "$top" ] && top=$sel
+	[ "$sel" -ge $((top + vis)) ] && top=$((sel - vis + 1))
+	WV[$id]["sel"]=$sel; WV[$id]["top"]=$top
+	for ((i = top; i < n && i < top + vis; i++)); do
+		a := json get WTP_H ".hosts[$i].addr"
+		app := json get WTP_H ".hosts[$i].app"
+		rx := json get WTP_H ".hosts[$i].rx"; tx := json get WTP_H ".hosts[$i].tx"
+		last := json get WTP_H ".hosts[$i].last"
+		r=$((3 + i - top))
+		if [ "$i" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
+		b := wtp_rate "$rx"; c := wtp_rate "$tx"
+		printf -v line "%-39s %-14s %10s %10s %7ss" "${a:0:39}" "${app:0:14}" "$b" "$c" "$((now - last))"
 		wv_put "$id" "$r" 2 "$line"
 	done
 }
@@ -152,7 +189,11 @@ fn wtview_draw(int id, int h, int w, int row, int col) {
 		return 0
 	fi
 	wv_head "$id" "$w"
-	if [ "${WV[$id]["view"]}" = usage ]; then wv_usage "$id" "$h" "$w"; else wv_graph "$id" "$h" "$w"; fi
+	case ${WV[$id]["view"]} in
+	usage) wv_usage "$id" "$h" "$w" ;;
+	hosts) wv_hosts "$id" "$h" "$w" ;;
+	*) wv_graph "$id" "$h" "$w" ;;
+	esac
 	dt_want 1000
 }
 
@@ -163,7 +204,8 @@ fn wtview_key(int id, key) {
 	1|2|3|4) WV[$id]["scale"]=$((key - 1)); WTP_RKEY= ;;
 	g) WV[$id]["view"]=graph ;;
 	u) WV[$id]["view"]=usage ;;
-	tab|$'\t') if [ "${WV[$id]["view"]}" = graph ]; then WV[$id]["view"]=usage; else WV[$id]["view"]=graph; fi ;;
+	h) WV[$id]["view"]=hosts ;;
+	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; *) WV[$id]["view"]=graph ;; esac ;;
 	up) [ "${WV[$id]["sel"]}" -gt 0 ] && WV[$id]["sel"]=$((WV[$id]["sel"] - 1)) ;;
 	down) [ "${WV[$id]["sel"]}" -lt $((n - 1)) ] && WV[$id]["sel"]=$((WV[$id]["sel"] + 1)) ;;
 	*) return 1 ;;
@@ -177,12 +219,13 @@ fn wtview_click(int id, int row, int col, button) {
 	if [ "$row" = 1 ]; then
 		if [ "$col" -ge 2 ] && [ "$col" -le 9 ]; then WV[$id]["view"]=graph; return 0; fi
 		if [ "$col" -ge 10 ] && [ "$col" -le 17 ]; then WV[$id]["view"]=usage; return 0; fi
+		if [ "$col" -ge 18 ] && [ "$col" -le 25 ]; then WV[$id]["view"]=hosts; return 0; fi
 		c=$((w - 34))
 		for i in 0 1 2 3; do
 			if [ "$col" -ge "$c" ] && [ "$col" -lt $((c + ${#WV_LABELS[$i]} + 2)) ]; then WV[$id]["scale"]=$i; WTP_RKEY=; return 0; fi
 			c=$((c + ${#WV_LABELS[$i]} + 3))
 		done
-	elif [ "${WV[$id]["view"]}" = usage ] && [ "$row" -ge 3 ]; then
+	elif [ "${WV[$id]["view"]}" != graph ] && [ "$row" -ge 3 ]; then
 		WV[$id]["sel"]=$((${WV[$id]["top"]} + row - 3))
 	fi
 	return 0
@@ -197,6 +240,7 @@ wtview_menus() {
 	dt_menu "View"
 	dt_mark "Graph" g "$([ "${WV[$id]["view"]}" = graph ] && echo 1 || echo 0)" wtview_key "$id" g
 	dt_mark "Usage" u "$([ "${WV[$id]["view"]}" = usage ] && echo 1 || echo 0)" wtview_key "$id" u
+	dt_mark "Hosts" h "$([ "${WV[$id]["view"]}" = hosts ] && echo 1 || echo 0)" wtview_key "$id" h
 	dt_sep
 	dt_mark "1 Minute" 1 "$([ "${WV[$id]["scale"]}" = 0 ] && echo 1 || echo 0)" wtview_key "$id" 1
 	dt_mark "1 Hour" 2 "$([ "${WV[$id]["scale"]}" = 1 ] && echo 1 || echo 0)" wtview_key "$id" 2
