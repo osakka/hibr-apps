@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.2.0
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.2.1
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -147,7 +147,7 @@ fn wtap_popmouse(act, int row, int col) { :; }
 
 fn wtb_open() { dt_baripop wtb wtap 21 50; }
 
-# Click or right-click: a menu, not the graph straight away (ADR 0015). The menu says how it is going and opens the Tap, the window or the settings.
+# Right-click: a menu with everything else (ADR 0015, as changed by 0017): how it is going, the Tap, the window, the settings. A left click opens the Tap itself.
 fn wtb_menu() { dt_barmenu wtb wtb; return 0; }
 
 fn wtb_context(id = "") {
@@ -206,7 +206,7 @@ fn wtb_tick() {
 	[ -n "$t" ] || t="net"		# a Blit without the tap yet, and the other two off: something to click
 	if [ "$t" != "$WTB_KEY" ]; then
 		WTB_KEY=$t
-		dt_baritem wtb "$t" wtb_menu
+		dt_baritem wtb "$t" wtb_open
 		dt_bariright wtb wtb_menu
 	fi
 	dt_want 1500
