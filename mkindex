@@ -368,6 +368,7 @@ ENTHIBR["control-panel/appearance"]=0.99.455
 ENTHIBR["themes/chalk"]=0.99.455
 ENTHIBR["themes/charcoal"]=0.99.455
 ENTHIBR["themes/retro_car"]=0.99.455
+ENTHIBR["apps/steamer"]=0.99.362
 ENTHIBR["colours/pewter"]=0.99.440
 ENTHIBR["colours/pewter-dark"]=0.99.440
 # Files 3.10 reaches servers through dt_locof and the location functions

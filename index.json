@@ -204,6 +204,28 @@
       "name": "snake",
       "dir": "Games"
     },
+    "apps/steamer": {
+      "title": "Steamer",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Games/steamer.hibr",
+      "sha256": "9e42458339c04a0225bd3aa237a1c7d5bc39422c1f12b1ff007529e584b8a2e0",
+      "about": "Your Steam games: play, install, the store and the client\n\nyour Steam games on the hibr desktop: the ones installed here, and the ones your account owns. Play, install, the store page and the Steam client are handed to the Steam client. Settings are in Control Panel > Steamer.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "steamer",
+      "hibr": "0.99.362",
+      "modules": "fetch",
+      "dir": "Games",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "steamerset.hibr",
+          "path": "bundles/control-panel/steamerset.hibr",
+          "sha256": "876cd6f060c81303d2da7fd020f5cca784b07cc5f4eddd9e54add09b4c695318"
+        }
+      ]
+    },
     "apps/browser": {
       "title": "Browser",
       "version": "2.41",
@@ -1726,6 +1748,20 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "snake",
+      "dir": "Games"
+    },
+    "steamer": {
+      "title": "Steamer",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Games/steamer.hibr",
+      "sha256": "9e42458339c04a0225bd3aa237a1c7d5bc39422c1f12b1ff007529e584b8a2e0",
+      "about": "Your Steam games: play, install, the store and the client\n\nyour Steam games on the hibr desktop: the ones installed here, and the ones your account owns. Play, install, the store page and the Steam client are handed to the Steam client. Settings are in Control Panel > Steamer.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "steamer",
+      "hibr": "0.99.362",
+      "modules": "fetch",
       "dir": "Games"
     },
     "browser": {
