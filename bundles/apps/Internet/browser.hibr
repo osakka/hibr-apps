@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.40
+app browser "The web, in a window" 2.41
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -632,10 +632,32 @@ fn bw_askcheck(int id) {
 	return 0
 }
 
+# The text colour for words on a background colour, chosen by how bright the background is: dark on a
+# bright one (the warning yellow, the red), light on a dark one -- on any theme. The theme's own text
+# colour (DT_INK) is light on a dark theme, which on the warning yellow was white on yellow. Only a
+# #rrggbb colour is measured; anything else gets the theme's text colour as before.
+fn bw_onbg(bg) {
+	local h=${bg#\#} r g b l
+
+	if [ "${#h}" != 6 ]; then
+		ret "$DT_INK"
+		return 0
+	fi
+	r=$((16#${h:0:2}))
+	g=$((16#${h:2:2}))
+	b=$((16#${h:4:2}))
+	l=$(( (299 * r + 587 * g + 114 * b) / 1000 ))
+	if [ "$l" -ge 120 ]; then
+		ret "#1a202c"
+	else
+		ret "#ffffff"
+	fi
+}
+
 # The question, on the page's first row: who wants what, and the three answers.
 # Only over the tab that asked.
 fn bw_askbar(int id, int r, int w) {
-	local k=${BW[$id]["askk"]-} what lab lb c a h
+	local k=${BW[$id]["askk"]-} what lab lb c a h fgw
 
 	[ -n "$k" ] || return 0
 	[ "${BW[$id]["askt"]}" = "${BW[$id]["cur"]}" ] || return 0
@@ -666,7 +688,8 @@ fn bw_askbar(int id, int r, int w) {
 		h="${h:0:$hl}${GL[ellipsis]}"
 		lab := dt_tr " %s wants %s " "$h" "$what"
 	fi
-	console pen "$DT_INK" "$DT_WARN"
+	fgw := bw_onbg "$DT_WARN"
+	console pen "$fgw" "$DT_WARN"
 	lb := str pad "$lab" "$w"
 	console put -p "w$id" "$r" 1 "$lb"
 	c=$(( ${#lab} + 2 ))
@@ -1460,7 +1483,7 @@ fn bw_strip(int id, t, int w) {
 
 # Back, forward, reload and the address, on row ar.
 fn bw_bar(int id, t, int w, int ar) {
-	local lab u on=0 ld= lw=0 dl= sl= sw=0 cl= cw=0 cc vl= vww=0
+	local lab u on=0 ld= lw=0 dl= sl= sw=0 cl= cw=0 cc vl= vww=0 fgw
 
 	console pen "$DT_INK" "$DT_FACE"
 	console put -p "w$id" "$ar" 1 " ${GL[larr]}  ${GL[rarr]}  ${GL[reload]}  "
@@ -1567,12 +1590,13 @@ fn bw_bar(int id, t, int w, int ar) {
 		[ "$cw" -gt $((w - 11 - lw - 8)) ] && cl= cw=0
 		[ $((cw + sw + vww)) -gt $((w - 11 - lw - 8)) ] && vl= vww=0
 		if [ -n "$cl" ]; then
-			console pen "$DT_INK" "$DT_WARN" bold
+			fgw := bw_onbg "$DT_WARN"
+			console pen "$fgw" "$DT_WARN" bold
 			console put -p "w$id" "$ar" 11 "$cl"
 		fi
 		if [ -n "$sl" ]; then
 			case ${BW[$id]["sec"]%%$'\t'*} in
-			insecure | refused | accepted) console pen "$DT_INK" "$DT_WARN" ;;
+			insecure | refused | accepted) fgw := bw_onbg "$DT_WARN"; console pen "$fgw" "$DT_WARN" ;;
 			*) console pen "$DT_DIM" "$DT_WELL" ;;
 			esac
 			console put -p "w$id" "$ar" $((11 + cw)) "$sl"
@@ -2996,7 +3020,7 @@ fn bw_histall(int id) {
 # engine -- what a meeting page finds of the camera and the microphone).
 # Someone who cannot get a call going types the address, or File >
 # Diagnostics, and reads the page out; nothing in them is sent anywhere.
-BW_VERSION="2.40"
+BW_VERSION="2.41"
 
 fn bw_arow(k, v) {
 	local x
