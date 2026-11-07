@@ -11,19 +11,21 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.3
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.4
 # modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
 
 declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-$HOME/.local/share/Steam}"
 command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT
+command -v dt_ticker > /dev/null && dt_ticker stm_tick
 
 declare -g STM_KEYFILE="${XDG_CONFIG_HOME:-$HOME/.config}/hibr/steamer-key"
 declare -g STM_KEY="" STM_WIN="${STM_WIN-}" STM_NOTE="" STM_STATUS=""
 declare -g STM_TOP=0 STM_SEL=0 STM_VER=0 STM_BUILT=-1 STM_SEEN=-1
 declare -g STM_BUILTQ="" STM_VIS_ROWS=10 STM_OPEN_INST=1 STM_OPEN_NOT=1
 declare -g STM_N_INST=0 STM_N_NOT=0 STM_BUSY=""
+declare -g STM_NEXT=0 STM_PJOB=0 STM_PLAY="" STM_PROG="" STM_PROGOLD=""
 declare -ga STM_IDS=() STM_NAMES=() STM_INST=() STM_SCAN=()
 declare -ga STM_OIDS=() STM_ONAMES=() STM_ROWK=() STM_ROWR=()
 declare -gA STM_OWN STM_RT=() STM_PT=()
@@ -178,6 +180,60 @@ stm_do() {
 	STM_STATUS="sent to Steam"
 }
 
+# A job: what is downloading (dl TAB appid TAB name TAB percent) and what is
+# running (run TAB appid), read from the manifests and from /proc. Runs off
+# the desktop's own process, so the ticker never reads a file or forks.
+stm_progress() {
+	awk -F'"' 'function out() { if (id != "" && t + 0 > 0 && d + 0 < t + 0) printf "dl\t%s\t%s\t%d\n", id, n, (d * 100) / t }
+	FNR == 1 { if (NR > 1) out(); id = ""; n = ""; d = 0; t = 0 }
+	/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 }
+	/"BytesDownloaded"/ { d = $4 } /"BytesToDownload"/ { t = $4 }
+	END { out() }' "$STM_ROOT"/steamapps/appmanifest_*.acf 2> /dev/null
+	grep -azoh '^SteamAppId=[0-9]*' /proc/[0-9]*/environ 2> /dev/null | tr '\0' '\n' |
+		sed -n 's/^SteamAppId=\([1-9][0-9]*\)$/run\t\1/p' | sort -u
+}
+
+# The ticker, on every pass of the desktop. It returns at once unless this
+# window is open and its time has come; the reading itself is a job.
+stm_tick() {
+	local now=$EPOCHSECONDS n
+	[ -n "$STM_WIN" ] || return 0
+	dt_hidden "$STM_WIN" && return 0
+	dt_away "$STM_WIN" && return 0
+	[ "$STM_PJOB" = 0 ] || return 0
+	[ "$now" -ge "$STM_NEXT" ] || return 0
+	STM_NEXT=$((now + 3))
+	n := dt_job steamer:progress "$STM_WIN" steamer_progress_done stm_progress
+	STM_PJOB=1
+}
+
+fn steamer_progress_done(int n, int st) {
+	local f kind id name pct text="" k
+	local play=""
+	STM_PJOB=0
+	[ "$st" = 0 ] || return 0
+	f := dt_jobfile "$n" out
+	while IFS=$'\t' read -r kind id name pct; do
+		case $kind in
+		dl) text="Installing $name  ${pct}%" ;;
+		run) play=$id ;;
+		esac
+	done < "$f"
+	if [ -n "$play" ]; then
+		for k in "${!STM_IDS[@]}"; do
+			[ "${STM_IDS[$k]}" = "$play" ] && { text="${text:+$text   }Playing ${STM_NAMES[$k]}"; break; }
+		done
+	fi
+	STM_PLAY=$play
+	if [ "$text" != "$STM_PROGOLD" ]; then
+		STM_PROGOLD=$text
+		STM_BUSY=$text
+		[ -n "$text" ] || STM_BUSY=""
+		dt_want 0
+	fi
+	[ -n "$STM_BUSY" ] && dt_want 3000
+}
+
 # The action a leaf offers: Play when installed, Install when not.
 stm_act_leaf() {
 	local idx=$1 id=${STM_IDS[$1]}
@@ -270,6 +326,7 @@ fn steamer_draw(id, int h, int w, row, col) {
 			else
 				console pen "$DT_INK" "$DT_FACE"
 			fi
+			[ -n "$STM_PLAY" ] && [ "${STM_IDS[$idx]}" = "$STM_PLAY" ] && line="$line  [playing]"
 			console put -p "w$id" "$r" 2 "$line"
 			console put -p "w$id" "$r" $((w - ${#rw} - 1)) "$rw"
 			dt_wreg "$id" "$r" 2 $((w - 4 - ${#rw})) "row:$i"
