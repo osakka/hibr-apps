@@ -278,7 +278,8 @@ configuration file.
 
 Choose arrow, hand or precision; pearl, obsidian, neon or amber; pixel size
 24–64 and optional shadow. Size is independent of font scale. The same artwork
-is cached by SDL and direct KMS, with matching hotspots. The pane also exposes
+is drawn by Blit's KMS presentation, on the GPU or the CPU compositor alike,
+with matching hotspots. The pane also exposes
 present pointer devices, including mixed keyboard/pointer devices, and stages
 sensitivity, flat/adaptive acceleration, natural scrolling and wheel steps.
 Other devices and unedited fields are preserved.
@@ -314,11 +315,11 @@ authenticated. Primary migration is not automatic. Inspect the API's
 Actual physical multi-output/unplug/replug acceptance is separate from the
 server's deterministic mocked-DRM lifecycle tests.
 
-With Blit0.1.543's SDL backend, display discovery runs at server startup;
-live display add/remove reconciliation is not implemented. Plugging in another
-monitor while the service is running is therefore not promised to add its
-panes to the API or this panel. The panel refreshes server observations every
-15 seconds while selected, but it cannot discover hardware independently of Blit.
+Blit's native KMS reconciles connected monitors without a restart: a monitor
+plugged in while it runs gets its panes, and one unplugged is retired (Blit
+`docs/api.md`, "Display hotplug"). The panel refreshes server observations
+every 15 seconds while selected; it does not discover hardware itself, it shows
+what Blit reports.
 
 For monitors detected at startup, the panel lists their panes. Select the
 desired auxiliary panes, **Apply auxiliaries now**, and **Save as Default**
@@ -387,7 +388,8 @@ and UI capture acceptance are separate from callback tests.
 
 `ruby tests/blit_catalogue_gate.rb` tests install/update/remove through the
 installed catalogue client in an isolated scope. `ruby tests/blit_ui_gate.rb`
-uses Hibr's installed desktop UI libraries and Blit SDL software, opens/closes
+uses Hibr's installed desktop UI libraries and a Blit server on its DRM mock
+(the CPU compositor), opens/closes
 dialogs with keyboard input, verifies masking in terminal cells and drags the
 layout sliders through actual Blit pointer input. Set
 `BLIT_PANEL_UI_OUTPUT` to retain its screenshots. These local tests do not
