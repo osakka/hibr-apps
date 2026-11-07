@@ -11,12 +11,18 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.5
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.2
 # modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
 
-declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-$HOME/.local/share/Steam}"
+# The Steam folder: ~/.local/share/Steam, or ~/.steam/steam if that one is missing.
+stm_defroot() {
+	if [ -d "$HOME/.local/share/Steam/steamapps" ]; then echo "$HOME/.local/share/Steam"
+	else echo "$HOME/.steam/steam"; fi
+}
+declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-}"
+[ -n "$STM_ROOT" ] || STM_ROOT=$(stm_defroot)
 STM_LINUXONLY="${STM_LINUXONLY-0}"
 command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT STM_LINUXONLY
 command -v dt_ticker > /dev/null && dt_ticker stm_tick
@@ -43,13 +49,35 @@ stm_apikey() {
 	return 0
 }
 
+# Every Steam folder that holds games: the main one, and each library folder
+# listed in its steamapps/libraryfolders.vdf (a second drive, for example).
+stm_libroots() {
+	local line p
+	local -A seen=()
+	{
+		printf '%s\n' "$STM_ROOT"
+		[ -r "$STM_ROOT/steamapps/libraryfolders.vdf" ] &&
+			while IFS= read -r line; do
+				case $line in
+				*'"path"'*) p=${line#*\"path\"}; p=${p#*\"}; p=${p%\"*}; [ -n "$p" ] && printf '%s\n' "$p" ;;
+				esac
+			done < "$STM_ROOT/steamapps/libraryfolders.vdf"
+	} | while IFS= read -r p; do
+		[ -n "${seen[$p]-}" ] && continue
+		seen[$p]=1
+		printf '%s\n' "$p"
+	done
+}
+
 # A job: the installed games, one "appid<TAB>name" a line.
 stm_scan() {
-	local f
-	for f in "$STM_ROOT"/steamapps/appmanifest_*.acf; do
-		[ -r "$f" ] || continue
-		awk -F'"' '/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 } END { if (id != "") printf "%s\t%s\n", id, n }' "$f"
-	done
+	local f root
+	while IFS= read -r root; do
+		for f in "$root"/steamapps/appmanifest_*.acf; do
+			[ -r "$f" ] || continue
+			awk -F'"' '/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 } END { if (id != "") printf "%s\t%s\n", id, n }' "$f"
+		done
+	done < <(stm_libroots)
 }
 
 # A job: the owned games as the Web API's JSON. The key stays inside fetch,
@@ -262,11 +290,14 @@ stm_do() {
 # running (run TAB appid), read from the manifests and from /proc. Runs off
 # the desktop's own process, so the ticker never reads a file or forks.
 stm_progress() {
+	local root
+	while IFS= read -r root; do
 	awk -F'"' 'function out() { if (id != "" && t + 0 > 0 && d + 0 < t + 0) printf "dl\t%s\t%s\t%d\n", id, n, (d * 100) / t; if (id != "" && sf == 4) printf "ok\t%s\t%s\t0\n", id, n }
 	FNR == 1 { if (NR > 1) out(); id = ""; n = ""; d = 0; t = 0; sf = 0 }
 	/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 }
 	/"BytesDownloaded"/ { d = $4 } /"BytesToDownload"/ { t = $4 } /"StateFlags"/ { sf = $4 }
-	END { out() }' "$STM_ROOT"/steamapps/appmanifest_*.acf 2> /dev/null
+	END { out() }' "$root"/steamapps/appmanifest_*.acf 2> /dev/null
+	done < <(stm_libroots)
 	grep -azoh '^SteamAppId=[0-9]*' /proc/[0-9]*/environ 2> /dev/null | tr '\0' '\n' |
 		sed -n 's/^SteamAppId=\([1-9][0-9]*\)$/run\t\1/p' | sort -u
 }
