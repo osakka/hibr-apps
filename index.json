@@ -206,11 +206,11 @@
     },
     "apps/steamer": {
       "title": "Steamer",
-      "version": "1.0",
+      "version": "0.2",
       "kind": "apps",
       "bundle": "bundles/apps/Games/steamer.hibr",
-      "sha256": "9e42458339c04a0225bd3aa237a1c7d5bc39422c1f12b1ff007529e584b8a2e0",
-      "about": "Your Steam games: play, install, the store and the client\n\nyour Steam games on the hibr desktop: the ones installed here, and the ones your account owns. Play, install, the store page and the Steam client are handed to the Steam client. Settings are in Control Panel > Steamer.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
+      "sha256": "08e0fe22fbf47ecbb3310e2f1b370d20f5750ed807c5a6e1d5089b6a44879550",
+      "about": "Your Steam games: filters, search, play, install and the store\n\nyour Steam games on the hibr desktop: the ones installed here and the ones your account owns. Filters, search and actions follow the desktop's own conventions; the Steam client does the work of play, install and store. Settings are in Control Panel > Steamer. See docs/PLAN.md and docs/decisions/.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamer",
@@ -222,7 +222,7 @@
           "kind": "control-panel",
           "as": "steamerset.hibr",
           "path": "bundles/control-panel/steamerset.hibr",
-          "sha256": "876cd6f060c81303d2da7fd020f5cca784b07cc5f4eddd9e54add09b4c695318"
+          "sha256": "7fb123f370cce7ec4d460bb523ced3340e2936bb3285c7ba6ec15ca904c699b9"
         }
       ]
     },
@@ -1752,11 +1752,11 @@
     },
     "steamer": {
       "title": "Steamer",
-      "version": "1.0",
+      "version": "0.2",
       "kind": "apps",
       "bundle": "bundles/apps/Games/steamer.hibr",
-      "sha256": "9e42458339c04a0225bd3aa237a1c7d5bc39422c1f12b1ff007529e584b8a2e0",
-      "about": "Your Steam games: play, install, the store and the client\n\nyour Steam games on the hibr desktop: the ones installed here, and the ones your account owns. Play, install, the store page and the Steam client are handed to the Steam client. Settings are in Control Panel > Steamer.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
+      "sha256": "08e0fe22fbf47ecbb3310e2f1b370d20f5750ed807c5a6e1d5089b6a44879550",
+      "about": "Your Steam games: filters, search, play, install and the store\n\nyour Steam games on the hibr desktop: the ones installed here and the ones your account owns. Filters, search and actions follow the desktop's own conventions; the Steam client does the work of play, install and store. Settings are in Control Panel > Steamer. See docs/PLAN.md and docs/decisions/.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamer",

@@ -1,15 +1,16 @@
 #!/usr/bin/env hibr
 #
-# steamer -- your Steam games on the hibr desktop: the ones installed here,
-# and the ones your account owns. Play, install, the store page and the Steam
-# client are handed to the Steam client. Settings are in Control Panel > Steamer.
+# steamer -- your Steam games on the hibr desktop: the ones installed here and
+# the ones your account owns. Filters, search and actions follow the desktop's
+# own conventions; the Steam client does the work of play, install and store.
+# Settings are in Control Panel > Steamer. See docs/PLAN.md and docs/decisions/.
 #
 # The API key is never stored here, in the settings, or on a command line. It
 # is read from its own file, and the owned-games call runs inside fetch.
 
 strict
 
-app steamer "Your Steam games: play, install, the store and the client" 1.0
+app steamer "Your Steam games: filters, search, play, install and the store" 0.2
 # modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
@@ -19,12 +20,13 @@ command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT
 
 declare -g STM_KEYFILE="${XDG_CONFIG_HOME:-$HOME/.config}/hibr/steamer-key"
 declare -g STM_KEY="" STM_WIN="${STM_WIN-}" STM_NOTE="" STM_STATUS=""
-declare -g STM_TOP=0 STM_SEL=0 STM_OWNED=0
+declare -g STM_FILTER=all STM_TOP=0 STM_SEL=0 STM_VER=0 STM_BUILT=-1
+declare -g STM_BUILTQ="" STM_BUILTF="" STM_VIS_ROWS=10 STM_SEEN=-1
 declare -ga STM_IDS=() STM_NAMES=() STM_INST=() STM_SCAN=()
-declare -ga STM_OIDS=() STM_ONAMES=()
-declare -gA STM_OWN
+declare -ga STM_OIDS=() STM_ONAMES=() STM_VIS=()
+declare -gA STM_OWN STM_RT=() STM_PT=()
 
-# The key, read into STM_KEY. Nothing is printed. Helper for callbacks only.
+# The key, read into STM_KEY. Nothing is printed. For callbacks only.
 stm_apikey() {
 	STM_KEY=""
 	[ -r "$STM_KEYFILE" ] && read -r STM_KEY < "$STM_KEYFILE"
@@ -71,7 +73,36 @@ stm_merge() {
 		[ -n "${seen[$id]-}" ] && continue
 		STM_IDS+=("$id"); STM_NAMES+=("${STM_ONAMES[$i]}"); STM_INST+=(0)
 	done
-	[ "$STM_SEL" -ge "${#STM_IDS[@]}" ] && STM_SEL=$(( ${#STM_IDS[@]} > 0 ? ${#STM_IDS[@]} - 1 : 0 ))
+	STM_VER=$((STM_VER + 1))
+	return 0
+}
+
+# Which rows the filter and the search leave. Rebuilt only when either changed
+# or the data did, so a frame costs nothing when nothing did.
+stm_visible() {
+	local i q filt=$STM_FILTER keep lq name
+	q := dt_searchq "$STM_WIN"
+	[ "$STM_BUILT" = "$STM_VER" ] && [ "$STM_BUILTQ" = "$q" ] && [ "$STM_BUILTF" = "$filt" ] && return 0
+	if [ "$q" != "$STM_BUILTQ" ] || [ "$filt" != "$STM_BUILTF" ]; then
+		[ "$STM_BUILT" != -1 ] && { STM_SEL=0; STM_TOP=0; }
+	fi
+	STM_VIS=()
+	lq=${q,,}
+	for i in "${!STM_IDS[@]}"; do
+		keep=1
+		case $filt in
+		installed) [ "${STM_INST[$i]}" = 1 ] || keep=0 ;;
+		notinst) [ "${STM_INST[$i]}" = 1 ] && keep=0 ;;
+		played) [ -n "${STM_RT[${STM_IDS[$i]}]-}" ] && [ "${STM_RT[${STM_IDS[$i]}]}" -gt 0 ] || keep=0 ;;
+		esac
+		if [ -n "$lq" ]; then
+			name=${STM_NAMES[$i],,}
+			case $name in *"$lq"*) ;; *) keep=0 ;; esac
+		fi
+		[ "$keep" = 1 ] && STM_VIS+=("$i")
+	done
+	[ "$STM_SEL" -ge "${#STM_VIS[@]}" ] && STM_SEL=$(( ${#STM_VIS[@]} > 0 ? ${#STM_VIS[@]} - 1 : 0 ))
+	STM_BUILT=$STM_VER; STM_BUILTQ=$q; STM_BUILTF=$filt
 	return 0
 }
 
@@ -82,6 +113,8 @@ stm_start() {
 	stm_apikey
 	if [ -n "$STM_ID" ] && [ -n "$STM_KEY" ]; then
 		n := dt_job steamer:owned "$STM_WIN" steamer_owned_done stm_owned
+	else
+		STM_NOTE="Set your Steam ID and API key in Control Panel > Steamer"
 	fi
 	return 0
 }
@@ -102,7 +135,7 @@ fn steamer_scanned(int n, int st) {
 }
 
 fn steamer_owned_done(int n, int st) {
-	local f cnt i gid gname
+	local f cnt i gid gname grt gpt
 	if [ "$st" != 0 ]; then
 		STM_NOTE="could not load owned games"
 		dt_want 0
@@ -111,15 +144,18 @@ fn steamer_owned_done(int n, int st) {
 	f := dt_jobfile "$n" out
 	json parse STM_OWN < "$f" 2> /dev/null || { STM_NOTE="Steam replied with something that is not JSON"; dt_want 0; return 0; }
 	cnt := json len STM_OWN response.games
-	STM_OIDS=(); STM_ONAMES=()
+	STM_OIDS=(); STM_ONAMES=(); STM_RT=(); STM_PT=()
 	for ((i = 0; i < ${cnt:-0}; i++)); do
 		gid := json get STM_OWN "response.games.$i.appid"
 		gname := json get STM_OWN "response.games.$i.name"
+		grt := json get STM_OWN "response.games.$i.rtime_last_played"
+		gpt := json get STM_OWN "response.games.$i.playtime_forever"
 		STM_OIDS+=("$gid")
 		STM_ONAMES+=("$gname")
+		STM_RT[$gid]=${grt:-0}
+		STM_PT[$gid]=${gpt:-0}
 	done
-	STM_OWNED=1
-	STM_NOTE="owned: ${#STM_OIDS[@]} games"
+	STM_NOTE="${#STM_OIDS[@]} owned"
 	stm_merge
 	dt_want 0
 }
@@ -136,64 +172,138 @@ stm_do() {
 	STM_STATUS="sent: $1"
 }
 
+# An action on the selected row. The row is in STM_VIS, so the index is found there.
+stm_act() {
+	local act=$1 idx id inst
+	[ "${#STM_VIS[@]}" -gt 0 ] || return 0
+	idx=${STM_VIS[$STM_SEL]}
+	id=${STM_IDS[$idx]}
+	inst=${STM_INST[$idx]}
+	case $act in
+	play)
+		if [ "$inst" = 1 ]; then stm_do "steam://rungameid/$id"
+		else STM_STATUS="${STM_NAMES[$idx]} is not installed: use Install"; fi ;;
+	install) stm_do "steam://install/$id" ;;
+	store) stm_do "steam://store/$id" ;;
+	steam) stm_do "steam://open/" ;;
+	esac
+}
+
 fn steamer_open(id, arg) {
 	STM_WIN=$id
 	stm_start
 }
 
 fn steamer_draw(id, int h, int w, row, col) {
-	local r i n vis line
+	local r i n vis srows end total idx lab c line hrs stxt fbw
 	STM_WIN=$id
-	n=${#STM_IDS[@]}
-	vis=$((h - 4))
+	dt_wclear "$id"
+	stm_visible
+	n=${#STM_VIS[@]}
+	srows := dt_searchrows "$id"
+	end=$((h - 4))
+	vis=$((end - 3 + 1))
 	[ "$vis" -lt 1 ] && vis=1
-	STM_TOP := dt_scrollfit "$STM_TOP" "$n" "$vis" "$STM_SEL"
-	console pen "$DT_INK" "$DT_FACE"
-	console put -p "w$id" 1 2 "Steam games"
-	console put -p "w$id" 1 $((w - 36)) "${STM_NOTE:-owned: not loaded}"
-	if [ "$n" = 0 ]; then
-		console put -p "w$id" 3 2 "No games yet. Set your Steam ID and API key in Control Panel > Steamer."
+	STM_VIS_ROWS=$vis
+	if [ "$STM_SEL" != "$STM_SEEN" ]; then
+		STM_TOP := dt_scrollfit "$STM_TOP" "$n" "$vis" "$STM_SEL"
+		STM_SEEN=$STM_SEL
+	else
+		STM_TOP := dt_scrollfit "$STM_TOP" "$n" "$vis"
 	fi
+
+	console pen "$DT_INK" "$DT_FACE"
+	dt_buttons "$id" 1 2 "$STM_FILTER" \
+		all "All" installed "Installed" notinst "Not installed" played "Played"
+	console pen "$DT_DIM" "$DT_FACE"
+	stxt="${STM_STATUS:-$STM_NOTE}"
+	fbw=2
+	for lab in "All" "Installed" "Not installed" "Played"; do fbw=$((fbw + ${#lab} + 4)); done
+	if [ -n "$stxt" ] && [ $((w - ${#stxt} - 1)) -gt $((fbw + 2)) ]; then
+		console put -p "w$id" 1 $((w - ${#stxt} - 1)) "$stxt"
+	fi
+
 	r=3
 	i=$STM_TOP
-	while [ "$i" -lt "$n" ] && [ "$r" -lt $((h - 2)) ]; do
-		line="${STM_NAMES[$i]}"
-		[ "${STM_INST[$i]}" = 1 ] && line="$line  [installed]"
+	while [ "$i" -lt "$n" ] && [ "$r" -le "$end" ]; do
+		idx=${STM_VIS[$i]}
+		line="${STM_NAMES[$idx]}"
+		[ "${STM_INST[$idx]}" = 1 ] && line="$line  [installed]"
+		hrs=0
+		[ -n "${STM_PT[${STM_IDS[$idx]}]-}" ] && hrs=$(( ${STM_PT[${STM_IDS[$idx]}]} / 60 ))
+		[ "$hrs" -gt 0 ] && line="$line  ${hrs} h"
 		if [ "$i" = "$STM_SEL" ]; then
 			console pen "$DT_SELINK" "$DT_ACTIVE"
 		else
 			console pen "$DT_INK" "$DT_FACE"
 		fi
-		console put -p "w$id" "$r" 2 "${line:0:$((w - 4))}"
+		line=${line:0:$((w - 5))}
+		console put -p "w$id" "$r" 2 "$line"
+		dt_wreg "$id" "$r" 2 $((w - 5)) "row:$i"
 		r=$((r + 1)); i=$((i + 1))
 	done
-	console pen "$DT_DIM" "$DT_FACE"
-	console put -p "w$id" $((h - 1)) 2 "${STM_STATUS:-enter play  i install  o store  c Steam  r refresh}"
+	if [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 3 2 "No games here. Press r to refresh, or / to search."
+	fi
+
+	dt_scrollbar "$id" 3 $((w - 1)) "$vis" "$n" "$vis" "$STM_TOP" list 1
+
+	total=0
+	for lab in "Play" "Install" "Store" "Steam"; do total=$((total + ${#lab} + 4)); done
+	c=$((w - total - 1))
+	dt_buttons "$id" $((h - 3)) "$c" "" \
+		play "Play" install "Install" store "Store" steam "Steam"
+
+	dt_searchdraw "$id" $((h - 1)) "$w"
 }
 
 fn steamer_key(id, key) {
+	if dt_searchkey "$id" "$key"; then
+		dt_want 0
+		return 0
+	fi
 	case $key in
 	up) [ "$STM_SEL" -gt 0 ] && STM_SEL=$((STM_SEL - 1)) ;;
-	down) [ "$STM_SEL" -lt $((${#STM_IDS[@]} - 1)) ] && STM_SEL=$((STM_SEL + 1)) ;;
-	enter|p)
-		[ "${#STM_IDS[@]}" -gt 0 ] || return 0
-		if [ "${STM_INST[$STM_SEL]}" = 1 ]; then
-			stm_do "steam://rungameid/${STM_IDS[$STM_SEL]}"
-		else
-			STM_STATUS="${STM_NAMES[$STM_SEL]} is not installed: press i to install it"
-		fi ;;
-	i) [ "${#STM_IDS[@]}" -gt 0 ] && stm_do "steam://install/${STM_IDS[$STM_SEL]}" ;;
-	o) [ "${#STM_IDS[@]}" -gt 0 ] && stm_do "steam://store/${STM_IDS[$STM_SEL]}" ;;
-	c) stm_do "steam://open/" ;;
+	down) [ "$STM_SEL" -lt $((${#STM_VIS[@]} - 1)) ] && STM_SEL=$((STM_SEL + 1)) ;;
+	enter|p) stm_act play ;;
+	i) stm_act install ;;
+	o) stm_act store ;;
+	c) stm_act steam ;;
 	r) stm_start; STM_STATUS="refreshing" ;;
+	/) dt_searchopen "$id" ;;
 	esac
 	dt_want 0
 }
 
 fn steamer_click(id, int row, int col, button) {
-	local idx=$((STM_TOP + row - 3))
-	[ "$idx" -ge 0 ] && [ "$idx" -lt "${#STM_IDS[@]}" ] && STM_SEL=$idx
+	local tag idx
+	tag := dt_hit "$id" "$row" "$col"
+	case $tag in
+	all|installed|notinst|played) STM_FILTER=$tag; STM_SEL=0; STM_TOP=0 ;;
+	play|install|store|steam) stm_act "$tag" ;;
+	row:*)
+		idx=${tag#row:}
+		STM_SEL=$((idx)) ;;
+	esac
 	dt_want 0
+}
+
+fn steamer_wheel(id, dir, int? r = "", int? c = "") {
+	local n vis
+	n=${#STM_VIS[@]}
+	STM_TOP := dt_scrollmove "$dir" "$STM_TOP" "$n" "$STM_VIS_ROWS" "$DT_SCROLLWHEEL"
+	dt_want 0
+}
+
+fn steamer_scroll(id, key, int top) {
+	STM_TOP=$top
+	dt_want 0
+}
+
+fn steamer_find(int id) {
+	dt_searchopen "$id"
+	return 0
 }
 
 fn steamer_close(id) {
@@ -206,9 +316,21 @@ steamer_menus() {
 	dt_sep
 	dt_item "Close" w dt_close_focused
 	dt_editmenu
+	dt_menu "View"
+	dt_item "All" a steamer_filter "$DT_FOCUS" all
+	dt_item "Installed" I steamer_filter "$DT_FOCUS" installed
+	dt_item "Not Installed" N steamer_filter "$DT_FOCUS" notinst
+	dt_item "Played" P steamer_filter "$DT_FOCUS" played
 	dt_menu "Game"
 	dt_item "Play" p steamer_key "$DT_FOCUS" p
 	dt_item "Install" i steamer_key "$DT_FOCUS" i
 	dt_item "Store Page" o steamer_key "$DT_FOCUS" o
 	dt_item "Open Steam" c steamer_key "$DT_FOCUS" c
+}
+
+fn steamer_filter(int id, f) {
+	STM_FILTER=$f
+	STM_SEL=0
+	STM_TOP=0
+	dt_want 0
 }
