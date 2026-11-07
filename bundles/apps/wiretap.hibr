@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.4.2
+app wtview "Wiretap: a live graph and every app's traffic" 0.5.0
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -58,6 +58,8 @@ fn wv_head(int id, int w) {
 	wv_put "$id" 1 10 " Usage "
 	if [ "${WV[$id]["view"]}" = hosts ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
 	wv_put "$id" 1 18 " Hosts "
+	if [ "${WV[$id]["view"]}" = firewall ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
+	wv_put "$id" 1 26 " Firewall "
 	col=$((w - 34))
 	for i in 0 1 2 3; do
 		if [ "$i" = "$s" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
@@ -167,8 +169,9 @@ fn wv_graph(int id, int h, int w) {
 }
 
 fn wv_usage(int id, int h, int w) {
-	local n i name pid rx tx rx5 tx5 vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r hue
+	local n i name pid rx tx rx5 tx5 vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r hue cg
 
+	wtp_fw_blocked
 	n := json len WTP_A .apps 2> /dev/null || n=0
 	n=${n:-0}
 	WV[$id]["n"]=$n
@@ -194,7 +197,11 @@ fn wv_usage(int id, int h, int w) {
 		hue := wtp_hue "$name"
 		if [ "$i" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
 		wv_put "$id" "$r" 2 "▌"
+		cg=$(wtp_fw_cg "$pid")
+		if [ -n "$cg" ] && [ -n "${WTP_BLKG[$cg]:-}" ]; then console pen "$DT_WARN" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_WARN" "$DT_INK"; wv_put "$id" "$r" 1 "✕"
+		elif [ -n "$cg" ] && [ -n "${WTP_ALWG[$cg]:-}" ]; then console pen "$DT_GOOD" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_GOOD" "$DT_INK"; wv_put "$id" "$r" 1 "✓"; fi
 	done
+	wv_foot "$id" "$h"
 }
 
 # Who the machine talks to (ADR 0016, 0018): one row per remote address, the program that last spoke to it, bytes each way, and how long ago.
@@ -236,18 +243,151 @@ fn wv_hosts(int id, int h, int w) {
 		if [ -n "${WTP_BLK[$a]:-}" ]; then
 			console pen "$DT_WARN" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_WARN" "$DT_INK"
 			wv_put "$id" "$r" 1 "✕"
+		elif [ -n "${WTP_ALW[$a]:-}" ]; then
+			console pen "$DT_GOOD" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_GOOD" "$DT_INK"
+			wv_put "$id" "$r" 1 "✓"
 		fi
 	done
+	wv_foot "$id" "$h"
+}
+
+# The line at the foot of the Usage, Hosts and Firewall tabs: the question being asked, a note, or a hint.
+fn wv_foot(int id, int h) {
+	local wiz=${WV[$id]["wiz"]:-} lab=${WV[$id]["wlab"]:-} act=${WV[$id]["wact"]:-} t
+
 	console pen "$DT_DIM" "$DT_FACE"
-	if [ -n "${WV[$id]["ask"]:-}" ]; then
-		console pen "$DT_WARN" "$DT_FACE" bold
-		if [ -n "${WTP_BLK[${WV[$id]["ask"]}]:-}" ]; then wv_put "$id" $((h - 2)) 2 "Stop blocking ${WV[$id]["ask"]}?  y = unblock   any other key = cancel"
-		else wv_put "$id" $((h - 2)) 2 "Block ${WV[$id]["ask"]} for every program?  y = block   any other key = cancel"; fi
-	elif [ -n "${WV[$id]["note"]:-}" ]; then
-		wv_put "$id" $((h - 2)) 2 "${WV[$id]["note"]}"
-	else
-		wv_put "$id" $((h - 2)) 2 "b blocks or unblocks the selected host (asks for a password)"
-	fi
+	case $wiz in
+	act) t="$lab:  b = block   a = allow   esc = cancel" ;;
+	proto) t="${act^} $lab, which protocol?  a = any   t = tcp   u = udp   esc = cancel" ;;
+	port) t="${act^} $lab on which port?  digits then enter, or just enter for any   [${WV[$id]["wport"]:-}]" ;;
+	del) t="$lab has a rule.  y = remove it   any other key = cancel" ;;
+	rm) t="Remove rule ${WV[$id]["wnum"]}?  y = remove   any other key = cancel" ;;
+	*)
+		if [ -n "${WV[$id]["note"]:-}" ]; then t=${WV[$id]["note"]}
+		else
+			case ${WV[$id]["view"]} in
+			firewall) t="x removes the rule   space turns the firewall on or off   (add rules from Usage or Hosts: b)" ;;
+			usage) t="b blocks or allows the selected program (asks for a password)" ;;
+			*) t="b blocks or allows the selected host (asks for a password)" ;;
+			esac
+		fi ;;
+	esac
+	case $wiz in act | proto | port | del | rm) console pen "$DT_WARN" "$DT_FACE" bold ;; esac
+	wv_put "$id" $((h - 2)) 2 "${t:0:$((${WV[$id]["w"]:-90} - 4))}"
+}
+
+# The Firewall tab (ADR 0029): is it on, and the kept rules, numbered, one to a row.
+fn wv_fw(int id, int h, int w) {
+	local l t k=0 vis=$((h - 6)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r f1 f2 f3 f4 f5 f6 f7 who cnt=0 st
+
+	while IFS= read -r l; do t=${l%%#*}; [ -n "${t//[[:space:]]/}" ] && cnt=$((cnt + 1)); done < <(wtp_fw_rules)
+	WV[$id]["n"]=$cnt
+	if [ "$cnt" = 0 ]; then st="No rules: everything is allowed."; console pen "$DT_DIM" "$DT_FACE" bold
+	elif wtp_fw_active; then st="Firewall ON: $cnt rules are loaded."; console pen "$DT_GOOD" "$DT_FACE" bold
+	else st="Firewall OFF: $cnt rules are kept but not loaded (space turns it on)."; console pen "$DT_WARN" "$DT_FACE" bold; fi
+	wv_put "$id" 2 2 "$st"
+	console pen "$DT_DIM" "$DT_FACE" bold
+	printf -v line "%3s  %-6s %-4s %-5s %-34s %-24s %s" "#" ACTION DIR PROTO WHO HOST PORT
+	wv_put "$id" 3 2 "$line"
+	[ "$sel" -ge "$cnt" ] && sel=$((cnt > 0 ? cnt - 1 : 0))
+	[ "$sel" -lt "$top" ] && top=$sel
+	[ "$sel" -ge $((top + vis)) ] && top=$((sel - vis + 1))
+	WV[$id]["sel"]=$sel; WV[$id]["top"]=$top
+	while IFS= read -r l; do
+		t=${l%%#*}
+		[ -n "${t//[[:space:]]/}" ] || continue
+		k=$((k + 1))
+		[ $((k - 1)) -ge "$top" ] && [ $((k - 1)) -lt $((top + vis)) ] || continue
+		f7=""; read -r f1 f2 f3 f4 f5 f6 f7 <<< "$t"
+		who=$f4; [ "${#who}" -gt 34 ] && who="…${who: -33}"
+		printf -v line "%3d  %-6s %-4s %-5s %-34s %-24s %s" "$k" "$f1" "$f2" "$f3" "$who" "${f5:0:24}" "$f6"
+		r=$((4 + k - 1 - top))
+		if [ $((k - 1)) = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
+		wv_put "$id" "$r" 2 "$line"
+	done < <(wtp_fw_rules)
+	wv_foot "$id" "$h"
+}
+
+# One key of the question being asked (the Block or Allow dialog, a removal).
+fn wv_wiz(int id, key) {
+	local wiz=${WV[$id]["wiz"]}
+
+	case $key in escape | esc) WV[$id]["wiz"]=; return 0 ;; esac
+	case $wiz in
+	act)
+		case $key in
+		b) WV[$id]["wact"]=block; WV[$id]["wiz"]=proto ;;
+		a) WV[$id]["wact"]=allow; WV[$id]["wiz"]=proto ;;
+		*) WV[$id]["wiz"]= ;;
+		esac ;;
+	proto)
+		case $key in
+		a) WV[$id]["wproto"]=any; WV[$id]["wport"]=any; wv_finish "$id" ;;
+		t) WV[$id]["wproto"]=tcp; WV[$id]["wport"]=; WV[$id]["wiz"]=port ;;
+		u) WV[$id]["wproto"]=udp; WV[$id]["wport"]=; WV[$id]["wiz"]=port ;;
+		*) WV[$id]["wiz"]= ;;
+		esac ;;
+	port)
+		case $key in
+		enter | $'\r' | $'\n') [ -n "${WV[$id]["wport"]}" ] || WV[$id]["wport"]=any; wv_finish "$id" ;;
+		backspace) WV[$id]["wport"]=${WV[$id]["wport"]%?} ;;
+		[0-9]) [ "${#WV[$id]["wport"]}" -lt 5 ] && WV[$id]["wport"]=${WV[$id]["wport"]}$key ;;
+		*) : ;;
+		esac ;;
+	del)
+		WV[$id]["wiz"]=
+		if [ "$key" = y ]; then
+			if wtp_fw_del "${WV[$id]["wrule"]}"; then WV[$id]["note"]="Asked to remove the rule; it goes when the administrator agrees."
+			else WV[$id]["note"]="That did not work (see the notification)."; fi
+		fi ;;
+	rm)
+		WV[$id]["wiz"]=
+		if [ "$key" = y ]; then
+			if wtp_fw_remove "${WV[$id]["wnum"]}"; then WV[$id]["note"]="Asked to remove rule ${WV[$id]["wnum"]}."
+			else WV[$id]["note"]="That did not work (see the notification)."; fi
+		fi ;;
+	esac
+	return 0
+}
+
+fn wv_finish(int id) {
+	local rule
+	rule="${WV[$id]["wact"]} out ${WV[$id]["wproto"]} ${WV[$id]["wwho"]} ${WV[$id]["whost"]} ${WV[$id]["wport"]}"
+	WV[$id]["wiz"]=
+	if wtp_fw_add "$rule"; then WV[$id]["note"]="Asked to add: $rule. The mark follows when it is applied."
+	else WV[$id]["note"]="That did not work (see the notification)."; fi
+}
+
+# b: what is selected becomes the target of a rule, or, if it already has the simple rule, of its removal.
+fn wv_begin(int id) {
+	local v=${WV[$id]["view"]} n=${WV[$id]["n"]:-0} a pid name cg act
+
+	wtp_fw_blocked
+	WV[$id]["note"]=
+	case $v in
+	hosts)
+		[ "$n" -gt 0 ] || return 0
+		a := json get WTP_H ".hosts[${WV[$id]["sel"]}].addr"
+		WV[$id]["wlab"]=$a; WV[$id]["wwho"]=any; WV[$id]["whost"]=$a
+		act=""; [ -n "${WTP_BLK[$a]:-}" ] && act=block; [ -n "${WTP_ALW[$a]:-}" ] && act=allow
+		if [ -n "$act" ]; then WV[$id]["wrule"]="$act out any any $a any"; WV[$id]["wlab"]="$a is on the $act list"; WV[$id]["wiz"]=del
+		else WV[$id]["wiz"]=act; fi ;;
+	usage)
+		[ "$n" -gt 0 ] || return 0
+		name := wtp_app ".apps[${WV[$id]["sel"]}].name" ""
+		pid := wtp_app ".apps[${WV[$id]["sel"]}].pid" 0
+		cg=$(wtp_fw_cg "$pid")
+		if [ -z "$cg" ]; then
+			WV[$id]["note"]="$name does not run in a control group of its own, so a rule cannot name it alone (ADR 0029)."
+			return 0
+		fi
+		WV[$id]["wlab"]=$name; WV[$id]["wwho"]="cgroup:$cg"; WV[$id]["whost"]=any
+		act=""; [ -n "${WTP_BLKG[$cg]:-}" ] && act=block; [ -n "${WTP_ALWG[$cg]:-}" ] && act=allow
+		if [ -n "$act" ]; then WV[$id]["wrule"]="$act out any cgroup:$cg any any"; WV[$id]["wlab"]="$name is on the $act list"; WV[$id]["wiz"]=del
+		else WV[$id]["wiz"]=act; fi ;;
+	*) WV[$id]["note"]="Pick a program in Usage or a host in Hosts, then b." ;;
+	esac
+	return 0
 }
 
 fn wtview_draw(int id, int h, int w, int row, int col) {
@@ -271,34 +411,30 @@ fn wtview_draw(int id, int h, int w, int row, int col) {
 	case ${WV[$id]["view"]} in
 	usage) wv_usage "$id" "$h" "$w" ;;
 	hosts) wv_hosts "$id" "$h" "$w" ;;
+	firewall) wv_fw "$id" "$h" "$w" ;;
 	*) wv_graph "$id" "$h" "$w" ;;
 	esac
 	dt_want 1000
 }
 
 fn wtview_key(int id, key) {
-	local n=${WV[$id]["n"]:-0} a
+	local n=${WV[$id]["n"]:-0}
 
-	if [ -n "${WV[$id]["ask"]:-}" ]; then
-		a=${WV[$id]["ask"]}; WV[$id]["ask"]=
-		if [ "$key" = y ]; then
-			if wtp_fw_host "$a"; then WV[$id]["note"]="Asked to change the rule for $a; the mark follows when it is applied."
-			else WV[$id]["note"]="That did not work (see the notification)."; fi
-		fi
-		return 0
-	fi
+	if [ -n "${WV[$id]["wiz"]:-}" ]; then wv_wiz "$id" "$key"; return 0; fi
 	WV[$id]["note"]=
 	case $key in
-	b) if [ "${WV[$id]["view"]}" = hosts ] && [ "$n" -gt 0 ]; then
-		a := json get WTP_H ".hosts[${WV[$id]["sel"]}].addr"
-		WV[$id]["ask"]=$a
+	b) wv_begin "$id" ;;
+	f) WV[$id]["view"]=firewall; WV[$id]["sel"]=0; WV[$id]["top"]=0 ;;
+	x) if [ "${WV[$id]["view"]}" = firewall ] && [ "$n" -gt 0 ]; then WV[$id]["wnum"]=$((${WV[$id]["sel"]} + 1)); WV[$id]["wiz"]=rm; fi ;;
+	" " | space) if [ "${WV[$id]["view"]}" = firewall ] && [ "$n" -gt 0 ]; then
+		if wtp_fw_active; then wtp_fw_set off; WV[$id]["note"]="Asked to turn the firewall off."; else wtp_fw_set on; WV[$id]["note"]="Asked to turn the firewall on."; fi
 	fi ;;
 	1|2|3|4) WV[$id]["scale"]=$((key - 1)); WTP_RKEY= ;;
 	g) WV[$id]["view"]=graph ;;
 	u) WV[$id]["view"]=usage ;;
 	h) WV[$id]["view"]=hosts ;;
 	c) WV[$id]["by"]=$((1 - ${WV[$id]["by"]:-1})) ;;
-	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; *) WV[$id]["view"]=graph ;; esac ;;
+	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; hosts) WV[$id]["view"]=firewall ;; *) WV[$id]["view"]=graph ;; esac ;;
 	up) [ "${WV[$id]["sel"]}" -gt 0 ] && WV[$id]["sel"]=$((WV[$id]["sel"] - 1)) ;;
 	down) [ "${WV[$id]["sel"]}" -lt $((n - 1)) ] && WV[$id]["sel"]=$((WV[$id]["sel"] + 1)) ;;
 	*) return 1 ;;
@@ -313,6 +449,7 @@ fn wtview_click(int id, int row, int col, button) {
 		if [ "$col" -ge 2 ] && [ "$col" -le 9 ]; then WV[$id]["view"]=graph; return 0; fi
 		if [ "$col" -ge 10 ] && [ "$col" -le 17 ]; then WV[$id]["view"]=usage; return 0; fi
 		if [ "$col" -ge 18 ] && [ "$col" -le 25 ]; then WV[$id]["view"]=hosts; return 0; fi
+		if [ "$col" -ge 26 ] && [ "$col" -le 35 ]; then WV[$id]["view"]=firewall; WV[$id]["sel"]=0; WV[$id]["top"]=0; return 0; fi
 		c=$((w - 34))
 		for i in 0 1 2 3; do
 			if [ "$col" -ge "$c" ] && [ "$col" -lt $((c + ${#WV_LABELS[$i]} + 2)) ]; then WV[$id]["scale"]=$i; WTP_RKEY=; return 0; fi
@@ -335,6 +472,7 @@ wtview_menus() {
 	dt_mark "Usage" u "$([ "${WV[$id]["view"]}" = usage ] && echo 1 || echo 0)" wtview_key "$id" u
 	dt_mark "Colour by Program (1 minute)" c "${WV[$id]["by"]:-1}" wtview_key "$id" c
 	dt_mark "Hosts" h "$([ "${WV[$id]["view"]}" = hosts ] && echo 1 || echo 0)" wtview_key "$id" h
+	dt_mark "Firewall" f "$([ "${WV[$id]["view"]}" = firewall ] && echo 1 || echo 0)" wtview_key "$id" f
 	dt_sep
 	dt_mark "1 Minute" 1 "$([ "${WV[$id]["scale"]}" = 0 ] && echo 1 || echo 0)" wtview_key "$id" 1
 	dt_mark "1 Hour" 2 "$([ "${WV[$id]["scale"]}" = 1 ] && echo 1 || echo 0)" wtview_key "$id" 2

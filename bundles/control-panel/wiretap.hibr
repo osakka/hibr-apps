@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.4.2
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.5.0
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -412,56 +412,127 @@ fn wtp_fw_rows(int w, int n) {
 	ret "$n"
 }
 
-# ---- block a host from the window (ADR 0028) ---------------------------------------------------------------------------
-# The hosts the kept rules block for every program: exactly the rule "block out any any ADDR any" that the window writes.
-declare -gA WTP_BLK
+# ---- block and allow from the window (ADR 0028, 0029) ------------------------------------------------------------------
+# What the kept rules say about the things the window shows. A host row is marked by the rule "ACTION out any any ADDR any" and a program
+# by "ACTION out any cgroup:PATH any any": exactly the rules the window writes, so a rule you wrote by hand with a port or a protocol is
+# listed in the Firewall tab but does not put a mark on a row (it blocks only part of what the row stands for).
+declare -gA WTP_BLK WTP_ALW WTP_BLKG WTP_ALWG WTP_CG
 fn wtp_fw_blocked() {
 	local l t f1 f2 f3 f4 f5 f6 f7
-	WTP_BLK=()
+	WTP_BLK=(); WTP_ALW=(); WTP_BLKG=(); WTP_ALWG=()
 	while IFS= read -r l; do
 		t=${l%%#*}
+		f7=""
 		read -r f1 f2 f3 f4 f5 f6 f7 <<< "$t"
-		if [ -z "$f7" ] && [ "$f1 $f2 $f3 $f4 $f6" = "block out any any any" ] && [ -n "$f5" ]; then WTP_BLK[$f5]=1; fi
+		[ -z "$f7" ] && [ "$f2 $f3" = "out any" ] || continue
+		if [ "$f4" = any ] && [ "$f6" = any ] && [ "$f5" != any ] && [ -n "$f5" ]; then
+			[ "$f1" = block ] && WTP_BLK[$f5]=1
+			[ "$f1" = allow ] && WTP_ALW[$f5]=1
+		elif [ "$f5 $f6" = "any any" ] && [ "${f4:0:7}" = "cgroup:" ]; then
+			[ "$f1" = block ] && WTP_BLKG[${f4:7}]=1
+			[ "$f1" = allow ] && WTP_ALWG[${f4:7}]=1
+		fi
 	done < <(wtp_fw_rules)
 	return 0
 }
 
-# Block ADDR for every program, or take that rule out if it is there. The new text is checked by the engine before the helper is asked;
-# returns 1 with a note when it cannot. The helper (pkexec) runs in the background, as for the switch.
-fn wtp_fw_host(addr) {
-	local h rule old new l t f f1 f2 f3 f4 f5 f6 f7
+# The cgroup of a process, when it is one a rule can name on its own: its own scope or service, not a login session, the user manager
+# or a slice (blocking those would block everything in them), and only characters the rule accepts. Empty when it is not.
+fn wtp_fw_cgroup(pid) {
+	local l p b
+	case $pid in ''|*[!0-9]*) return 1 ;; esac
+	[ -r "/proc/$pid/cgroup" ] || return 1
+	p=""
+	while IFS= read -r l; do
+		case $l in 0::*) p=${l#0::} ;; esac
+	done < "/proc/$pid/cgroup"
+	p=${p% (deleted)}
+	[ -n "$p" ] || return 1
+	b=${p##*/}
+	case $b in
+	session-*.scope | user@*.service | init.scope | *.slice) return 1 ;;
+	*.scope | *.service) ;;
+	*) return 1 ;;
+	esac
+	case $p in *[!A-Za-z0-9_.@:/-]*) return 1 ;; esac
+	echo "$p"
+}
+
+# The same, remembered by pid (a process does not change its cgroup scope; the table is emptied when it grows).
+fn wtp_fw_cg(pid) {
+	local c
+	if [ -z "${WTP_CG[$pid]+x}" ]; then
+		[ "${#WTP_CG[@]}" -gt 400 ] && WTP_CG=()
+		c=$(wtp_fw_cgroup "$pid") || c=""
+		WTP_CG[$pid]=$c
+	fi
+	echo "${WTP_CG[$pid]}"
+}
+
+# The whole new rules text, checked by the engine and handed to the helper (pkexec, in the background; a test helper runs at once).
+# Returns 1 with a notification when it cannot.
+fn wtp_fw_commit(text) {
+	local h f
 	h=${WT_RULES_HELPER:-/usr/libexec/wiretap-rules}
 	if [ ! -x "$h" ]; then wta_say "Wiretap: the firewall helper is not installed"; return 1; fi
 	wtp_load || { wta_say "Wiretap: the module is not installed"; return 1; }
-	rule="block out any any $addr any"
-	old=$(wtp_fw_rules)
-	new=""
-	wtp_fw_blocked
-	if [ -n "${WTP_BLK[$addr]:-}" ]; then
-		while IFS= read -r l; do
-			t=${l%%#*}
-			read -r f1 f2 f3 f4 f5 f6 f7 <<< "$t"
-			if [ -z "$f7" ] && [ "$f1 $f2 $f3 $f4 $f5 $f6" = "block out any any $addr any" ]; then continue; fi
-			new="$new$l
-"
-		done <<< "$old"
-	else
-		new="$old
-$rule
-"
-		[ -n "$old" ] || new="$rule
-"
-	fi
 	f=$(mktemp) || return 1
-	printf '%s\n' "$new" > "$f"
+	printf '%s\n' "$text" > "$f"
 	if ! wt fwrender "$f" > /dev/null; then
 		wta_say "Wiretap: ${ERRMSG:-the rule is not valid}"
 		rm -f "$f"
 		return 1
 	fi
 	rm -f "$f"
-	if [ -n "${WT_RULES_HELPER:-}" ]; then printf '%s\n' "$new" | "$h" apply > /dev/null 2>&1
-	else (printf '%s\n' "$new" | pkexec "$h" apply > /dev/null 2>&1 &); fi
+	if [ -n "${WT_RULES_HELPER:-}" ]; then printf '%s\n' "$text" | "$h" apply > /dev/null 2>&1
+	else (printf '%s\n' "$text" | pkexec "$h" apply > /dev/null 2>&1 &); fi
+}
+
+fn wtp_fw_add(rule) {
+	local old
+	old=$(wtp_fw_rules)
+	if [ -z "$old" ]; then wtp_fw_commit "$rule"; else wtp_fw_commit "$old
+$rule"; fi
+}
+
+# Take out every line that is exactly this rule (spacing aside), keeping the other rules and the comments.
+fn wtp_fw_del(rule) {
+	local l t new f1 f2 f3 f4 f5 f6 f7
+	new=""
+	while IFS= read -r l; do
+		t=${l%%#*}
+		f7=""
+		read -r f1 f2 f3 f4 f5 f6 f7 <<< "$t"
+		if [ -z "$f7" ] && [ "$f1 $f2 $f3 $f4 $f5 $f6" = "$rule" ]; then continue; fi
+		new="$new$l
+"
+	done < <(wtp_fw_rules)
+	wtp_fw_commit "$new"
+}
+
+# Take out the Nth rule (comments and blank lines are not counted), as the Firewall tab numbers them.
+fn wtp_fw_remove(n) {
+	local l t k new
+	case $n in ''|*[!0-9]*) return 1 ;; esac
+	k=0; new=""
+	while IFS= read -r l; do
+		t=${l%%#*}
+		if [ -n "${t//[[:space:]]/}" ]; then
+			k=$((k + 1))
+			[ "$k" = "$n" ] && continue
+		fi
+		new="$new$l
+"
+	done < <(wtp_fw_rules)
+	[ "$n" -ge 1 ] && [ "$n" -le "$k" ] || return 1
+	wtp_fw_commit "$new"
+}
+
+# Block ADDR for every program, or take that rule out if it is there (ADR 0028).
+fn wtp_fw_host(addr) {
+	wtp_fw_blocked
+	if [ -n "${WTP_BLK[$addr]:-}" ]; then wtp_fw_del "block out any any $addr any"
+	else wtp_fw_add "block out any any $addr any"; fi
 }
 
 fn wiretap_rows(int w) {
