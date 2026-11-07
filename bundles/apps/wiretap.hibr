@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.5.0
+app wtview "Wiretap: a live graph and every app's traffic" 0.5.1
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -29,6 +29,8 @@ declare -ag WV_BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
 
 fn wtview_open(int id, ...rest) {
 	WV[$id]["view"]=graph
+	case $WTP_OPENVIEW in usage | hosts) WV[$id]["view"]=$WTP_OPENVIEW ;; esac
+	WTP_OPENVIEW=""
 	WV[$id]["scale"]=0
 	WV[$id]["sel"]=0
 	WV[$id]["top"]=0

@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.5.0
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.5.1
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -153,8 +153,19 @@ command -v dt_keep > /dev/null && { dt_keep DT_WTNEW; dt_keep DT_WTBIG; dt_keep 
 declare -gA WTA_KNOWN WTA_BIGAT
 declare -g WTA_READ=0 WTA_SCANT=-1 WTA_FILE=""
 
-fn wta_say(text) {
-	if dt_has dt_notify; then dt_notify "$text" dt_panelpane wiretap; else echo "alert: $text" >&2; fi
+declare -g WTP_OPENVIEW=""
+
+# Say a note. With a view (usage, hosts) clicking the note opens the window on that tab, where b blocks or allows what the note is about
+# (ADR 0030); with none, or without the window, it opens the pane.
+fn wta_say(text, view = "") {
+	if ! dt_has dt_notify; then echo "alert: $text" >&2
+	elif [ -n "$view" ] && dt_has dt_launch; then dt_notify "$text" wta_open "$view"
+	else dt_notify "$text" dt_panelpane wiretap; fi
+}
+
+fn wta_open(view) {
+	WTP_OPENVIEW=$view
+	dt_launch wtview
 }
 
 fn wta_file() {
@@ -209,7 +220,7 @@ fn wta_hosts() {
 	done
 	if [ "$hn" -gt 0 ] && [ $((SECONDS - WTA_HLAST)) -ge 60 ]; then
 		WTA_HLAST=$SECONDS
-		if [ "$hn" = 1 ]; then wta_say "New host: $hsample"; else wta_say "$hn new hosts, the first $hsample"; fi
+		if [ "$hn" = 1 ]; then wta_say "New host: $hsample" hosts; else wta_say "$hn new hosts, the first $hsample" hosts; fi
 	fi
 }
 
@@ -238,12 +249,12 @@ fn wta_scan() {
 		if [ -z "${WTA_KNOWN["$name"]-}" ] && [ $((${rx:-0} + ${tx:-0})) -gt 0 ]; then
 			WTA_KNOWN["$name"]=1
 			mkdir -p "${f%/*}" 2> /dev/null && printf '%s\n' "$name" >> "$f"
-			[ "$first" = 1 ] || [ "$DT_WTNEW" != 1 ] || wta_say "New on the network: $name"
+			[ "$first" = 1 ] || [ "$DT_WTNEW" != 1 ] || wta_say "New on the network: $name" usage
 		fi
 		if [ "$DT_WTBIG" = 1 ] && [ "${tx:-0}" -ge "$big" ] && [ $((SECONDS - ${WTA_BIGAT["$name"]--1000000})) -ge 600 ]; then
 			WTA_BIGAT["$name"]=$SECONDS
 			rx := wtp_rate "$tx"
-			wta_say "$name is uploading: $rx/s"
+			wta_say "$name is uploading: $rx/s" usage
 		fi
 	done
 	wta_hosts
