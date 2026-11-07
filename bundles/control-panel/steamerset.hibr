@@ -6,11 +6,12 @@
 
 strict
 
-app steamerset "The Control Panel pane for Steamer" 0.5.2
+app steamerset "The Control Panel pane for Steamer" 0.5.3
 command -v cp_pane > /dev/null && cp_pane steamerset "Steamer" "▶" app
 
 # Shared with apps/Games/steamer.hibr; defaults kept when that is loaded first.
-declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-$HOME/.local/share/Steam}"
+# STM_ROOT stays empty here: the app picks a default when none is saved.
+declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-}"
 command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT
 declare -g STM_KEYFILE="${XDG_CONFIG_HOME:-$HOME/.config}/hibr/steamer-key"
 declare -g STM_WIN="${STM_WIN-}"
@@ -36,7 +37,7 @@ fn steamerset_rows(int w) {
 	CP[$w][$n]["key"]=key
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Steam Folder"
-	CP[$w][$n]["val"]="$STM_ROOT"; CP[$w][$n]["key"]=root
+	CP[$w][$n]["val"]="${STM_ROOT:-default}"; CP[$w][$n]["key"]=root
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Linux Playable Only"
 	CP[$w][$n]["wtype"]=bool

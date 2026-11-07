@@ -11,7 +11,7 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.2
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.3
 # modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
@@ -357,9 +357,23 @@ fn steamer_progress_done(int n, int st) {
 	[ -n "$STM_BUSY" ] || [ -n "$STM_PEND" ] && dt_want 3000
 }
 
+# Steam is a graphical program, and this desktop has no display server for it.
+# Until the display hand-over exists (decision 0019), starting Steam from here
+# cannot work, and tried twice it broke Steam's first start. Say so, and stop.
+stm_can_launch() {
+	if [ -z "${DISPLAY-}" ] && [ -z "${WAYLAND_DISPLAY-}" ]; then
+		STM_STATUS="Steam can't start here yet: waiting for blit's display hand-over"
+		dt_notep high "Steam can't start here yet: waiting for blit's display hand-over"
+		dt_want 30
+		return 1
+	fi
+	return 0
+}
+
 # The action a leaf offers: Play when installed, Install when not.
 stm_act_leaf() {
 	local idx=$1 id=${STM_IDS[$1]}
+	stm_can_launch || return 0
 	if [ "${STM_INST[$idx]}" = 1 ]; then
 		stm_do "steam://rungameid/$id"
 		STM_STATUS="Starting ${STM_NAMES[$idx]} in Steam"
@@ -493,7 +507,7 @@ fn steamer_key(id, key) {
 		if [ "${STM_ROWK[$STM_SEL]-}" = B ]; then stm_toggle "${STM_ROWR[$STM_SEL]}"
 		elif [ "${STM_ROWK[$STM_SEL]-}" = L ]; then stm_act_leaf "${STM_ROWR[$STM_SEL]}"; fi ;;
 	o) [ "${STM_ROWK[$STM_SEL]-}" = L ] && stm_store "${STM_ROWR[$STM_SEL]}" ;;
-	c) stm_do "steam://open/" ;;
+	c) stm_can_launch && stm_do "steam://open/" ;;
 	r) stm_start; STM_STATUS="refreshing" ;;
 	/) dt_searchopen "$id" ;;
 	esac
