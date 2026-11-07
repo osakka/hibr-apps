@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.43
+app browser "The web, in a window" 2.44
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -350,13 +350,15 @@ bw_wide() {
 
 # One thing a page did with its windows: `open opener tab` or `shut tab`.
 fn bw_winev(k, a, b = "") {
-	local id x
+	local id x uo
 
 	for id in "${!BW[@]}"; do
 		[ -n "${BW[$id]["tabs"]+x}" ] || continue
 		bw_tabs "$id"
 		for x in "${BW_TABS[@]}"; do
 			if [ "$k" = open ] && [ "$x" = "$a" ]; then
+				uo := web url "$a" 2> /dev/null || uo=
+				bw_winlog "opened as a tab" "$uo" ""
 				bw_apply "$b"
 				[ -n "${BW[$id]["app"]-}" ] && bw_wapply "$b" "${BW[$id]["app"]}"
 				bw_sndarm "$b"
@@ -365,6 +367,8 @@ fn bw_winev(k, a, b = "") {
 				BW[$id]["sized"]=
 				return 0
 			elif [ "$k" = shut ] && [ "$x" = "$a" ]; then
+				uo := web url "$a" 2> /dev/null || uo=
+				bw_winlog "closed itself (window.close)" "$uo" ""
 				bw_closetab "$id" "$a"
 				return 0
 			fi
@@ -428,7 +432,7 @@ fn bw_dlstop() {
 # What the browser has to say since it was last asked: a download that
 # ended, and a page's notification, each a note of the desktop's own.
 bw_heard() {
-	local l k o x why tn dn du dir tb
+	local l k o x why tn dn du dir tb ux
 
 	if x := web downloaded 2> /dev/null; then
 		while IFS=$'\t' read -r k l why; do
@@ -484,6 +488,8 @@ bw_heard() {
 	if x := web popups 2> /dev/null; then
 		while IFS= read -r l; do
 			dt_notep low "A page tried to open a window of its own, and was refused: %s" "${l:0:60}"
+			ux := bw_curl
+			bw_winlog "refused (no click, and Windows Pages Open on Their Own is not allow)" "$ux" "$l"
 		done <<< "$x"
 	fi
 	# A page asking for the camera, the microphone or the location: a site
@@ -3080,7 +3086,7 @@ fn bw_histall(int id) {
 # says in its footer that the page is the browser's own, not a site's.
 # Someone who cannot get a call going types the address, or File >
 # Diagnostics, and reads the page out; nothing in them is sent anywhere.
-BW_VERSION="2.43"
+BW_VERSION="2.44"
 
 fn bw_arow(k, v) {
 	local x
@@ -3142,6 +3148,37 @@ fn bw_errtemplate() {
 	return 0
 }
 
+# Every window a page tried to open, kept in the cache (about:diagnostics shows the last of them): when, the page it was asked from,
+# what happened, and the address. A meeting's call window, a sign-in popup, an ad: what a window that "does not open" was, and why.
+BW_WINLOG="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-windows.log"
+fn bw_winlog(what, from, to) {
+	mkdir -p "${BW_WINLOG%/*}" 2> /dev/null
+	printf '%s\t%s\t%s\t%s\n' "$EPOCHSECONDS" "$what" "${from:0:80}" "${to:0:120}" >> "$BW_WINLOG" 2> /dev/null
+	# kept short: the newest hundred when it passes three hundred
+	if [ -f "$BW_WINLOG" ] && [ "$(wc -l < "$BW_WINLOG")" -gt 300 ]; then
+		tail -n 100 "$BW_WINLOG" > "$BW_WINLOG.new" 2> /dev/null && mv "$BW_WINLOG.new" "$BW_WINLOG" 2> /dev/null
+	fi
+	return 0
+}
+
+# The address of the page in the window with the keyboard if it is a Browser's, else in the first one: where a refused window was
+# most likely asked from (the engine says what window was wanted, not by which page).
+fn bw_curl() {
+	local id t u=
+
+	id=${DT_FOCUS-}
+	[ -n "$id" ] && [ -n "${BW[$id]["cur"]-}" ] || id=
+	if [ -z "$id" ]; then
+		for t in "${!BW[@]}"; do
+			[ -n "${BW[$t]["cur"]-}" ] && { id=$t; break; }
+		done
+	fi
+	if [ -n "$id" ]; then
+		u := web url "${BW[$id]["cur"]}" 2> /dev/null || u=
+	fi
+	ret "$u"
+}
+
 # GStreamer's version, from the name of its library (libgstreamer-1.0.so.0.2602.2 is 1.26.2); calls need 1.26.
 fn bw_gstver() {
 	local f x m
@@ -3179,8 +3216,9 @@ fn bw_camformats(dev) {
 # The Browser's two pages as one file in the cache, and the address of it opened at the view asked for (browser, diagnostics, or camera,
 # which is diagnostics under its old name).
 fn bw_aboutpage(name) {
-	local f d n x caps pk g rtc=off gv hv gm fv view=browser
-	local -a cams=()
+	local f d n x caps pk g rtc=off gv hv gm fv view=browser wi wn wt
+	local -a cams=() wl=()
+	local wtm wwh wfr wto
 
 	f="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-about.html"
 	mkdir -p "${f%/*}" 2> /dev/null
@@ -3230,7 +3268,22 @@ fn bw_aboutpage(name) {
 		# ---- Diagnostics ----
 		printf '<section id=diagnostics><h1>Diagnostics</h1>'
 		printf '<h2>What a meeting page finds <small>(it asks as a meeting would: answer Allow Once)</small></h2><div id=o><small>Open this view to run the check.</small></div>'
-		printf '<h2>This computer</h2><table>'
+		printf '<h2>Windows pages tried to open <small>(newest first; a meeting that "does not open its call window" shows here)</small></h2><table>'
+		if [ -s "$BW_WINLOG" ]; then
+			mapfile -t wl < "$BW_WINLOG"
+			wn=0
+			wi=$((${#wl[@]} - 1))
+			while [ "$wi" -ge 0 ] && [ "$wn" -lt 25 ]; do
+				IFS=$'\t' read -r wtm wwh wfr wto <<< "${wl[$wi]}"
+				printf -v wt '%(%H:%M:%S)T' "${wtm:-0}"
+				bw_arow "$wt  $wwh" "${wfr:-?}${wto:+  ->  $wto}"
+				wn=$((wn + 1))
+				wi=$((wi - 1))
+			done
+		else
+			bw_arow "None yet" "no page has tried to open a window since this was set up"
+		fi
+		printf '</table><h2>This computer</h2><table>'
 		for x in "${cams[@]}"; do
 			bw_arow "Camera device" "$x"
 		done
