@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.42
+app browser "The web, in a window" 2.43
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -2022,9 +2022,44 @@ fn browser_click(int id, int r, int c, btn = "") {
 # opens from a later frame when the answer comes (bw_atpoll): finding out
 # whether the page took the press itself takes the engine up to half a second,
 # and the desktop used to wait that long on every right click over a page.
+# A left press over the page, for a tab whose engine takes press, drag and release (cap drag, WebKit): begun there, so the page can
+# be dragged over to select text; let go where it was pressed it is the click it was. Not over the Browser's own parts (tabs,
+# buttons, the address, the question bar), nor the scroll bar's column, nor a page drawn as text: those go the way they went.
+# Fails (and the press goes on as a click) for any of those, and for a tab whose engine cannot.
+fn bw_dragstart(int id, int r, int c) {
+	local t=${BW[$id]["cur"]} pt=${BW[$id]["pt"]:-3} ph=${BW[$id]["ph"]:-1} tag
+
+	[ -n "$t" ] && [ "$r" -ge "$pt" ] && bw_tabhas "$t" drag || return 1
+	tag := dt_hit "$id" "$r" "$c" || tag=
+	[ -z "$tag" ] || return 1
+	bw_drawmode
+	[ "$BW_DRAWN" = text ] && return 1
+	if [ -n "${BW[$id]["sbt"]-}" ] && [ "$c" = "${BW[$id]["w"]-}" ] && [ "$r" -lt $((pt + ph)) ]; then
+		return 1
+	fi
+	BW[$id]["aed"]=
+	bw_sndarm "$t"
+	web press "$t" $((r - pt)) $((c - 1)) 2> /dev/null || return 1
+	BW[$id]["mdn"]=$t
+	return 0
+}
+
 fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 	local t=${BW[$id]["cur"]} pt=${BW[$id]["pt"]:-3} sr sc q
 
+	# A press the page took (bw_dragstart) goes on to it: the pointer moving with the button held, and the button let go -- what
+	# selects text on the page, and follows a link let go where it was pressed. The pointer may leave the page; the engine holds it
+	# at the page's edge.
+	if [ -n "${BW[$id]["mdn"]-}" ]; then
+		case $act in
+		drag) web drag "${BW[$id]["mdn"]}" $((r - pt)) $((c - 1)) 2> /dev/null; return 0 ;;
+		release)
+			web release "${BW[$id]["mdn"]}" $((r - pt)) $((c - 1)) 2> /dev/null
+			BW[$id]["mdn"]=
+			return 0
+			;;
+		esac
+	fi
 	[ "$act" = press ] || return 0
 	# A press on one of the address bar's suggestions goes there; anywhere
 	# else but the field it shuts the list (dt_omnihit, first with every press).
@@ -2052,6 +2087,7 @@ fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 		return 0
 	fi
 	if [ "$btn" != right ]; then
+		[ "$btn" = left ] && bw_dragstart "$id" "$r" "$c" && return 0
 		browser_click "$id" "$r" "$c" "$btn"
 		return 0
 	fi
@@ -3044,7 +3080,7 @@ fn bw_histall(int id) {
 # says in its footer that the page is the browser's own, not a site's.
 # Someone who cannot get a call going types the address, or File >
 # Diagnostics, and reads the page out; nothing in them is sent anywhere.
-BW_VERSION="2.42"
+BW_VERSION="2.43"
 
 fn bw_arow(k, v) {
 	local x
