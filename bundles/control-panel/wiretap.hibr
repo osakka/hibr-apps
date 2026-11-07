@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.4.1
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.4.2
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -410,6 +410,58 @@ fn wtp_fw_rows(int w, int n) {
 		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="  ..."; CP[$w][$n]["val"]="$((cnt - 5)) more (wiretap fw)"; n=$((n + 1))
 	fi
 	ret "$n"
+}
+
+# ---- block a host from the window (ADR 0028) ---------------------------------------------------------------------------
+# The hosts the kept rules block for every program: exactly the rule "block out any any ADDR any" that the window writes.
+declare -gA WTP_BLK
+fn wtp_fw_blocked() {
+	local l t f1 f2 f3 f4 f5 f6 f7
+	WTP_BLK=()
+	while IFS= read -r l; do
+		t=${l%%#*}
+		read -r f1 f2 f3 f4 f5 f6 f7 <<< "$t"
+		if [ -z "$f7" ] && [ "$f1 $f2 $f3 $f4 $f6" = "block out any any any" ] && [ -n "$f5" ]; then WTP_BLK[$f5]=1; fi
+	done < <(wtp_fw_rules)
+	return 0
+}
+
+# Block ADDR for every program, or take that rule out if it is there. The new text is checked by the engine before the helper is asked;
+# returns 1 with a note when it cannot. The helper (pkexec) runs in the background, as for the switch.
+fn wtp_fw_host(addr) {
+	local h rule old new l t f f1 f2 f3 f4 f5 f6 f7
+	h=${WT_RULES_HELPER:-/usr/libexec/wiretap-rules}
+	if [ ! -x "$h" ]; then wta_say "Wiretap: the firewall helper is not installed"; return 1; fi
+	wtp_load || { wta_say "Wiretap: the module is not installed"; return 1; }
+	rule="block out any any $addr any"
+	old=$(wtp_fw_rules)
+	new=""
+	wtp_fw_blocked
+	if [ -n "${WTP_BLK[$addr]:-}" ]; then
+		while IFS= read -r l; do
+			t=${l%%#*}
+			read -r f1 f2 f3 f4 f5 f6 f7 <<< "$t"
+			if [ -z "$f7" ] && [ "$f1 $f2 $f3 $f4 $f5 $f6" = "block out any any $addr any" ]; then continue; fi
+			new="$new$l
+"
+		done <<< "$old"
+	else
+		new="$old
+$rule
+"
+		[ -n "$old" ] || new="$rule
+"
+	fi
+	f=$(mktemp) || return 1
+	printf '%s\n' "$new" > "$f"
+	if ! wt fwrender "$f" > /dev/null; then
+		wta_say "Wiretap: ${ERRMSG:-the rule is not valid}"
+		rm -f "$f"
+		return 1
+	fi
+	rm -f "$f"
+	if [ -n "${WT_RULES_HELPER:-}" ]; then printf '%s\n' "$new" | "$h" apply > /dev/null 2>&1
+	else (printf '%s\n' "$new" | pkexec "$h" apply > /dev/null 2>&1 &); fi
 }
 
 fn wiretap_rows(int w) {

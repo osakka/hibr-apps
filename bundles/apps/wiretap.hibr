@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.4.1
+app wtview "Wiretap: a live graph and every app's traffic" 0.4.2
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -203,6 +203,7 @@ fn wv_hosts(int id, int h, int w) {
 	local n i a app rx tx last now vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r b c hue
 
 	wtp_hosts
+	wtp_fw_blocked
 	n := json len WTP_H .hosts 2> /dev/null || n=0
 	n=${n:-0}
 	WV[$id]["n"]=$n
@@ -232,7 +233,21 @@ fn wv_hosts(int id, int h, int w) {
 		hue := wtp_hue "$app"
 		if [ "$i" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
 		wv_put "$id" "$r" 42 "▌"
+		if [ -n "${WTP_BLK[$a]:-}" ]; then
+			console pen "$DT_WARN" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_WARN" "$DT_INK"
+			wv_put "$id" "$r" 1 "✕"
+		fi
 	done
+	console pen "$DT_DIM" "$DT_FACE"
+	if [ -n "${WV[$id]["ask"]:-}" ]; then
+		console pen "$DT_WARN" "$DT_FACE" bold
+		if [ -n "${WTP_BLK[${WV[$id]["ask"]}]:-}" ]; then wv_put "$id" $((h - 2)) 2 "Stop blocking ${WV[$id]["ask"]}?  y = unblock   any other key = cancel"
+		else wv_put "$id" $((h - 2)) 2 "Block ${WV[$id]["ask"]} for every program?  y = block   any other key = cancel"; fi
+	elif [ -n "${WV[$id]["note"]:-}" ]; then
+		wv_put "$id" $((h - 2)) 2 "${WV[$id]["note"]}"
+	else
+		wv_put "$id" $((h - 2)) 2 "b blocks or unblocks the selected host (asks for a password)"
+	fi
 }
 
 fn wtview_draw(int id, int h, int w, int row, int col) {
@@ -262,9 +277,22 @@ fn wtview_draw(int id, int h, int w, int row, int col) {
 }
 
 fn wtview_key(int id, key) {
-	local n=${WV[$id]["n"]:-0}
+	local n=${WV[$id]["n"]:-0} a
 
+	if [ -n "${WV[$id]["ask"]:-}" ]; then
+		a=${WV[$id]["ask"]}; WV[$id]["ask"]=
+		if [ "$key" = y ]; then
+			if wtp_fw_host "$a"; then WV[$id]["note"]="Asked to change the rule for $a; the mark follows when it is applied."
+			else WV[$id]["note"]="That did not work (see the notification)."; fi
+		fi
+		return 0
+	fi
+	WV[$id]["note"]=
 	case $key in
+	b) if [ "${WV[$id]["view"]}" = hosts ] && [ "$n" -gt 0 ]; then
+		a := json get WTP_H ".hosts[${WV[$id]["sel"]}].addr"
+		WV[$id]["ask"]=$a
+	fi ;;
 	1|2|3|4) WV[$id]["scale"]=$((key - 1)); WTP_RKEY= ;;
 	g) WV[$id]["view"]=graph ;;
 	u) WV[$id]["view"]=usage ;;
