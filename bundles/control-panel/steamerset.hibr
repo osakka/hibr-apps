@@ -6,7 +6,7 @@
 
 strict
 
-app steamerset "The Control Panel pane for Steamer" 0.4
+app steamerset "The Control Panel pane for Steamer" 0.5
 command -v cp_pane > /dev/null && cp_pane steamerset "Steamer" "▶" app
 
 # Shared with apps/Games/steamer.hibr; defaults kept when that is loaded first.
@@ -14,6 +14,8 @@ declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-$HOME/.local/share/Steam}"
 command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT
 declare -g STM_KEYFILE="${XDG_CONFIG_HOME:-$HOME/.config}/hibr/steamer-key"
 declare -g STM_WIN="${STM_WIN-}"
+STM_LINUXONLY="${STM_LINUXONLY-0}"
+command -v dt_keep > /dev/null && dt_keep STM_LINUXONLY
 
 # A setting changed: an open Steamer window lists the games again.
 stm_changed() {
@@ -35,6 +37,11 @@ fn steamerset_rows(int w) {
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Steam Folder"
 	CP[$w][$n]["val"]="$STM_ROOT"; CP[$w][$n]["key"]=root
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Linux Playable Only"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$STM_LINUXONLY" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=STM_LINUXONLY
 	n=$((n + 1))
 	ret "$n"
 }
@@ -81,5 +88,6 @@ fn steamerset_do(int? w = "", k = "", int? dir = "") {
 	id) dt_ask "Steam ID" "SteamID64 (17 digits):" "$STM_ID" stm_setid ;;
 	key) dt_ask "API Key" "Steam Web API key:" "" stm_setkey "" 1 ;;
 	root) dt_ask "Steam Folder" "Folder:" "$STM_ROOT" stm_setroot ;;
+	STM_LINUXONLY) cp_toggle "$k"; cp_save; stm_changed ;;
 	esac
 }

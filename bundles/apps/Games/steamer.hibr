@@ -11,21 +11,27 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.4
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5
 # modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
 
 declare -g STM_ID="${STM_ID-}" STM_ROOT="${STM_ROOT-$HOME/.local/share/Steam}"
-command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT
+STM_LINUXONLY="${STM_LINUXONLY-0}"
+command -v dt_keep > /dev/null && dt_keep STM_ID STM_ROOT STM_LINUXONLY
 command -v dt_ticker > /dev/null && dt_ticker stm_tick
 
+# fetch sets this for the caller; under strict it must be declared (fetch README).
+declare -g FETCH_STATUS=""
 declare -g STM_KEYFILE="${XDG_CONFIG_HOME:-$HOME/.config}/hibr/steamer-key"
 declare -g STM_KEY="" STM_WIN="${STM_WIN-}" STM_NOTE="" STM_STATUS=""
 declare -g STM_TOP=0 STM_SEL=0 STM_VER=0 STM_BUILT=-1 STM_SEEN=-1
 declare -g STM_BUILTQ="" STM_VIS_ROWS=10 STM_OPEN_INST=1 STM_OPEN_NOT=1
 declare -g STM_N_INST=0 STM_N_NOT=0 STM_BUSY=""
 declare -g STM_NEXT=0 STM_PJOB=0 STM_PLAY="" STM_PROG="" STM_PROGOLD=""
+declare -g STM_PEND="" STM_PENDNAME="" STM_PENDT=0 STM_PENDSEEN=0 STM_PLATJOB=0
+declare -g STM_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/steamer/linux.tsv"
+declare -gA STM_LINUX=() STM_PL=()
 declare -ga STM_IDS=() STM_NAMES=() STM_INST=() STM_SCAN=()
 declare -ga STM_OIDS=() STM_ONAMES=() STM_ROWK=() STM_ROWR=()
 declare -gA STM_OWN STM_RT=() STM_PT=()
@@ -81,6 +87,77 @@ stm_merge() {
 	return 0
 }
 
+# Read the Linux answers kept from earlier runs, so a known game is not asked again.
+stm_loadlinux() {
+	local id v
+	[ -r "$STM_CACHE" ] || return 0
+	while IFS=$'\t' read -r id v; do
+		[ -n "$id" ] && STM_LINUX[$id]=$v
+	done < "$STM_CACHE"
+	return 0
+}
+
+# A job: does each game run on Linux? One line per game: appid TAB 1, 0 or ?.
+# The store answers one game a request, and not several at once, so this asks
+# one at a time with a pause between, in batches the callback starts again.
+stm_platforms() {
+	local id v url reply
+	reply="${STM_CACHE%/*}/platform-reply.json"
+	mkdir -p "${STM_CACHE%/*}" 2> /dev/null
+	for id in "$@"; do
+		url="https://store.steampowered.com/api/appdetails?appids=$id&filters=platforms"
+		v=?
+		if fetch get "$url" > "$reply" 2> /dev/null; then
+			if json parse STM_PL < "$reply" 2> /dev/null; then
+				v := json get STM_PL "$id.data.platforms.linux" 2> /dev/null
+			fi
+		fi
+		case $v in
+		true) printf '%s\t1\n' "$id" ;;
+		false) printf '%s\t0\n' "$id" ;;
+		*) printf '%s\t?\n' "$id" ;;
+		esac
+		sleep 1
+	done
+	rm -f "$reply"
+}
+
+# Ask for the Linux answers of owned games that have none yet, when the filter is on.
+stm_platform_need() {
+	local id n
+	local -a unknown=()
+	[ "$STM_LINUXONLY" = 1 ] || return 0
+	[ "$STM_PLATJOB" = 0 ] || return 0
+	for id in "${STM_IDS[@]}"; do
+		[ -n "${STM_LINUX[$id]-}" ] || unknown+=("$id")
+	done
+	[ "${#unknown[@]}" -gt 0 ] || return 0
+	[ "${#unknown[@]}" -gt 40 ] && unknown=("${unknown[@]:0:40}")
+	STM_PLATJOB=1
+	n := dt_job steamer:platforms "$STM_WIN" steamer_platforms_done stm_platforms "${unknown[@]}"
+	return 0
+}
+
+fn steamer_platforms_done(int n, int st) {
+	local f id v
+	STM_PLATJOB=0
+	[ "$st" = 0 ] || { dt_want 0; return 0; }
+	f := dt_jobfile "$n" out
+	mkdir -p "${STM_CACHE%/*}" 2> /dev/null
+	while IFS=$'\t' read -r id v; do
+		[ -n "$id" ] || continue
+		STM_LINUX[$id]=$v
+		[ "$v" = "?" ] || printf '%s\t%s\n' "$id" "$v" >> "$STM_CACHE" 2> /dev/null
+	done < "$f"
+	stm_visible_reset
+	stm_platform_need
+	dt_want 0
+}
+
+stm_visible_reset() {
+	STM_BUILT=-1
+}
+
 # The tree: two branches, Installed and Not installed, each with its games as
 # leaves. The search leaves only the games it matches. Rebuilt only when the
 # data, the query or the open branches changed.
@@ -92,6 +169,7 @@ stm_visible() {
 	if [ "$STM_BUILTQ" != "$q" ] && [ "$STM_BUILT" != -1 ]; then STM_SEL=0; STM_TOP=0; fi
 	lq=${q,,}
 	for i in "${!STM_IDS[@]}"; do
+		if [ "$STM_LINUXONLY" = 1 ] && [ "${STM_LINUX[${STM_IDS[$i]}]-}" = 0 ]; then continue; fi
 		if [ -n "$lq" ]; then
 			name=${STM_NAMES[$i],,}
 			case $name in *"$lq"*) ;; *) continue ;; esac
@@ -165,6 +243,7 @@ fn steamer_owned_done(int n, int st) {
 	done
 	STM_NOTE="${#STM_OIDS[@]} owned"
 	stm_merge
+	stm_platform_need
 	dt_want 0
 }
 
@@ -177,17 +256,16 @@ fn steamer_launched(int n, int st) {
 stm_do() {
 	local n
 	n := dt_job steamer:launch "$STM_WIN" steamer_launched stm_launch "$1"
-	STM_STATUS="sent to Steam"
 }
 
 # A job: what is downloading (dl TAB appid TAB name TAB percent) and what is
 # running (run TAB appid), read from the manifests and from /proc. Runs off
 # the desktop's own process, so the ticker never reads a file or forks.
 stm_progress() {
-	awk -F'"' 'function out() { if (id != "" && t + 0 > 0 && d + 0 < t + 0) printf "dl\t%s\t%s\t%d\n", id, n, (d * 100) / t }
-	FNR == 1 { if (NR > 1) out(); id = ""; n = ""; d = 0; t = 0 }
+	awk -F'"' 'function out() { if (id != "" && t + 0 > 0 && d + 0 < t + 0) printf "dl\t%s\t%s\t%d\n", id, n, (d * 100) / t; if (id != "" && sf == 4) printf "ok\t%s\t%s\t0\n", id, n }
+	FNR == 1 { if (NR > 1) out(); id = ""; n = ""; d = 0; t = 0; sf = 0 }
 	/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 }
-	/"BytesDownloaded"/ { d = $4 } /"BytesToDownload"/ { t = $4 }
+	/"BytesDownloaded"/ { d = $4 } /"BytesToDownload"/ { t = $4 } /"StateFlags"/ { sf = $4 }
 	END { out() }' "$STM_ROOT"/steamapps/appmanifest_*.acf 2> /dev/null
 	grep -azoh '^SteamAppId=[0-9]*' /proc/[0-9]*/environ 2> /dev/null | tr '\0' '\n' |
 		sed -n 's/^SteamAppId=\([1-9][0-9]*\)$/run\t\1/p' | sort -u
@@ -208,14 +286,16 @@ stm_tick() {
 }
 
 fn steamer_progress_done(int n, int st) {
-	local f kind id name pct text="" k
-	local play=""
+	local f kind id name pct text="" k play="" ok=0 seen=0 nowt
 	STM_PJOB=0
 	[ "$st" = 0 ] || return 0
 	f := dt_jobfile "$n" out
 	while IFS=$'\t' read -r kind id name pct; do
 		case $kind in
-		dl) text="Installing $name  ${pct}%" ;;
+		dl)
+			text="Installing $name  ${pct}%"
+			[ "$id" = "$STM_PEND" ] && seen=1 ;;
+		ok) [ "$id" = "$STM_PEND" ] && ok=1 ;;
 		run) play=$id ;;
 		esac
 	done < "$f"
@@ -225,20 +305,39 @@ fn steamer_progress_done(int n, int st) {
 		done
 	fi
 	STM_PLAY=$play
+	nowt=$EPOCHSECONDS
+	if [ -n "$STM_PEND" ]; then
+		if [ "$seen" = 1 ]; then
+			STM_PENDSEEN=1
+		elif [ "$ok" = 1 ] || { [ "$STM_PENDSEEN" = 1 ] && [ "$seen" = 0 ]; }; then
+			STM_STATUS="Installed: $STM_PENDNAME"
+			STM_PEND=""; STM_PENDSEEN=0
+			n := dt_job steamer:scan "$STM_WIN" steamer_scanned stm_scan
+		elif [ $((nowt - STM_PENDT)) -gt 180 ]; then
+			STM_STATUS="Steam has not started ${STM_PENDNAME}: check Steam"
+			STM_PEND=""; STM_PENDSEEN=0
+		fi
+	fi
 	if [ "$text" != "$STM_PROGOLD" ]; then
 		STM_PROGOLD=$text
 		STM_BUSY=$text
-		[ -n "$text" ] || STM_BUSY=""
 		dt_want 0
 	fi
-	[ -n "$STM_BUSY" ] && dt_want 3000
+	[ -n "$STM_BUSY" ] || [ -n "$STM_PEND" ] && dt_want 3000
 }
 
 # The action a leaf offers: Play when installed, Install when not.
 stm_act_leaf() {
 	local idx=$1 id=${STM_IDS[$1]}
-	if [ "${STM_INST[$idx]}" = 1 ]; then stm_do "steam://rungameid/$id"
-	else stm_do "steam://install/$id"; fi
+	if [ "${STM_INST[$idx]}" = 1 ]; then
+		stm_do "steam://rungameid/$id"
+		STM_STATUS="Starting ${STM_NAMES[$idx]} in Steam"
+	else
+		stm_do "steam://install/$id"
+		STM_PEND=$id; STM_PENDNAME=${STM_NAMES[$idx]}; STM_PENDT=$EPOCHSECONDS; STM_PENDSEEN=0
+		STM_STATUS="Install requested: ${STM_NAMES[$idx]}"
+		dt_want 3000
+	fi
 }
 
 # The store page, in the desktop's browser, or copied when no browser is here.
@@ -259,6 +358,7 @@ stm_toggle() {
 
 fn steamer_open(id, arg) {
 	STM_WIN=$id
+	stm_loadlinux
 	stm_start
 }
 
