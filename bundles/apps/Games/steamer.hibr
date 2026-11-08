@@ -11,8 +11,8 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.5
-# modules: fetch sys
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.6
+# modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
 
@@ -185,7 +185,8 @@ stm_loadlinux() {
 # one at a time with a pause between, in batches the callback starts again.
 stm_platforms() {
 	local id v url reply
-	need sys || return 2
+	local nap=sleep
+	need sys 2> /dev/null && nap=sleepms
 	reply="${STM_CACHE%/*}/platform-reply.json"
 	mkdir -p "${STM_CACHE%/*}" 2> /dev/null
 	for id in "$@"; do
@@ -201,7 +202,7 @@ stm_platforms() {
 		false) printf '%s\t0\n' "$id" ;;
 		*) printf '%s\t?\n' "$id" ;;
 		esac
-		sleepms 1000
+		if [ "$nap" = sleepms ]; then sleepms 1000; else sleep 1; fi
 	done
 	rm -f "$reply"
 }
