@@ -11,8 +11,8 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.4
-# modules: fetch
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.5
+# modules: fetch sys
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
 
@@ -72,13 +72,34 @@ stm_libroots() {
 	done
 }
 
+# Read one appmanifest (Valve KeyValues: lines of "key" "value") into ACF_ID,
+# ACF_NAME (the first of each), ACF_D (BytesDownloaded), ACF_T (BytesToDownload)
+# and ACF_SF (StateFlags). No program is started. Hibr has no KeyValues reader.
+declare -g ACF_ID="" ACF_NAME="" ACF_D=0 ACF_T=0 ACF_SF=0
+declare -ga M=()
+stm_acf() {
+	local l
+	ACF_ID=""; ACF_NAME=""; ACF_D=0; ACF_T=0; ACF_SF=0
+	while IFS= read -r l; do
+		match "$l" '^\s*"([^"]*)"\s*"([^"]*)"' || continue
+		case ${M[1]} in
+		appid) [ -n "$ACF_ID" ] || ACF_ID=${M[2]} ;;
+		name) [ -n "$ACF_NAME" ] || ACF_NAME=${M[2]} ;;
+		BytesDownloaded) ACF_D=${M[2]} ;;
+		BytesToDownload) ACF_T=${M[2]} ;;
+		StateFlags) ACF_SF=${M[2]} ;;
+		esac
+	done < "$1"
+}
+
 # A job: the installed games, one "appid<TAB>name" a line.
 stm_scan() {
 	local f root
 	while IFS= read -r root; do
 		for f in "$root"/steamapps/appmanifest_*.acf; do
 			[ -r "$f" ] || continue
-			awk -F'"' '/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 } END { if (id != "") printf "%s\t%s\n", id, n }' "$f"
+			stm_acf "$f"
+			[ -n "$ACF_ID" ] && printf '%s\t%s\n' "$ACF_ID" "$ACF_NAME"
 		done
 	done < <(stm_libroots)
 }
@@ -164,6 +185,7 @@ stm_loadlinux() {
 # one at a time with a pause between, in batches the callback starts again.
 stm_platforms() {
 	local id v url reply
+	need sys || return 2
 	reply="${STM_CACHE%/*}/platform-reply.json"
 	mkdir -p "${STM_CACHE%/*}" 2> /dev/null
 	for id in "$@"; do
@@ -179,7 +201,7 @@ stm_platforms() {
 		false) printf '%s\t0\n' "$id" ;;
 		*) printf '%s\t?\n' "$id" ;;
 		esac
-		sleep 1
+		sleepms 1000
 	done
 	rm -f "$reply"
 }
@@ -364,16 +386,32 @@ stm_do() {
 # running (run TAB appid), read from the manifests and from /proc. Runs off
 # the desktop's own process, so the ticker never reads a file or forks.
 stm_progress() {
-	local root
+	local root f blob
+	local -A seen=()
 	while IFS= read -r root; do
-	awk -F'"' 'function out() { if (id != "" && t + 0 > 0 && d + 0 < t + 0) printf "dl\t%s\t%s\t%d\n", id, n, (d * 100) / t; if (id != "" && sf == 4) printf "ok\t%s\t%s\t0\n", id, n }
-	FNR == 1 { if (NR > 1) out(); id = ""; n = ""; d = 0; t = 0; sf = 0 }
-	/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 }
-	/"BytesDownloaded"/ { d = $4 } /"BytesToDownload"/ { t = $4 } /"StateFlags"/ { sf = $4 }
-	END { out() }' "$root"/steamapps/appmanifest_*.acf 2> /dev/null
+		for f in "$root"/steamapps/appmanifest_*.acf; do
+			[ -r "$f" ] || continue
+			stm_acf "$f"
+			[ -n "$ACF_ID" ] || continue
+			if [ "$ACF_T" -gt 0 ] && [ "$ACF_D" -lt "$ACF_T" ]; then
+				printf 'dl\t%s\t%s\t%d\n' "$ACF_ID" "$ACF_NAME" $(( ACF_D * 100 / ACF_T ))
+			fi
+			[ "$ACF_SF" = 4 ] && printf 'ok\t%s\t%s\t0\n' "$ACF_ID" "$ACF_NAME"
+		done
 	done < <(stm_libroots)
-	grep -azoh '^SteamAppId=[0-9]*' /proc/[0-9]*/environ 2> /dev/null | tr '\0' '\n' |
-		sed -n 's/^SteamAppId=\([1-9][0-9]*\)$/run\t\1/p' | sort -u
+	# The running game: SteamAppId in a process's environment. Each file is read whole
+	# (about 9 ms for all of /proc); registry.vdf's RunningAppID is not there until Steam has run.
+	for f in /proc/[0-9]*/environ; do
+		blob=""
+		read -r -N 1000000 blob 2> /dev/null < "$f"
+		case $blob in
+		*SteamAppId=*)
+			match "$blob" 'SteamAppId=([1-9][0-9]*)' || continue
+			[ -n "${seen[${M[1]}]-}" ] && continue
+			seen[${M[1]}]=1
+			printf 'run\t%s\n' "${M[1]}" ;;
+		esac
+	done 2> /dev/null
 }
 
 # The ticker, on every pass of the desktop. It returns at once unless this
