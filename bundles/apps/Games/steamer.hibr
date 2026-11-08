@@ -11,8 +11,9 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.6
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.7
 # modules: fetch
+# needs: apps/steamwin
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
 
@@ -380,6 +381,7 @@ fn steamer_launched(int n, int st) {
 # Send a Steam URL to the client through a job.
 stm_do() {
 	local n
+	if dt_has stw_play; then stw_play "$1"; return 0; fi
 	n := dt_job steamer:launch "$STM_WIN" steamer_launched stm_launch "$1"
 }
 
@@ -474,6 +476,9 @@ fn steamer_progress_done(int n, int st) {
 # Until the display hand-over exists (decision 0019), starting Steam from here
 # cannot work, and tried twice it broke Steam's first start. Say so, and stop.
 stm_can_launch() {
+	# The Steam window (apps/steamwin) starts Steam under Blit's gamescope bridge, so
+	# no display of ours is needed; it says itself if the bridge package is missing.
+	dt_has stw_play && return 0
 	if [ -z "${DISPLAY-}" ] && [ -z "${WAYLAND_DISPLAY-}" ]; then
 		STM_STATUS="Steam can't start here yet: waiting for blit's display hand-over"
 		dt_notep high "Steam can't start here yet: waiting for blit's display hand-over"

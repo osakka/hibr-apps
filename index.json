@@ -206,23 +206,24 @@
     },
     "apps/steamer": {
       "title": "Steamer",
-      "version": "0.5.6",
+      "version": "0.5.7",
       "kind": "apps",
       "bundle": "bundles/apps/Games/steamer.hibr",
-      "sha256": "a4b79e32c4ca79821c01fb34daee6e8ee3f5c2be76da70abe198aee32a541f04",
+      "sha256": "088877ccae3858a227ea0db25450ef5db75f5a5f755b30400b877b9b28217985",
       "about": "Your Steam games as a tree: install, play, and the store page\n\nyour Steam games on the hibr desktop: the ones installed here and the ones your account owns, as a tree of Installed and Not installed. Each row says what it does: Install or Play, and a store page arrow. The Steam client does the work. Settings are in Control Panel > Steamer. See docs/PLAN.md and docs/decisions/.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamer",
       "hibr": "0.99.362",
       "modules": "fetch",
+      "needs": "apps/steamwin",
       "dir": "Games",
       "parts": [
         {
           "kind": "control-panel",
           "as": "steamerset.hibr",
           "path": "bundles/control-panel/steamerset.hibr",
-          "sha256": "e0cac2b8458f7b9e1edbde74ca201fc5867c2e735739b96462a04c056e700809"
+          "sha256": "2538ac204ed1444add2329235c4d243d366d111254e1ec39b58734bd6017f684"
         }
       ]
     },
@@ -1787,16 +1788,17 @@
     },
     "steamer": {
       "title": "Steamer",
-      "version": "0.5.6",
+      "version": "0.5.7",
       "kind": "apps",
       "bundle": "bundles/apps/Games/steamer.hibr",
-      "sha256": "a4b79e32c4ca79821c01fb34daee6e8ee3f5c2be76da70abe198aee32a541f04",
+      "sha256": "088877ccae3858a227ea0db25450ef5db75f5a5f755b30400b877b9b28217985",
       "about": "Your Steam games as a tree: install, play, and the store page\n\nyour Steam games on the hibr desktop: the ones installed here and the ones your account owns, as a tree of Installed and Not installed. Each row says what it does: Install or Play, and a store page arrow. The Steam client does the work. Settings are in Control Panel > Steamer. See docs/PLAN.md and docs/decisions/.\n\nThe API key is never stored here, in the settings, or on a command line. It is read from its own file, and the owned-games call runs inside fetch.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamer",
       "hibr": "0.99.362",
       "modules": "fetch",
+      "needs": "apps/steamwin",
       "dir": "Games"
     },
     "steamwin": {

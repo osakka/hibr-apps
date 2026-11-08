@@ -6,7 +6,7 @@
 
 strict
 
-app steamerset "The Control Panel pane for Steamer" 0.5.6
+app steamerset "The Control Panel pane for Steamer" 0.5.7
 command -v cp_pane > /dev/null && cp_pane steamerset "Steamer" "▶" app
 
 # Shared with apps/Games/steamer.hibr; defaults kept when that is loaded first.
