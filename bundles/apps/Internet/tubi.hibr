@@ -28,7 +28,7 @@
 
 strict
 
-app tubi "Tubi, in a window" 1.0
+app tubi "Tubi, in a window" 1.1
 # part: control-panel/tubiset.hibr
 # modules: web
 
@@ -62,22 +62,22 @@ TU_CONSENT='var b=Array.from(document.querySelectorAll("button")).find(function(
 # episodes of a series' page (then only those), each with the words under
 # its poster. Empty until the page has made them. `seasons` is the count of
 # the season tabs.
-TU_RJS='(function(){'"$TU_CONSENT"'var seen={},out=[],eps=[];function tx(s){return (s||"").replace(/\s+/g," ").trim()}Array.from(document.querySelectorAll("a[href*=\"/movies/\"],a[href*=\"/series/\"],a[href*=\"/tv-shows/\"]")).forEach(function(a){var h=a.getAttribute("href").replace(/^https?:\/\/[^\/]*/,"");if(seen[h])return;var m=h.match(/^\/(movies|series|tv-shows)\//);if(!m)return;seen[h]=1;var im=a.querySelector("img"),t=tx(a.textContent),k=m[1]=="movies"?"movie":m[1]=="series"?"series":"episode";if(k!="episode"&&im&&im.alt)t=tx(im.alt);if(!t)t=tx(a.getAttribute("aria-label"));var sub="";if(k=="episode"){var e=t.match(/^(S\d+:E\d+)\s*-?\s*(.*)$/i);if(e){sub=e[1];t=e[2]||e[1]}}var o={kind:k,id:h,title:t.slice(0,80),ch:sub,len:""};(k=="episode"?eps:out).push(o)});var l=eps.length?eps:out;if(!l.length)return "";var h1=document.querySelector("h1");var ss=Array.from(document.querySelectorAll("[role=tab],button")).filter(function(x){return /^season\s*\d+/i.test(tx(x.textContent))});return JSON.stringify({head:h1?tx(h1.textContent):"",list:l,seasons:ss.length})})()'
+TU_RJS='(function(){'"$TU_CONSENT"'var seen={},out=[],eps=[];function tx(s){return (s||"").replace(/\s+/g," ").trim()}Array.from(document.querySelectorAll("a[href*=\"/movies/\"],a[href*=\"/series/\"],a[href*=\"/tv-shows/\"]")).forEach(function(a){var h=a.getAttribute("href").replace(/^https?:\/\/[^\/]*/,"");if(seen[h])return;var m=h.match(/^\/(movies|series|tv-shows)\//);if(!m)return;seen[h]=1;var im=a.querySelector("img"),t=tx(a.textContent),k=m[1]=="movies"?"movie":m[1]=="series"?"series":"episode";if(k!="episode"&&im&&im.alt)t=tx(im.alt);if(!t)t=tx(a.getAttribute("aria-label"));var sub="",ln="";if(k=="episode"){t=t.replace(/^Play Icon/i,"");var e=t.match(/^(S\d+:E\d+)\s*-?\s*(.*)$/i);if(e){sub=e[1];t=e[2]||e[1]}var d=t.match(/^(.*?)(\d+ ?h(?:r)?(?: ?\d+ ?min)?|\d+ ?min)/);if(d&&d[1]){t=d[1].trim();ln=d[2]}}var o={kind:k,id:h,title:t.slice(0,80),ch:sub,len:ln};(k=="episode"?eps:out).push(o)});var l=eps.length?eps:out;if(!l.length)return "";var h1=document.querySelector("h1");var ss=Array.from(document.querySelectorAll("[role=tab],button")).filter(function(x){return /^season\s*\d+/i.test(tx(x.textContent))});return JSON.stringify({head:h1?tx(h1.textContent):"",list:l,seasons:ss.length})})()'
 
 # Where Tubi's player is: the one <video>, its time, length and state, and the
 # path of the page it is on. Empty until there is one.
 TU_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
 
-# The page cut down to the video, by structure and not by Tubi's names: every
-# element that does not hold the video is hidden and every one that does fills
-# the window (the same cut the YouTube app makes).
-TU_CSS='html,body{overflow:hidden!important;background:#000!important;margin:0!important}body *:not(:has(video)):not(video){display:none!important}body *:has(video){display:block!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;transform:none!important;overflow:hidden!important;background:#000!important}video{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:contain!important;border-radius:0!important;background:#000!important}'
+# The page set aside and the video laid over it, edge to edge. Not the cut the
+# YouTube app makes (everything that does not hold the video hidden): Tubi takes
+# that for the player having left the screen and tears it down after a few seconds.
+TU_CSS='html,body{overflow:hidden!important;background:#000!important}video{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483647!important;object-fit:contain!important;background:#000!important;border-radius:0!important}'
 
-# Start the player once the page has it: the consent cleared, the Play button
-# pressed while there is no video yet, the page cut down, the volume set and the
-# video started. "ok" when there is a video holding data.
+# Start the player once the page has it: the consent cleared, the player's own play button pressed once
+# if nothing starts by itself, and -- only once a video holds data, since Tubi rebuilds its player if it
+# is touched before -- the page cut down, the volume set and the video started. "ok" when it is going.
 fn tu_startjs(v, num) {
-	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";${TU_CONSENT}var v=document.querySelector(\"video\");if(!v||v.readyState==0){var b=Array.from(document.querySelectorAll(\"button,a\")).find(function(x){return /^(watch|play)/i.test(((x.getAttribute(\"aria-label\")||\"\")+x.textContent).trim())});if(b)b.click();if(!v)return \"\"}if(!document.getElementById(\"hibr-tu\")){var c=document.createElement(\"style\");c.id=\"hibr-tu\";c.textContent=\"$TU_CSS\";document.head.appendChild(c)}v.muted=false;v.volume=$v/100;if(v.paused)v.play();return v.readyState>=2?\"ok\":\"\"})()"
+	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";${TU_CONSENT}if(b&&!window.hibrTuC){window.hibrTuC=1;return \"\"}var v=document.querySelector(\"video\");if(!v||v.readyState<2){var b=document.querySelector(\"button[aria-label^='Play keyboard']\");if(b&&!window.hibrTuClicked){window.hibrTuClicked=1;b.click()}return \"\"}if(!document.getElementById(\"hibr-tu\")){var c=document.createElement(\"style\");c.id=\"hibr-tu\";c.textContent=\"$TU_CSS\";document.head.appendChild(c)}for(var q=v.parentElement;q&&q!==document.body;q=q.parentElement){[\"transform\",\"filter\",\"contain\",\"clip-path\",\"perspective\"].forEach(function(k){q.style.setProperty(k,\"none\",\"important\")});q.style.setProperty(\"overflow\",\"visible\",\"important\")}for(var u=v;u&&u!==document.body;u=u.parentElement){Array.from(u.parentElement.children).forEach(function(o){if(o!==u&&o.tagName!==\"STYLE\"&&o.tagName!==\"SCRIPT\")o.style.setProperty(\"display\",\"none\",\"important\")})}v.muted=false;v.volume=$v/100;if(v.paused)v.play();return \"ok\"})()"
 }
 
 # What the engine does, as `web caps` says it, asked the first time.
@@ -461,8 +461,14 @@ fn tu_play(int id, int i) {
 	if tu_histget "$key" && [ "${TUH[4]:-0}" -gt "$TU_RESUME" ]; then
 		TU[$id]["resume"]=${TUH[4]}
 	fi
+	# A page laid out at a desktop's width: at the engine's default size Tubi may
+	# serve its phone page, whose Play button is not the desktop's.
+	web size "$t" 40 120 2> /dev/null
 	web go "$t" "$TU_BASE$key" 2> /dev/null
 }
+
+# What the player tab holds, in a few words, for when a title will not start.
+TU_WHYJS='(function(){var v=document.querySelector("video"),b=Array.from(document.querySelectorAll("button")).filter(function(x){return /^(watch|play)/i.test(((x.getAttribute("aria-label")||"")+x.textContent).trim())}).length;return location.pathname.slice(0,40)+" video:"+(v?"rs"+v.readyState+(v.error?" err"+v.error.code:""):"none")+" play-buttons:"+b+" w:"+window.innerWidth})()'
 
 # Stop playing, noting where it was left: the page left.
 fn tu_stop(int id) {
@@ -613,7 +619,7 @@ fn tu_info(int id) {
 # One step of playing: start the page's player once it is there, take a title up
 # where it was left, and at the end go on to the next.
 fn tu_tick(int id) {
-	local t=${TU[$id]["pt"]} p=${TU[$id]["p"]} s js m i e wf
+	local t=${TU[$id]["pt"]} p=${TU[$id]["p"]} s js m i e wf why
 
 	if dt_has dt_live; then
 		if [ "${TU[$id]["state"]}" = playing ]; then
@@ -637,7 +643,9 @@ fn tu_tick(int id) {
 		fi
 		if [ "${TU[$id]["state"]}" = loading ] &&
 		   [ $((EPOCHSECONDS - TU[$id]["since"])) -gt 30 ]; then
-			TU[$id]["err"]="This title would not start -- Tubi may protect it with DRM, which this browser does not have"
+			why := web eval "$t" "$TU_WHYJS" 2> /dev/null
+			printf 'tubi: %s did not start (%s)\n' "${TU[$id]["vid"]}" "$why" >&2
+			TU[$id]["err"]="This title would not start (${why:-no page answer}) -- it may need DRM, which this browser does not have"
 			tu_stop "$id"
 			return 0
 		fi
@@ -970,7 +978,7 @@ fn tubi_dirty(int id) {
 # title, the episode or the kind -- the chosen one lit.
 fn tu_drawlist(int id, int h, int w) {
 	local n=${TU[$id]["n"]} sel=${TU[$id]["sel"]} top=${TU[$id]["top"]}
-	local r=2 i lab tail vis hd mk kd star=${GL[star]} srows
+	local r=2 i lab tail vis hd mk kd star=${GL[star]} srows ow=$w
 
 	command -v dt_retitle > /dev/null && dt_retitle "$id" "Tubi"
 	srows := dt_searchrows "$id"
@@ -996,6 +1004,8 @@ fn tu_drawlist(int id, int h, int w) {
 		console pen "$DT_DIM" "$DT_FACE"
 		dt_tput "$id" 2 2 "Type what to look for and enter."
 	fi
+	# the scrollbar takes the last column: the rows stop short of it
+	w=$((w - 1))
 	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${TU[$id]["seen"]-}"
 	TU[$id]["seen"]=$sel
 	TU[$id]["top"]=$top
@@ -1007,6 +1017,7 @@ fn tu_drawlist(int id, int h, int w) {
 		series) kd="series" ;;
 		movie) kd=${kd:-film} ;;
 		esac
+		[ -n "${TR[$id][$i]["len"]}" ] && kd="$kd ${TR[$id][$i]["len"]}"
 		tail="  ${kd:0:18}"
 		mk=" "
 		[ -n "${TUF["${TR[$id][$i]["id"]}"]}" ] && mk=$star
@@ -1033,10 +1044,10 @@ fn tu_drawlist(int id, int h, int w) {
 		r=$((r + 1))
 		i=$((i + 1))
 	done
-	r=$w
+	r=$ow
 	[ "$DT_MIRRORON" = 1 ] && r=1
 	dt_scrollbar "$id" 2 "$r" "$vis" "$n" "$vis" "$top" list
-	dt_searchdraw "$id" "$h" "$w"
+	dt_searchdraw "$id" "$h" "$ow"
 }
 
 # Whether the page must not be shown yet: loading, or just now started (until
@@ -1099,7 +1110,7 @@ fn tu_picture(int id, w, h, row, col, md) {
 
 # The player: the title, the picture, the bar.
 fn tu_drawplay(int id, int h, int w) {
-	local p=${TU[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm wt
+	local p=${TU[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm wt r
 
 	[ -n "$p" ] && tu_tick "$id"
 	p=${TU[$id]["p"]}
@@ -1115,7 +1126,13 @@ fn tu_drawplay(int id, int h, int w) {
 	console put -p "w$id" 1 1 "$lab"
 	if [ -n "${TU[$id]["err"]}" ] || [ -z "$p" ]; then
 		console pen "$DT_BAD" "$DT_FACE"
-		console put -p "w$id" 3 2 "${TU[$id]["err"]:0:$((w - 3))}"
+		lab=${TU[$id]["err"]}
+		r=3
+		while [ -n "$lab" ] && [ "$r" -lt "$h" ]; do
+			console put -p "w$id" "$r" 2 "${lab:0:$((w - 3))}"
+			lab=${lab:$((w - 3))}
+			r=$((r + 1))
+		done
 		return 0
 	fi
 	md := tu_drawmode
