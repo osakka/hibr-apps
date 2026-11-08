@@ -371,7 +371,9 @@ ENTHIBR["control-panel/appearance"]=0.99.455
 ENTHIBR["themes/chalk"]=0.99.455
 ENTHIBR["themes/charcoal"]=0.99.455
 ENTHIBR["themes/retro_car"]=0.99.455
-ENTHIBR["apps/steamer"]=0.99.362
+# Steamer 0.5.7 uses the Steam window (needs 0.99.469) and sleepms from the sys module; before 0.99.470 the
+# catalogue refused `sys` at install (Gitea #490), so 0.99.470 is the minimum.
+ENTHIBR["apps/steamer"]=0.99.470
 ENTHIBR["control-panel/windows"]=0.99.463
 ENTHIBR["control-panel/appearance"]=0.99.463
 ENTHIBR["colours/pewter"]=0.99.440

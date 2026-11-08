@@ -214,7 +214,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamer",
-      "hibr": "0.99.362",
+      "hibr": "0.99.470",
       "modules": "fetch",
       "needs": "apps/steamwin",
       "dir": "Games",
@@ -1796,7 +1796,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamer",
-      "hibr": "0.99.362",
+      "hibr": "0.99.470",
       "modules": "fetch",
       "needs": "apps/steamwin",
       "dir": "Games"
