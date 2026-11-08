@@ -206,16 +206,24 @@
     },
     "apps/steamwin": {
       "title": "Steam",
-      "version": "1.0",
+      "version": "0.6.0",
       "kind": "apps",
       "bundle": "bundles/apps/Games/steamwin.hibr",
-      "sha256": "a5d9f119d5aa53327edf353a280df5fc747c28539cfe824a9aa1225a41b50ad2",
+      "sha256": "e08343d6ce6993083920ceb15fcc090f537f0ee955f7618af547c7fce47a0675",
       "about": "Steam's Big Picture in a window, under Blit's gamescope bridge\n\nSteam in a window: Big Picture under Blit's gamescope bridge.\n\nThe bridge (blit-gamescope) runs gamescope with Steam inside it and sends every picture gamescope makes as a frame by descriptor. In a desktop window it is given the frames module's socket in place of Blit's own, so those frames go through the console onto the picture this window places, and on to every display's Blit (Gitea #486, Blit ADR 0223). Nothing here reads a pixel.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamwin",
-      "hibr": "0.99.469",
-      "dir": "Games"
+      "hibr": "0.99.471",
+      "dir": "Games",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "steamset.hibr",
+          "path": "bundles/control-panel/steamset.hibr",
+          "sha256": "da90d4a01f0fe80180c97eee835eb141f3854ccf26cbac078afe98621096c924"
+        }
+      ]
     },
     "apps/browser": {
       "title": "Browser",
@@ -1765,15 +1773,15 @@
     },
     "steamwin": {
       "title": "Steam",
-      "version": "1.0",
+      "version": "0.6.0",
       "kind": "apps",
       "bundle": "bundles/apps/Games/steamwin.hibr",
-      "sha256": "a5d9f119d5aa53327edf353a280df5fc747c28539cfe824a9aa1225a41b50ad2",
+      "sha256": "e08343d6ce6993083920ceb15fcc090f537f0ee955f7618af547c7fce47a0675",
       "about": "Steam's Big Picture in a window, under Blit's gamescope bridge\n\nSteam in a window: Big Picture under Blit's gamescope bridge.\n\nThe bridge (blit-gamescope) runs gamescope with Steam inside it and sends every picture gamescope makes as a frame by descriptor. In a desktop window it is given the frames module's socket in place of Blit's own, so those frames go through the console onto the picture this window places, and on to every display's Blit (Gitea #486, Blit ADR 0223). Nothing here reads a pixel.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "steamwin",
-      "hibr": "0.99.469",
+      "hibr": "0.99.471",
       "dir": "Games"
     },
     "browser": {
