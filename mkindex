@@ -334,6 +334,7 @@ ENTHIBR["control-panel/shortcuts"]=0.99.400
 # 0.99.403 gave the console `filmdetail`, which Pictures 1.4's Film Detail row sets.
 ENTHIBR["control-panel/pictures"]=0.99.403
 ENTHIBR["apps/youtube"]=0.99.413   # YouTube 3.24 asks for each frame as WebKit makes it; before 0.99.413 the wallpaper was repainted on each one (a whole core)
+ENTHIBR["apps/tubi"]=0.99.413   # Tubi asks for each frame as WebKit makes it, as YouTube 3.24 does (the wallpaper was repainted on each before 0.99.413)
 # Sheet 1.7 runs its formulas in the contain module, and its pane writes
 # SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
 # hibr would run every formula as a dry run and say "contained" nowhere.

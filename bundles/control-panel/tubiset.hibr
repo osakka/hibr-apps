@@ -1,0 +1,62 @@
+#!/usr/bin/env hibr
+#
+# tubiset -- the Control Panel pane for the Tubi app: how the picture is drawn,
+# whether the next episode plays by itself, whether a playing title keeps the
+# screen saver away, and forgetting what was watched. Named tubiset, not tubi,
+# because the app owns the tubi_ prefix; its helpers are tbs_ (ts_ is the
+# toasters saver's).
+
+strict
+
+app tubiset "The Control Panel pane for the Tubi app" 1.0
+command -v cp_pane > /dev/null && cp_pane tubiset "Tubi" "▶" app
+
+# follow is Control Panel > Pictures, the one setting meant to reach every
+# picture the desktop draws; the rest say outright.
+TBS_MODES=(follow half ascii mono pixels)
+
+fn cp_set_tubimode(int? id = "", value = "") { TU_MODE=$value; cp_save; }
+
+fn tubiset_rows(int w) {
+	local n=0 md
+
+	dt_has tubi_draw || { cp_absent "$w" Tubi; ret 1; }
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Picture"
+	CP[$w][$n]["val"]="$TU_MODE"; CP[$w][$n]["key"]=mode
+	n=$((n + 1))
+	if [ "$TU_MODE" = follow ]; then
+		md := tu_drawmode
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Drawn Now"
+		CP[$w][$n]["val"]=$md; n=$((n + 1))
+	fi
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Play Next Automatically"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$TU_AUTONEXT" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=TU_AUTONEXT; n=$((n + 1))
+	CP[$w][$n]["kind"]=set
+	CP[$w][$n]["text"]="Keep the Screen Saver Away While Playing"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "${TU_SAVERHOLD:-1}" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=TU_SAVERHOLD; n=$((n + 1))
+	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Clear History"
+	CP[$w][$n]["val"]=""; CP[$w][$n]["key"]=histclear
+	n=$((n + 1))
+	ret "$n"
+}
+
+fn tubiset_do(int? w = "", k = "", int? dir = "") {
+	local v
+
+	case $k in
+	mode) v := cp_next "$TU_MODE" "$dir" "${TBS_MODES[@]}"; TU_MODE=$v ;;
+	TU_AUTONEXT | TU_SAVERHOLD) cp_toggle "$k" ;;
+	histclear) dt_needs tubi tu_histclear && tu_histclear ;;
+	esac
+	cp_save
+}
+
+fn tubiset_drop(int? w = "", int? r = "", int? c = "", k = "") {
+	case $k in
+	mode) dt_droplist "$w" "$r" "$c" cp_set_tubimode "${TBS_MODES[@]}" ;;
+	esac
+}

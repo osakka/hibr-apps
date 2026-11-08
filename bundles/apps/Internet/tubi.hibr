@@ -1,0 +1,1415 @@
+#!/usr/bin/env hibr
+#
+# tubi -- Tubi (tubitv.com) in a window: its free films and series, the
+# picture drawn as cells or pixels and the sound through the machine's own
+# device, with a history that takes a title up where it was left, and
+# favourites. Built on the same shape as the YouTube app.
+#
+# Nothing here is a Tubi client of its own. Tubi's own page runs in the web
+# module's WebKit engine, which fetches, decodes and plays the video itself,
+# picture and sound; the page is cut down to its one <video> and drawn here,
+# and this app drives that element: play and pause, a time, the volume. The
+# titles a page lists (the home page, a search, a series and its seasons) are
+# read from the page's own links. A title that Tubi protects with DRM cannot be
+# played by this engine, and the window says so rather than waiting.
+#
+# A list: type to search and enter; up and down choose, enter plays a film or
+# an episode or opens a series, left and right are the seasons of a series, f
+# keeps it as a favourite, escape goes back to the list before, h is the
+# history, v the favourites and t the home page.
+# The player: space pauses, left and right are five seconds, shift with them
+# thirty, up and down the volume, n and p the next and the one before, f a
+# favourite, m the picture (half blocks, ASCII, plain, pixels), escape back
+# to the list. A click on the bar goes there. At the end of an episode the
+# next in the list plays, unless Play > Play Next Automatically is off.
+#
+# The history and the favourites are files of their own, a line to an entry
+# (~/.local/share/hibr/tubi/).
+
+strict
+
+app tubi "Tubi, in a window" 1.0
+# part: control-panel/tubiset.hibr
+# modules: web
+
+command -v dt_app > /dev/null && dt_app tubi "Tubi" 24 84 many "▶"
+
+declare -gA TU
+command -v dt_keepstate > /dev/null && dt_keepstate tubi TU
+declare -gA TR
+
+TU_BASE="${TU_BASE-https://tubitv.com}"
+# How the picture is drawn: `follow` is Control Panel > Pictures, the rest say
+# outright.
+TU_MODE="${TU_MODE-follow}"
+TU_AUTONEXT="${TU_AUTONEXT-1}"
+TU_SAVERHOLD="${TU_SAVERHOLD-1}"
+command -v dt_keep > /dev/null && dt_keep TU_MODE TU_AUTONEXT TU_SAVERHOLD
+TU_MODES=(follow half ascii mono pixels)
+TU_DATA="${TU_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/tubi}"
+TU_HIST="$TU_DATA/history.tsv"
+TU_FAVS="$TU_DATA/favourites.tsv"
+TU_KEEP=500
+# A title is taken up where it was left once more than TU_RESUME seconds in;
+# within TU_ENDED seconds of its end it counts as watched to the end.
+TU_RESUME="${TU_RESUME-30}"
+TU_ENDED="${TU_ENDED-20}"
+
+# The consent wall Tubi puts up first: its accept-all button, pressed.
+TU_CONSENT='var b=Array.from(document.querySelectorAll("button")).find(function(x){return /accept all/i.test(x.textContent)});if(b)b.click();'
+
+# The titles a page lists: films and series on a home page or a search, the
+# episodes of a series' page (then only those), each with the words under
+# its poster. Empty until the page has made them. `seasons` is the count of
+# the season tabs.
+TU_RJS='(function(){'"$TU_CONSENT"'var seen={},out=[],eps=[];function tx(s){return (s||"").replace(/\s+/g," ").trim()}Array.from(document.querySelectorAll("a[href*=\"/movies/\"],a[href*=\"/series/\"],a[href*=\"/tv-shows/\"]")).forEach(function(a){var h=a.getAttribute("href").replace(/^https?:\/\/[^\/]*/,"");if(seen[h])return;var m=h.match(/^\/(movies|series|tv-shows)\//);if(!m)return;seen[h]=1;var im=a.querySelector("img"),t=tx(a.textContent),k=m[1]=="movies"?"movie":m[1]=="series"?"series":"episode";if(k!="episode"&&im&&im.alt)t=tx(im.alt);if(!t)t=tx(a.getAttribute("aria-label"));var sub="";if(k=="episode"){var e=t.match(/^(S\d+:E\d+)\s*-?\s*(.*)$/i);if(e){sub=e[1];t=e[2]||e[1]}}var o={kind:k,id:h,title:t.slice(0,80),ch:sub,len:""};(k=="episode"?eps:out).push(o)});var l=eps.length?eps:out;if(!l.length)return "";var h1=document.querySelector("h1");var ss=Array.from(document.querySelectorAll("[role=tab],button")).filter(function(x){return /^season\s*\d+/i.test(tx(x.textContent))});return JSON.stringify({head:h1?tx(h1.textContent):"",list:l,seasons:ss.length})})()'
+
+# Where Tubi's player is: the one <video>, its time, length and state, and the
+# path of the page it is on. Empty until there is one.
+TU_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
+
+# The page cut down to the video, by structure and not by Tubi's names: every
+# element that does not hold the video is hidden and every one that does fills
+# the window (the same cut the YouTube app makes).
+TU_CSS='html,body{overflow:hidden!important;background:#000!important;margin:0!important}body *:not(:has(video)):not(video){display:none!important}body *:has(video){display:block!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;transform:none!important;overflow:hidden!important;background:#000!important}video{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:contain!important;border-radius:0!important;background:#000!important}'
+
+# Start the player once the page has it: the consent cleared, the Play button
+# pressed while there is no video yet, the page cut down, the volume set and the
+# video started. "ok" when there is a video holding data.
+fn tu_startjs(v, num) {
+	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";${TU_CONSENT}var v=document.querySelector(\"video\");if(!v||v.readyState==0){var b=Array.from(document.querySelectorAll(\"button,a\")).find(function(x){return /^(watch|play)/i.test(((x.getAttribute(\"aria-label\")||\"\")+x.textContent).trim())});if(b)b.click();if(!v)return \"\"}if(!document.getElementById(\"hibr-tu\")){var c=document.createElement(\"style\");c.id=\"hibr-tu\";c.textContent=\"$TU_CSS\";document.head.appendChild(c)}v.muted=false;v.volume=$v/100;if(v.paused)v.play();return v.readyState>=2?\"ok\":\"\"})()"
+}
+
+# What the engine does, as `web caps` says it, asked the first time.
+TU_CAPS=
+fn tu_has(c) {
+	if [ -z "$TU_CAPS" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		TU_CAPS := web caps 2> /dev/null
+	fi
+	case " $TU_CAPS " in *" $c "*) return 0 ;; esac
+	return 1
+}
+
+# A script whose answer nothing reads, sent and not waited for where the
+# engine can, so a key never holds the desktop while the page is busy.
+fn tu_send(t, js) {
+	if tu_has send; then
+		web send "$t" "$js" 2> /dev/null
+	else
+		web eval "$t" "$js" > /dev/null 2>&1
+	fi
+}
+
+# Whether the engine is here; the reason in the window when not.
+fn tu_need(int id) {
+	if ! need web 2> /dev/null; then
+		TU[$id]["err"]="The web module is not installed"
+		return 1
+	fi
+	tu_has sound && return 0
+	TU[$id]["err"]="Tubi needs an engine that plays sound: apt install hibr-browser"
+	return 1
+}
+
+# A tab of the window's own: st for lists, pt for playing (let play sound
+# without a press, since the page is one opened to be watched).
+fn tu_tab(int id, which) {
+	local t=${TU[$id]["$which"]}
+
+	if [ -z "$t" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		t := web open 2> /dev/null || {
+			TU[$id]["err"]="No browser engine to reach Tubi with -- install hibr-browser"
+			return 1
+		}
+		[ "$which" = pt ] && web sound "$t" load 2> /dev/null
+		TU[$id]["$which"]=$t
+	fi
+	ret "$t"
+}
+
+# --- lists: the home page, a search, a series, the history, the favourites --
+
+# Show a list: a page's for the home page, a search or a series, read when it
+# is ready; the history's or the favourites' from their files at once. Unless
+# told not to, the list shown before is kept to go back to.
+fn tu_load(int id, kind, arg, head = "", push = 1) {
+	local t u
+
+	tu_need "$id" || return 0
+	[ -n "${TU[$id]["p"]}" ] && tu_stop "$id"
+	if [ "$push" = 1 ] && [ -n "${TU[$id]["kind"]}" ]; then
+		TU[$id]["stack"]+="${TU[$id]["kind"]}"$'\t'"${TU[$id]["arg"]}"$'\t'"${TU[$id]["head"]}"$'\n'
+	fi
+	TU[$id]["kind"]=$kind
+	TU[$id]["arg"]=$arg
+	TU[$id]["head"]=$head
+	TU[$id]["err"]=
+	TU[$id]["view"]=list
+	TU[$id]["seasons"]=0
+	TU[$id]["season"]=1
+	dt_searchshut "$id"
+	TU[$id]["n"]=0
+	TU[$id]["sel"]=0
+	TU[$id]["top"]=0
+	case $kind in
+	history) tu_filelist "$id" "$TU_HIST"; return 0 ;;
+	favourites) tu_filelist "$id" "$TU_FAVS"; return 0 ;;
+	home) u="$TU_BASE/" ;;
+	search) u="$TU_BASE/search/${arg// /%20}" ;;
+	series) u="$TU_BASE$arg" ;;
+	esac
+	t := tu_tab "$id" st || return 0
+	web go "$t" "$u" 2> /dev/null
+	TU[$id]["searching"]=$EPOCHSECONDS
+}
+
+# A search, as typed.
+fn tu_search(int id, q) {
+	q=${q#"${q%%[! ]*}"}
+	q=${q%"${q##*[! ]}"}
+	[ -n "$q" ] || return 0
+	TU[$id]["q"]=$q
+	tu_load "$id" search "$q"
+}
+
+# Back to the list shown before this one; none left puts the keyboard in the
+# search field.
+fn tu_back(int id) {
+	local st=${TU[$id]["stack"]} last
+	local -a f
+
+	if [ -z "$st" ]; then
+		dt_searchopen "$id"
+		return 0
+	fi
+	st=${st%$'\n'}
+	last=${st##*$'\n'}
+	[ "$last" = "$st" ] && st= || st=${st%$'\n'*}
+	TU[$id]["stack"]=${st:+$st$'\n'}
+	IFS=$'\t' read -ra f <<< "$last"
+	tu_load "$id" "${f[0]}" "${f[1]}" "${f[2]}" 0
+}
+
+# Another season of a series: its tab pressed in the page, the list read again.
+fn tu_season(int id, int dir) {
+	local n=${TU[$id]["seasons"]:-0} s=${TU[$id]["season"]:-1}
+
+	[ "${TU[$id]["view"]}" = list ] && [ "${TU[$id]["kind"]}" = series ] && [ "$n" -gt 1 ] || return 0
+	s=$((s + dir))
+	[ "$s" -lt 1 ] && s=1
+	[ "$s" -gt "$n" ] && s=$n
+	[ "$s" = "${TU[$id]["season"]}" ] && return 0
+	TU[$id]["season"]=$s
+	tu_send "${TU[$id]["st"]}" "(function(){var t=Array.from(document.querySelectorAll(\"[role=tab],button\")).filter(function(x){return /^season\s*\d+/i.test(x.textContent.trim())});if(t[$((s - 1))])t[$((s - 1))].click()})()"
+	TU[$id]["n"]=0
+	TU[$id]["sel"]=0
+	TU[$id]["top"]=0
+	TU[$id]["err"]=
+	TU[$id]["searching"]=$EPOCHSECONDS
+	TU[$id]["settle"]=$EPOCHSECONDS
+}
+
+# The list a page has made, once it has: into TR, an entry to a row.
+fn tu_results(int id) {
+	local t=${TU[$id]["st"]} js i k
+	local -A r
+
+	if web loading "$t" 2> /dev/null; then
+		dt_want 300
+		return 0
+	fi
+	js := web eval "$t" "$TU_RJS" 2> /dev/null
+	# A season just chosen shows the old season's episodes for a moment.
+	if [ -n "${TU[$id]["settle"]-}" ]; then
+		if [ $((EPOCHSECONDS - TU[$id]["settle"])) -lt 2 ]; then
+			dt_want 300
+			return 0
+		fi
+		TU[$id]["settle"]=
+	fi
+	if [ -z "$js" ]; then
+		if [ $((EPOCHSECONDS - TU[$id]["searching"])) -gt 25 ]; then
+			TU[$id]["searching"]=
+			TU[$id]["err"]="Tubi did not answer"
+		fi
+		dt_want 300
+		return 0
+	fi
+	json parse r <<< "$js" 2> /dev/null || r=()
+	i=0
+	while [ -n "${r["list"][$i]["id"]}" ]; do
+		for k in kind id title ch len; do
+			TR[$id][$i]["$k"]=${r["list"][$i]["$k"]}
+		done
+		i=$((i + 1))
+	done
+	[ -n "${r["head"]}" ] && [ -z "${TU[$id]["head"]}" ] && TU[$id]["head"]=${r["head"]}
+	TU[$id]["seasons"]=${r["seasons"]:-0}
+	TU[$id]["n"]=$i
+	TU[$id]["searching"]=
+	[ "$i" = 0 ] && TU[$id]["err"]="Nothing found"
+	return 0
+}
+
+# A list kept in a file -- the history or the favourites -- newest first: a line
+# to an entry, its fields tab-separated.
+fn tu_filelist(int id, f) {
+	local -a lines fl
+	local i n=0 k j
+
+	[ -r "$f" ] && mapfile -t lines < "$f"
+	i=$((${#lines[@]} - 1))
+	while [ "$i" -ge 0 ]; do
+		IFS=$'\t' read -ra fl <<< "${lines[$i]}"
+		if [ -n "${fl[1]}" ]; then
+			j=0
+			for k in kind id title ch len; do
+				TR[$id][$n]["$k"]=${fl[$j]}
+				j=$((j + 1))
+			done
+			n=$((n + 1))
+		fi
+		i=$((i - 1))
+	done
+	TU[$id]["n"]=$n
+	[ "$n" = 0 ] && [ "$f" = "$TU_HIST" ] && TU[$id]["err"]="Nothing watched yet"
+	[ "$n" = 0 ] && [ "$f" = "$TU_FAVS" ] && TU[$id]["err"]="No favourites yet -- f keeps one"
+	return 0
+}
+
+# What the list heading says.
+fn tu_heading(int id) {
+	local h=${TU[$id]["head"]} s=
+
+	case ${TU[$id]["kind"]} in
+	home) ret "Tubi" ;;
+	search) ret "Results for ${TU[$id]["arg"]}" ;;
+	series)
+		[ "${TU[$id]["seasons"]:-0}" -gt 1 ] && s="  (season ${TU[$id]["season"]} of ${TU[$id]["seasons"]}, left and right)"
+		ret "${h:-Series}$s" ;;
+	history) ret "History" ;;
+	favourites) ret "Favourites" ;;
+	*) ret "" ;;
+	esac
+}
+
+# The number in a title's path (/movies/100039855/the-baxter): Tubi's id for it.
+fn tu_num(path) {
+	local n=${path#/*/}
+
+	ret "${n%%/*}"
+}
+
+# --- history and favourites ---------------------------------------------
+
+# Rewrite a file of entries without the one for a path, then with a new line at
+# its end; at most TU_KEEP lines are kept, the oldest dropped.
+fn tu_fileput(f, key, line = "") {
+	local -a lines out
+	local l n
+
+	[ -r "$f" ] && mapfile -t lines < "$f"
+	out=()
+	for l in "${lines[@]}"; do
+		[[ $l == *$'\t'"$key"$'\t'* ]] && continue
+		out+=("$l")
+	done
+	[ -n "$line" ] && out+=("$line")
+	n=${#out[@]}
+	[ "$n" -gt "$TU_KEEP" ] && out=("${out[@]:$((n - TU_KEEP))}")
+	command mkdir -p -- "${f%/*}" 2> /dev/null
+	if [ "${#out[@]}" -gt 0 ]; then
+		printf '%s\n' "${out[@]}" > "$f" 2> /dev/null
+	else
+		: > "$f" 2> /dev/null
+	fi
+}
+
+# The history's line for a path, or nothing; its fields into TUH.
+declare -ga TUH
+fn tu_histget(key) {
+	local -a lines
+	local l
+
+	TUH=()
+	[ -r "$TU_HIST" ] || return 1
+	mapfile -t lines < "$TU_HIST"
+	for l in "${lines[@]}"; do
+		if [[ $l == *$'\t'"$key"$'\t'* ]]; then
+			IFS=$'\t' read -ra TUH <<< "$l"
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Note where a window's title was left: watched to the end it starts from the
+# beginning next time; left part way it is taken up there.
+fn tu_histput(int id, pos = "") {
+	local key=${TU[$id]["vid"]} d=${TU[$id]["dur"]} p
+
+	[ -n "$key" ] || return 0
+	p=$pos
+	if [ -z "$p" ] && [ -n "${TU[$id]["p"]}" ]; then
+		tu_info "$id"
+		p=${TUI["pos"]}
+	fi
+	p=${p%.*}
+	d=${d%.*}
+	[ -n "$p" ] || p=0
+	[ -n "$d" ] || d=0
+	[ "$d" -gt 0 ] && [ "$p" -ge $((d - TU_ENDED)) ] && p=0
+	tu_fileput "$TU_HIST" "$key" "${TU[$id]["kind0"]:-movie}"$'\t'"$key"$'\t'"${TU[$id]["title"]}"$'\t'"${TU[$id]["sub"]}"$'\t'"$p"
+}
+
+# Keep an entry as a favourite, or take it out: the chosen one in a list, the
+# one playing in the player.
+fn tu_fav(int id) {
+	local i=${TU[$id]["sel"]} kind key title sub
+
+	if [ "${TU[$id]["view"]}" = play ]; then
+		kind=${TU[$id]["kind0"]:-movie}
+		key=${TU[$id]["vid"]}
+		title=${TU[$id]["title"]}
+		sub=${TU[$id]["sub"]}
+	else
+		kind=${TR[$id][$i]["kind"]}
+		key=${TR[$id][$i]["id"]}
+		title=${TR[$id][$i]["title"]}
+		sub=${TR[$id][$i]["ch"]}
+	fi
+	[ -n "$key" ] || return 0
+	if [ -n "${TUF["$key"]}" ]; then
+		unset TUF["$key"]
+		tu_fileput "$TU_FAVS" "$key"
+		dt_notep low "Taken out of the favourites: %s" "$title"
+	else
+		TUF["$key"]=1
+		tu_fileput "$TU_FAVS" "$key" "$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'
+		dt_notep low "Kept as a favourite: %s" "$title"
+	fi
+	[ "${TU[$id]["kind"]}" = favourites ] && [ "${TU[$id]["view"]}" = list ] &&
+		tu_load "$id" favourites "" "" 0
+	return 0
+}
+
+# Which paths are favourites, for the star beside them.
+declare -gA TUF
+tu_favload() {
+	local -a lines fl
+	local l
+
+	TUF=()
+	[ -r "$TU_FAVS" ] || return 0
+	mapfile -t lines < "$TU_FAVS"
+	for l in "${lines[@]}"; do
+		IFS=$'\t' read -ra fl <<< "$l"
+		[ -n "${fl[1]}" ] && TUF["${fl[1]}"]=1
+	done
+	return 0
+}
+
+# Forget everything watched -- Control Panel's Clear History.
+tu_histclear() {
+	: > "$TU_HIST" 2> /dev/null
+	dt_notep low "The Tubi history is empty"
+}
+
+# --- playing ------------------------------------------------------------
+
+# Open an entry: play a film or an episode, show a series' episodes.
+fn tu_choose(int id, int i) {
+	case ${TR[$id][$i]["kind"]} in
+	series) tu_load "$id" series "${TR[$id][$i]["id"]}" "${TR[$id][$i]["title"]}" ;;
+	*) tu_play "$id" "$i" ;;
+	esac
+}
+
+# Play a list's film or episode: Tubi's page for it in the player tab, which the
+# engine plays itself. One left part way is taken up where it was.
+fn tu_play(int id, int i) {
+	local key=${TR[$id][$i]["id"]} t
+
+	[ -n "$key" ] || return 0
+	tu_need "$id" || return 0
+	tu_stop "$id"
+	t := tu_tab "$id" pt || return 0
+	TU[$id]["p"]=$t
+	TU[$id]["cur"]=$i
+	TU[$id]["vid"]=$key
+	TU[$id]["num"] := tu_num "$key"
+	TU[$id]["kind0"]=${TR[$id][$i]["kind"]}
+	TU[$id]["title"]=${TR[$id][$i]["title"]}
+	TU[$id]["sub"]=${TR[$id][$i]["ch"]}
+	TU[$id]["state"]=loading
+	TU[$id]["since"]=$EPOCHSECONDS
+	TU[$id]["sized"]=
+	TU[$id]["view"]=play
+	TU[$id]["err"]=
+	TU[$id]["dur"]=0
+	TU[$id]["lpos"]=0
+	TU[$id]["tries"]=0
+	TU[$id]["bad"]=0
+	TU[$id]["chk"]=$EPOCHSECONDS
+	TU[$id]["resume"]=
+	TU[$id]["upause"]=
+	TU[$id]["efr"]=
+	TU[$id]["sat"]=
+	tu_stale "$id"
+	if tu_histget "$key" && [ "${TUH[4]:-0}" -gt "$TU_RESUME" ]; then
+		TU[$id]["resume"]=${TUH[4]}
+	fi
+	web go "$t" "$TU_BASE$key" 2> /dev/null
+}
+
+# Stop playing, noting where it was left: the page left.
+fn tu_stop(int id) {
+	local p=${TU[$id]["p"]} t=${TU[$id]["pt"]}
+
+	[ -n "$p" ] && [ "${TU[$id]["state"]}" = playing ] && tu_histput "$id"
+	[ -n "$t" ] && web go "$t" about:blank 2> /dev/null
+	TU[$id]["p"]=
+	TU[$id]["state"]=
+}
+
+# The next film or episode in the list after the one playing, or before it: its
+# index, skipping series; fails at either end.
+fn tu_step(int id, int dir) {
+	local i=${TU[$id]["cur"]} n=${TU[$id]["n"]}
+
+	while :; do
+		i=$((i + dir))
+		[ "$i" -ge 0 ] && [ "$i" -lt "$n" ] || return 1
+		[ "${TR[$id][$i]["kind"]}" = series ] || { ret "$i"; return 0; }
+	done
+}
+
+# Play the next one or the one before.
+fn tu_next(int id, int dir) {
+	local i
+
+	i := tu_step "$id" "$dir" || { dt_notep low "No more in this list"; return 0; }
+	TU[$id]["sel"]=$i
+	tu_play "$id" "$i"
+}
+
+# --- asking the player ----------------------------------------------------
+
+# Ask the page's video where it is, into TUP; at most five times a second. The
+# player was just told something (play, pause, seek, volume): an answer the page
+# gave before is about the player as it was, so each command counts (tu_stale)
+# and an answer is relied on only when it was asked after the last.
+declare -gA TUP
+TUPID=
+fn tu_stale(int id) {
+	TU[$id]["pat"]=
+	TU[$id]["gen"]=$(( ${TU[$id]["gen"]:-0} + 1 ))
+	return 0
+}
+
+# What the page's video says, into TUP: 0 when it is an answer to rely on.
+# Where the engine waits for it (no `web evask`) it is asked and read now; where
+# it does not, it is asked for in one call and read in a later one, so the
+# desktop never waits on a busy page.
+fn tu_page(int id) {
+	local js rc now
+
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	if ! tu_has evask; then
+		if [ "$TUPID" = "$id" ] && [ -n "${TU[$id]["pat"]}" ] && [ $((now - TU[$id]["pat"])) -lt 200 ] && [ -n "${TUP["u"]}" ]; then
+			return 0
+		fi
+		js := web eval "${TU[$id]["pt"]}" "$TU_PJS" 2> /dev/null || return 1
+		tu_take "$id" "$js" "$now" || return 1
+		TU[$id]["pgen"]=${TU[$id]["gen"]:-0}
+		TU[$id]["pvid"]=${TU[$id]["vid"]}
+		return 0
+	fi
+	if [ -n "${TU[$id]["pq"]-}" ]; then
+		rc=0
+		js := web evget "${TU[$id]["pt"]}" "${TU[$id]["pq"]}" 2> /dev/null || rc=$?
+		if [ "$rc" = 1 ] && [ $((now - ${TU[$id]["pqat"]:-0})) -lt 3000 ]; then
+			tu_fresh "$id"
+			return
+		fi
+		TU[$id]["pq"]=
+		if [ "$rc" = 0 ] && [ "${TU[$id]["pqv"]}" = "${TU[$id]["pt"]} ${TU[$id]["vid"]} ${TU[$id]["gen"]:-0}" ]; then
+			tu_take "$id" "$js" "${TU[$id]["pqat"]}" || return 1
+			TU[$id]["pgen"]=${TU[$id]["gen"]:-0}
+			TU[$id]["pvid"]=${TU[$id]["vid"]}
+		fi
+	fi
+	if [ -z "${TU[$id]["pq"]-}" ] && ! { tu_fresh "$id" && [ $((now - TU[$id]["pat"])) -lt 200 ]; }; then
+		TU[$id]["pq"] := web evask "${TU[$id]["pt"]}" "$TU_PJS" 2> /dev/null || return 1
+		TU[$id]["pqat"]=$now
+		TU[$id]["pqv"]="${TU[$id]["pt"]} ${TU[$id]["vid"]} ${TU[$id]["gen"]:-0}"
+	fi
+	tu_fresh "$id"
+}
+
+# An answer the page gave, into TUP, as of AT: 1 when it is not about the title
+# playing (right after a go, the page before is still there).
+fn tu_take(int id, js, at) {
+	[ -n "$js" ] || return 1
+	TUP=()
+	json parse TUP <<< "$js" 2> /dev/null || return 1
+	case ${TUP["u"]} in
+	*"/${TU[$id]["num"]}/"*) ;;
+	*)
+		TUP=()
+		[ "$TUPID" = "$id" ] && TUPID=
+		return 1 ;;
+	esac
+	TU[$id]["pat"]=$at
+	TUPID=$id
+	TU[$id]["lpos"]=${TUP["t"]}
+	return 0
+}
+
+# Whether TUP holds an answer to rely on now, asking nothing.
+fn tu_fresh(int id) {
+	local now
+
+	[ "$TUPID" = "$id" ] && [ -n "${TU[$id]["pat"]}" ] || return 1
+	tu_has evask || return 0
+	[ "${TU[$id]["pvid"]}" = "${TU[$id]["vid"]}" ] || return 1
+	[ "${TU[$id]["pgen"]}" = "${TU[$id]["gen"]:-0}" ] || return 1
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - TU[$id]["pat"])) -lt 2000 ]
+}
+
+# Whether TUP is at least this window's last answer about the title playing:
+# enough for the clock and the bar, never for a decision.
+fn tu_known(int id) {
+	tu_has evask || return 1
+	[ "$TUPID" = "$id" ] && [ -n "${TUP["u"]}" ] && [ "${TU[$id]["pvid"]}" = "${TU[$id]["vid"]}" ]
+}
+
+# What the player reports, into TUI: the position and length, paused or ended,
+# the volume, and a count of the frames it has shown. What was last known stands
+# where the page cannot answer, as at the very start.
+declare -gA TUI
+fn tu_info(int id) {
+	TUI["pos"]=${TU[$id]["lpos"]:-0}
+	TUI["dur"]=${TU[$id]["dur"]:-0}
+	TUI["paused"]=0
+	TUI["ended"]=0
+	TUI["volume"]=${TU[$id]["vol"]:-100}
+	TUI["shown"]=${TU[$id]["lshown"]:-0}
+	[ -n "${TU[$id]["pt"]}" ] || return 0
+	tu_page "$id" || tu_known "$id" || return 0
+	TUI["pos"]=${TUP["t"]}
+	TUI["paused"]=${TUP["pa"]:-0}
+	TUI["ended"]=${TUP["en"]:-0}
+	TUI["shown"]=${TUP["fr"]:-0}
+	TU[$id]["lshown"]=${TUP["fr"]:-0}
+	return 0
+}
+
+# One step of playing: start the page's player once it is there, take a title up
+# where it was left, and at the end go on to the next.
+fn tu_tick(int id) {
+	local t=${TU[$id]["pt"]} p=${TU[$id]["p"]} s js m i e wf
+
+	if dt_has dt_live; then
+		if [ "${TU[$id]["state"]}" = playing ]; then
+			dt_live "$id" on
+		else
+			dt_live "$id"
+		fi
+	fi
+	[ -n "$p" ] || return 0
+	# The engine's word of each new frame is what wakes the desktop.
+	if tu_has pollbuild && wf := web fd 2> /dev/null; then
+		command -v console > /dev/null && console watch "$wf"
+	fi
+	if [ "${TU[$id]["state"]}" = loading ]; then
+		js := tu_startjs_now "$id"
+		s := web eval "$t" "$js" 2> /dev/null
+		if [ "$s" = ok ]; then
+			TU[$id]["state"]=playing
+			TU[$id]["sat"]=${EPOCHREALTIME/./}
+			TU[$id]["sat"]=${TU[$id]["sat"]:0:-3}
+		fi
+		if [ "${TU[$id]["state"]}" = loading ] &&
+		   [ $((EPOCHSECONDS - TU[$id]["since"])) -gt 30 ]; then
+			TU[$id]["err"]="This title would not start -- Tubi may protect it with DRM, which this browser does not have"
+			tu_stop "$id"
+			return 0
+		fi
+		dt_want 300
+	fi
+	if [ "${TU[$id]["dur"]%.*}" = 0 ] && tu_page "$id"; then
+		TU[$id]["dur"]=${TUP["d"]}
+	fi
+	# Taking a title up where it was left waits for the player to know its length
+	# and to hold some of it: before that there is nothing to go to.
+	if [ -n "${TU[$id]["resume"]}" ] && [ "${TU[$id]["state"]}" = playing ] &&
+	   [ "${TU[$id]["dur"]%.*}" -gt 0 ] && tu_page "$id" && [ "${TUP["rs"]:-0}" -ge 3 ]; then
+		m := tu_mmss "${TU[$id]["resume"]}"
+		tu_seek "$id" "${TU[$id]["resume"]}"
+		TU[$id]["resume"]=
+		dt_notep low "Taken up at %s, where it was left" "$m"
+	fi
+	[ "${TU[$id]["state"]}" = playing ] && tu_has evask && tu_page "$id" > /dev/null
+	if [ "${TU[$id]["state"]}" = playing ] &&
+	   [ $((EPOCHSECONDS - ${TU[$id]["chk"]:-0})) -ge 3 ]; then
+		TU[$id]["chk"]=$EPOCHSECONDS
+		tu_watch "$id"
+		[ "${TU[$id]["state"]}" = playing ] || return 0
+	fi
+	if [ "${TU[$id]["state"]}" = playing ]; then
+		tu_info "$id"
+		m=${TU[$id]["dur"]%.*}
+		# Ended: the page says so, or the clock is within a second of the length
+		# and no frame has come for two. Never in the first seconds (the clock is
+		# still the last title's), and never in a clip of an advert's length.
+		e=0
+		[ "${TUI["ended"]}" = 1 ] && e=1
+		if tu_has evask && ! tu_fresh "$id"; then
+			e=0
+		elif [ "$e" = 0 ] && [ "${m:-0}" -gt 0 ] && [ "${TUI["pos"]%.*}" -ge $((m - 1)) ]; then
+			if [ "${TUI["shown"]}" != "${TU[$id]["efr"]}" ]; then
+				TU[$id]["efr"]=${TUI["shown"]}
+				TU[$id]["eat"]=$EPOCHSECONDS
+			elif [ $((EPOCHSECONDS - ${TU[$id]["eat"]:-$EPOCHSECONDS})) -ge 2 ]; then
+				e=1
+			fi
+		fi
+		[ $((EPOCHSECONDS - ${TU[$id]["since"]:-0})) -lt 3 ] && e=0
+		[ "${m:-0}" -lt 40 ] && e=0
+		if [ "$e" = 1 ]; then
+			tu_histput "$id" "${TU[$id]["dur"]}"
+			TU[$id]["state"]=ended
+			if [ "$TU_AUTONEXT" = 1 ] && i := tu_step "$id" 1; then
+				TU[$id]["sel"]=$i
+				tu_play "$id" "$i"
+				return 0
+			fi
+		fi
+	fi
+	dt_want 250
+}
+
+# The script that starts the player, for this title and its volume.
+fn tu_startjs_now(int id) {
+	local j
+
+	j := tu_startjs "${TU[$id]["vol"]:-100}" "${TU[$id]["num"]}"
+	ret "$j"
+}
+
+# Every few seconds while playing: whether the page's video is still going. It
+# can fail (its error), and then nothing more plays; the title is loaded again
+# and taken up where it was, up to twice, and after that the window says so.
+fn tu_watch(int id) {
+	[ -n "${TU[$id]["upause"]}" ] && return 0
+	tu_info "$id"
+	tu_page "$id" || return 0
+	if [ "${TUP["e"]}" = 1 ]; then
+		TU[$id]["bad"]=$(( ${TU[$id]["bad"]:-0} + 1 ))
+		[ "${TU[$id]["bad"]}" -ge 2 ] && tu_recover "$id" "${TUI["pos"]%.*}"
+	else
+		TU[$id]["bad"]=0
+	fi
+	return 0
+}
+
+# Load the title again and take it up at a time, after the player failed.
+fn tu_recover(int id, int pos) {
+	local m n=${TU[$id]["tries"]:-0}
+
+	TU[$id]["bad"]=0
+	if [ "$n" -ge 2 ]; then
+		TU[$id]["err"]="Tubi's player keeps stopping on this title"
+		tu_stop "$id"
+		return 0
+	fi
+	TU[$id]["tries"]=$((n + 1))
+	m := tu_mmss "$pos"
+	printf 'tubi: the page stopped %s at %s; loading it again\n' "${TU[$id]["vid"]}" "$m" >&2
+	[ "$pos" -gt 0 ] && TU[$id]["resume"]=$pos
+	dt_notep low "Tubi stopped -- trying again"
+	TU[$id]["state"]=loading
+	TU[$id]["since"]=$EPOCHSECONDS
+	tu_stale "$id"
+	web go "${TU[$id]["pt"]}" "$TU_BASE${TU[$id]["vid"]}" 2> /dev/null
+}
+
+# Pause or play, in the page's video.
+fn tu_toggle(int id) {
+	local p=${TU[$id]["p"]} t=${TU[$id]["pt"]} pz
+
+	[ -n "$p" ] || return 0
+	tu_stale "$id"
+	tu_info "$id"
+	pz=${TUI["paused"]}
+	# No answer since the last command: this app's own last word decides, so a
+	# quick second press undoes the first.
+	if tu_has evask && ! tu_fresh "$id"; then
+		pz=0
+		[ -n "${TU[$id]["upause"]}" ] && pz=1
+	fi
+	if [ "$pz" = 1 ]; then
+		TU[$id]["upause"]=
+		tu_send "$t" 'document.querySelector("video").play()'
+	else
+		TU[$id]["upause"]=1
+		tu_send "$t" 'document.querySelector("video").pause()'
+		tu_histput "$id"
+	fi
+	tu_stale "$id"
+}
+
+# Go to a time: the page's video sent there.
+fn tu_seek(int id, to) {
+	local p=${TU[$id]["p"]} t=${TU[$id]["pt"]} d
+
+	[ -n "$p" ] || return 0
+	tu_stale "$id"
+	tu_info "$id"
+	case $to in
+	+* | -*) to=$(( ${TUI["pos"]%.*} + to )) ;;
+	esac
+	d=${TU[$id]["dur"]%.*}
+	[ "$to" -lt 0 ] && to=0
+	[ "$d" -gt 0 ] && [ "$to" -gt "$d" ] && to=$d
+	tu_send "$t" "document.querySelector(\"video\").currentTime=$to"
+	tu_stale "$id"
+}
+
+# The volume, 0 to 100, set in the page's video.
+fn tu_volume(int id, int v) {
+	[ "$v" -gt 100 ] && v=100
+	[ "$v" -lt 0 ] && v=0
+	TU[$id]["vol"]=$v
+	tu_send "${TU[$id]["pt"]}" "(function(){var v=document.querySelector(\"video\");if(v){v.muted=false;v.volume=$v/100}})()"
+	tu_stale "$id"
+}
+
+# Minutes and seconds, with hours in front of an hour or more.
+fn tu_mmss(t) {
+	local s=${t%.*} out
+
+	[ -n "$s" ] || s=0
+	if [ "$s" -ge 3600 ]; then
+		printf -v out '%d:%02d:%02d' $((s / 3600)) $((s / 60 % 60)) $((s % 60))
+	else
+		printf -v out '%d:%02d' $((s / 60)) $((s % 60))
+	fi
+	ret "$out"
+}
+
+# --- the window -----------------------------------------------------------
+
+fn tubi_open(int id, arg = "") {
+	TU[$id]["view"]=list
+	TU[$id]["kind"]=
+	TU[$id]["arg"]=
+	TU[$id]["head"]=
+	TU[$id]["stack"]=
+	TU[$id]["q"]=
+	dt_searchclear "$id"
+	dt_searchopen "$id"
+	TU[$id]["n"]=0
+	TU[$id]["sel"]=0
+	TU[$id]["top"]=0
+	TU[$id]["vol"]=100
+	TU[$id]["st"]=
+	TU[$id]["pt"]=
+	TU[$id]["p"]=
+	TU[$id]["err"]=
+	tu_favload
+	tu_need "$id" || return 0
+	if [ -n "$arg" ]; then
+		dt_searchset "$id" "$arg"
+		tu_search "$id" "$arg"
+	else
+		tu_load "$id" home ""
+	fi
+	return 0
+}
+
+fn tubi_find(int id) {
+	dt_searchopen "$id"
+	return 0
+}
+
+fn tubi_close(int id) {
+	local t
+
+	tu_stop "$id"
+	for t in "${TU[$id]["st"]}" "${TU[$id]["pt"]}"; do
+		[ -n "$t" ] && web close "$t" 2> /dev/null
+	done
+	unset "TU[$id]"
+	unset "TR[$id]"
+	tu_webquit "$id"
+}
+
+# Stop the engine when no window that uses it is left -- the Browser's or ours.
+fn tu_webquit(int id) {
+	local o ids
+	local -a il
+
+	ids := dt_ids
+	read -ra il <<< "$ids"
+	for o in "${il[@]}"; do
+		[ "$o" = "$id" ] && continue
+		case ${DT[$o]["app"]} in browser | youtube | tubi) return 0 ;; esac
+	done
+	web quit 2> /dev/null
+	return 0
+}
+
+# After a restart the list is shown again; what was playing is noted in the
+# history first, so choosing it again takes it up there.
+fn tubi_stash(int id, dir) {
+	tu_histput "$id"
+	TU[$id]["st"]=
+	TU[$id]["pt"]=
+	TU[$id]["p"]=
+}
+
+fn tubi_resume(int id) {
+	local k=${TU[$id]["kind"]} a=${TU[$id]["arg"]} h=${TU[$id]["head"]}
+
+	TU[$id]["view"]=list
+	TU[$id]["st"]=
+	TU[$id]["pt"]=
+	TU[$id]["p"]=
+	TU[$id]["state"]=
+	tu_favload
+	[ -n "$k" ] && tu_load "$id" "$k" "$a" "$h" 0
+	return 0
+}
+
+# Whether this window is keeping the screen awake: the picture is moving -- not
+# paused, and the frame on screen a later one than when the desktop last asked.
+fn tubi_awake(int id) {
+	local was
+
+	[ "${TU_SAVERHOLD:-1}" = 1 ] || return 1
+	dt_hidden "$id" && return 1
+	[ "${TU[$id]["state"]}" = loading ] && return 0
+	[ -n "${TU[$id]["p"]}" ] || return 1
+	tu_info "$id"
+	[ "${TUI["paused"]}" = 1 ] && return 1
+	was=${TU[$id]["awshown"]}
+	TU[$id]["awshown"]=${TUI["shown"]}
+	[ "${TUI["shown"]}" != "$was" ]
+}
+
+# Full screen is the picture alone: the picture is laid out again.
+fn tubi_fullscreen(int id, on) {
+	TU[$id]["fs"]=
+	[ "$on" = on ] && TU[$id]["fs"]=1
+	TU[$id]["sized"]=
+	TU[$id]["decl"]=
+	return 0
+}
+
+fn tubi_idle(int id) {
+	[ "${TU[$id]["view"]}" = play ] && tu_tick "$id"
+	web poll > /dev/null 2>&1
+	return 0
+}
+
+fn tubi_draw(int id, int h, int w, int row, int col) {
+	dt_wclear "$id"
+	[ -n "${TU[$id]["searching"]}" ] && tu_results "$id"
+	TU[$id]["dkey"]=
+	if [ -n "${TU[$id]["fs"]-}" ] && [ "${TU[$id]["view"]}" = play ]; then
+		tu_drawfull "$id" "$h" "$w"
+	elif [ "${TU[$id]["view"]}" = play ]; then
+		tu_drawplay "$id" "$h" "$w"
+	else
+		tu_drawlist "$id" "$h" "$w"
+		TU[$id]["dkey"] := tu_listkey "$id"
+	fi
+	[ "${TU[$id]["view"]}" = play ] && [ -n "${TU[$id]["pt"]}" ] &&
+		web dirty "${TU[$id]["pt"]}" 2> /dev/null && dt_want 1
+}
+
+# What the list shows, in one line, to be compared with the line kept when it
+# was last drawn.
+fn tu_listkey(int id) {
+	local i n=${TU[$id]["n"]:-0} top=${TU[$id]["top"]:-0} vis=${TU[$id]["vis"]:-1} k mk x
+
+	x := dt_searchrows "$id"
+	k="$n|${TU[$id]["sel"]}|$top|$vis|$x|${TU[$id]["kind"]}|${TU[$id]["head"]}|${TU[$id]["arg"]}|${TU[$id]["err"]}|${TU[$id]["season"]}|${DT[$id]["h"]}x${DT[$id]["w"]}|$DT_FACE"
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$i" -lt $((top + vis + 1)) ]; do
+		mk=
+		[ -n "${TUF["${TR[$id][$i]["id"]}"]}" ] && mk=*
+		k+="|${TR[$id][$i]["id"]}$mk"
+		i=$((i + 1))
+	done
+	ret "$k"
+}
+
+# Whether the window has anything new to draw. Only the list can be left as it is.
+fn tubi_dirty(int id) {
+	local k
+
+	[ "${TU[$id]["view"]}" = play ] && return 0
+	[ -n "${TU[$id]["searching"]}" ] && return 0
+	[ "${TU[$id]["state"]}" = loading ] && return 0
+	[ -n "${TU[$id]["dkey"]}" ] || return 0
+	dt_searchon "$id" && return 0
+	k := tu_listkey "$id"
+	[ "$k" = "${TU[$id]["dkey"]}" ] || return 0
+	return 1
+}
+
+# The list: a heading, then an entry to a row -- a star for a favourite, the
+# title, the episode or the kind -- the chosen one lit.
+fn tu_drawlist(int id, int h, int w) {
+	local n=${TU[$id]["n"]} sel=${TU[$id]["sel"]} top=${TU[$id]["top"]}
+	local r=2 i lab tail vis hd mk kd star=${GL[star]} srows
+
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "Tubi"
+	srows := dt_searchrows "$id"
+	vis=$((h - 1 - srows))
+	[ "$vis" -lt 1 ] && vis=1
+	console pen "$DT_INK" "$DT_FACE"
+	hd := tu_heading "$id"
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	if [ "$DT_MIRRORON" = 1 ]; then
+		lab := dt_rpad "${hd:0:$((w - 3))}" $((w - 2))
+		console put -p "w$id" 1 1 "$lab"
+	else
+		console put -p "w$id" 1 2 "${hd:0:$((w - 3))}"
+	fi
+	if [ -n "${TU[$id]["searching"]}" ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 2 2 "Looking${GL[ellipsis]}"
+		n=0
+	elif [ -n "${TU[$id]["err"]}" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" 2 2 "${TU[$id]["err"]:0:$((w - 3))}"
+	elif [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		dt_tput "$id" 2 2 "Type what to look for and enter."
+	fi
+	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${TU[$id]["seen"]-}"
+	TU[$id]["seen"]=$sel
+	TU[$id]["top"]=$top
+	TU[$id]["vis"]=$vis
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$r" -lt "$h" ]; do
+		kd=${TR[$id][$i]["ch"]}
+		case ${TR[$id][$i]["kind"]} in
+		series) kd="series" ;;
+		movie) kd=${kd:-film} ;;
+		esac
+		tail="  ${kd:0:18}"
+		mk=" "
+		[ -n "${TUF["${TR[$id][$i]["id"]}"]}" ] && mk=$star
+		lab="$mk${TR[$id][$i]["title"]}"
+		[ $((${#lab} + ${#tail})) -gt "$w" ] && lab="${lab:0:$((w - ${#tail} - 1))}${GL[ellipsis]}"
+		if [ "$DT_MIRRORON" = 1 ]; then
+			lab="${lab#"$mk"}$mk"
+			lab := dt_rpad "$lab" $((w - ${#tail}))
+			tail="${kd:0:18}  "
+			lab="$tail$lab"
+			tail=
+		else
+			lab := str pad "$lab" $((w - ${#tail}))
+		fi
+		if [ "$i" = "$sel" ] && ! dt_searchon "$id"; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		elif [ "$i" = "$sel" ]; then
+			console pen "$DT_INK" "$DT_WELL"
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" "$r" 1 "$lab$tail"
+		dt_wreg "$id" "$r" 1 "$w" "row:$i"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	r=$w
+	[ "$DT_MIRRORON" = 1 ] && r=1
+	dt_scrollbar "$id" 2 "$r" "$vis" "$n" "$vis" "$top" list
+	dt_searchdraw "$id" "$h" "$w"
+}
+
+# Whether the page must not be shown yet: loading, or just now started (until
+# the start has cut it down to the video it is the real site, filling the window).
+fn tu_veiled(int id) {
+	local now
+
+	[ "${TU[$id]["state"]}" = loading ] && return 0
+	[ -n "${TU[$id]["sat"]}" ] || return 1
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - TU[$id]["sat"])) -lt 500 ]
+}
+
+# The page in the player's tab, drawn into the window from a row and column: laid
+# out at the window's size and drawn as pixels where the display takes them,
+# else as cells, or as characters for ascii and mono. A display that declines the
+# pixels is found out by the draw failing while the title plays; the picture then
+# goes on as cells. Fails until the page has made a frame.
+fn tu_picture(int id, w, h, row, col, md) {
+	local t=${TU[$id]["pt"]} m=cells nu
+
+	[ -n "$t" ] || return 1
+	tu_veiled "$id" && return 1
+	case $md in
+	pixels | ascii | mono) m=$md ;;
+	esac
+	[ "$m" = pixels ] && [ "${TU[$id]["decl"]}" = "$w $h" ] && m=cells
+	if [ "${TU[$id]["sized"]}" != "$w $h $m" ]; then
+		tu_has renderasync && web set "$t" render async 2> /dev/null
+		web size "$t" "$h" "$w" 2> /dev/null
+		web mode "$t" "$m" 2> /dev/null
+		TU[$id]["sized"]="$w $h $m"
+		TU[$id]["md"]=$m
+		TU[$id]["pfail"]=0
+		TU[$id]["pfat"]=
+		TU[$id]["sizedat"]=${EPOCHREALTIME/./}
+	fi
+	web render "$t" 2> /dev/null || return 1
+	if web draw "$t" "$row" "$col" -p "w$id" 2> /dev/null; then
+		TU[$id]["pfail"]=0
+		TU[$id]["pfat"]=
+		return 0
+	fi
+	# A draw fails both when the display turns the picture down and when the
+	# engine has no frame at this size yet. Turned down is two seconds of
+	# failures, from two seconds after the picture was laid out.
+	if [ "$m" = pixels ] && [ "${TU[$id]["state"]}" = playing ]; then
+		nu=${EPOCHREALTIME/./}
+		TU[$id]["pfail"]=$(( ${TU[$id]["pfail"]:-0} + 1 ))
+		[ -n "${TU[$id]["pfat"]-}" ] || TU[$id]["pfat"]=$nu
+		if [ $(( (nu - TU[$id]["pfat"]) / 1000 )) -ge 2000 ] &&
+		   [ $(( (nu - ${TU[$id]["sizedat"]:-0}) / 1000 )) -ge 4000 ]; then
+			TU[$id]["decl"]="$w $h"
+			TU[$id]["sized"]=
+		fi
+	fi
+	return 1
+}
+
+# The player: the title, the picture, the bar.
+fn tu_drawplay(int id, int h, int w) {
+	local p=${TU[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm wt
+
+	[ -n "$p" ] && tu_tick "$id"
+	p=${TU[$id]["p"]}
+	if command -v dt_retitle > /dev/null; then
+		wt := dt_wintitle Tubi "${TU[$id]["title"]:0:40}"
+		dt_retitle "$id" "$wt"
+	fi
+	console pen "$DT_INK" "$DT_FACE" bold
+	[ -n "${TUF["${TU[$id]["vid"]}"]}" ] && mk="${GL[star]} "
+	lab="$mk${TU[$id]["title"]}"
+	[ -n "${TU[$id]["sub"]}" ] && lab="$lab -- ${TU[$id]["sub"]}"
+	lab := str pad " ${lab:0:$((w - 2))}" "$w"
+	console put -p "w$id" 1 1 "$lab"
+	if [ -n "${TU[$id]["err"]}" ] || [ -z "$p" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" 3 2 "${TU[$id]["err"]:0:$((w - 3))}"
+		return 0
+	fi
+	md := tu_drawmode
+	if ! tu_picture "$id" "$w" "$ph" 2 1 "$md"; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 3 2 "Loading${GL[ellipsis]}"
+	fi
+	tu_info "$id"
+	pos=${TUI["pos"]}
+	dur=${TU[$id]["dur"]}
+	[ "${TU[$id]["state"]}" = ended ] && pos=$dur
+	a := tu_mmss "$pos"
+	b := tu_mmss "$dur"
+	st="playing"
+	[ "${TUI["paused"]}" = 1 ] && st="paused"
+	[ "${TUI["ended"]}" = 1 ] || [ "${TU[$id]["state"]}" = ended ] && st="ended"
+	[ "${TU[$id]["state"]}" = loading ] && st="starting"
+	pm=$md
+	[ "$TU_MODE" = follow ] && pm="follow:$md"
+	lab=" $a / $b  $st  vol ${TUI["volume"]}  ${pm}"
+	fill=0
+	[ "${dur%.*}" -gt 0 ] 2> /dev/null && fill=$(( ${pos%.*} * w / ${dur%.*} ))
+	[ "$fill" -gt "$w" ] && fill=$w
+	lab := str pad "$lab" "$w"
+	console pen "$DT_SELINK" "$DT_ACTIVE"
+	[ "$fill" -gt 0 ] && console put -p "w$id" "$h" 1 "${lab:0:$fill}"
+	console pen "$DT_INK" "$DT_WELL"
+	console put -p "w$id" "$h" $((fill + 1)) "${lab:$fill}"
+	dt_wreg "$id" "$h" 1 "$w" bar
+}
+
+# Full screen: the picture alone, edge to edge.
+fn tu_drawfull(int id, int h, int w) {
+	local md
+
+	tu_tick "$id"
+	if [ -n "${TU[$id]["p"]}" ]; then
+		md := tu_drawmode
+		tu_picture "$id" "$w" "$h" 0 0 "$md" && return 0
+	fi
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((h / 2)) 1 "${TU[$id]["title"]:0:$((w - 2))}"
+}
+
+# What the engine is given: TU_MODE says outright unless it is `follow`, and then
+# it is Control Panel > Pictures; `auto` there means pixels where the terminal can
+# place them and blocks where it cannot.
+fn tu_drawmode() {
+	local m=$TU_MODE
+
+	[ "$m" = follow ] && m=${DT_IMGMODE:-auto}
+	case $m in
+	pixels | sixel) ret pixels ;;
+	half | mono | ascii) ret "$m" ;;
+	esac
+	command -v dt_imgpix > /dev/null && dt_imgpix && ret pixels
+	ret half
+}
+
+fn tubi_key(int id, key) {
+	local n=${TU[$id]["n"]} sel=${TU[$id]["sel"]} p=${TU[$id]["p"]} v q0
+
+	if [ "${TU[$id]["view"]}" = play ]; then
+		case $key in
+		" ") tu_toggle "$id"; return 0 ;;
+		left) tu_seek "$id" -5; return 0 ;;
+		right) tu_seek "$id" +5; return 0 ;;
+		shift-left) tu_seek "$id" -30; return 0 ;;
+		shift-right) tu_seek "$id" +30; return 0 ;;
+		up | down)
+			[ -n "$p" ] || return 0
+			tu_info "$id"
+			v=${TUI["volume"]}
+			[ "$key" = up ] && v=$((v + 10)) || v=$((v - 10))
+			tu_volume "$id" "$v"
+			return 0
+			;;
+		n) tu_next "$id" 1; return 0 ;;
+		p) tu_next "$id" -1; return 0 ;;
+		f) tu_fav "$id"; return 0 ;;
+		m) tu_mode; return 0 ;;
+		h) tu_load "$id" history ""; return 0 ;;
+		v) tu_load "$id" favourites ""; return 0 ;;
+		t) tu_load "$id" home ""; return 0 ;;
+		escape | backspace)
+			tu_stop "$id"
+			TU[$id]["view"]=list
+			return 0
+			;;
+		esac
+		return 1
+	fi
+	# Tubi asks a server, so it acts when the search bar is left rather than on
+	# every keystroke: enter searches.
+	if dt_searchon "$id" && [ "$key" = enter ]; then
+		q0 := dt_searchq "$id"
+		dt_searchshut "$id"
+		tu_search "$id" "$q0"
+		return 0
+	fi
+	if dt_searchkey "$id" "$key"; then
+		return 0
+	fi
+	case $key in
+	up) [ "$sel" -gt 0 ] && TU[$id]["sel"]=$((sel - 1)) || dt_searchopen "$id" ;;
+	down) [ "$sel" -lt $((n - 1)) ] && TU[$id]["sel"]=$((sel + 1)) ;;
+	left) tu_season "$id" -1 ;;
+	right) tu_season "$id" 1 ;;
+	pageup) sel=$((sel - ${TU[$id]["vis"]:-10})); [ "$sel" -lt 0 ] && sel=0; TU[$id]["sel"]=$sel ;;
+	pagedown) sel=$((sel + ${TU[$id]["vis"]:-10})); [ "$sel" -ge "$n" ] && sel=$((n - 1)); TU[$id]["sel"]=$sel ;;
+	home) TU[$id]["sel"]=0 ;;
+	end) TU[$id]["sel"]=$((n > 0 ? n - 1 : 0)) ;;
+	enter) [ "$n" -gt 0 ] && tu_choose "$id" "$sel" ;;
+	f) [ "$n" -gt 0 ] && tu_fav "$id" ;;
+	h) tu_load "$id" history "" ;;
+	v) tu_load "$id" favourites "" ;;
+	t) tu_load "$id" home "" ;;
+	escape | backspace) tu_back "$id" ;;
+	tab) dt_searchopen "$id" ;;
+	*) return 1 ;;
+	esac
+	return 0
+}
+
+# The next way of drawing the picture, for every window.
+tu_mode() {
+	local i=0 n=${#TU_MODES[@]}
+
+	while [ "$i" -lt "$n" ]; do
+		if [ "${TU_MODES[$i]}" = "$TU_MODE" ]; then
+			TU_MODE=${TU_MODES[$(( (i + 1) % n ))]}
+			break
+		fi
+		i=$((i + 1))
+	done
+	[ "$i" -lt "$n" ] || TU_MODE=${TU_MODES[0]}
+	command -v dt_save > /dev/null && dt_save
+	return 0
+}
+
+fn tubi_click(int id, int r, int c, btn = "") {
+	local tag d
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	dtsearch) dt_searchopen "$id" ;;
+	row:*)
+		if [ "${TU[$id]["sel"]}" = "${tag#row:}" ] && ! dt_searchon "$id"; then
+			tu_choose "$id" "${tag#row:}"
+		else
+			TU[$id]["sel"]=${tag#row:}
+			dt_searchshut "$id"
+		fi
+		;;
+	bar)
+		d=${TU[$id]["dur"]%.*}
+		[ "$d" -gt 0 ] 2> /dev/null && tu_seek "$id" $(( (c - 1) * d / ${DT[$id]["w"]} ))
+		;;
+	*) [ "${TU[$id]["view"]}" = play ] && tu_toggle "$id" ;;
+	esac
+	return 0
+}
+
+fn tubi_wheel(int id, dir, int r = 0, int c = 0) {
+	local n=${TU[$id]["n"]:-0} top
+
+	if [ "${TU[$id]["view"]}" = play ]; then
+		[ "$dir" = up ] && tu_seek "$id" +5 || tu_seek "$id" -5
+		return 0
+	fi
+	top := dt_scrollmove "$dir" "${TU[$id]["top"]:-0}" "$n" \
+		"${TU[$id]["vis"]:-1}" "$DT_SCROLLWHEEL" || return 1
+	TU[$id]["top"]=$top
+	return 0
+}
+
+# The list's scrollbar held and dragged.
+fn tubi_scroll(int id, key, int top) { TU[$id]["top"]=$top; }
+
+# The address of what is chosen or playing, or the search being typed.
+fn tubi_copy(int id) {
+	local i=${TU[$id]["sel"]}
+
+	if dt_searchon "$id"; then
+		i := dt_searchq "$id"
+		ret "$i"
+		return 0
+	fi
+	if [ "${TU[$id]["view"]}" = play ] && [ -n "${TU[$id]["vid"]}" ]; then
+		ret "$TU_BASE${TU[$id]["vid"]}"
+		return 0
+	fi
+	[ -n "${TR[$id][$i]["id"]}" ] || return 1
+	ret "$TU_BASE${TR[$id][$i]["id"]}"
+}
+
+fn tubi_paste(int id, text, op = "") {
+	local r q
+
+	dt_searchopen "$id"
+	q := dt_searchq "$id"
+	r := dt_textpaste "$q" "${#q}" "$text"
+	dt_searchset "$id" "${r% *}"
+}
+
+tubi_menus() {
+	local id=$DT_FOCUS v on
+
+	dt_menu "File"
+	dt_item "New Window" n dt_launch tubi
+	dt_item "Search${GL[ellipsis]}" s tubi_key "$id" /
+	dt_rowaccel /
+	dt_item "Favourite" f tu_fav "$id"
+	dt_rowaccel f
+	dt_sep
+	dt_item "Close Window" w dt_close_focused
+	dt_editmenu
+	dt_menu "Go"
+	if [ "${TU[$id]["view"]}" != play ] && [ "${TU[$id]["n"]:-0}" -gt 0 ]; then
+		dt_item "Open" o tubi_key "$id" enter
+	else
+		dt_dim "Open"
+	fi
+	dt_rowaccel enter
+	dt_item "Back" b tu_back "$id"
+	dt_rowaccel escape
+	dt_item "Home" m tu_load "$id" home ""
+	dt_rowaccel t
+	dt_item "History" h tu_load "$id" history ""
+	dt_rowaccel h
+	dt_item "Favourites" v tu_load "$id" favourites ""
+	dt_rowaccel v
+	if [ "${TU[$id]["kind"]}" = series ] && [ "${TU[$id]["view"]}" = list ] && [ "${TU[$id]["seasons"]:-0}" -gt 1 ]; then
+		dt_item "Next Season" x tu_season "$id" 1
+		dt_item "Previous Season" y tu_season "$id" -1
+	else
+		dt_dim "Next Season"
+		dt_dim "Previous Season"
+	fi
+	dt_menu "Play"
+	if [ -n "${TU[$id]["p"]}" ]; then
+		dt_item "Pause or Play" p tu_toggle "$id"
+		dt_rowaccel space
+		dt_item "Next" n tu_next "$id" 1
+		dt_rowaccel n
+		dt_item "Previous" r tu_next "$id" -1
+		dt_rowaccel p
+		dt_item "Back 5 Seconds" k tu_seek "$id" -5
+		dt_rowaccel left
+		dt_item "On 5 Seconds" l tu_seek "$id" +5
+		dt_rowaccel right
+		dt_item "Back 30 Seconds" b tu_seek "$id" -30
+		dt_rowaccel shift-left
+		dt_item "On 30 Seconds" o tu_seek "$id" +30
+		dt_rowaccel shift-right
+		dt_item "Volume Up" u tubi_key "$id" up
+		dt_rowaccel up
+		dt_item "Volume Down" d tubi_key "$id" down
+		dt_rowaccel down
+		dt_item "Stop" s tubi_key "$id" escape
+		dt_rowaccel escape
+	else
+		dt_dim "Pause or Play"
+		dt_dim "Next"
+		dt_dim "Previous"
+		dt_dim "Back 5 Seconds"
+		dt_dim "On 5 Seconds"
+		dt_dim "Back 30 Seconds"
+		dt_dim "On 30 Seconds"
+		dt_dim "Volume Up"
+		dt_dim "Volume Down"
+		dt_dim "Stop"
+	fi
+	dt_sep
+	on=0
+	[ "$TU_AUTONEXT" = 1 ] && on=1
+	dt_mark "Play Next Automatically" a "$on" tu_autonext
+	dt_menu "Picture"
+	for v in "${TU_MODES[@]}"; do
+		on=0
+		[ "$TU_MODE" = "$v" ] && on=1
+		dt_mark "${v^}" "${v:0:1}" "$on" tu_setmode "$v"
+	done
+	dt_sep
+	dt_item "Next Picture" x tu_mode
+	dt_rowaccel m
+}
+
+fn tu_setmode(v) {
+	TU_MODE=$v
+	command -v dt_save > /dev/null && dt_save
+}
+
+tu_autonext() {
+	if [ "$TU_AUTONEXT" = 1 ]; then TU_AUTONEXT=0; else TU_AUTONEXT=1; fi
+	command -v dt_save > /dev/null && dt_save
+}

@@ -276,6 +276,28 @@
         }
       ]
     },
+    "apps/tubi": {
+      "title": "Tubi",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Internet/tubi.hibr",
+      "sha256": "3ae44255515b41751df44da96bcef639b7e59c188ec776d00cb4d2720e78dc16",
+      "about": "Tubi, in a window\n\nTubi (tubitv.com) in a window: its free films and series, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a title up where it was left, and favourites. Built on the same shape as the YouTube app.\n\nNothing here is a Tubi client of its own. Tubi's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself, picture and sound; the page is cut down to its one <video> and drawn here, and this app drives that element: play and pause, a time, the volume. The titles a page lists (the home page, a search, a series and its seasons) are read from the page's own links. A title that Tubi protects with DRM cannot be played by this engine, and the window says so rather than waiting.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "tubi",
+      "hibr": "0.99.413",
+      "modules": "web",
+      "dir": "Internet",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "tubiset.hibr",
+          "path": "bundles/control-panel/tubiset.hibr",
+          "sha256": "991095c2fc06a15f653577e0ede22962cda9cd13e0eeaee076abb6757a9df72c"
+        }
+      ]
+    },
     "apps/youtube": {
       "title": "YouTube",
       "version": "3.27",
@@ -1790,6 +1812,20 @@
       "name": "mail",
       "hibr": "0.99.336",
       "modules": "db email html img",
+      "dir": "Internet"
+    },
+    "tubi": {
+      "title": "Tubi",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Internet/tubi.hibr",
+      "sha256": "3ae44255515b41751df44da96bcef639b7e59c188ec776d00cb4d2720e78dc16",
+      "about": "Tubi, in a window\n\nTubi (tubitv.com) in a window: its free films and series, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a title up where it was left, and favourites. Built on the same shape as the YouTube app.\n\nNothing here is a Tubi client of its own. Tubi's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself, picture and sound; the page is cut down to its one <video> and drawn here, and this app drives that element: play and pause, a time, the volume. The titles a page lists (the home page, a search, a series and its seasons) are read from the page's own links. A title that Tubi protects with DRM cannot be played by this engine, and the window says so rather than waiting.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "tubi",
+      "hibr": "0.99.413",
+      "modules": "web",
       "dir": "Internet"
     },
     "youtube": {
