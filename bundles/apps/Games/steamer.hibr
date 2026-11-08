@@ -11,7 +11,7 @@
 
 strict
 
-app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.3
+app steamer "Your Steam games as a tree: install, play, and the store page" 0.5.4
 # modules: fetch
 # part: control-panel/steamerset.hibr
 command -v dt_app > /dev/null && dt_app steamer "Steamer" 24 70 once "▶"
@@ -41,6 +41,9 @@ declare -gA STM_LINUX=() STM_PL=()
 declare -ga STM_IDS=() STM_NAMES=() STM_INST=() STM_SCAN=()
 declare -ga STM_OIDS=() STM_ONAMES=() STM_ROWK=() STM_ROWR=()
 declare -gA STM_OWN STM_RT=() STM_PT=()
+# Steam collections (decision 0020): id, name and the games of each, and which are open.
+declare -ga STM_CATID=() STM_CATNAME=() STM_CATGAMES=()
+declare -gA STM_CATOPEN=() STM_HIDDEN=() STM_CATN=()
 
 # The key, read into STM_KEY. Nothing is printed. For callbacks only.
 stm_apikey() {
@@ -78,6 +81,37 @@ stm_scan() {
 			awk -F'"' '/"appid"/ && id == "" { id = $4 } /"name"/ && n == "" { n = $4 } END { if (id != "") printf "%s\t%s\n", id, n }' "$f"
 		done
 	done < <(stm_libroots)
+}
+
+# A job: the user's Steam collections, one "id TAB name TAB appid appid ..." a
+# line. They are in userdata/<account>/config/cloudstorage/cloud-storage-namespace-1.json,
+# a list of [key, {value: "<json text>"}] pairs; the account number is the Steam ID
+# less 76561197960265728. Deleted entries have no value; dynamic collections
+# (with a filterSpec) have no fixed games and are left out. Read only.
+stm_collections() {
+	local f n i key val ids name dyn d
+	local -A C=() V=()
+	for d in "$STM_ROOT"/userdata/$((STM_ID - 76561197960265728)) "$STM_ROOT"/userdata/*; do
+		f=$d/config/cloudstorage/cloud-storage-namespace-1.json
+		[ -r "$f" ] && break
+		f=""
+	done
+	[ -n "$f" ] || return 0
+	json parse C < "$f" 2> /dev/null || return 0
+	n := json len C .
+	for ((i = 0; i < ${n:-0}; i++)); do
+		key := json get C ".[$i][0]" 2> /dev/null
+		case $key in user-collections.*) ;; *) continue ;; esac
+		val := json get C ".[$i][1].value" 2> /dev/null
+		[ -n "$val" ] || continue
+		json parse V "$val" 2> /dev/null || continue
+		dyn := json type V .filterSpec 2> /dev/null
+		[ -z "$dyn" ] || [ "$dyn" = null ] || continue
+		name := json get V .name 2> /dev/null
+		ids := json get V .added 2> /dev/null
+		ids=${ids#[}; ids=${ids%]}; ids=${ids//,/ }
+		printf '%s\t%s\t%s\n' "${key#user-collections.}" "$name" "$ids"
+	done
 }
 
 # A job: the owned games as the Web API's JSON. The key stays inside fetch,
@@ -190,21 +224,39 @@ stm_visible_reset() {
 # leaves. The search leaves only the games it matches. Rebuilt only when the
 # data, the query or the open branches changed.
 stm_visible() {
-	local i q lq name k
-	local -a inst=() notin=()
+	local i q lq name k c g
+	local -a inst=() notin=() cm=() gl=()
+	local -A idx=() ok=()
 	q := dt_searchq "$STM_WIN"
 	[ "$STM_BUILT" = "$STM_VER" ] && [ "$STM_BUILTQ" = "$q" ] && return 0
 	if [ "$STM_BUILTQ" != "$q" ] && [ "$STM_BUILT" != -1 ]; then STM_SEL=0; STM_TOP=0; fi
 	lq=${q,,}
 	for i in "${!STM_IDS[@]}"; do
+		[ -n "${STM_HIDDEN[${STM_IDS[$i]}]-}" ] && continue
 		if [ "$STM_LINUXONLY" = 1 ] && [ "${STM_LINUX[${STM_IDS[$i]}]-}" = 0 ]; then continue; fi
 		if [ -n "$lq" ]; then
 			name=${STM_NAMES[$i],,}
 			case $name in *"$lq"*) ;; *) continue ;; esac
 		fi
+		ok[${STM_IDS[$i]}]=1; idx[${STM_IDS[$i]}]=$i
 		if [ "${STM_INST[$i]}" = 1 ]; then inst+=("$i"); else notin+=("$i"); fi
 	done
 	STM_ROWK=(); STM_ROWR=()
+	# Collections first, each with the owned games that pass the search and filters;
+	# an empty one is left out while a search is on. A game in two collections shows in both.
+	for c in "${!STM_CATID[@]}"; do
+		cm=()
+		read -ra gl <<< "${STM_CATGAMES[$c]}"
+		for g in "${gl[@]}"; do
+			[ -n "${ok[$g]-}" ] && cm+=("${idx[$g]}")
+		done
+		[ -n "$lq" ] && [ "${#cm[@]}" = 0 ] && continue
+		STM_CATN[$c]=${#cm[@]}
+		STM_ROWK+=(B); STM_ROWR+=("c$c")
+		if [ "${STM_CATOPEN[$c]-0}" = 1 ]; then
+			for k in "${cm[@]}"; do STM_ROWK+=(L); STM_ROWR+=("$k"); done
+		fi
+	done
 	STM_ROWK+=(B); STM_ROWR+=(inst)
 	if [ "$STM_OPEN_INST" = 1 ]; then
 		for k in "${inst[@]}"; do STM_ROWK+=(L); STM_ROWR+=("$k"); done
@@ -224,6 +276,7 @@ stm_visible() {
 stm_start() {
 	local n
 	n := dt_job steamer:scan "$STM_WIN" steamer_scanned stm_scan
+	n := dt_job steamer:cats "$STM_WIN" steamer_cats_done stm_collections
 	stm_apikey
 	if [ -n "$STM_ID" ] && [ -n "$STM_KEY" ]; then
 		n := dt_job steamer:owned "$STM_WIN" steamer_owned_done stm_owned
@@ -243,6 +296,27 @@ fn steamer_scanned(int n, int st) {
 		done < "$f"
 	else
 		STM_STATUS="could not read the library"
+	fi
+	stm_merge
+	dt_want 0
+}
+
+fn steamer_cats_done(int n, int st) {
+	local f cid cname cgames g
+	local -a gl=()
+	STM_CATID=(); STM_CATNAME=(); STM_CATGAMES=(); STM_HIDDEN=()
+	if [ "$st" = 0 ]; then
+		f := dt_jobfile "$n" out
+		while IFS=$'\t' read -r cid cname cgames; do
+			[ -n "$cid" ] || continue
+			if [ "$cid" = hidden ]; then
+				read -ra gl <<< "$cgames"
+				for g in "${gl[@]}"; do STM_HIDDEN[$g]=1; done
+				continue
+			fi
+			[ -n "$cgames" ] || continue
+			STM_CATID+=("$cid"); STM_CATNAME+=("$cname"); STM_CATGAMES+=("$cgames")
+		done < "$f"
 	fi
 	stm_merge
 	dt_want 0
@@ -397,6 +471,7 @@ stm_toggle() {
 	case $1 in
 	inst) [ "$STM_OPEN_INST" = 1 ] && STM_OPEN_INST=0 || STM_OPEN_INST=1 ;;
 	notin) [ "$STM_OPEN_NOT" = 1 ] && STM_OPEN_NOT=0 || STM_OPEN_NOT=1 ;;
+	c*) [ "${STM_CATOPEN[${1:1}]-0}" = 1 ] && STM_CATOPEN[${1:1}]=0 || STM_CATOPEN[${1:1}]=1 ;;
 	esac
 	STM_BUILT=-1
 }
@@ -439,7 +514,10 @@ fn steamer_draw(id, int h, int w, row, col) {
 		k=${STM_ROWK[$i]}
 		ref=${STM_ROWR[$i]}
 		if [ "$k" = B ]; then
-			if [ "$ref" = inst ]; then
+			if [ "${ref:0:1}" = c ]; then
+				mark := dt_treepre 0 1 "${STM_CATOPEN[${ref:1}]-0}" 0 ""
+				line="${mark}${STM_CATNAME[${ref:1}]} (${STM_CATN[${ref:1}]-0})"
+			elif [ "$ref" = inst ]; then
 				mark := dt_treepre 0 1 "$STM_OPEN_INST" 0 ""
 				line="${mark}Installed ($STM_N_INST)"
 			else
