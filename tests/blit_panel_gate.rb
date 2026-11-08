@@ -232,6 +232,28 @@ Dir.mktmpdir('blit-panel') do |root|
       done
       [ "$seen" = 3 ] || { echo "rendering rows missing ($seen)" >&2; exit 63; }
       json parse 'BCP_SNAPSHOT[diagnostics][render][outputs]' "$rendering"
+      # Screens (pane 0.1.29, Blit ADR 0225): GPU frames offered or not, and per
+      # pane how frames arrive and whether input is live, from the snapshot.
+      screens_g := json get BCP_SNAPSHOT .diagnostics.graphics
+      screens_s := json get BCP_SNAPSHOT .sessions
+      json parse 'BCP_SNAPSHOT[diagnostics][graphics]' '{"frames":{"dmabuf":{"advertised":false,"unavailable":"cpu compositor"}}}'
+      json parse 'BCP_SNAPSHOT[sessions]' '{"sessions":[{"id":"1","pane_id":"pane-display-93-2","frames":{"accepted":120,"dmabuf":{"accepted":100},"input":{"events":42,"last_error":"","routes":[{"image":7,"state":"live"}]}}},{"id":"2","pane_id":"pane-display-93-1","frames":{"accepted":0,"dmabuf":{"accepted":0},"input":{"events":0,"routes":[]}}},{"id":"3","pane_id":"pane-display-102-1","frames":{"accepted":5,"dmabuf":{"accepted":0},"input":{"events":0,"last_error":"eis-disconnected","routes":[]}}}]}'
+      n := blit_rows 999999
+      i=0; seen=0
+      while [ "$i" -lt "$n" ]; do
+          case "${CP[999999][$i][text]}" in
+          "GPU frames") [ "${CP[999999][$i][val]}" = "Not offered: cpu compositor" ] || { echo "gpu frames row: ${CP[999999][$i][val]}" >&2; exit 70; }; seen=$((seen + 1)) ;;
+          "pane-display-93-2 frames") [ "${CP[999999][$i][val]}" = "100 by the GPU, 20 copied" ] || { echo "frames row: ${CP[999999][$i][val]}" >&2; exit 71; }; seen=$((seen + 1)) ;;
+          "pane-display-93-2 input") [ "${CP[999999][$i][val]}" = "Live; 42 events" ] || { echo "input row: ${CP[999999][$i][val]}" >&2; exit 72; }; seen=$((seen + 1)) ;;
+          "pane-display-102-1 input") [ "${CP[999999][$i][val]}" = "None; 0 events; last: eis-disconnected" ] || { echo "input row 3: ${CP[999999][$i][val]}" >&2; exit 73; }; seen=$((seen + 1)) ;;
+          pane-display-93-1*) echo "a pane with no frames got a Screens row" >&2; exit 74 ;;
+          "Wayland Screen bridge"|gamescope) seen=$((seen + 1)) ;;
+          esac
+          i=$((i + 1))
+      done
+      [ "$seen" = 6 ] || { echo "screens rows missing ($seen)" >&2; exit 75; }
+      json parse 'BCP_SNAPSHOT[diagnostics][graphics]' "$screens_g"
+      json parse 'BCP_SNAPSHOT[sessions]' "$screens_s"
       i=0; compositor_row=0; timing_row=0
       while [ "$i" -lt "$n" ]; do
           [ "${CP[999999][$i][key]}" != compositor ] || compositor_row=1

@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.28
+app blit "API configuration and diagnostics for the Blit display server" 0.1.29
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
@@ -49,6 +49,9 @@ BCP_ZOOM_HELDW=
 # The settings document the draft was based on, to tell Blit saving the
 # pane's own font change from somebody else changing the settings (#364).
 BCP_BASE_DOC=
+# Screens (Blit 0.3.66+, ADR 0225): the Wayland Screen bridge's version on
+# this computer, asked once ("" until asked, "-" when it is not installed).
+BCP_BRIDGE_VERSION=
 BCP_POINTER_ID=
 BCP_DIR=
 BCP_BUSY=0
@@ -700,8 +703,74 @@ fn blit_rows(int w) {
     fi
     blit_cp_row "$w" "$n" info "Startup default" "$startup"; n=$((n + 1))
     n := blit_cp_rendering_rows "$w" "$n"
+    n := blit_cp_screens_rows "$w" "$n"
     blit_cp_row "$w" "$n" action "Export staged configuration" "" export; n=$((n + 1))
     blit_cp_row "$w" "$n" action "Import configuration (stage only)" "" import; n=$((n + 1))
+    ret "$n"
+}
+
+# Screens (Blit 0.3.66+, ADR 0225): read-only. Whether this computer has
+# the Wayland Screen bridge (blit-gamescope) and gamescope, whether Blit
+# offers GPU frames (dmabuf, ADR 0223), and for each pane showing frames by
+# descriptor how they arrive -- by the GPU or copied -- and whether its input
+# route to the program is live. The bridge itself has no settings: a
+# window's size and its display's refresh decide them.
+fn blit_cp_screens_rows(int w, int n) {
+    local i=0 pane accepted gpu copied state routes j events error text bin
+    blit_cp_row "$w" "$n" head "Screens"; n=$((n + 1))
+    if [ -z "$BCP_BRIDGE_VERSION" ]; then
+        BCP_BRIDGE_VERSION=-
+        if command -v blit-gamescope > /dev/null; then
+            BCP_BRIDGE_VERSION=$(blit-gamescope --version 2> /dev/null)
+            BCP_BRIDGE_VERSION=${BCP_BRIDGE_VERSION#blit-gamescope }
+            [ -n "$BCP_BRIDGE_VERSION" ] || BCP_BRIDGE_VERSION=installed
+        fi
+    fi
+    text="Not installed (blit-gamescope)"
+    [ "$BCP_BRIDGE_VERSION" = - ] || text="blit-gamescope $BCP_BRIDGE_VERSION"
+    blit_cp_row "$w" "$n" info "Wayland Screen bridge" "$text"; n=$((n + 1))
+    bin=$(command -v gamescope 2> /dev/null)
+    [ -n "$bin" ] || { [ ! -x /usr/games/gamescope ] || bin=/usr/games/gamescope; }
+    text="Not installed"
+    [ -z "$bin" ] || text="Installed ($bin)"
+    blit_cp_row "$w" "$n" info "gamescope" "$text"; n=$((n + 1))
+    case ${BCP_SNAPSHOT[diagnostics][graphics][frames][dmabuf][advertised]} in
+    true) text="Offered" ;;
+    false) text="Not offered: ${BCP_SNAPSHOT[diagnostics][graphics][frames][dmabuf][unavailable]:-no reason given}" ;;
+    *) text="Not reported by server" ;;
+    esac
+    blit_cp_row "$w" "$n" info "GPU frames" "$text"; n=$((n + 1))
+    while [ -n "${BCP_SNAPSHOT[sessions][sessions][$i][id]}" ]; do
+        accepted=${BCP_SNAPSHOT[sessions][sessions][$i][frames][accepted]:-0}
+        routes=${BCP_SNAPSHOT[sessions][sessions][$i][frames][input][routes][0][image]}
+        if [ "$accepted" -gt 0 ] || [ -n "$routes" ]; then
+            pane=${BCP_SNAPSHOT[sessions][sessions][$i][pane_id]:-session ${BCP_SNAPSHOT[sessions][sessions][$i][id]}}
+            gpu=${BCP_SNAPSHOT[sessions][sessions][$i][frames][dmabuf][accepted]:-0}
+            copied=$((accepted - gpu))
+            blit_cp_row "$w" "$n" info "$pane frames" "$gpu by the GPU, $copied copied"; n=$((n + 1))
+            state=none; j=0
+            while [ -n "${BCP_SNAPSHOT[sessions][sessions][$i][frames][input][routes][$j][image]}" ]; do
+                case ${BCP_SNAPSHOT[sessions][sessions][$i][frames][input][routes][$j][state]} in
+                live) state=live ;;
+                on) [ "$state" = live ] || state=on ;;
+                off) [ "$state" != none ] || state=off ;;
+                esac
+                j=$((j + 1))
+            done
+            events=${BCP_SNAPSHOT[sessions][sessions][$i][frames][input][events]:-0}
+            error=${BCP_SNAPSHOT[sessions][sessions][$i][frames][input][last_error]}
+            case $state in
+            live) text="Live" ;;
+            on) text="On, waiting for focus" ;;
+            off) text="Off" ;;
+            *) text="None" ;;
+            esac
+            text="$text; $events events"
+            [ -z "$error" ] || [ "$error" = null ] || text="$text; last: $error"
+            blit_cp_row "$w" "$n" info "$pane input" "$text"; n=$((n + 1))
+        fi
+        i=$((i + 1))
+    done
     ret "$n"
 }
 

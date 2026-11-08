@@ -1,5 +1,17 @@
 # Blit Control Panel
 
+## Screens (pane 0.1.29)
+
+A read-only **Screens** section, after Rendering, for programs shown in a
+window through Wayland Screen (Blit's `blit-gamescope`, ADR 0225):
+**Wayland Screen bridge** (its version on this computer, or not installed),
+**gamescope** (installed or not), and **GPU frames** (whether Blit offers
+frames by dmabuf, or why not). Then, for each pane that has received frames
+by descriptor, **frames** (how many arrived by the GPU and how many were
+copied) and **input** (the input route: live, on but waiting for focus, off
+or none, with the events sent and the last error). Nothing here is a
+setting: a window's size and its display's refresh decide the bridge's.
+
 ## Hinting (pane 0.1.28)
 
 Under **Font**, a **Hinting** row chooses how Blit hints text: `full` (the
