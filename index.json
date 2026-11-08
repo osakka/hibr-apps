@@ -226,6 +226,19 @@
         }
       ]
     },
+    "apps/steamwin": {
+      "title": "Steam",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Games/steamwin.hibr",
+      "sha256": "a5d9f119d5aa53327edf353a280df5fc747c28539cfe824a9aa1225a41b50ad2",
+      "about": "Steam's Big Picture in a window, under Blit's gamescope bridge\n\nSteam in a window: Big Picture under Blit's gamescope bridge.\n\nThe bridge (blit-gamescope) runs gamescope with Steam inside it and sends every picture gamescope makes as a frame by descriptor. In a desktop window it is given the frames module's socket in place of Blit's own, so those frames go through the console onto the picture this window places, and on to every display's Blit (Gitea #486, Blit ADR 0223). Nothing here reads a pixel.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "steamwin",
+      "hibr": "0.99.469",
+      "dir": "Games"
+    },
     "apps/browser": {
       "title": "Browser",
       "version": "2.45",
@@ -1524,11 +1537,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.86",
+      "version": "3.87",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "f3495aee38b319964e033f0b6f17cc5f9ad3f1e166daae1a5330c4da16e9b418",
-      "about": "The desktop's own words in العربية (ar): 1566 strings, read right to left.",
+      "sha256": "28ad46df33ed2528f41ed2d85cc514b4f196d973e6c9ea85ae2291e10034019b",
+      "about": "The desktop's own words in العربية (ar): 1574 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1784,6 +1797,19 @@
       "name": "steamer",
       "hibr": "0.99.362",
       "modules": "fetch sys",
+      "dir": "Games"
+    },
+    "steamwin": {
+      "title": "Steam",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Games/steamwin.hibr",
+      "sha256": "a5d9f119d5aa53327edf353a280df5fc747c28539cfe824a9aa1225a41b50ad2",
+      "about": "Steam's Big Picture in a window, under Blit's gamescope bridge\n\nSteam in a window: Big Picture under Blit's gamescope bridge.\n\nThe bridge (blit-gamescope) runs gamescope with Steam inside it and sends every picture gamescope makes as a frame by descriptor. In a desktop window it is given the frames module's socket in place of Blit's own, so those frames go through the console onto the picture this window places, and on to every display's Blit (Gitea #486, Blit ADR 0223). Nothing here reads a pixel.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "steamwin",
+      "hibr": "0.99.469",
       "dir": "Games"
     },
     "browser": {
