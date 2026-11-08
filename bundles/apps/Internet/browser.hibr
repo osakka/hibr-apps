@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.44
+app browser "The web, in a window" 2.45
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1209,6 +1209,7 @@ fn browser_idle(int id) {
 	bw_atpoll "$id"
 	bw_coverlist "$id"
 	[ -n "$BW_FD" ] && bw_heard
+	bw_activity
 	# A window not drawn has its page stop saying when it repaints, so a
 	# busy page in a hidden window wakes nothing (Gitea #289).
 	if [ -n "${BW[$id]["live"]}" ]; then
@@ -1430,6 +1431,7 @@ fn browser_dirty(int id) {
 	bw_movecheck "$id" "$t"
 	bw_vaultdone "$id" "$t"
 	bw_atpoll "$id"
+	bw_activity
 	bw_coverlist "$id"
 	bw_askcheck "$id"
 	[ -n "${BW[$id]["askk"]-}" ] && [ "${BW[$id]["askt"]}" = "$t" ] && return 0
@@ -3148,6 +3150,68 @@ fn bw_errtemplate() {
 	return 0
 }
 
+# What a meeting page does with the camera and the microphone, kept in the cache and shown on about:diagnostics: what it asked for, what it was
+# given, whether the camera then delivered a picture (its size three seconds after), the errors it threw, the windows it opened, the state of its
+# call. Only the pages of the meeting sites below, only while Calls and Meetings is on, and only a local file: so that a call whose picture does
+# not show says why without anyone having to watch it happen. The hook is put into the page by a script it answers with the new lines, asked
+# without waiting (`web evask`).
+BW_ACTLOG="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-activity.log"
+BW_ACTJS='(function(){if(!window.__hl){var H=window.__hl=[];function L(k,s){if(H.length<60)H.push(k+"\t"+String(s).slice(0,160))}addEventListener("error",function(e){L("error",e.message)});addEventListener("unhandledrejection",function(e){var r=e.reason;L("rejected",r&&r.name?r.name+" "+r.message:r)});var ce=console.error;console.error=function(){try{L("console.error",Array.prototype.join.call(arguments," "))}catch(x){}return ce.apply(console,arguments)};var wo=window.open;window.open=function(u){L("window.open",u);return wo.apply(window,arguments)};var md=navigator.mediaDevices;if(md&&md.getUserMedia){var g=md.getUserMedia.bind(md);md.getUserMedia=function(c){L("camera/mic asked",JSON.stringify(c));return g(c).then(function(s){var v=s.getVideoTracks()[0];L("camera/mic given",s.getTracks().map(function(t){return t.kind}).join("+"));if(v){var e=document.createElement("video");e.muted=true;e.autoplay=true;e.playsInline=true;e.style.cssText="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";(document.body||document.documentElement).appendChild(e);e.srcObject=s;e.play().catch(function(){});setTimeout(function(){L("camera frames",e.videoWidth+"x"+e.videoHeight+" ready="+e.readyState+" "+JSON.stringify(v.getSettings()));e.remove()},3000)}return s},function(e){L("camera/mic refused",e.name+" "+e.message);throw e})}}if(md&&md.enumerateDevices){var ed=md.enumerateDevices.bind(md);md.enumerateDevices=function(){return ed().then(function(d){L("devices listed",d.map(function(x){return x.kind+(x.label?"":"(no label)")}).join(","));return d})}}var P=window.RTCPeerConnection;if(P){window.RTCPeerConnection=new Proxy(P,{construct:function(t,a){var p=new t(...a);L("call connection","created");p.addEventListener("connectionstatechange",function(){L("call connection",p.connectionState)});return p}})}}return window.__hl.splice(0).join("\n")})()'
+declare -gA BWA
+declare -g BW_ACTAT=0
+
+fn bw_actmeeting(host) {
+	case $host in
+	zoom.us | *.zoom.us | *.zoom.com | meet.google.com | jit.si | *.jit.si | teams.microsoft.com | teams.live.com | *.webex.com | whereby.com | *.whereby.com) return 0 ;;
+	esac
+	# more sites, by name (a test serves its own meeting page)
+	case " ${BW_ACTHOSTS-} " in *" $host "*) return 0 ;; esac
+	return 1
+}
+
+# One line of the record: when, the site, what, and the words.
+fn bw_actlog(host, what, words) {
+	mkdir -p "${BW_ACTLOG%/*}" 2> /dev/null
+	printf '%s\t%s\t%s\t%s\n' "$EPOCHSECONDS" "${host:0:60}" "$what" "${words:0:160}" >> "$BW_ACTLOG" 2> /dev/null
+	if [ -f "$BW_ACTLOG" ] && [ "$(wc -l < "$BW_ACTLOG")" -gt 400 ]; then
+		tail -n 150 "$BW_ACTLOG" > "$BW_ACTLOG.new" 2> /dev/null && mv "$BW_ACTLOG.new" "$BW_ACTLOG" 2> /dev/null
+	fi
+	return 0
+}
+
+# Each window's page asked what it has done, at most every 1.5 s; the answer is read the next time round.
+fn bw_activity() {
+	local now id t u h js rc=0 w l
+	local -a f
+
+	[ "$BW_RTC" = 1 ] && bw_has evask || return 0
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - BW_ACTAT)) -lt 1500 ] && return 0
+	BW_ACTAT=$now
+	for id in "${!BW[@]}"; do
+		t=${BW[$id]["cur"]-}
+		[ -n "$t" ] || continue
+		u := web url "$t" 2> /dev/null || continue
+		h := bw_host "$u"
+		if [ -n "${BWA["$t"]-}" ]; then
+			rc=0
+			js := web evget "$t" "${BWA["$t"]}" 2> /dev/null || rc=$?
+			[ "$rc" = 1 ] && continue
+			BWA["$t"]=
+			if [ "$rc" = 0 ] && [ -n "$js" ]; then
+				while IFS=$'\t' read -r w l; do
+					[ -n "$w" ] && bw_actlog "$h" "$w" "$l"
+				done <<< "$js"
+			fi
+		fi
+		bw_actmeeting "$h" || continue
+		dt_want 1500
+		BWA["$t"] := web evask "$t" "$BW_ACTJS" 2> /dev/null || BWA["$t"]=
+	done
+	return 0
+}
+
 # Every window a page tried to open, kept in the cache (about:diagnostics shows the last of them): when, the page it was asked from,
 # what happened, and the address. A meeting's call window, a sign-in popup, an ad: what a window that "does not open" was, and why.
 BW_WINLOG="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-windows.log"
@@ -3209,8 +3273,18 @@ fn bw_camformats(dev) {
 	local o
 
 	command -v ffmpeg > /dev/null || { ret "ffmpeg is not installed, so not listed"; return 0; }
-	o=$(timeout 4 ffmpeg -hide_banner -f v4l2 -list_formats all -i "$dev" 2>&1 | grep -E "Raw|Compressed|Not a video capture" | head -4 | tr '\n' ';')
-	ret "${o:-nothing listed}"
+	local all
+	all=$(timeout 4 ffmpeg -hide_banner -f v4l2 -list_formats all -i "$dev" 2>&1)
+	o=$(printf '%s\n' "$all" | grep -E "Raw|Compressed|Not a video capture" | head -4 | tr '\n' ';')
+	if [ -z "$o" ]; then
+		case $all in
+		*"busy"*) o="in use by another program (a meeting with the camera on?)" ;;
+		*"Permission denied"*) o="this user may not open it (the video group)" ;;
+		*"G_INPUT"* | *"Inappropriate ioctl"*) o="not a picture device (the camera's information node)" ;;
+		*) o="nothing listed (${all##*$'\n'})" ;;
+		esac
+	fi
+	ret "$o"
 }
 
 # The Browser's two pages as one file in the cache, and the address of it opened at the view asked for (browser, diagnostics, or camera,
@@ -3282,6 +3356,21 @@ fn bw_aboutpage(name) {
 			done
 		else
 			bw_arow "None yet" "no page has tried to open a window since this was set up"
+		fi
+		printf '</table><h2>What meeting pages did with calls <small>(newest first; a call with no picture shows here why)</small></h2><table>'
+		if [ -s "$BW_ACTLOG" ]; then
+			mapfile -t wl < "$BW_ACTLOG"
+			wn=0
+			wi=$((${#wl[@]} - 1))
+			while [ "$wi" -ge 0 ] && [ "$wn" -lt 40 ]; do
+				IFS=$'\t' read -r wtm wwh wfr wto <<< "${wl[$wi]}"
+				printf -v wt '%(%H:%M:%S)T' "${wtm:-0}"
+				bw_arow "$wt  $wwh  $wfr" "$wto"
+				wn=$((wn + 1))
+				wi=$((wi - 1))
+			done
+		else
+			bw_arow "Nothing yet" "no meeting page (Zoom, Meet, Jitsi, Teams, Webex, Whereby) has been open with Calls and Meetings on"
 		fi
 		printf '</table><h2>This computer</h2><table>'
 		for x in "${cams[@]}"; do
