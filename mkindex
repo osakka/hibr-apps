@@ -333,7 +333,7 @@ ENTHIBR["apps/boxer"]=0.99.468
 # Screens (hibr #493) replaced X Screen and the Steam window, both withdrawn here; the X Screen lines above
 # are its history. Its pane's strings, the Wayland engine's frames input, _focus and dt_keysall, and
 # Full Screen under every key all come with 0.99.474's desktop.
-ENTHIBR["apps/screens"]=0.99.474   # 0.7.1 needs nothing newer: Hold Mouse and the kept shape are its own
+ENTHIBR["apps/screens"]=0.99.474   # 0.7.2 runs on 0.99.474 too; its confined hold needs 0.99.478 (frames input N hold), and older ones hold relative
 ENTHIBR["control-panel/shortcuts"]=0.99.400
 # 0.99.403 gave the console `filmdetail`, which Pictures 1.4's Film Detail row sets.
 ENTHIBR["control-panel/pictures"]=0.99.403
