@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.45
+app browser "The web, in a window" 2.46
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1210,6 +1210,7 @@ fn browser_idle(int id) {
 	bw_coverlist "$id"
 	[ -n "$BW_FD" ] && bw_heard
 	bw_activity
+	bw_memwatch
 	# A window not drawn has its page stop saying when it repaints, so a
 	# busy page in a hidden window wakes nothing (Gitea #289).
 	if [ -n "${BW[$id]["live"]}" ]; then
@@ -1432,6 +1433,7 @@ fn browser_dirty(int id) {
 	bw_vaultdone "$id" "$t"
 	bw_atpoll "$id"
 	bw_activity
+	bw_memwatch
 	bw_coverlist "$id"
 	bw_askcheck "$id"
 	[ -n "${BW[$id]["askk"]-}" ] && [ "${BW[$id]["askt"]}" = "$t" ] && return 0
@@ -3156,7 +3158,7 @@ fn bw_errtemplate() {
 # not show says why without anyone having to watch it happen. The hook is put into the page by a script it answers with the new lines, asked
 # without waiting (`web evask`).
 BW_ACTLOG="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-activity.log"
-BW_ACTJS='(function(){if(!window.__hl){var H=window.__hl=[];function L(k,s){if(H.length<60)H.push(k+"\t"+String(s).slice(0,160))}addEventListener("error",function(e){L("error",e.message)});addEventListener("unhandledrejection",function(e){var r=e.reason;L("rejected",r&&r.name?r.name+" "+r.message:r)});var ce=console.error;console.error=function(){try{L("console.error",Array.prototype.join.call(arguments," "))}catch(x){}return ce.apply(console,arguments)};var wo=window.open;window.open=function(u){L("window.open",u);return wo.apply(window,arguments)};var md=navigator.mediaDevices;if(md&&md.getUserMedia){var g=md.getUserMedia.bind(md);md.getUserMedia=function(c){L("camera/mic asked",JSON.stringify(c));return g(c).then(function(s){var v=s.getVideoTracks()[0];L("camera/mic given",s.getTracks().map(function(t){return t.kind}).join("+"));if(v){var e=document.createElement("video");e.muted=true;e.autoplay=true;e.playsInline=true;e.style.cssText="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";(document.body||document.documentElement).appendChild(e);e.srcObject=s;e.play().catch(function(){});setTimeout(function(){L("camera frames",e.videoWidth+"x"+e.videoHeight+" ready="+e.readyState+" "+JSON.stringify(v.getSettings()));e.remove()},3000)}return s},function(e){L("camera/mic refused",e.name+" "+e.message);throw e})}}if(md&&md.enumerateDevices){var ed=md.enumerateDevices.bind(md);md.enumerateDevices=function(){return ed().then(function(d){L("devices listed",d.map(function(x){return x.kind+(x.label?"":"(no label)")}).join(","));return d})}}var P=window.RTCPeerConnection;if(P){window.RTCPeerConnection=new Proxy(P,{construct:function(t,a){var p=new t(...a);L("call connection","created");p.addEventListener("connectionstatechange",function(){L("call connection",p.connectionState)});return p}})}}return window.__hl.splice(0).join("\n")})()'
+BW_ACTJS='(function(){if(!window.__hl){var H=window.__hl=[];function L(k,s){if(H.length<60)H.push(k+"\t"+String(s).slice(0,160))}addEventListener("error",function(e){L("error",e.message)});addEventListener("unhandledrejection",function(e){var r=e.reason;L("rejected",r&&r.name?r.name+" "+r.message:r)});var ce=console.error;console.error=function(){try{L("console.error",Array.prototype.join.call(arguments," "))}catch(x){}return ce.apply(console,arguments)};var wo=window.open;window.open=function(u){L("window.open",u);return wo.apply(window,arguments)};var md=navigator.mediaDevices;if(md&&md.getUserMedia){var g=md.getUserMedia.bind(md);md.getUserMedia=function(c){L("camera/mic asked",JSON.stringify(c));return g(c).then(function(s){var v=s.getVideoTracks()[0];L("camera/mic given",s.getTracks().map(function(t){return t.kind}).join("+"));if(v){var e=document.createElement("video");e.muted=true;e.autoplay=true;e.playsInline=true;e.style.cssText="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";(document.body||document.documentElement).appendChild(e);e.srcObject=s;e.play().catch(function(){});var t0=Date.now(),dn=0,rep=function(){if(dn)return;if(e.videoWidth>0){dn=1;L("camera frames",e.videoWidth+"x"+e.videoHeight+" after "+(Date.now()-t0)+" ms "+JSON.stringify(v.getSettings()));e.remove()}else if(Date.now()-t0>8000){dn=1;L("camera frames","none after 8 s, ready="+e.readyState+" "+JSON.stringify(v.getSettings()));e.remove()}};e.addEventListener("loadedmetadata",rep);var iv=setInterval(function(){rep();if(dn)clearInterval(iv)},500)}return s},function(e){L("camera/mic refused",e.name+" "+e.message);throw e})}}if(md&&md.enumerateDevices){var ed=md.enumerateDevices.bind(md);md.enumerateDevices=function(){return ed().then(function(d){L("devices listed",d.map(function(x){return x.kind+(x.label?"":"(no label)")}).join(","));return d})}}var P=window.RTCPeerConnection;if(P){window.RTCPeerConnection=new Proxy(P,{construct:function(t,a){var p=new t(...a);L("call connection","created");p.addEventListener("connectionstatechange",function(){L("call connection",p.connectionState)});return p}})}}return window.__hl.splice(0).join("\n")})()'
 declare -gA BWA
 declare -g BW_ACTAT=0
 
@@ -3287,6 +3289,60 @@ fn bw_camformats(dev) {
 	ret "$o"
 }
 
+# What the engine holds in memory now, and what the machine has left, in one line each, for about:diagnostics: a browser that "eats all
+# the memory" shows here which of its processes holds it. The engine's own helper ends a page's process past a limit (hibr-browser 0.5.35).
+fn bw_enginemem() {
+	local o
+
+	o=$(ps -U "$(id -u)" -o rss=,comm= 2> /dev/null | awk '/hibr-wpe|WPEWebProcess|WPENetworkProcess/ { s += $1; n++; if ($1 > m) m = $1 } END { if (n) printf "%d MB in %d processes, the largest %d MB", s / 1024, n, m / 1024; else printf "none running" }')
+	ret "${o:-not known}"
+}
+# The engine's memory in MB, as a number (the sum of its processes' resident sizes), 0 when none.
+fn bw_enginemb() {
+	local o
+
+	o=$(ps -U "$(id -u)" -o rss=,comm= 2> /dev/null | awk '/hibr-wpe|WPEWebProcess|WPENetworkProcess/ { s += $1 } END { printf "%d", s / 1024 }')
+	ret "${o:-0}"
+}
+
+# When the engine holds more than 1.5 GB, said in the record (about:diagnostics): how much, and which sites are open -- once, and again only
+# after it has grown by a quarter -- so that "the browser ate all my memory" leaves the page that did it. Looked at every 20 seconds.
+declare -g BW_MEMAT=0 BW_MEMLAST=0
+fn bw_memwatch() {
+	local mb id t u h hosts=
+	local -a seen=()
+
+	[ $((EPOCHSECONDS - BW_MEMAT)) -ge 20 ] || return 0
+	BW_MEMAT=$EPOCHSECONDS
+	mb := bw_enginemb
+	if [ "$mb" -lt 1500 ]; then
+		BW_MEMLAST=0
+		return 0
+	fi
+	[ "$BW_MEMLAST" -gt 0 ] && [ "$mb" -lt $((BW_MEMLAST * 5 / 4)) ] && return 0
+	BW_MEMLAST=$mb
+	for id in "${!BW[@]}"; do
+		[ -n "${BW[$id]["cur"]-}" ] || continue
+		bw_tabs "$id"
+		for t in "${BW_TABS[@]}"; do
+			u := web url "$t" 2> /dev/null || continue
+			h := bw_host "$u"
+			[ -n "$h" ] && [[ " ${seen[*]} " != *" $h "* ]] && { seen+=("$h"); hosts+="${hosts:+, }$h"; }
+		done
+	done
+	bw_actlog "engine" "memory" "$mb MB held; open: ${hosts:-nothing}"
+	return 0
+}
+
+fn bw_memfree() {
+	local k v u t=0 a=0
+
+	while read -r k v u; do
+		case $k in MemTotal:) t=$v ;; MemAvailable:) a=$v ;; esac
+	done < /proc/meminfo
+	ret "$((a / 1024)) MB free of $((t / 1024)) MB"
+}
+
 # The Browser's two pages as one file in the cache, and the address of it opened at the view asked for (browser, diagnostics, or camera,
 # which is diagnostics under its old name).
 fn bw_aboutpage(name) {
@@ -3399,6 +3455,10 @@ fn bw_aboutpage(name) {
 		bw_arow "GStreamer" "$hv"
 		bw_arow "hibr-browser package" "${pk:-not installed from a package}"
 		bw_arow "hibr / Browser" "${HIBR_VERSION:-?} / $BW_VERSION"
+		fv := bw_enginemem
+		bw_arow "Memory the browser's engine holds" "$fv"
+		fv := bw_memfree
+		bw_arow "Memory on this computer" "$fv"
 		x=no; bw_has webrtc && x=yes
 		bw_arow "This engine can carry calls" "$x (WebKit with GStreamer 1.26 or newer)"
 		bw_arow "Allow Calls and Meetings" "$rtc"
