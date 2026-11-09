@@ -460,10 +460,10 @@
     },
     "apps/screens": {
       "title": "Screens",
-      "version": "3.1",
+      "version": "0.7.1",
       "kind": "apps",
       "bundle": "bundles/apps/screens.hibr",
-      "sha256": "5204ce325c161688d9b0726b8deb87c13d43c2c28fb2a381c6f67cab02561a1a",
+      "sha256": "a69169b27f04efd47c652e4e7b493b868d11f383051213922c4691f1dc2bb0bc",
       "about": "Programs in windows of their own, on X Screen or Wayland Screen\n\nprograms in windows of their own (Gitea #493): one list of programs, each run on the engine it chooses.\n\n  X Screen        Xvfb on the CPU: X11 programs, the clipboard both ways,                   and a window that fits, is a fixed size or is the                   program's own. Needs no GPU. (Gitea #290, #291)   Wayland Screen  Blit's gamescope bridge on the GPU: X11 and Wayland                   programs, frames handed over by descriptor, real key                   presses and releases through Blit's input route. Its                   size is the window's and its rate the display's.                   (Gitea #486)",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -475,7 +475,7 @@
           "kind": "control-panel",
           "as": "screensset.hibr",
           "path": "bundles/control-panel/screensset.hibr",
-          "sha256": "597d4cdade54d901c984ae4df28402945e31d5bde139b89fded584947490675a"
+          "sha256": "093d8fc8012b23f8bbda4dfe07995899bcecd40090c2bf682dcb5febdd407256"
         }
       ]
     },
@@ -1502,11 +1502,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.89",
+      "version": "3.90",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "c88366533cc7755ff9b38cea0640563a14ac59c64f2a61f4864fa9a5d7057cfe",
-      "about": "The desktop's own words in العربية (ar): 1585 strings, read right to left.",
+      "sha256": "cf61d8eef20f3149ea9c93a19a2ae1b63f157f280854935208bdde38fba385ba",
+      "about": "The desktop's own words in العربية (ar): 1586 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1928,10 +1928,10 @@
     },
     "screens": {
       "title": "Screens",
-      "version": "3.1",
+      "version": "0.7.1",
       "kind": "apps",
       "bundle": "bundles/apps/screens.hibr",
-      "sha256": "5204ce325c161688d9b0726b8deb87c13d43c2c28fb2a381c6f67cab02561a1a",
+      "sha256": "a69169b27f04efd47c652e4e7b493b868d11f383051213922c4691f1dc2bb0bc",
       "about": "Programs in windows of their own, on X Screen or Wayland Screen\n\nprograms in windows of their own (Gitea #493): one list of programs, each run on the engine it chooses.\n\n  X Screen        Xvfb on the CPU: X11 programs, the clipboard both ways,                   and a window that fits, is a fixed size or is the                   program's own. Needs no GPU. (Gitea #290, #291)   Wayland Screen  Blit's gamescope bridge on the GPU: X11 and Wayland                   programs, frames handed over by descriptor, real key                   presses and releases through Blit's input route. Its                   size is the window's and its rate the display's.                   (Gitea #486)",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
