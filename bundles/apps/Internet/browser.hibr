@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.46
+app browser "The web, in a window" 2.47
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1042,6 +1042,8 @@ fn bw_newtab(int id, url = "") {
 	BW[$id]["cur"]=$t
 	BW[$id]["err"]=
 	BW[$id]["sized"]=
+	# a page being loaded has the keys; a blank tab is where the address is typed
+	[ -n "$url" ] && [ "$url" != about:blank ] && BW[$id]["aed"]=
 	[ -z "$url" ] && [ -z "$app" ] && bw_editaddr "$id"
 	return 0
 }
@@ -1247,6 +1249,8 @@ fn bw_editaddr(int id) {
 	[ "$u" = about:blank ] && u=
 	BW[$id]["aed"]=1
 	BW[$id]["abuf"]=$u
+	BW[$id]["aedu"]=$u
+	BW[$id]["aedt"]=$t
 	BW[$id]["acur"]=${#u}
 	# All of it selected, so what is typed replaces it: the field's selection
 	# is set once it has been drawn, which is when it is the focused field.
@@ -1304,6 +1308,23 @@ fn bw_suggest(int id, text) {
 	ret "${out%$'\n'}"
 }
 
+# A page loaded -- by a menu, a bookmark, history, a shortcut, a link: whatever the way -- has the keys, not the address field that was
+# active before. The routes above give it up themselves; this is for any that do not: the field was given the keys, nothing has been typed
+# in it, and the tab it was for now shows another address (or another tab is on show). A field being typed in keeps them.
+fn bw_navfocus(int id) {
+	local t=${BW[$id]["cur"]-} u
+
+	[ "${BW[$id]["aed"]-}" = 1 ] || return 0
+	[ -n "$t" ] || return 0
+	[ "${BW[$id]["abuf"]-}" = "${BW[$id]["aedu"]-}" ] || return 0
+	u := web url "$t" 2> /dev/null || return 0
+	[ "$u" = about:blank ] && u=
+	if [ "$t" != "${BW[$id]["aedt"]-}" ] || [ "$u" != "${BW[$id]["aedu"]-}" ]; then
+		BW[$id]["aed"]=
+	fi
+	return 0
+}
+
 # Go where the address bar says.
 fn bw_goaddr(int id) {
 	local t=${BW[$id]["cur"]} a
@@ -1322,6 +1343,7 @@ fn bw_goaddr(int id) {
 fn browser_draw(int id, int h, int w, int row, int col) {
 	local t=${BW[$id]["cur"]} ph ar pt
 
+	bw_navfocus "$id"
 	bw_atpoll "$id"
 	bw_coverlist "$id"
 	dt_wclear "$id"
@@ -1434,6 +1456,7 @@ fn browser_dirty(int id) {
 	bw_atpoll "$id"
 	bw_activity
 	bw_memwatch
+	bw_navfocus "$id"
 	bw_coverlist "$id"
 	bw_askcheck "$id"
 	[ -n "${BW[$id]["askk"]-}" ] && [ "${BW[$id]["askt"]}" = "$t" ] && return 0
@@ -1936,9 +1959,9 @@ fn browser_key(int id, key) {
 	# decoder consumes them -- measured, both time out rather than arrive.
 	case $key in
 	f6 | ctrl-l) bw_editaddr "$id"; return 0 ;;
-	alt-b) [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
-	alt-f) [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
-	f5) [ -n "$t" ] && web reload "$t"; return 0 ;;
+	alt-b) BW[$id]["aed"]=; [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
+	alt-f) BW[$id]["aed"]=; [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
+	f5) BW[$id]["aed"]=; [ -n "$t" ] && web reload "$t"; return 0 ;;
 	esac
 	bw_drawmode
 	if [ "$BW_DRAWN" = text ]; then
@@ -1989,9 +2012,9 @@ fn browser_click(int id, int r, int c, btn = "") {
 	close:*) bw_closetab "$id" "${tag#close:}"; return 0 ;;
 	ask:*) bw_askanswer "$id" "${tag#ask:}"; return 0 ;;
 	newtab) bw_newtab "$id"; return 0 ;;
-	back) [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
-	forward) [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
-	reload) [ -n "$t" ] && web reload "$t"; return 0 ;;
+	back) BW[$id]["aed"]=; [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
+	forward) BW[$id]["aed"]=; [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
+	reload) BW[$id]["aed"]=; [ -n "$t" ] && web reload "$t"; return 0 ;;
 	sec | cap)
 		BW[$id]["ctx"]=site
 		local sr2=$((r + DT[$id]["row"])) sc2=$((c + DT[$id]["col"]))
@@ -3544,6 +3567,7 @@ fn bw_open(int id, url) {
 	local t=${BW[$id]["cur"]}
 
 	[ -n "$url" ] && url := bw_addr "$url"
+	BW[$id]["aed"]=
 	if [ -n "$t" ]; then
 		bw_sndarm "$t"
 		web go "$t" "$url"
@@ -3552,9 +3576,9 @@ fn bw_open(int id, url) {
 	fi
 }
 
-fn bw_back(int id) { [ -n "${BW[$id]["cur"]}" ] && web back "${BW[$id]["cur"]}" 2> /dev/null; return 0; }
-fn bw_fwd(int id) { [ -n "${BW[$id]["cur"]}" ] && web forward "${BW[$id]["cur"]}" 2> /dev/null; return 0; }
-fn bw_reload(int id) { [ -n "${BW[$id]["cur"]}" ] && web reload "${BW[$id]["cur"]}"; return 0; }
+fn bw_back(int id) { BW[$id]["aed"]=; [ -n "${BW[$id]["cur"]}" ] && web back "${BW[$id]["cur"]}" 2> /dev/null; return 0; }
+fn bw_fwd(int id) { BW[$id]["aed"]=; [ -n "${BW[$id]["cur"]}" ] && web forward "${BW[$id]["cur"]}" 2> /dev/null; return 0; }
+fn bw_reload(int id) { BW[$id]["aed"]=; [ -n "${BW[$id]["cur"]}" ] && web reload "${BW[$id]["cur"]}"; return 0; }
 
 # File > Save as PDF: the page shown, printed the way the browser prints
 # it, to a file chosen in the desktop's own save dialog -- in the downloads
