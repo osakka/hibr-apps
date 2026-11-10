@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.48
+app browser "The web, in a window" 2.49
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -2019,8 +2019,9 @@ fn browser_key(int id, key) {
 	[ "${BW[$id]["aed"]}" = 1 ] && return 1
 	bw_sndarm "$t"
 	web key "$t" "$key" 2> /dev/null || return 1
-	# a key that scrolls the page glides it too
-	case $key in up | down | pageup | pagedown | home | end | space | shift-space) bw_moving "$id" ;; esac
+	# a key the page is given is answered by a change in it -- a letter in a field, a scroll that glides: the window is drawn at the
+	# live rate (Control Panel > Desktop > Frames For Video) while it does, not held a terminal's 70 ms for each frame the engine wakes it with
+	bw_moving "$id"
 	return 0
 }
 
@@ -2072,6 +2073,7 @@ fn browser_click(int id, int r, int c, btn = "") {
 	bw_sndarm "$t"
 	[ -n "$t" ] && [ "$r" -ge "$pt" ] &&
 		web click "$t" $((r - pt)) $((c - 1)) 2> /dev/null
+	bw_moving "$id"
 	return 0
 }
 
