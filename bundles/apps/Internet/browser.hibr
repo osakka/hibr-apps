@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.47
+app browser "The web, in a window" 2.48
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -79,6 +79,9 @@ BW_ENGINE="${BW_ENGINE-auto}"
 BW_JS="${BW_JS-1}"
 BW_IMAGES="${BW_IMAGES-1}"
 BW_DARK="${BW_DARK-0}"
+# Whether pages are told the person prefers a dark look: follow the desktop (Control Panel > Appearance > Programs > Light or Dark),
+# always, or never. BW_DARK is what an older desktop, which has no such word, is asked by.
+BW_DARKMODE="${BW_DARKMODE-follow}"
 BW_ZOOM="${BW_ZOOM-100}"
 BW_UA="${BW_UA-}"
 BW_PROGRAM="${BW_PROGRAM-}"
@@ -107,7 +110,7 @@ BW_FRAMEMS="${BW_FRAMEMS-33}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_JS \
 	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
-	BW_AUTOPLAY BW_ADBLOCK
+	BW_AUTOPLAY BW_ADBLOCK BW_DARKMODE
 declare -gA BWX
 # A tab's sound: its player, the pipe into it, and when it was last
 # pressed, typed into or sent somewhere -- the moments a recording may
@@ -234,7 +237,7 @@ fn bw_apply(t) {
 	[ "$BW_IMAGES" = 1 ] || on=off
 	web set "$t" images "$on" 2> /dev/null
 	on=off
-	[ "$BW_DARK" = 1 ] && on=on
+	bw_isdark && on=on
 	web set "$t" dark "$on" 2> /dev/null
 	web set "$t" zoom "${BW_ZOOM:-100}" 2> /dev/null
 	web set "$t" ua "$BW_UA" 2> /dev/null
@@ -810,6 +813,29 @@ fn bw_appnote(tab, ti, bo = "") {
 			return 0
 		done
 	done
+	return 0
+}
+
+# Whether pages are asked for their dark look now: the setting says always or never, or follows the desktop's own light or dark
+# (dt_isdark, hibr 0.99.482 on) -- and on a desktop that does not have it, the old yes or no.
+fn bw_isdark() {
+	case $BW_DARKMODE in
+	always | on) return 0 ;;
+	never | off) return 1 ;;
+	esac
+	if dt_has dt_isdark; then
+		dt_isdark
+		return
+	fi
+	[ "$BW_DARK" = 1 ]
+}
+
+# The desktop's light or dark changed (dt_modehook, called once as it is given and each time the answer changes): every page is told.
+fn bw_modehook(mode = "") {
+	[ "$BW_DARKMODE" = follow ] || return 0
+	# no window open, nothing to tell (and nothing to start: a page's engine is not started by a look)
+	[ "${#BW[@]}" -gt 0 ] || return 0
+	bw_reapply
 	return 0
 }
 
@@ -4031,3 +4057,6 @@ browser_menus() {
 	fi
 	bw_dlmenu "$id"
 }
+
+# Follow the desktop's light or dark: pages are told when it changes. Registered last, as the hook is called at once.
+command -v dt_modehook > /dev/null && dt_modehook bw_modehook
