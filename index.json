@@ -458,27 +458,6 @@
         }
       ]
     },
-    "apps/screens": {
-      "title": "Screens",
-      "version": "0.7.3",
-      "kind": "apps",
-      "bundle": "bundles/apps/screens.hibr",
-      "sha256": "8748b328916d0a6749e56e541f3f701bc5a5b3b52751c9e5f94443c87aa35a94",
-      "about": "X11 programs in windows of their own, on an X Screen\n\nX11 programs in windows of their own (Gitea #493, #290, #291): one list of programs, each on an X Screen -- Xvfb on the CPU, the clipboard both ways, and a window that fits, is a fixed size or is the program's own. Needs no GPU. A Wayland program needs none of this: it opens in a window of the desktop's own (Programs in Windows, wm/native). The Wayland Screen engine, Blit's gamescope bridge, was taken out in 0.99.483 with the bridge itself (owner, 2026-11-10); a program the list still marks for it runs on an X Screen.\n\nX Screen runs Firefox, GTK and Qt programs, and anything else that speaks X11. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing. What a program copies -- its own Copy, ctrl-c in Firefox -- comes back as the desktop's clipboard (Gitea #424), and the desktop's Copy takes the X selection.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "screens",
-      "hibr": "0.99.474",
-      "modules": "xscr",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "screensset.hibr",
-          "path": "bundles/control-panel/screensset.hibr",
-          "sha256": "01af4a55272eb6ae873a0e6fa58a30c08143fb04193323aba8bafd5b6894ddd8"
-        }
-      ]
-    },
     "apps/switchboard": {
       "title": "Switchboard",
       "version": "0.5.56",
@@ -826,6 +805,17 @@
       "author": "Omar Sakka",
       "name": "menubar",
       "hibr": "0.99.453"
+    },
+    "control-panel/menuedit": {
+      "title": "Applications Menu",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/menuedit.hibr",
+      "sha256": "85189cd01e4838077adedc9edf5600c2f8409d2a74b37c07811c44bcfba4a8fa",
+      "about": "The Control Panel pane for what the Applications menu holds\n\nControl Panel > Applications Menu (Gitea #502): what the Applications menu holds besides the desktop's own apps. The programs installed on the machine are listed by themselves (wm/programs.hibr), each a row here that opens to change it, or Hide to take it off the menu; Add Program makes one of the person's own -- a name, a command, the folder under Applications it goes in, and whether it runs in a window of its own or in a Terminal window. What is changed here is the person's, kept as data in $XDG_DATA_HOME/hibr/menu.json, and wins over the machine's. Replaces Screens and its pane (owner, 2026-11-10). The dialog is pmfield.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "menuedit"
     },
     "control-panel/mouse": {
       "title": "Mouse",
@@ -1502,11 +1492,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.94",
+      "version": "3.95",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "c82b464c0b311e4720c684fca6c219e07374d3ac4cfee93dc7da5411ee17becc",
-      "about": "The desktop's own words in العربية (ar): 1568 strings, read right to left.",
+      "sha256": "b6825416edfb68c37ee9a8fc2a427e6a03b57dec3839def31169050c5c160ad6",
+      "about": "The desktop's own words in العربية (ar): 1532 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1926,19 +1916,6 @@
       "name": "files",
       "hibr": "0.99.451"
     },
-    "screens": {
-      "title": "Screens",
-      "version": "0.7.3",
-      "kind": "apps",
-      "bundle": "bundles/apps/screens.hibr",
-      "sha256": "8748b328916d0a6749e56e541f3f701bc5a5b3b52751c9e5f94443c87aa35a94",
-      "about": "X11 programs in windows of their own, on an X Screen\n\nX11 programs in windows of their own (Gitea #493, #290, #291): one list of programs, each on an X Screen -- Xvfb on the CPU, the clipboard both ways, and a window that fits, is a fixed size or is the program's own. Needs no GPU. A Wayland program needs none of this: it opens in a window of the desktop's own (Programs in Windows, wm/native). The Wayland Screen engine, Blit's gamescope bridge, was taken out in 0.99.483 with the bridge itself (owner, 2026-11-10); a program the list still marks for it runs on an X Screen.\n\nX Screen runs Firefox, GTK and Qt programs, and anything else that speaks X11. Each window starts an Xvfb of its own, a virtual X server that draws the screen into a file it maps, and the xscr module maps the same file and puts the screen into the window -- as pixels where the terminal can place them, half blocks where it cannot. Keys, clicks, drags, the wheel and paste go to it through XTEST; the screen is drawn only when the server says it changed (DAMAGE), so an idle or hidden one costs nothing. What a program copies -- its own Copy, ctrl-c in Firefox -- comes back as the desktop's clipboard (Gitea #424), and the desktop's Copy takes the X selection.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "screens",
-      "hibr": "0.99.474",
-      "modules": "xscr"
-    },
     "switchboard": {
       "title": "Switchboard",
       "version": "0.5.56",
@@ -2200,6 +2177,17 @@
       "author": "Omar Sakka",
       "name": "menubar",
       "hibr": "0.99.453"
+    },
+    "menuedit": {
+      "title": "Applications Menu",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/menuedit.hibr",
+      "sha256": "85189cd01e4838077adedc9edf5600c2f8409d2a74b37c07811c44bcfba4a8fa",
+      "about": "The Control Panel pane for what the Applications menu holds\n\nControl Panel > Applications Menu (Gitea #502): what the Applications menu holds besides the desktop's own apps. The programs installed on the machine are listed by themselves (wm/programs.hibr), each a row here that opens to change it, or Hide to take it off the menu; Add Program makes one of the person's own -- a name, a command, the folder under Applications it goes in, and whether it runs in a window of its own or in a Terminal window. What is changed here is the person's, kept as data in $XDG_DATA_HOME/hibr/menu.json, and wins over the machine's. Replaces Screens and its pane (owner, 2026-11-10). The dialog is pmfield.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "menuedit"
     },
     "mouse": {
       "title": "Mouse",
