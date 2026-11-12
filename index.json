@@ -941,15 +941,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.11",
+      "version": "1.11.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "16c104cf96386a522e3abeb8258c929bc03756f0c34d47ece2368e0b24d53659",
+      "sha256": "def274aabff78ce3be9d7dc8efa714035e1fe14026b607cb3385a1ddb67f6310",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, where its title sits, which glyphs the buttons are drawn with, the Title Bar Buttons list -- each button on or off, and on which side of the title -- Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.491"
+      "hibr": "0.99.499"
     },
     "control-panel/wiretap": {
       "title": "Wiretap",
@@ -1493,11 +1493,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.97",
+      "version": "3.98",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "33cfbac2d36cb4c9f5ef86396a90265585db439e480b41e75374260419274791",
-      "about": "The desktop's own words in العربية (ar): 1534 strings, read right to left.",
+      "sha256": "c1e8759d0bc03d027c0afd461787285de92cc9bfe481d27bda90697b4b48667d",
+      "about": "The desktop's own words in العربية (ar): 1535 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2277,15 +2277,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.11",
+      "version": "1.11.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "16c104cf96386a522e3abeb8258c929bc03756f0c34d47ece2368e0b24d53659",
+      "sha256": "def274aabff78ce3be9d7dc8efa714035e1fe14026b607cb3385a1ddb67f6310",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, where its title sits, which glyphs the buttons are drawn with, the Title Bar Buttons list -- each button on or off, and on which side of the title -- Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.491"
+      "hibr": "0.99.499"
     },
     "cursor": {
       "title": "Cursor",

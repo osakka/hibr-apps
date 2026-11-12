@@ -400,6 +400,9 @@ ENTHIBR["apps/calendar"]=0.99.495
 # Displays 1.2.1's Full Screen On sets DT_FULLON, which an older desktop
 # never declares (hibr Gitea #514).
 ENTHIBR["control-panel/displays"]=0.99.497
+# Windows 1.11.1's Remember Program Windows row sets DT_NATREMEMBER, which
+# an older desktop never declares (hibr Gitea #508).
+ENTHIBR["control-panel/windows"]=0.99.499
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
