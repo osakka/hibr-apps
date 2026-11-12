@@ -472,10 +472,10 @@
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.8",
+      "version": "1.8.1",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "d62067d083dfd9fbc62b11bbfc70e33397d3599dcb3046946c437fee14662e3d",
+      "sha256": "81470d2c3118d5c5128dc91cdc89b0cdf08a79e5dac83a295828408f33db347b",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -941,15 +941,15 @@
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.11.1",
+      "version": "1.11.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "def274aabff78ce3be9d7dc8efa714035e1fe14026b607cb3385a1ddb67f6310",
+      "sha256": "fadabf1d0b4de07e760daa6d0e616f0c647fe3473d8e8de1f524a452515dda1d",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, where its title sits, which glyphs the buttons are drawn with, the Title Bar Buttons list -- each button on or off, and on which side of the title -- Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.499"
+      "hibr": "0.99.503"
     },
     "control-panel/wiretap": {
       "title": "Wiretap",
@@ -1493,11 +1493,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.98",
+      "version": "3.99",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "c1e8759d0bc03d027c0afd461787285de92cc9bfe481d27bda90697b4b48667d",
-      "about": "The desktop's own words in العربية (ar): 1535 strings, read right to left.",
+      "sha256": "c2f56ac1ae7e8f898ece740c5b39dcd2b3926750f57c3e2167506679fc1716f3",
+      "about": "The desktop's own words in العربية (ar): 1537 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1931,10 +1931,10 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.8",
+      "version": "1.8.1",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "d62067d083dfd9fbc62b11bbfc70e33397d3599dcb3046946c437fee14662e3d",
+      "sha256": "81470d2c3118d5c5128dc91cdc89b0cdf08a79e5dac83a295828408f33db347b",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2277,15 +2277,15 @@
     },
     "windows": {
       "title": "Windows",
-      "version": "1.11.1",
+      "version": "1.11.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "def274aabff78ce3be9d7dc8efa714035e1fe14026b607cb3385a1ddb67f6310",
+      "sha256": "fadabf1d0b4de07e760daa6d0e616f0c647fe3473d8e8de1f524a452515dda1d",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, where its title sits, which glyphs the buttons are drawn with, the Title Bar Buttons list -- each button on or off, and on which side of the title -- Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.499"
+      "hibr": "0.99.503"
     },
     "cursor": {
       "title": "Cursor",
