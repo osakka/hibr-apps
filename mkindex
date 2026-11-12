@@ -388,6 +388,18 @@ ENTHIBR["apps/files"]=0.99.451
 # Archives 1.1 copies through _copyplan and _copyrun, which the copy window
 # reaches only from 0.99.442 (hibr ADR 0053).
 ENTHIBR["apps/archives"]=0.99.442
+# The Applications Menu pane edits the desktop's own list of programs
+# (dt_prog*), which is 0.99.489's (hibr Gitea #502).
+ENTHIBR["control-panel/menuedit"]=0.99.489
+# Windows 1.11's X11 Programs row sets DT_NATX11, which an older desktop
+# never declares (hibr Gitea #504).
+ENTHIBR["control-panel/windows"]=0.99.491
+# Calendar 1.9.1 draws its empty day's hint with dt_khint, 0.99.495's (hibr
+# Gitea #511): on an older desktop that day would be a command not found.
+ENTHIBR["apps/calendar"]=0.99.495
+# Displays 1.2.1's Full Screen On sets DT_FULLON, which an older desktop
+# never declares (hibr Gitea #514).
+ENTHIBR["control-panel/displays"]=0.99.497
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

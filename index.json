@@ -406,7 +406,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.336",
+      "hibr": "0.99.495",
       "modules": "dav db email pim",
       "parts": [
         {
@@ -733,7 +733,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "displays",
-      "hibr": "0.99.256"
+      "hibr": "0.99.497"
     },
     "control-panel/filetypes": {
       "title": "File Types",
@@ -815,7 +815,8 @@
       "about": "The Control Panel pane for what the Applications menu holds\n\nControl Panel > Applications Menu (Gitea #502): what the Applications menu holds besides the desktop's own apps. The programs installed on the machine are listed by themselves (wm/programs.hibr), each a row here that opens to change it, or Hide to take it off the menu; Add Program makes one of the person's own -- a name, a command, the folder under Applications it goes in, and whether it runs in a window of its own or in a Terminal window. What is changed here is the person's, kept as data in $XDG_DATA_HOME/hibr/menu.json, and wins over the machine's. Replaces Screens and its pane (owner, 2026-11-10). The dialog is pmfield.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "menuedit"
+      "name": "menuedit",
+      "hibr": "0.99.489"
     },
     "control-panel/mouse": {
       "title": "Mouse",
@@ -948,7 +949,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.463"
+      "hibr": "0.99.491"
     },
     "control-panel/wiretap": {
       "title": "Wiretap",
@@ -1888,7 +1889,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.336",
+      "hibr": "0.99.495",
       "modules": "dav db email pim"
     },
     "contacts": {
@@ -2118,7 +2119,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "displays",
-      "hibr": "0.99.256"
+      "hibr": "0.99.497"
     },
     "filetypes": {
       "title": "File Types",
@@ -2187,7 +2188,8 @@
       "about": "The Control Panel pane for what the Applications menu holds\n\nControl Panel > Applications Menu (Gitea #502): what the Applications menu holds besides the desktop's own apps. The programs installed on the machine are listed by themselves (wm/programs.hibr), each a row here that opens to change it, or Hide to take it off the menu; Add Program makes one of the person's own -- a name, a command, the folder under Applications it goes in, and whether it runs in a window of its own or in a Terminal window. What is changed here is the person's, kept as data in $XDG_DATA_HOME/hibr/menu.json, and wins over the machine's. Replaces Screens and its pane (owner, 2026-11-10). The dialog is pmfield.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "menuedit"
+      "name": "menuedit",
+      "hibr": "0.99.489"
     },
     "mouse": {
       "title": "Mouse",
@@ -2283,7 +2285,7 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "windows",
-      "hibr": "0.99.463"
+      "hibr": "0.99.491"
     },
     "cursor": {
       "title": "Cursor",
