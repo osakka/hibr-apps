@@ -1,5 +1,24 @@
 # Blit Control Panel
 
+## Keyboards, and one rule with Shortcuts (pane 0.1.31)
+
+Blit Keyboard says what each key is and what it types; what a combination
+of keys does is the desktop's Shortcuts pane, and the pane's first line
+says so. Its words are the desktop's: **Caps Lock Key Is** and **Super Key
+Is** offer Caps Lock, Control, Alt, Super and Nothing (Blit's `meta` is
+Super, `none` Nothing). When the desktop's Shortcut Key uses Super and
+Super is made another key here, a row says Super must stay Super: every
+Super shortcut, and the Super tap that opens the Start Menu, need it.
+
+The **Keyboards** section (Blit 0.3.93, ADR 0231) is live, like the font:
+**In Use**, **Remove <name>** and **Add Keyboard** (a layout from **Add
+Layout**, every layout the system has, and a **Variant**, Standard or one
+such as Arabic (Macintosh, phonetic), typed letter by letter) go to Blit at
+once. The draft takes the keyboards as Blit has them, so a Save never puts
+back a keyboard the desktop's switcher (its menu bar, Control Strip or
+shortcut) changed since. Blit refuses a keyboard the system does not have.
+Against an older Blit the section says it needs 0.3.93.
+
 ## Blit Keyboard (pane 0.1.30)
 
 A third pane in the bundle, **Blit Keyboard** under Hardware, for the

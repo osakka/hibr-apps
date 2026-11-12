@@ -84,9 +84,9 @@ Dir.mktmpdir('blit-keyboard') do |root|
       blit_keyboard_slide 46 delay 99999
       blit_cp_choose capsboot on
       blit_cp_choose numboot on
-      blit_cp_choose capskey control
-      blit_cp_choose superkey alt
-      blit_cp_choose capskey escape
+      blit_cp_choose capskey Control
+      blit_cp_choose superkey Alt
+      blit_cp_choose capskey Escape
       blit_cp_choices capsboot
       [ "${BCP_CHOICES[*]}" = 'off on' ] && [ "$BCP_CHOICE_CURRENT" = on ] || exit 15
       [ "${BCP_DRAFT[input_devices][$kid][repeat_delay_ms]}" = 400 ] || exit 16
@@ -113,8 +113,43 @@ Dir.mktmpdir('blit-keyboard') do |root|
       ! hasrow 46 "$n" "Repeat Delay" || { echo 'a non-repeating keyboard offered repeat'; exit 28; }
       hasrow 46 "$n" "This keyboard does not repeat keys" || exit 29
       [ -z "${BCP_SNAPSHOT[input_devices][devices][$p][configuration][caps_lock_boot]}" ] || exit 30
+      # The keyboards (Blit 0.3.93) are live, like the font: phonetic
+      # Arabic added from the system's layouts and variants and made the one
+      # in use at once. A device edit staged meanwhile, and a switch made
+      # outside the pane (as the desktop's switcher does), then Save: the
+      # switch stays, nothing is refused.
+      blit_cp_start refresh; finish
+      n := blit_keyboard_rows 46
+      hasrow 46 "$n" "In Use" || { echo "no keyboard list: ${BCP_KBLIVE[current]}"; exit 40; }
+      blit_cp_choose kbaddlayout Arabic; finish
+      [ "$BCP_KBADD_LAYOUT" = ara ] && [ -n "${BCP_KBVARS[variants][0][variant]}" ] || { echo "no ara variants: $BCP_STATUS"; exit 41; }
+      blit_cp_choose kbaddvariant "Arabic (Macintosh, phonetic)"
+      [ "$BCP_KBADD_VARIANT" = mac-phonetic ] || exit 42
+      blit_keyboard_do 46 kbadd 1; finish
+      [ "${BCP_KBLIVE[keyboards][1][variant]}" = mac-phonetic ] || { echo "not added: $(json emit BCP_KBLIVE)"; exit 43; }
+      blit_cp_choose kbcurrent "Arabic (Macintosh, phonetic)"; finish
+      [ "${BCP_KBLIVE[current]}" = 1 ] || exit 44
+      blit_cp_start refresh; finish
+      k := devindex 'Gate Keyboard'
+      blit_cp_choose kbdevice "${BCP_SNAPSHOT[input_devices][devices][$k][id]}"
+      blit_keyboard_slide 46 delay 500
+      /usr/bin/curl -s -o /dev/null -X PUT -H 'Content-Type: application/json' \
+          -d '{"current":0}' http://127.0.0.1:#{PORT}/v1/input/keyboards
+      blit_cp_start refresh; finish
+      blit_keyboard_do 46 save 1; finish
+      case $BCP_STATUS in Saved,*) echo "refused:$BCP_STATUS"; exit 45 ;; esac
+      [ "$BCP_DIRTY" = 0 ] || { echo "save after an outside switch: $BCP_STATUS"; exit 49; }
+      blit_cp_start refresh; finish
+      [ "${BCP_KBLIVE[current]}" = 0 ] && [ "${BCP_KBLIVE[keyboards][1][layout]}" = ara ] || { echo "Save put back the old keyboard: $(json emit BCP_KBLIVE)"; exit 46; }
+      blit_keyboard_do 46 kbremove:1 1; finish
+      [ -z "${BCP_KBLIVE[keyboards][1][layout]}" ] && [ "${BCP_KBLIVE[current]}" = 0 ] || exit 47
+      # The pane reads the settings again after a keyboard change (at its
+      # next tick); a test has no ticks, so it asks.
+      blit_cp_start refresh; finish
       # What Blit refuses is said, not reported as saved: repeat staged by
       # hand for the keyboard that does not repeat.
+      p := devindex 'Gate Keypad'
+      blit_cp_choose kbdevice "${BCP_SNAPSHOT[input_devices][devices][$p][id]}"
       blit_keyboard_put repeat_delay_ms 400
       blit_keyboard_do 46 save 1; finish
       case $BCP_STATUS in "Saved, but Blit refused 1:"*) ;; *) echo "refusal not shown:$BCP_STATUS"; exit 32 ;; esac

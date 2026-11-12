@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.30
+app blit "API configuration and diagnostics for the Blit display server" 0.1.31
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -55,6 +55,14 @@ BCP_BASE_DOC=
 BCP_BRIDGE_VERSION=
 BCP_POINTER_ID=
 BCP_KEYBOARD_ID=
+# The keyboards (layouts): the one being added and its variant (Blit's
+# list, the system's layouts and that layout's variants are BCP_KBLIVE,
+# BCP_KBAVAIL and BCP_KBVARS).
+BCP_KBADD_LAYOUT=
+BCP_KBADD_VARIANT=
+BCP_KBL=()
+BCP_KBV=()
+BCP_KBC=0
 BCP_DIR=
 BCP_BUSY=0
 BCP_STATUS="Connect to read the server"
@@ -70,7 +78,7 @@ BCP_INVALID=0
 BCP_REPLY=
 BCP_EDITKEY=
 DAV_CODE=
-declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS BCP_FX BCP_ZAP
+declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS BCP_FX BCP_ZAP BCP_KBLIVE BCP_KBAVAIL BCP_KBVARS
 declare -gA BCP_DROP_KEY
 declare -ga BCP_CHOICES
 BCP_CHOICE_CURRENT=
@@ -79,6 +87,9 @@ json parse BCP_LIVE '{}'
 json parse BCP_DRAFT '{}'
 json parse BCP_EFFECTS '{}'
 json parse BCP_ZAP '{}'
+json parse BCP_KBLIVE '{}'
+json parse BCP_KBAVAIL '{}'
+json parse BCP_KBVARS '{}'
 json parse BCP_FX '{}'
 
 # Desktop settings use executable text and no secret permissions. Keep only
@@ -202,6 +213,19 @@ fn blit_cp_work(what, method = "GET", path = "", body = "", revision = "") {
                     raw := json emit BCP_HTTP
                     json parse 'reply[zap]' "$raw"
                 fi
+                # The keyboards (Blit 0.3.93, ADR 0231): the list as Blit
+                # names them, and the layouts the system has. An older
+                # server leaves both empty.
+                json parse 'reply[keyboards]' '{}'
+                json parse 'reply[layouts]' '{}'
+                if blit_cp_http GET /v1/input/keyboards; then
+                    raw := json emit BCP_HTTP
+                    json parse 'reply[keyboards]' "$raw"
+                    if blit_cp_http GET /v1/input/keyboards/available; then
+                        raw := json emit BCP_HTTP
+                        json parse 'reply[layouts]' "$raw"
+                    fi
+                fi
             fi
         fi
         if [ "$ok" = 0 ]; then raw := json emit BCP_HTTP; json parse reply "$raw"; fi
@@ -311,6 +335,10 @@ fn blit_cp_done(int n, int st) {
         json parse BCP_EFFECTS "${raw:-"{}"}"
         raw := json get reply .zap
         json parse BCP_ZAP "${raw:-"{}"}"
+        raw := json get reply .keyboards
+        json parse BCP_KBLIVE "${raw:-"{}"}"
+        raw := json get reply .layouts
+        json parse BCP_KBAVAIL "${raw:-"{}"}"
         raw := json get BCP_SNAPSHOT .settings.document
         # This pane's effects follow the server's, unless a change of its
         # own is still on its way there.
@@ -332,6 +360,12 @@ fn blit_cp_done(int n, int st) {
             raw := json get BCP_SNAPSHOT .settings.document.effects 2> /dev/null || raw=
             if [ -n "$raw" ] && [ "$raw" != null ]; then json parse 'BCP_DRAFT[effects]' "$raw"
             else unset BCP_DRAFT["effects"]; fi
+            # The keyboards are live too (Blit's switchers change them): the
+            # draft takes them as they are, so a Save never puts back an old
+            # list or an old current one.
+            raw := json get BCP_SNAPSHOT .settings.document.keyboards 2> /dev/null || raw=
+            if [ -n "$raw" ] && [ "$raw" != null ]; then json parse 'BCP_DRAFT[keyboards]' "$raw"
+            else unset BCP_DRAFT["keyboards"]; fi
             BCP_BASE_REV=${BCP_SNAPSHOT[settings][revision]}
             BCP_BASE_DOC=$raw
         fi
@@ -416,6 +450,19 @@ fn blit_cp_done(int n, int st) {
         BCP_STATUS="Applied and saved"
         BCP_LAST=0
         BCP_NEXT=0
+        ;;
+    kbput)
+        raw := json emit reply
+        json parse BCP_KBLIVE "$raw"
+        BCP_STATUS="Keyboards: in use $(blit_kb_name "${BCP_KBLIVE[keyboards][${BCP_KBLIVE[current]}][layout]}" "${BCP_KBLIVE[keyboards][${BCP_KBLIVE[current]}][variant]}")"
+        # The settings moved with it: read them, the draft rebased.
+        BCP_LAST=0
+        BCP_NEXT=0
+        ;;
+    kbvariants)
+        raw := json emit reply
+        json parse BCP_KBVARS "$raw"
+        BCP_STATUS="Connected: ${BCP_SNAPSHOT[version][server_version]}"
         ;;
     font)
         BCP_FONT_SIZE_REQUESTED=
@@ -535,8 +582,8 @@ fn blit_cp_liveonly(a, b) {
     [ -n "$a" ] && [ -n "$b" ] || return 1
     json parse da "$a" 2> /dev/null || return 1
     json parse db "$b" 2> /dev/null || return 1
-    unset da["font"] da["revision"] da["effects"] da["hud"] \
-        db["font"] db["revision"] db["effects"] db["hud"]
+    unset da["font"] da["revision"] da["effects"] da["hud"] da["keyboards"] \
+        db["font"] db["revision"] db["effects"] db["hud"] db["keyboards"]
     x := json emit da
     y := json emit db
     [ "$x" = "$y" ]
@@ -1137,13 +1184,33 @@ fn blit_cp_choices(key) {
         if [ -n "${cfg[$name]+x}" ]; then BCP_CHOICES=(off on); BCP_CHOICE_CURRENT=off
             [ "${cfg[$name]}" != true ] || BCP_CHOICE_CURRENT=on
         else BCP_CHOICES=(unset off on); BCP_CHOICE_CURRENT=unset; fi ;;
+    kbcurrent)
+        blit_kb_list
+        for ((i = 0; i < ${#BCP_KBL[@]}; i++)); do
+            name := blit_kb_name "${BCP_KBL[$i]}" "${BCP_KBV[$i]}"; BCP_CHOICES+=("$name")
+        done
+        BCP_CHOICE_CURRENT := blit_kb_name "${BCP_KBL[$BCP_KBC]}" "${BCP_KBV[$BCP_KBC]}" ;;
+    kbaddlayout)
+        while [ -n "${BCP_KBAVAIL[layouts][$i][layout]}" ]; do
+            BCP_CHOICES+=("${BCP_KBAVAIL[layouts][$i][name]}"); i=$((i + 1))
+        done
+        BCP_CHOICE_CURRENT := blit_kb_name "$BCP_KBADD_LAYOUT" "" ;;
+    kbaddvariant)
+        BCP_CHOICES=(Standard)
+        while [ -n "${BCP_KBVARS[variants][$i][variant]}" ]; do
+            BCP_CHOICES+=("${BCP_KBVARS[variants][$i][name]}"); i=$((i + 1))
+        done
+        BCP_CHOICE_CURRENT=Standard
+        if [ -n "$BCP_KBADD_VARIANT" ]; then BCP_CHOICE_CURRENT := blit_kb_name "$BCP_KBADD_LAYOUT" "$BCP_KBADD_VARIANT"; fi ;;
     capskey | superkey)
         i := blit_keyboard_index; [ "$i" -ge 0 ] || return 0
         raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
         if [ "$key" = capskey ]; then
-            BCP_CHOICES=(caps_lock control alt meta none); BCP_CHOICE_CURRENT=${cfg[modifiers][58]:-caps_lock}
+            BCP_CHOICES=("Caps Lock" Control Alt Super Nothing)
+            BCP_CHOICE_CURRENT := blit_role_word "${cfg[modifiers][58]:-caps_lock}"
         else
-            BCP_CHOICES=(meta control alt none); BCP_CHOICE_CURRENT=${cfg[modifiers][125]:-meta}
+            BCP_CHOICES=(Super Control Alt Nothing)
+            BCP_CHOICE_CURRENT := blit_role_word "${cfg[modifiers][125]:-meta}"
         fi ;;
     acceleration)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
@@ -1162,7 +1229,7 @@ fn blit_cp_choose(key, value) {
     # rest change the staged draft, which a background refresh leaves alone
     # once it has been edited. Refusing them all while a quiet refresh ran
     # dropped a click on a dropdown for as long as the refresh took.
-    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ]; } || return 0
+    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ] && [ "$key" != kbcurrent ] && [ "$key" != kbaddlayout ]; } || return 0
     blit_cp_choices "$key"
     for option in "${BCP_CHOICES[@]}"; do [ "$option" != "$value" ] || valid=1; done
     [ "$valid" = 1 ] || return 0
@@ -1200,8 +1267,34 @@ fn blit_cp_choose(key, value) {
         option=false; [ "$value" != on ] || option=true
         if [ "$key" = capsboot ]; then blit_keyboard_put caps_lock_boot "$option";
         else blit_keyboard_put num_lock_boot "$option"; fi ;;
-    capskey) blit_keyboard_put modifiers.58 "$value" -s ;;
-    superkey) blit_keyboard_put modifiers.125 "$value" -s; blit_keyboard_put modifiers.126 "$value" -s ;;
+    kbcurrent)
+        blit_kb_list
+        for ((option = 0; option < ${#BCP_KBL[@]}; option++)); do
+            body := blit_kb_name "${BCP_KBL[$option]}" "${BCP_KBV[$option]}"
+            [ "$body" != "$value" ] || { BCP_KBC=$option; blit_kb_store 1; break; }
+        done ;;
+    kbaddlayout)
+        option=0
+        while [ -n "${BCP_KBAVAIL[layouts][$option][layout]}" ]; do
+            if [ "${BCP_KBAVAIL[layouts][$option][name]}" = "$value" ]; then
+                BCP_KBADD_LAYOUT=${BCP_KBAVAIL[layouts][$option][layout]}; BCP_KBADD_VARIANT=
+                json parse BCP_KBVARS '{}'
+                blit_cp_start kbvariants GET "/v1/input/keyboards/available?layout=$BCP_KBADD_LAYOUT"
+                break
+            fi
+            option=$((option + 1))
+        done ;;
+    kbaddvariant)
+        BCP_KBADD_VARIANT=
+        option=0
+        while [ -n "${BCP_KBVARS[variants][$option][variant]}" ]; do
+            [ "${BCP_KBVARS[variants][$option][name]}" != "$value" ] ||
+                { BCP_KBADD_VARIANT=${BCP_KBVARS[variants][$option][variant]}; break; }
+            option=$((option + 1))
+        done ;;
+    capskey) option := blit_role_value "$value"; blit_keyboard_put modifiers.58 "$option" -s ;;
+    superkey) option := blit_role_value "$value"
+        blit_keyboard_put modifiers.125 "$option" -s; blit_keyboard_put modifiers.126 "$option" -s ;;
     acceleration) option=0; [ "$value" != adaptive ] || option=1; blit_mouse_slide 0 acceleration "$option" ;;
     esac
     return 0
@@ -1211,7 +1304,7 @@ fn blit_cp_selected(int w, value) {
     blit_cp_choose "${BCP_DROP_KEY[$w]}" "$value"
 }
 fn blit_drop(int w, int r, int c, key) {
-    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ]; } || return 0
+    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ] && [ "$key" != kbcurrent ] && [ "$key" != kbaddlayout ]; } || return 0
     blit_cp_choices "$key"
     [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
     BCP_DROP_KEY[$w]=$key
@@ -1567,11 +1660,92 @@ fn blit_keyboard_put(field, value, kind = "") {
     return 0
 }
 
+# The keyboards as Blit has them now (GET /v1/input/keyboards, Blit
+# 0.3.93): BCP_KBL layouts, BCP_KBV variants, BCP_KBC the current one.
+# They are live, like the font: a change goes to Blit at once.
+fn blit_kb_list() {
+    local i=0
+    BCP_KBL=(); BCP_KBV=(); BCP_KBC=${BCP_KBLIVE[current]:-0}
+    while [ -n "${BCP_KBLIVE[keyboards][$i][layout]}" ]; do
+        BCP_KBL+=("${BCP_KBLIVE[keyboards][$i][layout]}")
+        BCP_KBV+=("${BCP_KBLIVE[keyboards][$i][variant]}")
+        i=$((i + 1))
+    done
+    [ "${#BCP_KBL[@]}" -gt 0 ] || { BCP_KBL=(us); BCP_KBV=(""); BCP_KBC=0; }
+    [ "$BCP_KBC" -lt "${#BCP_KBL[@]}" ] || BCP_KBC=0
+    return 0
+}
+# BCP_KBL, BCP_KBV and BCP_KBC to Blit at once (PUT /v1/input/keyboards);
+# `current` alone when only the one in use changed.
+fn blit_kb_store(only_current = 0) {
+    local i text='{"keyboards":['
+    if [ "$only_current" = 1 ]; then
+        text="{\"current\":$BCP_KBC}"
+    else
+        for ((i = 0; i < ${#BCP_KBL[@]}; i++)); do
+            [ "$i" = 0 ] || text+=','
+            text+="{\"layout\":\"${BCP_KBL[$i]}\",\"variant\":\"${BCP_KBV[$i]}\"}"
+        done
+        text+="],\"current\":$BCP_KBC}"
+    fi
+    blit_cp_start kbput PUT /v1/input/keyboards "$text"
+    return 0
+}
+# A keyboard's name: as Blit names the ones it has, else the system's
+# layout (with the variant's name when listed), else its own names.
+fn blit_kb_name(layout, variant = "") {
+    local i=0
+    while [ -n "${BCP_KBLIVE[keyboards][$i][layout]}" ]; do
+        if [ "${BCP_KBLIVE[keyboards][$i][layout]}" = "$layout" ] &&
+           [ "${BCP_KBLIVE[keyboards][$i][variant]}" = "$variant" ]; then
+            ret "${BCP_KBLIVE[keyboards][$i][name]}"; return 0
+        fi
+        i=$((i + 1))
+    done
+    if [ -n "$variant" ] && [ "${BCP_KBVARS[layout]}" = "$layout" ]; then
+        i=0
+        while [ -n "${BCP_KBVARS[variants][$i][variant]}" ]; do
+            [ "${BCP_KBVARS[variants][$i][variant]}" != "$variant" ] ||
+                { ret "${BCP_KBVARS[variants][$i][name]}"; return 0; }
+            i=$((i + 1))
+        done
+    fi
+    if [ -z "$variant" ]; then
+        i=0
+        while [ -n "${BCP_KBAVAIL[layouts][$i][layout]}" ]; do
+            [ "${BCP_KBAVAIL[layouts][$i][layout]}" != "$layout" ] ||
+                { ret "${BCP_KBAVAIL[layouts][$i][name]}"; return 0; }
+            i=$((i + 1))
+        done
+    fi
+    if [ -n "$variant" ]; then ret "$layout $variant"; else ret "$layout"; fi
+    return 0
+}
+
+# A modifier role in the desktop's words (Super, not meta), and back.
+fn blit_role_word(role) {
+    case $role in
+    caps_lock) ret "Caps Lock" ;; control) ret Control ;; alt) ret Alt ;; meta) ret Super ;;
+    altgr) ret AltGr ;; shift) ret Shift ;; num_lock) ret "Num Lock" ;; none) ret Nothing ;;
+    *) ret "$role" ;;
+    esac
+}
+fn blit_role_value(word) {
+    case $word in
+    "Caps Lock") ret caps_lock ;; Control) ret control ;; Alt) ret alt ;; Super) ret meta ;;
+    AltGr) ret altgr ;; Shift) ret shift ;; "Num Lock") ret num_lock ;; Nothing) ret none ;;
+    *) ret "$word" ;;
+    esac
+}
+
 fn blit_keyboard_rows(int w) {
     local n=0 i value raw
     local -A cfg
     blit_cp_tick "$w"
     blit_cp_row "$w" "$n" head "Blit keyboards"; n=$((n + 1))
+    # One rule: this pane says what each key is and what it types; what a
+    # combination of keys does is the desktop's Shortcuts pane.
+    blit_cp_row "$w" "$n" info "What keys are and type. What shortcuts do: Shortcuts"; n=$((n + 1))
     blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
     blit_cp_row "$w" "$n" action "API Token (remembered)" "" token; n=$((n + 1))
     blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
@@ -1601,14 +1775,45 @@ fn blit_keyboard_rows(int w) {
         blit_cp_row "$w" "$n" set "Caps Lock at Start" "$value" capsboot; n=$((n + 1))
         value=unset; [ -z "${cfg[num_lock_boot]+x}" ] || { value=off; [ "${cfg[num_lock_boot]}" != true ] || value=on; }
         blit_cp_row "$w" "$n" set "Num Lock at Start" "$value" numboot; n=$((n + 1))
-        blit_cp_row "$w" "$n" set "Caps Lock Key Is" "${cfg[modifiers][58]:-caps_lock}" capskey; n=$((n + 1))
-        blit_cp_row "$w" "$n" set "Super Key Is" "${cfg[modifiers][125]:-meta}" superkey; n=$((n + 1))
+        value := blit_role_word "${cfg[modifiers][58]:-caps_lock}"
+        blit_cp_row "$w" "$n" set "Caps Lock Key Is" "$value" capskey; n=$((n + 1))
+        value := blit_role_word "${cfg[modifiers][125]:-meta}"
+        blit_cp_row "$w" "$n" set "Super Key Is" "$value" superkey; n=$((n + 1))
         blit_cp_row "$w" "$n" info "Super is the Search key on a Chromebook"; n=$((n + 1))
+        # The desktop's Shortcut Key (its Shortcuts pane) is Super, or may
+        # be: Super made another key here takes that key, and the Super tap
+        # that opens the Start Menu, away from every shortcut.
+        case " ${DT_MOD:-} " in
+        *" super "*) [ "${cfg[modifiers][125]:-meta}" = meta ] ||
+            { blit_cp_row "$w" "$n" info "Shortcuts use Super: Super must stay Super"; n=$((n + 1)); } ;;
+        esac
     fi
-    # Layouts (Blit ADR 0231, proposed) will be listed here, one list for
-    # every keyboard; until then Blit types US.
-    blit_cp_row "$w" "$n" head "Keyboards"; n=$((n + 1))
-    blit_cp_row "$w" "$n" info "US (built in)"; n=$((n + 1))
+    # The keyboards (layouts) Blit types with, one list for every keyboard,
+    # staged like the rest (Blit 0.3.93, ADR 0231).
+    blit_cp_row "$w" "$n" head "Keyboards (live)"; n=$((n + 1))
+    if [ -z "${BCP_KBLIVE[current]}" ]; then
+        blit_cp_row "$w" "$n" info "Keyboards other than US need Blit 0.3.93"; n=$((n + 1))
+    else
+        blit_kb_list
+        value := blit_kb_name "${BCP_KBL[$BCP_KBC]}" "${BCP_KBV[$BCP_KBC]}"
+        blit_cp_row "$w" "$n" set "In Use" "$value" kbcurrent; n=$((n + 1))
+        for ((i = 0; i < ${#BCP_KBL[@]}; i++)); do
+            value := blit_kb_name "${BCP_KBL[$i]}" "${BCP_KBV[$i]}"
+            if [ "${#BCP_KBL[@]}" -gt 1 ]; then
+                blit_cp_row "$w" "$n" action "Remove $value" "" "kbremove:$i"; n=$((n + 1))
+            else
+                blit_cp_row "$w" "$n" info "$value"; n=$((n + 1))
+            fi
+        done
+        value := blit_kb_name "$BCP_KBADD_LAYOUT" ""
+        blit_cp_row "$w" "$n" set "Add Layout" "${value:-choose}" kbaddlayout; n=$((n + 1))
+        if [ -n "$BCP_KBADD_LAYOUT" ]; then
+            value=Standard
+            if [ -n "$BCP_KBADD_VARIANT" ]; then value := blit_kb_name "$BCP_KBADD_LAYOUT" "$BCP_KBADD_VARIANT"; fi
+            blit_cp_row "$w" "$n" set Variant "$value" kbaddvariant; n=$((n + 1))
+            blit_cp_row "$w" "$n" action "Add Keyboard" "" kbadd; n=$((n + 1))
+        fi
+    fi
     blit_cp_row "$w" "$n" action "Save all staged Blit settings" "rev $BCP_BASE_REV" save; n=$((n + 1))
     blit_cp_row "$w" "$n" info Storage "${BCP_SNAPSHOT[settings][storage][state]}"; n=$((n + 1))
     ret "$n"
@@ -1626,6 +1831,27 @@ fn blit_keyboard_do(int w, key, int dir) {
     local value raw i
     local -A cfg
     case $key in
+    kbremove:*)
+        [ "$BCP_BUSY" = 0 ] || return 0
+        blit_kb_list
+        value=${key#kbremove:}
+        [ "${#BCP_KBL[@]}" -gt 1 ] && [ "$value" -lt "${#BCP_KBL[@]}" ] || return 0
+        BCP_KBL=("${BCP_KBL[@]:0:$value}" "${BCP_KBL[@]:$((value + 1))}")
+        BCP_KBV=("${BCP_KBV[@]:0:$value}" "${BCP_KBV[@]:$((value + 1))}")
+        [ "$BCP_KBC" -lt "$value" ] || [ "$BCP_KBC" = 0 ] || BCP_KBC=$((BCP_KBC - 1))
+        blit_kb_store ;;
+    kbadd)
+        [ "$BCP_BUSY" = 0 ] && [ -n "$BCP_KBADD_LAYOUT" ] || return 0
+        blit_kb_list
+        [ "${#BCP_KBL[@]}" -lt 16 ] || return 0
+        BCP_KBL+=("$BCP_KBADD_LAYOUT"); BCP_KBV+=("$BCP_KBADD_VARIANT")
+        BCP_KBADD_LAYOUT=; BCP_KBADD_VARIANT=
+        blit_kb_store ;;
+    kbcurrent | kbaddlayout | kbaddvariant)
+        blit_cp_choices "$key"
+        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
+        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
+        blit_cp_choose "$key" "$value" ;;
     kbdevice | capsboot | numboot | capskey | superkey)
         blit_cp_choices "$key"
         [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
