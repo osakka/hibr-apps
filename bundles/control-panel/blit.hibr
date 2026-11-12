@@ -13,9 +13,10 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.29
+app blit "API configuration and diagnostics for the Blit display server" 0.1.30
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
+command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
 command -v cp_pane > /dev/null && cp_pane blit_effects "Blit Effects" "◐" hardware
 
 BCP_URL=${BCP_URL:-${BLIT_CP_URL:-http://127.0.0.1:8080}}
@@ -53,6 +54,7 @@ BCP_BASE_DOC=
 # this computer, asked once ("" until asked, "-" when it is not installed).
 BCP_BRIDGE_VERSION=
 BCP_POINTER_ID=
+BCP_KEYBOARD_ID=
 BCP_DIR=
 BCP_BUSY=0
 BCP_STATUS="Connect to read the server"
@@ -371,6 +373,9 @@ fn blit_cp_done(int n, int st) {
         BCP_BASE_DOC=$raw
         BCP_DIRTY=0
         BCP_STATUS="Save: ${reply[storage][state]} (revision ${reply[storage][saved_revision]})"
+        # Blit saves the document and applies what it can; a device it
+        # refused is named, not reported as saved and in force.
+        [ "${reply[refused]:-0}" = 0 ] || BCP_STATUS="Saved, but Blit refused ${reply[refused]}: ${reply[refusal]}"
         ;;
     effects)
         # Applied and saved. The settings now hold BCP_FX; a draft with no
@@ -1115,6 +1120,31 @@ fn blit_cp_choices(key) {
             i=$((i + 1))
         done
         BCP_CHOICE_CURRENT=$BCP_POINTER_ID ;;
+    kbdevice)
+        i=0
+        while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" ]; do
+            if blit_keyboard_is_keyboard "$i"; then BCP_CHOICES+=("${BCP_SNAPSHOT[input_devices][devices][$i][id]}"); fi
+            i=$((i + 1))
+        done
+        i := blit_keyboard_index
+        BCP_CHOICE_CURRENT=$BCP_KEYBOARD_ID ;;
+    capsboot | numboot)
+        i := blit_keyboard_index; [ "$i" -ge 0 ] || return 0
+        raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
+        name=caps_lock_boot; [ "$key" = capsboot ] || name=num_lock_boot
+        # Unset leaves the lamp as the keyboard had it; Blit takes no null,
+        # so once set it is off or on.
+        if [ -n "${cfg[$name]+x}" ]; then BCP_CHOICES=(off on); BCP_CHOICE_CURRENT=off
+            [ "${cfg[$name]}" != true ] || BCP_CHOICE_CURRENT=on
+        else BCP_CHOICES=(unset off on); BCP_CHOICE_CURRENT=unset; fi ;;
+    capskey | superkey)
+        i := blit_keyboard_index; [ "$i" -ge 0 ] || return 0
+        raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
+        if [ "$key" = capskey ]; then
+            BCP_CHOICES=(caps_lock control alt meta none); BCP_CHOICE_CURRENT=${cfg[modifiers][58]:-caps_lock}
+        else
+            BCP_CHOICES=(meta control alt none); BCP_CHOICE_CURRENT=${cfg[modifiers][125]:-meta}
+        fi ;;
     acceleration)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
         raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
@@ -1164,6 +1194,14 @@ fn blit_cp_choose(key, value) {
         body := json emit payload; blit_cp_start font PUT /v1/fonts "$body" ;;
     shape | palette) json set BCP_DRAFT ".pointer.$key" "$value" -s; BCP_DIRTY=1 ;;
     device) BCP_POINTER_ID=$value ;;
+    kbdevice) BCP_KEYBOARD_ID=$value ;;
+    capsboot | numboot)
+        [ "$value" != unset ] || return 0
+        option=false; [ "$value" != on ] || option=true
+        if [ "$key" = capsboot ]; then blit_keyboard_put caps_lock_boot "$option";
+        else blit_keyboard_put num_lock_boot "$option"; fi ;;
+    capskey) blit_keyboard_put modifiers.58 "$value" -s ;;
+    superkey) blit_keyboard_put modifiers.125 "$value" -s; blit_keyboard_put modifiers.126 "$value" -s ;;
     acceleration) option=0; [ "$value" != adaptive ] || option=1; blit_mouse_slide 0 acceleration "$option" ;;
     esac
     return 0
@@ -1482,6 +1520,129 @@ fn blit_mouse_do(int w, key, int dir) {
     *) blit_do "$w" "$key" "$dir" ;;
     esac
     return 0
+}
+
+# A third native pane in the same bundle: the physical keyboard, as Blit
+# keeps it per device (repeat, the lock lamps at start, which key is which
+# modifier). Hibr's own Keyboard pane keeps how keys reach a terminal and
+# its Shortcuts pane what the desktop does with them; neither is here.
+fn blit_keyboard_is_keyboard(int i) {
+    local j=0
+    [ "${BCP_SNAPSHOT[input_devices][devices][$i][state][present]}" = true ] || return 1
+    while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][kinds][$j]}" ]; do
+        [ "${BCP_SNAPSHOT[input_devices][devices][$i][kinds][$j]}" != keyboard ] || return 0
+        j=$((j + 1))
+    done
+    return 1
+}
+fn blit_keyboard_index() {
+    local i=0 first=-1
+    while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" ]; do
+        if blit_keyboard_is_keyboard "$i"; then
+            [ "$first" -ge 0 ] || first=$i
+            [ "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" != "$BCP_KEYBOARD_ID" ] || { ret "$i"; return 0; }
+        fi
+        i=$((i + 1))
+    done
+    [ "$first" -lt 0 ] || BCP_KEYBOARD_ID=${BCP_SNAPSHOT[input_devices][devices][$first][id]}
+    ret "$first"
+}
+# The chosen keyboard's configuration: the staged draft's, else Blit's.
+fn blit_keyboard_raw(int i) {
+    local raw
+    raw := json get BCP_DRAFT ".input_devices[$BCP_KEYBOARD_ID]" 2> /dev/null || raw=null
+    if [ "$raw" = null ] || [ -z "$raw" ]; then raw := json get BCP_SNAPSHOT ".input_devices.devices[$i].configuration"; fi
+    ret "$raw"
+}
+# Stage one field of the chosen keyboard's configuration, the rest kept.
+fn blit_keyboard_put(field, value, kind = "") {
+    local i raw
+    local -A cfg
+    i := blit_keyboard_index; [ "$i" -ge 0 ] || return 0
+    raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
+    if [ "$kind" = -s ]; then json set cfg ".$field" "$value" -s; else json set cfg ".$field" "$value"; fi
+    raw := json emit cfg
+    json parse "BCP_DRAFT[input_devices][$BCP_KEYBOARD_ID]" "$raw"
+    BCP_DIRTY=1
+    return 0
+}
+
+fn blit_keyboard_rows(int w) {
+    local n=0 i value raw
+    local -A cfg
+    blit_cp_tick "$w"
+    blit_cp_row "$w" "$n" head "Blit keyboards"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action Server "$BCP_URL" url; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "API Token (remembered)" "" token; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
+    [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
+    blit_cp_row "$w" "$n" head "Physical keyboard (staged until Save)"; n=$((n + 1))
+    i := blit_keyboard_index
+    if [ "$i" -lt 0 ]; then
+        blit_cp_row "$w" "$n" info "No present keyboard"; n=$((n + 1))
+    else
+        blit_cp_row "$w" "$n" set Device "${BCP_SNAPSHOT[input_devices][devices][$i][name]}" kbdevice; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "$BCP_KEYBOARD_ID"; n=$((n + 1))
+        raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
+        # Blit reports repeat only for a keyboard that repeats, as the
+        # kernel holds it, so the rows read back what took effect.
+        if [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][configuration][repeat_delay_ms]+x}" ]; then
+            value=${cfg[repeat_delay_ms]:-250}
+            blit_cp_row "$w" "$n" set "Repeat Delay" "$value" delay slider
+            CP[$w][$n][min]=100; CP[$w][$n][max]=2000; CP[$w][$n][after]="($value ms)"; n=$((n + 1))
+            value=${cfg[repeat_rate_hz]:-33}
+            blit_cp_row "$w" "$n" set "Repeat Rate" "$value" rate slider
+            CP[$w][$n][min]=1; CP[$w][$n][max]=100; CP[$w][$n][after]="($value a second)"; n=$((n + 1))
+        else
+            blit_cp_row "$w" "$n" info "This keyboard does not repeat keys"; n=$((n + 1))
+        fi
+        value=unset; [ -z "${cfg[caps_lock_boot]+x}" ] || { value=off; [ "${cfg[caps_lock_boot]}" != true ] || value=on; }
+        blit_cp_row "$w" "$n" set "Caps Lock at Start" "$value" capsboot; n=$((n + 1))
+        value=unset; [ -z "${cfg[num_lock_boot]+x}" ] || { value=off; [ "${cfg[num_lock_boot]}" != true ] || value=on; }
+        blit_cp_row "$w" "$n" set "Num Lock at Start" "$value" numboot; n=$((n + 1))
+        blit_cp_row "$w" "$n" set "Caps Lock Key Is" "${cfg[modifiers][58]:-caps_lock}" capskey; n=$((n + 1))
+        blit_cp_row "$w" "$n" set "Super Key Is" "${cfg[modifiers][125]:-meta}" superkey; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "Super is the Search key on a Chromebook"; n=$((n + 1))
+    fi
+    # Layouts (Blit ADR 0231, proposed) will be listed here, one list for
+    # every keyboard; until then Blit types US.
+    blit_cp_row "$w" "$n" head "Keyboards"; n=$((n + 1))
+    blit_cp_row "$w" "$n" info "US (built in)"; n=$((n + 1))
+    blit_cp_row "$w" "$n" action "Save all staged Blit settings" "rev $BCP_BASE_REV" save; n=$((n + 1))
+    blit_cp_row "$w" "$n" info Storage "${BCP_SNAPSHOT[settings][storage][state]}"; n=$((n + 1))
+    ret "$n"
+}
+
+fn blit_keyboard_slide(int w, key, int value) {
+    case $key in
+    delay) [ "$value" -ge 100 ] && [ "$value" -le 2000 ] || return 0; blit_keyboard_put repeat_delay_ms "$value" ;;
+    rate) [ "$value" -ge 1 ] && [ "$value" -le 100 ] || return 0; blit_keyboard_put repeat_rate_hz "$value" ;;
+    esac
+    return 0
+}
+
+fn blit_keyboard_do(int w, key, int dir) {
+    local value raw i
+    local -A cfg
+    case $key in
+    kbdevice | capsboot | numboot | capskey | superkey)
+        blit_cp_choices "$key"
+        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
+        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
+        blit_cp_choose "$key" "$value" ;;
+    delay | rate)
+        i := blit_keyboard_index; [ "$i" -ge 0 ] || return 0
+        raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
+        if [ "$key" = delay ]; then value=$(( ${cfg[repeat_delay_ms]:-250} + dir * 25 ));
+        else value=$(( ${cfg[repeat_rate_hz]:-33} + dir )); fi
+        blit_keyboard_slide "$w" "$key" "$value" ;;
+    *) blit_do "$w" "$key" "$dir" ;;
+    esac
+    return 0
+}
+fn blit_keyboard_drop(int w, int r, int c, key) {
+    blit_drop "$w" "$r" "$c" "$key"
 }
 
 fn blit_cp_exported(path, context = "") {

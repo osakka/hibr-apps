@@ -1,5 +1,30 @@
 # Blit Control Panel
 
+## Blit Keyboard (pane 0.1.30)
+
+A third pane in the bundle, **Blit Keyboard** under Hardware, for the
+physical keyboard as Blit keeps it per device. **Device** offers only
+keyboards that are present (a keyboard and mouse on one receiver is one of
+them). **Repeat Delay** (100 to 2000 ms) and **Repeat Rate** (1 to 100 a
+second) show only for a keyboard the kernel repeats for, and read back what
+the kernel holds, so a rate can come back a step from the one asked for.
+**Caps Lock at Start** and **Num Lock at Start** are unset (the lamp as the
+keyboard had it) until set, then off or on. **Caps Lock Key Is** and
+**Super Key Is** choose the role Blit gives those keys (Caps Lock as
+Control, say); on a Chromebook, Super is the Search key. **Keyboards**
+lists the layouts Blit types with: US for now; more come with Blit's ADR
+0231. Everything is staged in the shared draft and saved with **Save all
+staged Blit settings**.
+
+Save now says when Blit refused part of the document ("Saved, but Blit
+refused 1: ..."), rather than reporting it saved. Hibr's own Keyboard pane
+keeps how keys reach a terminal, and its Shortcuts pane what the desktop
+does with them.
+
+Needs Blit 0.3.90: before it, Blit reported the read-only repeat period in
+a keyboard's configuration, and a draft that carried it back had that
+keyboard's whole entry refused.
+
 ## Screens (pane 0.1.29)
 
 A read-only **Screens** section, after Rendering, for programs shown in a
