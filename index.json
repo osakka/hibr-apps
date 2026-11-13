@@ -882,15 +882,15 @@
     },
     "control-panel/shortcuts": {
       "title": "Shortcuts",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "8602fb9ba003d9bc5f37bd9c15ae7b874c1c96a20d9043ff87d2956a7cb0c020",
+      "sha256": "82aacf481ce7b0b91d19fe365876e02865de066178b595dc411557714cae9a4f",
       "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Above them all, Shortcut Key: which modifiers the desktop's own chords use (DT_MOD, Gitea #326) -- Alt, Super or Alt, or Super -- every row then showing what to press.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "shortcuts",
-      "hibr": "0.99.400"
+      "hibr": "0.99.507"
     },
     "control-panel/sound": {
       "title": "Sound",
@@ -2220,15 +2220,15 @@
     },
     "shortcuts": {
       "title": "Shortcuts",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "8602fb9ba003d9bc5f37bd9c15ae7b874c1c96a20d9043ff87d2956a7cb0c020",
+      "sha256": "82aacf481ce7b0b91d19fe365876e02865de066178b595dc411557714cae9a4f",
       "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app. Activating a row captures its next key; the ✕ beside a key, or delete or backspace on its row, clears it. wm/keys.hibr does all of it -- including asking before taking a key another action has. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Above them all, Shortcut Key: which modifiers the desktop's own chords use (DT_MOD, Gitea #326) -- Alt, Super or Alt, or Super -- every row then showing what to press.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "shortcuts",
-      "hibr": "0.99.400"
+      "hibr": "0.99.507"
     },
     "versions": {
       "title": "Versions",

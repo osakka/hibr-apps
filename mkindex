@@ -406,6 +406,7 @@ ENTHIBR["control-panel/windows"]=0.99.499
 # Windows 1.11.2's Programs Take Focus row sets DT_NATFOCUS, which an
 # older desktop never declares (hibr Gitea #507).
 ENTHIBR["control-panel/windows"]=0.99.503
+ENTHIBR["control-panel/shortcuts"]=0.99.507
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
