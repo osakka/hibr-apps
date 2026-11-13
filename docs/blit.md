@@ -366,6 +366,12 @@ present pointer devices, including mixed keyboard/pointer devices, and stages
 sensitivity, flat/adaptive acceleration, natural scrolling and wheel steps.
 Other devices and unedited fields are preserved.
 
+**Shake to Find** (Blit 0.3.102, ADR 0234): shaking the mouse grows the
+pointer, the harder the shake the bigger, and it eases back as the shaking
+calms. On by default; **Largest When Shaken** (64–256 px) and **Shake
+Sensitivity** (1, a hard shake, to 10, a light one) tune it. The rows are
+offered when Blit reports the setting, so older servers show none.
+
 A touchpad has three more rows, shown only when the device offers them
 (Blit 0.2.34, ADR 0193):
 - **Tap to Click,** off by default.

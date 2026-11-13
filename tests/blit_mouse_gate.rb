@@ -122,6 +122,29 @@ Dir.mktmpdir('blit-mouse') do |root|
       blit_cp_start refresh; finish
       [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][tap_and_drag]}" = false ] || exit 40
       [ "${BCP_SNAPSHOT[input_devices][devices][1][configuration][disable_while_typing]}" = false ] || exit 41
+      # Shake to Find (Blit ADR 0234): offered with Blit's defaults, tuned,
+      # saved, and switched off hides its tuning.
+      n := blit_mouse_rows 45
+      hasrow 45 "$n" "Shake to Find" || { echo 'no shake to find row'; exit 42; }
+      hasrow 45 "$n" "Largest When Shaken" || exit 43
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_max_px]}" = 160 ] || exit 44
+      blit_mouse_do 45 shakemax 1
+      blit_mouse_do 45 shakesens -1
+      [ "${BCP_DRAFT[pointer][shake_max_px]}" = 168 ] && [ "${BCP_DRAFT[pointer][shake_sensitivity]}" = 4 ] || exit 45
+      blit_mouse_slide 45 shakemax 300
+      [ "${BCP_DRAFT[pointer][shake_max_px]}" = 168 ] || exit 46
+      blit_mouse_do 45 save 1; finish
+      [ "$BCP_DIRTY" = 0 ] || { echo "shake save failed:$BCP_STATUS"; exit 47; }
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_max_px]}" = 168 ] || exit 48
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_sensitivity]}" = 4 ] || exit 49
+      blit_mouse_do 45 shake 1
+      [ "${BCP_DRAFT[pointer][shake_to_find]}" = false ] || exit 50
+      n := blit_mouse_rows 45
+      ! hasrow 45 "$n" "Largest When Shaken" || { echo 'off still offered its tuning'; exit 51; }
+      blit_mouse_do 45 save 1; finish
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_to_find]}" = false ] || exit 52
       echo BLIT_MOUSE_CALLBACK_PASS
     HIBR
     out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},'/usr/bin/hibr',script)
