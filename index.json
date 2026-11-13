@@ -140,6 +140,20 @@
         }
       ]
     },
+    "apps/coding": {
+      "title": "Hibr Coding",
+      "version": "0.1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Development/coding.hibr",
+      "sha256": "8ce07edd8d573d2e13ce9568ce793551f3247c6f880a04d296af2984c34d0d35",
+      "about": "Hibr source inspection with evidence",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "coding",
+      "hibr": "0.99.519",
+      "modules": "inspect",
+      "dir": "Development"
+    },
     "apps/boxer": {
       "title": "Boxer",
       "version": "1.40",
@@ -1692,6 +1706,20 @@
       "name": "stickies",
       "hibr": "0.99.189",
       "dir": "Accessories"
+    },
+    "coding": {
+      "title": "Hibr Coding",
+      "version": "0.1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Development/coding.hibr",
+      "sha256": "8ce07edd8d573d2e13ce9568ce793551f3247c6f880a04d296af2984c34d0d35",
+      "about": "Hibr source inspection with evidence",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "coding",
+      "hibr": "0.99.519",
+      "modules": "inspect",
+      "dir": "Development"
     },
     "boxer": {
       "title": "Boxer",

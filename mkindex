@@ -428,6 +428,10 @@ ENTHIBR["control-panel/language"]=0.99.519
 # the input method (DT_IMEBY, 0.99.517) and its words through dt_ask; 0.99.519
 # is the first desktop with the keyboard list it belongs to.
 ENTHIBR["control-panel/arabizi"]=0.99.519
+# Hibr Coding (hui-assistant v0.1.0, 0d919db) reads source through the inspect
+# module, 0.99.518, and is a field-only app by `# edit: fields`, which the app
+# rules accept from 0.99.519 (hibr Gitea #544).
+ENTHIBR["apps/coding"]=0.99.519
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

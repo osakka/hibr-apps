@@ -1,0 +1,169 @@
+#!/usr/bin/env hibr
+# Hibr Coding: inspect functions, calls and references with source evidence.
+# SPDX-License-Identifier: LGPL-3.0-or-later
+# modules: inspect
+# edit: fields
+strict
+app coding "Hibr source inspection with evidence" 0.1.0
+command -v dt_app > /dev/null && dt_app coding "Hibr Coding" 20 76 once "{}"
+declare -gA HC
+
+# Render producer records into readable text without analysing source again.
+fn coding_text(body, mode) {
+	local -A result
+	local i=0 j out= name summary line location parameter type default
+	json parse result "$body" || { ret "Could not read inspection records."; }
+	[ "${result[inspect]}" = 1 ] || { ret "Unsupported inspection format. Update Hibr and HUI Assistant together."; }
+	out="State: ${result[state]}
+Partial analysis: ${result[partial]}
+Source: ${result[source][path]}
+Identity: ${result[source][id]}
+"
+	while [ -n "${result[$mode][$i][name]+x}" ]; do
+		name=${result[$mode][$i][name]:-unresolved}
+		location="line ${result[$mode][$i][span][line]}, byte column ${result[$mode][$i][span][col]}"
+		out+="
+$name ($location; ${result[$mode][$i][known]})"
+		[ -z "${result[$mode][$i][scope]}" ] || out+=" [${result[$mode][$i][scope]}]"
+		if [ "$mode" = functions ]; then
+			summary=${result[$mode][$i][summary][text]}
+			[ -z "$summary" ] || out+="
+Author: $summary"
+			j=0
+			while [ -n "${result[functions][$i][params][$j][name]+x}" ]; do
+				parameter=${result[functions][$i][params][$j][name]}
+				type=${result[functions][$i][params][$j][type]}
+				[ "${result[functions][$i][params][$j][rest]}" != true ] || parameter="...$parameter"
+				out+="
+  Parameter: ${type:+$type }$parameter"
+				if [ "${result[functions][$i][params][$j][has_default]}" = true ]; then
+					default=${result[functions][$i][params][$j][default][text]}
+					out+=" = $default (declared; not evaluated)"
+				fi
+				j=$((j + 1))
+			done
+		elif [ "$mode" = calls ]; then
+			out+="
+From: ${result[$mode][$i][owner]:-top level}
+Resolution: ${result[$mode][$i][resolution]}"
+			[ "${result[$mode][$i][dynamic]}" != true ] || out+="; dynamic expression remains unresolved"
+		fi
+		out+="
+"
+		i=$((i + 1))
+	done
+	i=0
+	if [ "$mode" = check ]; then
+		while [ -n "${result[findings][$i][rule]+x}" ]; do
+			out+="
+${result[findings][$i][rule]}: ${result[findings][$i][message]}
+Reference: ${result[findings][$i][reference]}
+"
+			i=$((i + 1))
+		done
+	fi
+	i=0
+	while [ -n "${result[diagnostics][$i][message]+x}" ]; do
+		out+="
+${result[diagnostics][$i][message]} (line ${result[diagnostics][$i][span][line]})
+"
+		i=$((i + 1))
+	done
+	out+="
+Scope: this file only. Syntax and author declarations do not prove runtime behavior."
+	ret "$out"
+}
+
+# Inspect in a background worker so source reads do not hold a desktop frame.
+fn coding_scan(path, mode) {
+	local body text
+	local -A record
+	if ! need inspect; then
+		printf '%s\n' 'Source inspection is unavailable. Install a Hibr release providing inspect version 1.'
+		return 1
+	fi
+	if record := inspect "$mode" "$path" -j; then :; fi
+	body := json emit record
+	text := coding_text "$body" "$mode"
+	printf '%s\n' "$text"
+}
+
+# Accept a finished inspection only while its target window still exists.
+fn coding_done(int n, int st) {
+	local id=${DTJ[$n][tag]} f body=
+	[ -n "${HC[$id][path]+x}" ] || return 0
+	f := dt_jobfile "$n" out
+	read -r -d '' body < "$f"
+	[ -n "$body" ] || body="Inspection did not produce a result."
+	HC[$id][text]=$body
+	HC[$id][busy]=
+	dt_want 0
+}
+
+# Start a fresh inspection when no earlier request is running.
+fn coding_load(int id) {
+	local n
+	[ -z "${HC[$id][busy]}" ] || return 0
+	[ -n "${HC[$id][path]}" ] || return 0
+	HC[$id][busy]=1
+	HC[$id][top]=0
+	n := dt_job inspection "$id" coding_done coding_scan "${HC[$id][path]}" "${HC[$id][mode]}"
+}
+
+# Open a source path or wait for the user to enter one.
+fn coding_open(int id, arg) {
+	HC[$id][path]=$arg
+	HC[$id][cursor]=${#arg}
+	HC[$id][mode]=functions
+	HC[$id][text]="Enter a Hibr source path and press Enter. Tab switches functions, calls, references and checks."
+	HC[$id][top]=0
+	HC[$id][left]=0
+	HC[$id][busy]=
+	[ -z "$arg" ] || coding_load "$id"
+}
+
+# Forget the closed window so a late worker cannot recreate its state.
+fn coding_close(int id) {
+	unset HC[$id]
+}
+
+# Draw the source field and a scrolling view of the evidence.
+fn coding_draw(int id, int h, int w, int row, int col) {
+	local line n=0 r=4 text=${HC[$id][text]}
+	dt_wclear "$id"
+	console pen "$DT_INK" "$DT_FACE"
+	dt_textdraw "$id" 1 1 $((w - 2)) "${HC[$id][path]}" "${HC[$id][cursor]}" 1
+	console put -p "w$id" 2 1 "${HC[$id][mode]} ${HC[$id][busy]:+— reading}"
+	console put -p "w$id" 3 1 "Enter: inspect | Tab: view | Up/Down: scroll | Ctrl+arrows: pan"
+	while IFS= read -r line; do
+		if [ "$n" -ge "${HC[$id][top]}" ]; then
+			[ "$r" -lt "$h" ] || break
+			line := str slice "$line" "${HC[$id][left]}" $((w - 2))
+			console put -p "w$id" "$r" 1 "$line"
+			r=$((r + 1))
+		fi
+		n=$((n + 1))
+	done <<< "$text"
+}
+
+# Edit the path, choose a request or scroll the current result.
+fn coding_key(int id, key) {
+	local edited
+	case $key in
+	enter) coding_load "$id" ;;
+	tab)
+		[ -z "${HC[$id][busy]}" ] || return 0
+		case ${HC[$id][mode]} in functions) HC[$id][mode]=calls ;; calls) HC[$id][mode]=refs ;; refs) HC[$id][mode]=check ;; *) HC[$id][mode]=functions ;; esac
+		coding_load "$id"
+		;;
+	ctrl-left) [ "${HC[$id][left]}" -lt 4 ] && HC[$id][left]=0 || HC[$id][left]=$((${HC[$id][left]} - 4)) ;;
+	ctrl-right) HC[$id][left]=$((${HC[$id][left]} + 4)) ;;
+	up) [ "${HC[$id][top]}" -le 0 ] || HC[$id][top]=$((${HC[$id][top]} - 1)) ;;
+	down) HC[$id][top]=$((${HC[$id][top]} + 1)) ;;
+	*)
+		edited := dt_textkey "${HC[$id][path]}" "${HC[$id][cursor]}" "$key" || return 1
+		HC[$id][cursor]=${edited##* }
+		HC[$id][path]=${edited% *}
+		;;
+	esac
+}
