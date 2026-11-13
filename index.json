@@ -234,15 +234,15 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "2.5",
+      "version": "2.5.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "f7c1582e1402206e19c788a0e311d2f3bdebf622174f648ddd5e4361d019dae7",
+      "sha256": "b654ff9d4051d701d8a5c84ff03105606ebc85299c6cae870e00f9d82637e6a8",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.336",
+      "hibr": "0.99.517",
       "modules": "db email html img",
       "dir": "Internet",
       "parts": [
@@ -250,7 +250,7 @@
           "kind": "control-panel",
           "as": "mailset.hibr",
           "path": "bundles/control-panel/mailset.hibr",
-          "sha256": "628e8b2cfdec05ca8e24fd8ebbaa50a556a1be20874202bb8ca55db14bcad2c0"
+          "sha256": "f1e094929b5e9180614aed4a93af4fd43fdb6ad387cc0ec1744225caf9e38b74"
         }
       ]
     },
@@ -364,15 +364,15 @@
     },
     "apps/write": {
       "title": "Write",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/write.hibr",
-      "sha256": "a86dd065abc84f57735bd3b07c64df3d08a8304f5781b825f97cb560a7a39b3c",
+      "sha256": "804b433f31cb4b5895a1d83d5cc10d7fe9a4adfac373524b380528007640aea9",
       "about": "A word processor for markdown, shown as it reads\n\na word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "write",
-      "hibr": "0.99.516",
+      "hibr": "0.99.517",
       "modules": "md mermaid",
       "dir": "Office"
     },
@@ -472,15 +472,15 @@
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.8.2",
+      "version": "1.8.3",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "fdad607d98fb32c9dee29637d87efedb5502ea7faf6bd2274527668bed8c1915",
+      "sha256": "3a43015393c91d9d70219c9b13228ec2e781af025011493dc42af25aa420d516",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "term",
-      "hibr": "0.99.303",
+      "hibr": "0.99.517",
       "modules": "pty term",
       "parts": [
         {
@@ -1072,15 +1072,15 @@
     },
     "menubar/network": {
       "title": "Wi-Fi",
-      "version": "1.4.1",
+      "version": "1.4.2",
       "kind": "menubar",
       "bundle": "bundles/menubar/network.hibr",
-      "sha256": "4e635f5c0556849d79abd212b26e5218200ae7804739fc3f4e7837d4ea394b50",
+      "sha256": "3e9f39f5154885b68267563fb89c542bffbbca5a9dad66aecaf3fb9d3119887e",
       "about": "The network on the menu bar and the connection it watches\n\nthe machine's network: whether it is on Wi-Fi, a cable or neither, the Wi-Fi networks in reach and the ones it knows, joining and leaving them, and the item on the menu bar that says which (Gitea #311). Control Panel > Network is the pane over it.\n\nTwo ways to see it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "network",
-      "hibr": "0.99.400"
+      "hibr": "0.99.517"
     },
     "menubar/power": {
       "title": "Power",
@@ -1483,11 +1483,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.6",
+      "version": "3.99.7",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "fde0d2fcdab25b6394e31165bb02f3c372ac394d680eedaf38cf49cdd22fc53a",
-      "about": "The desktop's own words in العربية (ar): 1567 strings, read right to left.",
+      "sha256": "448dc18518e8451282aab92c989daf9f2e5349765de559b47fbda151f2c161a2",
+      "about": "The desktop's own words in العربية (ar): 1568 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1747,15 +1747,15 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "2.5",
+      "version": "2.5.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "f7c1582e1402206e19c788a0e311d2f3bdebf622174f648ddd5e4361d019dae7",
+      "sha256": "b654ff9d4051d701d8a5c84ff03105606ebc85299c6cae870e00f9d82637e6a8",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.336",
+      "hibr": "0.99.517",
       "modules": "db email html img",
       "dir": "Internet"
     },
@@ -1845,15 +1845,15 @@
     },
     "write": {
       "title": "Write",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/write.hibr",
-      "sha256": "a86dd065abc84f57735bd3b07c64df3d08a8304f5781b825f97cb560a7a39b3c",
+      "sha256": "804b433f31cb4b5895a1d83d5cc10d7fe9a4adfac373524b380528007640aea9",
       "about": "A word processor for markdown, shown as it reads\n\na word processor for markdown, after MacWrite: what you write is shown as it will read -- headings large, bold bold, italic italic, lists with their bullets, quotes with their bar, code shaded, links underlined, rules drawn -- and only the line the cursor is on shows its markdown, the marks dimmed, so it can always be edited exactly. The toolbar and the Format menu put the marks in for you: on the selection, or on the line.\n\nA .txt file -- or anything that is not markdown -- is edited as plain text, wrapped, nothing rendered. Files are opened from Files (Write is what .md and .txt open in), with File > Open…, or dropped on the window; File > Save writes the file (ctrl-s, settable as Save), Save As… asks where. A window with unsaved changes asks before it closes, and keeps them across Restart Desktop.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "write",
-      "hibr": "0.99.516",
+      "hibr": "0.99.517",
       "modules": "md mermaid",
       "dir": "Office"
     },
@@ -1921,15 +1921,15 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.8.2",
+      "version": "1.8.3",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "fdad607d98fb32c9dee29637d87efedb5502ea7faf6bd2274527668bed8c1915",
+      "sha256": "3a43015393c91d9d70219c9b13228ec2e781af025011493dc42af25aa420d516",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "term",
-      "hibr": "0.99.303",
+      "hibr": "0.99.517",
       "modules": "pty term"
     },
     "vault": {

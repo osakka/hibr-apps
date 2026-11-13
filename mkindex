@@ -413,6 +413,14 @@ ENTHIBR["control-panel/language"]=0.99.512
 # Write 1.7.1 draws its cursor by cluster with widgets/cluster.hibr, which
 # an older desktop does not have (hibr Gitea #542).
 ENTHIBR["apps/write"]=0.99.516
+# 0.99.517 (hibr Gitea #543): dt_textdraw takes a ninth argument, secret,
+# which the Mail pane and Network pass for their password fields -- an older
+# desktop's declared dt_textdraw refuses it -- and Write and the terminal
+# draw what an input method holds.
+ENTHIBR["apps/write"]=0.99.517
+ENTHIBR["apps/term"]=0.99.517
+ENTHIBR["apps/mail"]=0.99.517
+ENTHIBR["menubar/network"]=0.99.517
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
