@@ -81,6 +81,8 @@ YT_DATA="${YT_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/youtube}"
 YT_HIST="$YT_DATA/history.tsv"
 YT_FAVS="$YT_DATA/favourites.tsv"
 YT_KEEP=500
+# The shared video library (docs/video-library.md): every title watched, in every video app, in one file.
+YT_LIB="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
 
 # A video is taken up where it was left once more than YT_RESUME seconds
 # in; within YT_ENDED seconds of its end it counts as watched to the end.
@@ -405,6 +407,28 @@ fn yt_histget(vid) {
 	return 1
 }
 
+# A title into the shared library, replacing its line and putting it last: kind key title sub pos dur.
+fn yt_libput(kind, key, title, sub, pos, dur) {
+	local -a lines out
+	local l n
+
+	[ -n "$key" ] || return 0
+	title=${title//[$'\t\n']/ }
+	sub=${sub//[$'\t\n']/ }
+	[ -r "$YT_LIB" ] && mapfile -t lines < "$YT_LIB"
+	out=()
+	for l in "${lines[@]}"; do
+		[[ $l == *$'\t'youtube$'\t'*$'\t'"$key"$'\t'* ]] && continue
+		out+=("$l")
+	done
+	out+=("$EPOCHSECONDS"$'\t'youtube$'\t'"$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'"${pos:-0}"$'\t'"${dur:-0}")
+	n=${#out[@]}
+	[ "$n" -gt 1000 ] && out=("${out[@]:$((n - 1000))}")
+	command mkdir -p -- "${YT_LIB%/*}" 2> /dev/null
+	printf '%s\n' "${out[@]}" > "$YT_LIB" 2> /dev/null
+	return 0
+}
+
 # Note where a window's video was left: watched to the end it starts from
 # the beginning next time; left part way it is taken up there.
 fn yt_histput(int id, pos = "") {
@@ -422,6 +446,7 @@ fn yt_histput(int id, pos = "") {
 	[ -n "$d" ] || d=0
 	[ "$d" -gt 0 ] && [ "$p" -ge $((d - YT_ENDED)) ] && p=0
 	yt_fileput "$YT_HIST" "$vid" "video"$'\t'"$vid"$'\t'"${YT[$id]["title"]}"$'\t'"${YT[$id]["author"]}"$'\t'"${YT[$id]["len"]}"$'\t'"$p"$'\t'"$d"
+	yt_libput video "$vid" "${YT[$id]["title"]}" "${YT[$id]["author"]}" "$p" "$d"
 }
 
 # Keep an entry as a favourite, or take it out: the chosen one in a list,

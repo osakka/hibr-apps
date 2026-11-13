@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.5.1
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.5.2
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()
@@ -189,7 +189,7 @@ fn wtb_tick() {
 	wta_scan
 	n=${#WTB_HI[@]}
 	[ "$WTP_UP" = 1 ] && [ "$n" -gt 0 ] && up=1
-	logo := wtp_logo "$([ "$up" = 1 ] && echo on || echo off)"
+	if [ "$up" = 1 ]; then logo := wtp_logo on; else logo := wtp_logo off; fi
 	t=$logo
 	if [ "$up" = 1 ]; then
 		if [ "${DT_WTGAUGE-0}" = 1 ]; then

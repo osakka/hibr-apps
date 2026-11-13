@@ -1,0 +1,217 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# library -- everything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared
+# file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left,
+# and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.
+#
+#   up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      x  take it out of the library
+
+strict
+
+app vlib "Video Library: what you watched, in every video app" 1.0
+if command -v dt_app > /dev/null; then
+	dt_app vlib "Video Library" 22 80 once "V"
+fi
+
+VL_FILE="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
+declare -gA VL
+declare -ga VLR
+
+# The name an app is known by, and its tile.
+fn vl_name(p) {
+	case $p in
+	youtube) ret YouTube ;;
+	tubi) ret Tubi ;;
+	bilibili) ret Bilibili ;;
+	*) ret "${p^}" ;;
+	esac
+}
+
+# The file read into VLR, newest first, only the provider asked for (empty: all): a row is "provider<TAB>kind<TAB>key<TAB>title<TAB>sub<TAB>pos<TAB>dur".
+fn vl_load(int id) {
+	local -a lines f
+	local l i n=0 want=${VL[$id]["only"]-}
+
+	VLR=()
+	[ -r "$VL_FILE" ] && mapfile -t lines < "$VL_FILE"
+	i=${#lines[@]}
+	while [ "$i" -gt 0 ]; do
+		i=$((i - 1))
+		l=${lines[$i]}
+		IFS=$'\t' read -ra f <<< "$l"
+		[ "${#f[@]}" -ge 8 ] || continue
+		[ -n "$want" ] && [ "${f[1]}" != "$want" ] && continue
+		VLR+=("${f[1]}"$'\t'"${f[2]}"$'\t'"${f[3]}"$'\t'"${f[4]}"$'\t'"${f[5]}"$'\t'"${f[6]}"$'\t'"${f[7]}")
+		n=$((n + 1))
+	done
+	VL[$id]["n"]=$n
+	[ "${VL[$id]["sel"]:-0}" -ge "$n" ] && VL[$id]["sel"]=$((n > 0 ? n - 1 : 0))
+	return 0
+}
+
+# Seconds as 1:05 or 1:02:03.
+fn vl_time(int s) {
+	local h=$((s / 3600)) m=$((s % 3600 / 60)) x=$((s % 60))
+
+	if [ "$h" -gt 0 ]; then
+		printf -v x '%d:%02d:%02d' "$h" "$m" "$x"
+	else
+		printf -v x '%d:%02d' "$m" "$x"
+	fi
+	ret "$x"
+}
+
+# Where it was left: the time, over how long it is when that is known; "watched" when it was left at the start (watched to the end).
+fn vl_left(pos, dur) {
+	local a b
+
+	pos=${pos:-0}
+	dur=${dur:-0}
+	[ "$pos" -le 0 ] && { ret "watched"; return 0; }
+	a := vl_time "$pos"
+	if [ "$dur" -gt 0 ]; then
+		b := vl_time "$dur"
+		ret "$a / $b"
+	else
+		ret "$a"
+	fi
+}
+
+fn library_open(int id, ...rest) {
+	VL[$id]["only"]=
+	VL[$id]["sel"]=0
+	VL[$id]["top"]=0
+	vl_load "$id"
+	return 0
+}
+
+fn library_close(int id) {
+	unset "VL[$id]"
+	return 0
+}
+
+fn vl_put(int id, int r, int c, text) { console put -p "w$id" "$r" "$c" "$text"; }
+
+fn library_draw(int id, int h, int w, int row, int col) {
+	local -a f
+	local n=${VL[$id]["n"]:-0} sel=${VL[$id]["sel"]:-0} top=${VL[$id]["top"]:-0} vis=$((h - 2)) i r=1 lab tail head p x
+
+	[ "$vis" -lt 1 ] && vis=1
+	VL[$id]["vis"]=$vis
+	[ "$sel" -lt "$top" ] && top=$sel
+	[ "$sel" -ge $((top + vis)) ] && top=$((sel - vis + 1))
+	VL[$id]["top"]=$top
+	console pen "$DT_INK" "$DT_FACE"
+	vl_load "$id"
+	n=${VL[$id]["n"]}
+	p=${VL[$id]["only"]-}
+	if [ -n "$p" ]; then head := vl_name "$p"; else head=All; fi
+	x := str pad " Library: $head, $n watched   (a all, y YouTube, t Tubi)" "$w"
+	vl_put "$id" 1 1 "$x"
+	if [ "$n" = 0 ]; then
+		vl_put "$id" 3 2 "Nothing watched yet. What you watch in YouTube, Tubi and the other video apps is listed here."
+		return 0
+	fi
+	r=2
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$r" -le "$vis" ]; do
+		IFS=$'\t' read -ra f <<< "${VLR[$i]}"
+		lab := vl_name "${f[0]}"
+		tail := vl_left "${f[5]}" "${f[6]}"
+		tail="  $tail"
+		lab := str pad "$lab" 9
+		lab+=${f[3]}
+		[ -n "${f[4]}" ] && lab+="  ${f[4]:0:20}"
+		[ $((${#lab} + ${#tail})) -gt "$w" ] && lab="${lab:0:$((w - ${#tail} - 1))}${GL[ellipsis]}"
+		lab := str pad "$lab" $((w - ${#tail}))
+		if [ "$i" = "$sel" ]; then console pen "$DT_SELINK" "$DT_ACTIVE" bold; else console pen "$DT_INK" "$DT_FACE"; fi
+		vl_put "$id" "$r" 1 "$lab$tail"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	console pen "$DT_INK" "$DT_FACE"
+	return 0
+}
+
+# Open the chosen title in the app it came from.
+fn vl_play(int id) {
+	local -a f
+	local sel=${VL[$id]["sel"]:-0}
+
+	[ "${VL[$id]["n"]:-0}" -gt 0 ] || return 0
+	IFS=$'\t' read -ra f <<< "${VLR[$sel]}"
+	dt_launch "${f[0]}" "play:${f[2]}"
+	return 0
+}
+
+# Take the chosen title out of the shared file (the app's own history is not touched).
+fn vl_remove(int id) {
+	local -a f lines out
+	local sel=${VL[$id]["sel"]:-0} l g
+
+	[ "${VL[$id]["n"]:-0}" -gt 0 ] || return 0
+	IFS=$'\t' read -ra f <<< "${VLR[$sel]}"
+	[ -r "$VL_FILE" ] && mapfile -t lines < "$VL_FILE"
+	out=()
+	for l in "${lines[@]}"; do
+		IFS=$'\t' read -ra g <<< "$l"
+		[ "${g[1]-}" = "${f[0]}" ] && [ "${g[3]-}" = "${f[2]}" ] && continue
+		out+=("$l")
+	done
+	if [ "${#out[@]}" -gt 0 ]; then printf '%s\n' "${out[@]}" > "$VL_FILE" 2> /dev/null; else : > "$VL_FILE" 2> /dev/null; fi
+	vl_load "$id"
+	return 0
+}
+
+fn library_key(int id, key) {
+	local n=${VL[$id]["n"]:-0} sel=${VL[$id]["sel"]:-0} vis=${VL[$id]["vis"]:-10}
+
+	case $key in
+	up) [ "$sel" -gt 0 ] && VL[$id]["sel"]=$((sel - 1)) ;;
+	down) [ "$sel" -lt $((n - 1)) ] && VL[$id]["sel"]=$((sel + 1)) ;;
+	pageup) sel=$((sel - vis)); [ "$sel" -lt 0 ] && sel=0; VL[$id]["sel"]=$sel ;;
+	pagedown) sel=$((sel + vis)); [ "$sel" -ge "$n" ] && sel=$((n > 0 ? n - 1 : 0)); VL[$id]["sel"]=$sel ;;
+	home) VL[$id]["sel"]=0 ;;
+	end) VL[$id]["sel"]=$((n > 0 ? n - 1 : 0)) ;;
+	enter | return | $'\r') vl_play "$id" ;;
+	a) VL[$id]["only"]=; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
+	y) VL[$id]["only"]=youtube; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
+	t) VL[$id]["only"]=tubi; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
+	x | delete) vl_remove "$id" ;;
+	*) return 1 ;;
+	esac
+	return 0
+}
+
+fn library_click(int id, int row, int col, button) {
+	local top=${VL[$id]["top"]:-0} n=${VL[$id]["n"]:-0} i
+
+	[ "$row" -ge 2 ] || return 0
+	i=$((top + row - 2))
+	[ "$i" -lt "$n" ] || return 0
+	if [ "${VL[$id]["sel"]:-0}" = "$i" ]; then vl_play "$id"; else VL[$id]["sel"]=$i; fi
+	return 0
+}
+
+fn library_wheel(int id, dir, int r = 0, int c = 0) {
+	local top
+
+	top := dt_scrollmove "$dir" "${VL[$id]["top"]:-0}" "${VL[$id]["n"]:-0}" "${VL[$id]["vis"]:-1}" "$DT_SCROLLWHEEL" || return 1
+	VL[$id]["top"]=$top
+	return 0
+}
+
+library_menus() {
+	local id=$DT_FOCUS only=${VL[$id]["only"]-}
+
+	dt_menu "File"
+	dt_item "Close Window" w dt_close_focused
+	dt_menu "Library"
+	dt_item "Open in its App" enter library_key "$id" enter
+	dt_item "Take Out of the Library" x library_key "$id" x
+	dt_sep
+	dt_mark "All" a "$([ -z "$only" ] && echo 1 || echo 0)" library_key "$id" a
+	dt_mark "YouTube" y "$([ "$only" = youtube ] && echo 1 || echo 0)" library_key "$id" y
+	dt_mark "Tubi" t "$([ "$only" = tubi ] && echo 1 || echo 0)" library_key "$id" t
+}

@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.5.1
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.5.2
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -62,12 +62,30 @@ fn wtp_hue(name) {
 # second i at index j*60+i (oldest second first). At most once a second; WTP_ASCNT is how many programs there are.
 declare -ga WTP_ASN=() WTP_ASRX=() WTP_ASTX=()
 declare -gi WTP_ASCNT=0 WTP_ASAT=-100
+declare -gi WTP_ASBUSY=0 WTP_HBUSY=0
 fn wtp_appseries() {
-	local r j i name v AS
-
 	[ "$WTP_UP" = 1 ] || { WTP_ASCNT=0; return 1; }
 	[ $((SECONDS - WTP_ASAT)) -ge 1 ] || return 0
 	WTP_ASAT=$SECONDS
+	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then		# on a desktop a job reads it (ADR 0031)
+		[ "$WTP_ASBUSY" = 0 ] || return 0
+		WTP_ASBUSY=1
+		dt_jobvars wtp appseries wtp_asdone wtp_asfetch WTP_ASN WTP_ASRX WTP_ASTX WTP_ASCNT > /dev/null || { WTP_ASBUSY=0; wtp_asfetch; }
+		return 0
+	fi
+	wtp_asfetch
+	return 0
+}
+
+fn wtp_asdone(int n, int st) {
+	WTP_ASBUSY=0
+	command -v dt_want > /dev/null && dt_want 0
+	return 0
+}
+
+fn wtp_asfetch() {
+	local r j i name v AS
+
 	WTP_ASN=(); WTP_ASRX=(); WTP_ASTX=(); WTP_ASCNT=0
 	r := wt appseries 8 2> /dev/null || return 1
 	json parse AS "$r" 2> /dev/null || return 1
@@ -86,12 +104,29 @@ fn wtp_appseries() {
 # The remote addresses (ADR 0016), asked for at most every two seconds: WTP_H holds the reply.
 declare -g WTP_H="" WTP_HAT=-100
 fn wtp_hosts() {
-	local h
-
 	[ "$WTP_UP" = 1 ] || return 1
 	[ $((SECONDS - WTP_HAT)) -ge 2 ] || return 0
 	WTP_HAT=$SECONDS
+	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
+		[ "$WTP_HBUSY" = 0 ] || return 0
+		WTP_HBUSY=1
+		dt_jobvars wtp hosts wtp_hdone wtp_hfetch WTP_H > /dev/null || { WTP_HBUSY=0; wtp_hfetch; }
+		return 0
+	fi
+	wtp_hfetch
+	return 0
+}
+
+fn wtp_hfetch() {
+	local h
+
 	if h := wt hosts 200 2> /dev/null; then json parse WTP_H "$h" 2> /dev/null || WTP_H=""; fi
+	return 0
+}
+
+fn wtp_hdone(int n, int st) {
+	WTP_HBUSY=0
+	command -v dt_want > /dev/null && dt_want 0
 	return 0
 }
 
@@ -125,6 +160,7 @@ fi
 WTP_LOADED=0
 fn wtp_load() {
 	[ "$WTP_LOADED" = 1 ] && return 0
+	command -v wt > /dev/null && { WTP_LOADED=1; return 0; }		# already in this process (a test, or a job forked after a load)
 	mod load "${WT_MOD:-wiretap}" 2> /dev/null || return 1
 	WTP_LOADED=1
 }
@@ -262,15 +298,16 @@ fn wta_scan() {
 
 declare -g WT_SOCK="${WT_SOCK:-}"
 declare -g WTP_S="" WTP_A="" WTP_SER=""	# parsed status, apps, series
-declare -gi WTP_T=-1 WTP_UP=0 WTP_MOD=1	# last poll (SECONDS), whether a node answered, whether the module loaded
+declare -gi WTP_FWON=0 WTP_SEEN=0 WTP_T=-1 WTP_UP=0 WTP_MOD=1 WTP_BUSY=0	# last poll (SECONDS), whether a node answered, whether the module loaded
 
-# Read the node at most once a second: status, apps and the last minute of series. WTP_UP says whether a node answered; WTP_MOD
-# whether the module is installed at all (the pane says which of the two is wrong).
-fn wtp_poll() {
+# The reading itself: status, apps and the last minute of series, set into WTP_S, WTP_A, WTP_SER, WTP_UP (did a node answer) and
+# WTP_MOD (is the module installed at all; the pane says which of the two is wrong). It waits on the node, so on a desktop it runs
+# as a job (wtp_poll), never in a frame (ADR 0031).
+fn wtp_read() {
 	local st ap se
 
-	[ "$WTP_T" -lt 0 ] || [ $((SECONDS - WTP_T)) -ge 1 ] || return 0
-	WTP_T=$SECONDS
+	WTP_FWON=0
+	if command -v systemctl > /dev/null 2>&1 && systemctl is-active --quiet wiretap-rules.service 2> /dev/null; then WTP_FWON=1; fi
 	WT_SOCK := wtp_sock		# looked for every poll: a service started after the desktop is found without a restart
 	export WT_SOCK
 	if ! wtp_load; then
@@ -287,6 +324,31 @@ fn wtp_poll() {
 	WTP_UP=0
 }
 
+# The job came back: its variables are set. WTP_T moves now, so the tickers that act on a new reading see exactly one.
+fn wtp_polled(int n, int st) {
+	WTP_T=$SECONDS
+	WTP_BUSY=0
+	WTP_SEEN=1
+	command -v dt_want > /dev/null && dt_want 0		# draw the new reading now, not at the next wake
+	return 0
+}
+
+# Ask for a reading at most once a second. On a desktop (dt_jobvars) the node is read in a job and this returns at once, the
+# callers drawing from the last answer; where there is none (the CLI's tests, a script) it reads here. A job that has not come back
+# is waited for, never started twice.
+fn wtp_poll() {
+	[ "$WTP_T" -lt 0 ] || [ $((SECONDS - WTP_T)) -ge 1 ] || return 0
+	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
+		[ "$WTP_BUSY" = 0 ] || return 0
+		WTP_BUSY=1
+		dt_jobvars wtp "" wtp_polled wtp_read WTP_S WTP_A WTP_SER WTP_UP WTP_MOD WT_SOCK WTP_FWON > /dev/null || { WTP_BUSY=0; WTP_T=$SECONDS; wtp_read; }
+		return 0
+	fi
+	WTP_T=$SECONDS
+	wtp_read
+	WTP_SEEN=1
+}
+
 # A timescale as the node's resolution and sample count: seconds per sample, samples, and seconds per sample as a rate divisor.
 # 1m: 60 one-second samples; 1h: 60 one-minute; 24h: 1440 one-minute; 7d: 168 one-hour.
 fn wtp_scale(sc) {
@@ -300,23 +362,59 @@ fn wtp_scale(sc) {
 }
 
 declare -ag WTP_RI=() WTP_RO=()		# the last wtp_range: bytes per second, oldest first, at most `cols` of them
-declare -g WTP_RKEY="" WTP_RNG="" WTP_RSEEN=-1000000
+declare -g WTP_RKEY="" WTP_RNG="" WTP_RQ="1 60" WTP_RJOB="" WTP_RSEEN=-1000000
+declare -gi WTP_RBUSY=0 WTP_RCOLS=60 WTP_RSECS=1
 
 # The traffic over a timescale (1m, 1h, 24h, 7d), as at most `cols` rates in WTP_RI (down) and WTP_RO (up), oldest first. The
 # one-minute scale is read every second, the others every ten. More samples than columns are averaged into columns.
 fn wtp_range(sc, int cols) {
-	local sp secs cnt body n i j v lo hi sumi sumo grp key every=10
+	local sp secs cnt every=10
 
 	sp := wtp_scale "$sc" || return 1
 	secs=${sp% *}; cnt=${sp#* }
 	[ "$sc" = 1m ] && every=1
-	key="$sc/$cols"
+	local key="$sc/$cols"
 	if [ "$key" = "$WTP_RKEY" ] && [ $((SECONDS - WTP_RSEEN)) -lt "$every" ]; then return 0; fi
+	if [ "$WTP_UP" != 1 ]; then WTP_RKEY=$key; WTP_RSEEN=$SECONDS; WTP_RI=(); WTP_RO=(); return 0; fi
+	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
+		# on a desktop: read in a job and draw what is there; the columns follow when it is back (never wait on the node in a frame)
+		[ "$WTP_RBUSY" = 0 ] || return 0
+		WTP_RBUSY=1; WTP_RSEEN=$SECONDS
+		WTP_RQ="$secs $cnt"; WTP_RCOLS=$cols; WTP_RSECS=$secs; WTP_RJOB=$key
+		if [ "$key" != "$WTP_RKEY" ]; then WTP_RI=(); WTP_RO=(); fi
+		dt_jobvars wtp range wtp_ranged wtp_rfetch WTP_RNG > /dev/null || { WTP_RBUSY=0; WTP_RKEY=$key; wtp_rfetch; wtp_rbuild; }
+		return 0
+	fi
 	WTP_RKEY=$key; WTP_RSEEN=$SECONDS
+	WTP_RQ="$secs $cnt"; WTP_RCOLS=$cols; WTP_RSECS=$secs
+	wtp_rfetch
+	wtp_rbuild
+	return 0
+}
+
+# The read of a range, into WTP_RNG (the job's work on a desktop).
+fn wtp_rfetch() {
+	local body
+
+	WTP_RNG=""
+	body := wt series "${WTP_RQ% *}" "${WTP_RQ#* }" 2> /dev/null || return 0
+	json parse WTP_RNG "$body" 2> /dev/null || WTP_RNG=""
+	return 0
+}
+
+fn wtp_ranged(int n, int st) {
+	WTP_RBUSY=0
+	WTP_RKEY=$WTP_RJOB
+	wtp_rbuild
+	command -v dt_want > /dev/null && dt_want 0
+	return 0
+}
+
+# WTP_RNG as at most WTP_RCOLS rates, down in WTP_RI and up in WTP_RO; samples beyond the columns are averaged into them.
+fn wtp_rbuild() {
+	local n i j v hi sumi sumo grp cols=$WTP_RCOLS secs=$WTP_RSECS
+
 	WTP_RI=(); WTP_RO=()
-	[ "$WTP_UP" = 1 ] || return 0
-	body := wt series "$secs" "$cnt" 2> /dev/null || return 0
-	json parse WTP_RNG "$body" 2> /dev/null || return 0
 	n := json get WTP_RNG .count 2> /dev/null || return 0
 	[ "${n:-0}" -gt 0 ] || return 0
 	[ "$cols" -ge 1 ] || return 0
@@ -330,6 +428,7 @@ fn wtp_range(sc, int cols) {
 		WTP_RI+=($((sumi / ((hi - i) * secs))))
 		WTP_RO+=($((sumo / ((hi - i) * secs))))
 	done
+	return 0
 }
 
 # One value from the status, by path (".in", ".capture"), or the default.
@@ -382,7 +481,7 @@ fn wtp_fw_rules() {
 
 fn wtp_fw_active() {
 	if [ -n "${WT_FW_STATE:-}" ]; then [ -e "$WT_FW_STATE" ]; return $?; fi
-	command -v systemctl > /dev/null 2>&1 && systemctl is-active --quiet wiretap-rules.service 2> /dev/null
+	[ "$WTP_FWON" = 1 ]		# read with the node (wtp_read), never asked in a frame
 }
 
 fn wtp_fw_set(verb) {
@@ -470,14 +569,25 @@ fn wtp_fw_cgroup(pid) {
 }
 
 # The same, remembered by pid (a process does not change its cgroup scope; the table is emptied when it grows).
+declare -g WTP_CGV=""
 fn wtp_fw_cg(pid) {
 	local c
 	if [ -z "${WTP_CG[$pid]+x}" ]; then
 		[ "${#WTP_CG[@]}" -gt 400 ] && WTP_CG=()
-		c=$(wtp_fw_cgroup "$pid") || c=""
+		c=$(wtp_fw_cgroup "$pid") || c=""		# fork: once for each program, then remembered
 		WTP_CG[$pid]=$c
 	fi
-	echo "${WTP_CG[$pid]}"
+	WTP_CGV=${WTP_CG[$pid]}
+}
+
+# The kept rules as text in WTP_FWTXT, read without starting a program (the window asks every frame).
+declare -g WTP_FWTXT=""
+fn wtp_fw_read() {
+	local f=${WT_RULES:-/etc/wiretap/rules}
+
+	WTP_FWTXT=""
+	[ -r "$f" ] && read -r -d '' WTP_FWTXT < "$f"
+	return 0
 }
 
 # The whole new rules text, checked by the engine and handed to the helper (pkexec, in the background; a test helper runs at once).

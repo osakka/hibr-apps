@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.5.1
+app wtview "Wiretap: a live graph and every app's traffic" 0.5.2
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -199,7 +199,7 @@ fn wv_usage(int id, int h, int w) {
 		hue := wtp_hue "$name"
 		if [ "$i" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
 		wv_put "$id" "$r" 2 "▌"
-		cg=$(wtp_fw_cg "$pid")
+		wtp_fw_cg "$pid"; cg=$WTP_CGV
 		if [ -n "$cg" ] && [ -n "${WTP_BLKG[$cg]:-}" ]; then console pen "$DT_WARN" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_WARN" "$DT_INK"; wv_put "$id" "$r" 1 "✕"
 		elif [ -n "$cg" ] && [ -n "${WTP_ALWG[$cg]:-}" ]; then console pen "$DT_GOOD" "$DT_FACE"; [ "$i" = "$sel" ] && console pen "$DT_GOOD" "$DT_INK"; wv_put "$id" "$r" 1 "✓"; fi
 	done
@@ -282,7 +282,8 @@ fn wv_foot(int id, int h) {
 fn wv_fw(int id, int h, int w) {
 	local l t k=0 vis=$((h - 6)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r f1 f2 f3 f4 f5 f6 f7 who cnt=0 st
 
-	while IFS= read -r l; do t=${l%%#*}; [ -n "${t//[[:space:]]/}" ] && cnt=$((cnt + 1)); done < <(wtp_fw_rules)
+	wtp_fw_read
+	while IFS= read -r l; do t=${l%%#*}; [ -n "${t//[[:space:]]/}" ] && cnt=$((cnt + 1)); done <<< "$WTP_FWTXT"
 	WV[$id]["n"]=$cnt
 	if [ "$cnt" = 0 ]; then st="No rules: everything is allowed."; console pen "$DT_DIM" "$DT_FACE" bold
 	elif wtp_fw_active; then st="Firewall ON: $cnt rules are loaded."; console pen "$DT_GOOD" "$DT_FACE" bold
@@ -306,7 +307,7 @@ fn wv_fw(int id, int h, int w) {
 		r=$((4 + k - 1 - top))
 		if [ $((k - 1)) = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
 		wv_put "$id" "$r" 2 "$line"
-	done < <(wtp_fw_rules)
+	done <<< "$WTP_FWTXT"
 	wv_foot "$id" "$h"
 }
 
@@ -378,7 +379,7 @@ fn wv_begin(int id) {
 		[ "$n" -gt 0 ] || return 0
 		name := wtp_app ".apps[${WV[$id]["sel"]}].name" ""
 		pid := wtp_app ".apps[${WV[$id]["sel"]}].pid" 0
-		cg=$(wtp_fw_cg "$pid")
+		wtp_fw_cg "$pid"; cg=$WTP_CGV
 		if [ -z "$cg" ]; then
 			WV[$id]["note"]="$name does not run in a control group of its own, so a rule cannot name it alone (ADR 0029)."
 			return 0
@@ -398,6 +399,10 @@ fn wtview_draw(int id, int h, int w, int row, int col) {
 	console pen "$DT_INK" "$DT_FACE"
 	if [ "$WTP_MOD" = 0 ]; then
 		wv_put "$id" 2 2 "The wiretap module is not installed. Install the package (apt install wiretap)."
+		return 0
+	fi
+	if [ "$WTP_SEEN" = 0 ]; then		# the first reading is on its way (a job): say nothing wrong meanwhile
+		dt_want 100
 		return 0
 	fi
 	if [ "$WTP_UP" = 0 ]; then
