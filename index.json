@@ -748,15 +748,16 @@
       "hibr": "0.99.300"
     },
     "control-panel/language": {
-      "title": "Language",
-      "version": "1.0",
+      "title": "Language & Region",
+      "version": "1.0.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "a098492eae10a1cd954a7e19f6708ccc2757e65d06c67f6eb7ad9c089031a171",
-      "about": "The language the desktop speaks, and right-to-left ordering\n\nthe Control Panel pane for the language the desktop speaks and whether it orders right-to-left text itself (#68, ADR 0032). The languages listed are the catalogues there are, lang/<code>.json in the person's own folder or bundled; English is the source and always there.",
+      "sha256": "fbd78c6bded650f614081764151be21ab20144911741f76333de56c08410e4ee",
+      "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "language"
+      "name": "language",
+      "hibr": "0.99.511"
     },
     "control-panel/loginmgr": {
       "title": "Login Manager",
@@ -1482,11 +1483,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.4",
+      "version": "3.99.5",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "b881721a0c1d2a71a30cd2ac48103874288ceaa608c86f12c6f2d9b60e811b67",
-      "about": "The desktop's own words in العربية (ar): 1546 strings, read right to left.",
+      "sha256": "5b506f7a6f0d8bbdb0f74378bc3020ad060dc1c21ecaecc0797c054e51cc99c1",
+      "about": "The desktop's own words in العربية (ar): 1562 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2123,15 +2124,16 @@
       "hibr": "0.99.300"
     },
     "language": {
-      "title": "Language",
-      "version": "1.0",
+      "title": "Language & Region",
+      "version": "1.0.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "a098492eae10a1cd954a7e19f6708ccc2757e65d06c67f6eb7ad9c089031a171",
-      "about": "The language the desktop speaks, and right-to-left ordering\n\nthe Control Panel pane for the language the desktop speaks and whether it orders right-to-left text itself (#68, ADR 0032). The languages listed are the catalogues there are, lang/<code>.json in the person's own folder or bundled; English is the source and always there.",
+      "sha256": "fbd78c6bded650f614081764151be21ab20144911741f76333de56c08410e4ee",
+      "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
-      "name": "language"
+      "name": "language",
+      "hibr": "0.99.511"
     },
     "loginmgr": {
       "title": "Login Manager",
