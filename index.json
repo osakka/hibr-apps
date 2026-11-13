@@ -662,6 +662,18 @@
       "name": "appearance",
       "hibr": "0.99.463"
     },
+    "control-panel/arabizi": {
+      "title": "Arabizi",
+      "version": "0.1.2",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/arabizi.hibr",
+      "sha256": "8528147761e2b0d5d76fbec6e5d17dc523a52096b5f650875018ca2aa984c630",
+      "about": "The Control Panel pane for Arabizi, from hibr-ime\n\ntuning Arabizi, the input method hibr-ime brings: whether it writes tashkeel, which letter each Arabizi digit reads as, the person's own words, and a box to try it in. It writes only the person's own layer, $XDG_CONFIG_HOME/hibr/ime/arabizi/ -- `options`, and `arabizi.rules` in the shipped rules' own format, read after them -- which hibr's ime module and Blit's compositor both read, so a program window and a desktop field always convert alike. A line of that file the pane does not manage is kept as it is.\n\nedit: fields",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "arabizi",
+      "hibr": "0.99.519"
+    },
     "control-panel/blit": {
       "title": "Blit",
       "version": "0.1.33",
@@ -2050,6 +2062,18 @@
       "author": "Omar Sakka",
       "name": "appearance",
       "hibr": "0.99.463"
+    },
+    "arabizi": {
+      "title": "Arabizi",
+      "version": "0.1.2",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/arabizi.hibr",
+      "sha256": "8528147761e2b0d5d76fbec6e5d17dc523a52096b5f650875018ca2aa984c630",
+      "about": "The Control Panel pane for Arabizi, from hibr-ime\n\ntuning Arabizi, the input method hibr-ime brings: whether it writes tashkeel, which letter each Arabizi digit reads as, the person's own words, and a box to try it in. It writes only the person's own layer, $XDG_CONFIG_HOME/hibr/ime/arabizi/ -- `options`, and `arabizi.rules` in the shipped rules' own format, read after them -- which hibr's ime module and Blit's compositor both read, so a program window and a desktop field always convert alike. A line of that file the pane does not manage is kept as it is.\n\nedit: fields",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "arabizi",
+      "hibr": "0.99.519"
     },
     "blit": {
       "title": "Blit",

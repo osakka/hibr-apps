@@ -424,6 +424,10 @@ ENTHIBR["menubar/network"]=0.99.517
 # Language & Region 1.0.3 has the Input Method row, over the desktop's own
 # keyboard list (hibr Gitea #543).
 ENTHIBR["control-panel/language"]=0.99.519
+# The Arabizi pane comes from hibr-ime (0.1.2): it types its Try box past
+# the input method (DT_IMEBY, 0.99.517) and its words through dt_ask; 0.99.519
+# is the first desktop with the keyboard list it belongs to.
+ENTHIBR["control-panel/arabizi"]=0.99.519
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

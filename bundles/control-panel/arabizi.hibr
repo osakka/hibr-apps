@@ -1,0 +1,368 @@
+#!/usr/bin/env hibr
+#
+# control-panel/arabizi -- tuning Arabizi, the input method hibr-ime brings:
+# whether it writes tashkeel, which letter each Arabizi digit reads as, the
+# person's own words, and a box to try it in. It writes only the person's
+# own layer, $XDG_CONFIG_HOME/hibr/ime/arabizi/ -- `options`, and
+# `arabizi.rules` in the shipped rules' own format, read after them -- which
+# hibr's ime module and Blit's compositor both read, so a program window
+# and a desktop field always convert alike. A line of that file the pane
+# does not manage is kept as it is.
+#
+# edit: fields
+
+app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.2
+command -v cp_pane > /dev/null && cp_pane arabizi "Arabizi" "ع"
+
+strict
+
+# The digits' shipped readings, "symbol position" to their options as the
+# rules write them (AZP), in the rules' order (AZP_ROWS); the person's own
+# where they chose differently (AZPU); their words, "latin<TAB>arabic"; the
+# lines of their file the pane leaves alone; and whether tashkeel is on.
+declare -gA AZP AZPU
+declare -ga AZP_ROWS=() AZP_WORDS=() AZP_KEEP=() AZP_CHOICE=()
+AZP_TASHKEEL=
+# Which reading row a dropdown is open for, and which word is being edited
+# (-1 for a new one).
+AZP_DROPI=
+AZP_EDIT=-1
+AZP_HEAD="# Written by the Control Panel's Arabizi pane, over the shipped rules."
+
+# The person's own layer for Arabizi.
+azp_dir() {
+	if [ -n "${HIBR_IME_USER-}" ]; then
+		ret "$HIBR_IME_USER/arabizi"
+	else
+		ret "${XDG_CONFIG_HOME:-$HOME/.config}/hibr/ime/arabizi"
+	fi
+}
+
+# The shipped rules.
+azp_shipped() {
+	ret "${HIBR_IME_ROOT:-/usr/share/hibr-ime}/arabizi/arabizi.rules"
+}
+
+# Read the shipped digits and the person's own layer; status 1 when Arabizi
+# is not installed.
+azp_load() {
+	local f d l kind sym pos opts latin arabic
+
+	AZP=()
+	AZPU=()
+	AZP_ROWS=()
+	AZP_WORDS=()
+	AZP_KEEP=()
+	AZP_TASHKEEL=
+	f := azp_shipped
+	[ -r "$f" ] || return 1
+	while IFS= read -r l || [ -n "$l" ]; do
+		read -r kind sym pos opts <<< "$l"
+		[ "$kind" = unit ] || continue
+		case $sym in *[0-9]*) ;; *) continue ;; esac
+		[ -n "${AZP["$sym $pos"]+x}" ] && continue
+		AZP["$sym $pos"]=$opts
+		AZP_ROWS+=("$sym $pos")
+	done < "$f"
+	d := azp_dir
+	if [ -r "$d/options" ]; then
+		while IFS= read -r l || [ -n "$l" ]; do
+			[ "$l" = tashkeel ] && AZP_TASHKEEL=1
+		done < "$d/options"
+	fi
+	[ -r "$d/arabizi.rules" ] || return 0
+	while IFS= read -r l || [ -n "$l" ]; do
+		[ "$l" = "$AZP_HEAD" ] && continue
+		read -r kind sym pos opts <<< "$l"
+		if [ "$kind" = unit ] && [ -n "${AZP["$sym $pos"]+x}" ]; then
+			AZPU["$sym $pos"]=$opts
+			continue
+		fi
+		if [ "$kind" = word ] && [[ $l == *=* ]]; then
+			latin=${l#word}
+			latin=${latin%%=*}
+			arabic=${l#*=}
+			read -r latin <<< "$latin"
+			read -r arabic <<< "$arabic"
+			AZP_WORDS+=("$latin"$'\t'"$arabic")
+			continue
+		fi
+		[ -n "$l" ] && AZP_KEEP+=("$l")
+	done < "$d/arabizi.rules"
+	return 0
+}
+
+# Write the person's own layer whole, through a new file renamed into place.
+azp_store() {
+	local d k w
+
+	d := azp_dir
+	mkdir -p "$d" || return 1
+	{
+		printf '%s\n' "$AZP_HEAD"
+		for w in "${AZP_KEEP[@]}"; do
+			printf '%s\n' "$w"
+		done
+		for k in "${AZP_ROWS[@]}"; do
+			[ -n "${AZPU["$k"]+x}" ] && printf 'unit %s %s\n' "$k" "${AZPU["$k"]}"
+		done
+		for w in "${AZP_WORDS[@]}"; do
+			printf 'word %s = %s\n' "${w%%$'\t'*}" "${w#*$'\t'}"
+		done
+	} > "$d/arabizi.rules.new" && mv -f "$d/arabizi.rules.new" "$d/arabizi.rules"
+	if [ -n "$AZP_TASHKEEL" ]; then
+		printf 'tashkeel\n' > "$d/options.new"
+	else
+		: > "$d/options.new"
+	fi
+	mv -f "$d/options.new" "$d/options"
+	dt_want 10
+}
+
+# What a reading looks like in a list: the letter, without the mark it
+# carries in tashkeel, or "(silent)".
+fn azp_show(spec) {
+	local p=${spec%%:*}
+
+	[ "$p" = - ] && p="(silent)"
+	ret "$p"
+}
+
+# Where in a word a row's reading applies, as its label says it.
+fn azp_where(sym, pos) {
+	case $pos in
+	initial) ret "$sym at a Word's Start" ;;
+	medial) ret "$sym Inside a Word" ;;
+	final) ret "$sym at a Word's End" ;;
+	*) ret "$sym" ;;
+	esac
+}
+
+# The choices of reading row i, shown, into AZP_CHOICE, in the shipped order.
+fn azp_choices(int i) {
+	local k=${AZP_ROWS[$i]} s v
+	local -a os
+
+	AZP_CHOICE=()
+	IFS=, read -ra os <<< "${AZP["$k"]}"
+	for s in "${os[@]}"; do
+		v := azp_show "$s"
+		AZP_CHOICE+=("$v")
+	done
+}
+
+# Make the reading shown as v the one row i reads as: it goes first and the
+# others keep their order; the shipped order again is no choice of theirs.
+fn azp_choose(int i, v) {
+	local k=${AZP_ROWS[$i]} s t first= rest=
+	local -a os
+
+	IFS=, read -ra os <<< "${AZP["$k"]}"
+	for s in "${os[@]}"; do
+		t := azp_show "$s"
+		if [ -z "$first" ] && [ "$t" = "$v" ]; then
+			first=$s
+		else
+			rest+=",$s"
+		fi
+	done
+	[ -n "$first" ] || return 0
+	if [ "$first$rest" = "${AZP["$k"]}" ]; then
+		unset AZPU["$k"]
+	else
+		AZPU["$k"]=$first$rest
+	fi
+	azp_store
+}
+
+# A dropdown's choice for the row it was opened on.
+fn cp_set_azpread(int? id = "", value = "") {
+	azp_load || return 0
+	azp_choose "$AZP_DROPI" "$value"
+}
+
+fn arabizi_rows(int w) {
+	local n=0 i k v t
+
+	if ! azp_load; then
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Arabizi Is Not Installed"
+		CP[$w][$n]["val"]="hibr-ime-arabizi"; n=$((n + 1))
+		ret "$n"
+		return 0
+	fi
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Typing"; n=$((n + 1))
+	v=Off
+	[ -n "$AZP_TASHKEEL" ] && v=On
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Write Tashkeel"
+	CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]=tashkeel; n=$((n + 1))
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Readings"; n=$((n + 1))
+	for ((i = 0; i < ${#AZP_ROWS[@]}; i++)); do
+		k=${AZP_ROWS[$i]}
+		v=${AZPU["$k"]-${AZP["$k"]}}
+		v := azp_show "${v%%,*}"
+		t := azp_where "${k% *}" "${k#* }"
+		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]=$t
+		CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]="rd:$i"; n=$((n + 1))
+	done
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="My Words"; n=$((n + 1))
+	for ((i = 0; i < ${#AZP_WORDS[@]}; i++)); do
+		CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]=${AZP_WORDS[$i]%%$'\t'*}
+		CP[$w][$n]["val"]=${AZP_WORDS[$i]#*$'\t'}; CP[$w][$n]["key"]="w:$i"; n=$((n + 1))
+	done
+	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Add a Word${GL[ellipsis]}"
+	CP[$w][$n]["val"]=""; CP[$w][$n]["key"]=wadd; n=$((n + 1))
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Try It"; n=$((n + 1))
+	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Try Arabizi${GL[ellipsis]}"
+	CP[$w][$n]["val"]=""; CP[$w][$n]["key"]=try; n=$((n + 1))
+	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Back to the Shipped Readings${GL[ellipsis]}"
+	CP[$w][$n]["val"]=""; CP[$w][$n]["key"]=reset; n=$((n + 1))
+	ret "$n"
+}
+
+fn arabizi_do(int? w = "", k = "", int? dir = "") {
+	local i v cur
+
+	azp_load || return 0
+	case $k in
+	tashkeel)
+		if [ -n "$AZP_TASHKEEL" ]; then AZP_TASHKEEL=; else AZP_TASHKEEL=1; fi
+		azp_store
+		;;
+	rd:*)
+		i=${k#rd:}
+		azp_choices "$i"
+		cur=${AZPU["${AZP_ROWS[$i]}"]-${AZP["${AZP_ROWS[$i]}"]}}
+		cur := azp_show "${cur%%,*}"
+		v := cp_next "$cur" "${dir:-1}" "${AZP_CHOICE[@]}"
+		azp_choose "$i" "$v"
+		;;
+	w:*)
+		AZP_EDIT=${k#w:}
+		v=${AZP_WORDS[$AZP_EDIT]}
+		dt_ask "My Words" "Latin = Arabic" "${v%%$'\t'*} = ${v#*$'\t'}" azp_wordset \
+			"Leave it empty to remove the word"
+		;;
+	wadd)
+		AZP_EDIT=-1
+		dt_ask "My Words" "Latin = Arabic" "" azp_wordset "Such as: 3omar = عمر"
+		;;
+	try) azt_show ;;
+	reset)
+		dt_confirm "Put back the shipped readings and words? Your own are removed." azp_reset
+		;;
+	esac
+}
+
+fn arabizi_drop(int? w = "", int? r = "", int? c = "", k = "") {
+	case $k in
+	rd:*)
+		azp_load || return 0
+		AZP_DROPI=${k#rd:}
+		azp_choices "$AZP_DROPI"
+		dt_droplist "$w" "$r" "$c" cp_set_azpread "${AZP_CHOICE[@]}"
+		;;
+	esac
+}
+
+# The word dialog's answer: "latin = arabic" sets it, nothing removes the
+# word being edited, and anything else is said and left alone.
+fn azp_wordset(v = "", ...rest) {
+	local latin arabic
+
+	azp_load || return 0
+	latin=${v%%=*}
+	arabic=${v#*=}
+	read -r latin <<< "$latin"
+	read -r arabic <<< "$arabic"
+	if [ -z "$v" ] || { [ -z "$latin" ] && [ -z "$arabic" ]; }; then
+		if [ "$AZP_EDIT" -ge 0 ]; then
+			unset AZP_WORDS["$AZP_EDIT"]
+			AZP_WORDS=("${AZP_WORDS[@]}")
+			azp_store
+		fi
+		return 0
+	fi
+	latin := str lower "$latin"
+	if [[ $v != *=* ]] || [ -z "$arabic" ] || [[ $latin == *[!a-z0-9\'-]* ]]; then
+		dt_notep low "A word is written as its Latin, an equals sign and its Arabic"
+		return 0
+	fi
+	if [ "$AZP_EDIT" -ge 0 ]; then
+		AZP_WORDS[$AZP_EDIT]="$latin"$'\t'"$arabic"
+	else
+		AZP_WORDS+=("$latin"$'\t'"$arabic")
+	fi
+	azp_store
+}
+
+# Remove the person's own layer: the shipped readings, no words, no tashkeel.
+azp_reset() {
+	local d
+
+	d := azp_dir
+	rm -f "$d/arabizi.rules" "$d/options"
+	dt_want 10
+}
+
+# --- Try Arabizi: a field typed in Latin, and what it becomes ---------------
+
+declare -gA AZT
+
+# Open the window, beside the Control Panel.
+azt_show() {
+	local h=9 w=56 rid
+
+	dt_dlgat "$h" "$w"
+	rid := dt_new "Try Arabizi" "$DT_DLGH" "$DT_DLGW" "$DT_DLGR" "$DT_DLGC" azt
+	AZT[$rid]["text"]=
+	AZT[$rid]["cur"]=0
+	AZT[$rid]["out"]=
+}
+
+azt_menus() {
+	dt_menu "File"
+	dt_item "Close" c dt_del "$DT_FOCUS"
+	dt_editmenu
+}
+
+fn azt_draw(int id, int h, int w, int row, int col) {
+	local t
+
+	console pen "$DT_INK" "$DT_FACE"
+	t := dt_tr "Type Arabizi:"
+	console put -p "w$id" 1 2 "$t"
+	dt_textdraw "$id" 2 2 $((w - 2)) "${AZT[$id]["text"]}" "${AZT[$id]["cur"]}" 1
+	t := dt_tr "It becomes:"
+	console put -p "w$id" 4 2 "$t"
+	console pen "$DT_INK" "$DT_WELL"
+	t := str pad "${AZT[$id]["out"]}" $((w - 2))
+	console put -p "w$id" 5 2 "$t"
+	console pen "$DT_DIM" "$DT_FACE"
+	t := dt_tr "With your own readings and words, as you type them anywhere."
+	console put -p "w$id" 7 2 "$t"
+}
+
+# Typing goes into the field as it is, past any input method: this window
+# shows what the method makes of Latin, so it must be given Latin.
+fn azt_key(int id, key) {
+	local r o
+
+	case $key in
+	escape | enter) dt_del "$id"; return 0 ;;
+	esac
+	DT_IMEBY=1
+	r := dt_textkey "${AZT[$id]["text"]}" "${AZT[$id]["cur"]}" "$key"
+	o=$?
+	DT_IMEBY=
+	[ "$o" = 0 ] || return 1
+	AZT[$id]["text"]=${r% *}
+	AZT[$id]["cur"]=${r##* }
+	o=
+	need ime 2> /dev/null && o := ime convert arabizi "${AZT[$id]["text"]}" 2> /dev/null
+	AZT[$id]["out"]=$o
+	return 0
+}
+
+fn azt_close(int id) {
+	unset AZT["$id"]
+}
