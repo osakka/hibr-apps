@@ -454,15 +454,15 @@
     },
     "apps/files": {
       "title": "Files",
-      "version": "3.13.1",
+      "version": "3.13.2",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "5d5378d4b0737da889ab690cc534be73de2466caaba7d9f77ac093633608f6ad",
+      "sha256": "ae3c06f481aad72ad6069c794fa590837b6140bb2dbe78570a6bffed16a25fdf",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.451",
+      "hibr": "0.99.520",
       "parts": [
         {
           "kind": "control-panel",
@@ -1084,6 +1084,18 @@
       "name": "bluetooth",
       "hibr": "0.99.400"
     },
+    "menubar/keyboard": {
+      "title": "Keyboard",
+      "version": "1.0",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/keyboard.hibr",
+      "sha256": "e02ac26596b0ef894d49e994368729650838db063a58c48424df1f109f10c6b5",
+      "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "keyboard",
+      "hibr": "0.99.521"
+    },
     "menubar/longwire": {
       "title": "Longwire",
       "version": "0.5.56",
@@ -1509,11 +1521,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.8",
+      "version": "3.99.9",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "b9875752402e9023ed6430321e6a98342f80fd3827bcaec64c4850c14aa46ed4",
-      "about": "The desktop's own words in العربية (ar): 1570 strings, read right to left.",
+      "sha256": "337bc4a174d9a7a7bd839e61d24988b46b6341fcdc7fc2b5ce66476762fc1484",
+      "about": "The desktop's own words in العربية (ar): 1574 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1937,15 +1949,15 @@
     },
     "files": {
       "title": "Files",
-      "version": "3.13.1",
+      "version": "3.13.2",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "5d5378d4b0737da889ab690cc534be73de2466caaba7d9f77ac093633608f6ad",
+      "sha256": "ae3c06f481aad72ad6069c794fa590837b6140bb2dbe78570a6bffed16a25fdf",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "files",
-      "hibr": "0.99.451"
+      "hibr": "0.99.520"
     },
     "switchboard": {
       "title": "Switchboard",

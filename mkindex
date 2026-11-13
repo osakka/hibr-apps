@@ -432,6 +432,12 @@ ENTHIBR["control-panel/arabizi"]=0.99.519
 # module, 0.99.518, and is a field-only app by `# edit: fields`, which the app
 # rules accept from 0.99.519 (hibr Gitea #544).
 ENTHIBR["apps/coding"]=0.99.519
+# Files 3.13.2 watches the folder it shows through the dirwatch module,
+# which 0.99.520 is the first release to ship.
+ENTHIBR["apps/files"]=0.99.520
+# The keyboard on the menu bar became an item of its own in 0.99.521: the
+# window manager before it draws the item itself and has no dt_kbshow.
+ENTHIBR["menubar/keyboard"]=0.99.521
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
