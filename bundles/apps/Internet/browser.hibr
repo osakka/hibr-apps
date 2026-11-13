@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.49.1
+app browser "The web, in a window" 2.50
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -240,7 +240,7 @@ fn bw_apply(t) {
 	bw_isdark && on=on
 	web set "$t" dark "$on" 2> /dev/null
 	web set "$t" zoom "${BW_ZOOM:-100}" 2> /dev/null
-	web set "$t" ua "$BW_UA" 2> /dev/null
+	web set "$t" ua "${BWTUA["$t"]:-$BW_UA}" 2> /dev/null
 	web set "$t" lang "$BW_LANG" 2> /dev/null
 	on=off
 	[ "$BW_DNT" = 1 ] && on=on
@@ -503,6 +503,12 @@ bw_heard() {
 			[ -n "$k" ] && bw_permask "$k" "$tb" "$o" "$l"
 		done <<< "$x"
 	fi
+	# A page's file chooser (an upload button, a chat's paperclip): the desktop's Open dialog, and what is chosen is the page's.
+	if bw_has filechoose && x := web files 2> /dev/null; then
+		while IFS=$'\t' read -r k tb o l; do
+			[ -n "$k" ] && bw_filepick "$k" "$tb" "$o" "$l"
+		done <<< "$x"
+	fi
 	# A page's own words, which no catalogue holds: passed as they are.
 	if x := web notes 2> /dev/null; then
 		if bw_has notetab; then
@@ -562,6 +568,98 @@ fn bw_sitekeep(host, kind, how) {
 
 # A question from the engine (web permasks): ID, the tab, what is wanted
 # (camera, microphone, camera+microphone, geolocation), the site.
+# Sites that must be shown another browser than the one this is.  WebKit has a fix of its own for whatsapp.com (it refuses WebKit's user agent): it
+# gives the site the user agent of Safari on a Mac, whatever a tab was set to -- and WhatsApp then says calls need the Mac app.  For these hosts
+# (the host or any domain it is within) a tab is given the identity below and WebKit's site fixes are off for it, so the site is asked for what it
+# is told; another address in the tab puts the usual user agent and the fixes back.  Firefox: it makes calls with the standard APIs this engine has.
+declare -gA BWSITEUA
+BWSITEUA["whatsapp.com"]="Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0"
+declare -gA BWTUA
+
+# The identity a site is to be shown, or nothing.
+fn bw_siteua(url) {
+	local h d
+
+	h := bw_host "$url"
+	d=$h
+	while [ -n "$d" ]; do
+		if [ -n "${BWSITEUA["$d"]-}" ]; then
+			ret "${BWSITEUA["$d"]}"
+			return 0
+		fi
+		[[ $d == *.* ]] || break
+		d=${d#*.}
+	done
+	ret ""
+}
+
+# Before a tab is sent to an address: the identity that address is to be shown (above), when it is not the one the tab has.
+fn bw_siteprep(t, url) {
+	local ua
+
+	bw_has quirks || return 0
+	ua := bw_siteua "$url"
+	[ "${BWTUA["$t"]-}" = "$ua" ] && return 0
+	BWTUA["$t"]=$ua
+	if [ -n "$ua" ]; then
+		web set "$t" ua "$ua" 2> /dev/null
+		web set "$t" quirks off 2> /dev/null
+	else
+		web set "$t" ua "$BW_UA" 2> /dev/null
+		web set "$t" quirks on 2> /dev/null
+	fi
+	return 0
+}
+
+# A page opens its file chooser: the Open dialog, with the kinds of file the page asked for (its accept=) first and all files after; the file
+# chosen (or none: cancel, escape) goes back to the page. One file: the dialog takes one, so a field that takes several is given one.
+fn bw_filepick(k, tab, multi, mimes) {
+	local types= m
+	local -a ms
+
+	IFS=, read -ra ms <<< "$mimes"
+	for m in "${ms[@]}"; do
+		case $m in
+		image/*) types+="Pictures:png jpg jpeg gif webp bmp svg heic|" ;;
+		audio/*) types+="Audio:mp3 ogg oga wav flac m4a aac opus|" ;;
+		video/*) types+="Video:mp4 webm mkv mov avi m4v|" ;;
+		application/pdf) types+="PDF:pdf|" ;;
+		.[A-Za-z0-9]*) types+="${m#.} files:${m#.}|" ;;
+		esac
+	done
+	types+="All files:*"
+	if ! dt_has dt_filepick; then
+		web fileans "$k" 2> /dev/null
+		return 0
+	fi
+	dt_filepick open "Choose a file to send" "$types" "${BW_UPDIR:-}" "" bw_filepicked "$k" bw_filenone
+	return 0
+}
+
+fn bw_filepicked(k, path, type = "") {
+	BW_UPDIR=${path%/*}
+	web fileans "$k" "$path" 2> /dev/null
+	return 0
+}
+
+fn bw_filenone(k) {
+	web fileans "$k" 2> /dev/null
+	return 0
+}
+declare -g BW_UPDIR=
+
+# Files dragged from another window (the Files app) and let go over the page: the page is given a drop event with them, at that point, as a
+# chat or an upload area takes a file dragged onto it.  Over the Browser's own parts (the address, the tabs) or a page drawn as text: nothing.
+fn browser_drop(int id, int r, int c, op, ...paths) {
+	local t=${BW[$id]["cur"]-} pt=${BW[$id]["pt"]:-3}
+
+	[ -n "$t" ] && [ "$r" -ge "$pt" ] && bw_tabhas "$t" filedrop || return 0
+	bw_drawmode
+	[ "$BW_DRAWN" = text ] && return 0
+	web drop "$t" $((r - pt)) $((c - 1)) "${paths[@]}" 2> /dev/null
+	return 0
+}
+
 fn bw_permask(k, tab, kind, host) {
 	local id t a=
 
@@ -965,7 +1063,11 @@ fn bw_wapply(t, app) {
 		web set "$t" notes off 2> /dev/null
 	fi
 	[ -n "${WA["$app:zoom"]-}" ] && web set "$t" zoom "${WA["$app:zoom"]}" 2> /dev/null
-	[ -n "${WA["$app:ua"]-}" ] && web set "$t" ua "${WA["$app:ua"]}" 2> /dev/null
+	if [ -n "${WA["$app:ua"]-}" ]; then
+		web set "$t" ua "${WA["$app:ua"]}" 2> /dev/null
+		bw_has quirks && web set "$t" quirks off 2> /dev/null
+		BWTUA["$t"]=${WA["$app:ua"]}
+	fi
 	return 0
 }
 
@@ -1062,7 +1164,7 @@ fn bw_newtab(int id, url = "") {
 	[ -n "$app" ] && bw_wapply "$t" "$app"
 	bw_sndarm "$t"
 	# A tab starts blank: about:blank is not gone to (the light engine would fetch it, and fail).
-	[ -n "$url" ] && [ "$url" != about:blank ] && web go "$t" "$url"
+	[ -n "$url" ] && [ "$url" != about:blank ] && { bw_siteprep "$t" "$url"; web go "$t" "$url"; }
 	bw_watch
 	BW[$id]["tabs"]="${BW[$id]["tabs"]:+${BW[$id]["tabs"]} }$t"
 	BW[$id]["cur"]=$t
@@ -1362,6 +1464,7 @@ fn bw_goaddr(int id) {
 		bw_newtab "$id" "$a"
 	else
 		bw_sndarm "$t"
+		bw_siteprep "$t" "$a"
 		web go "$t" "$a"
 	fi
 }
@@ -3209,13 +3312,13 @@ fn bw_errtemplate() {
 # not show says why without anyone having to watch it happen. The hook is put into the page by a script it answers with the new lines, asked
 # without waiting (`web evask`).
 BW_ACTLOG="${XDG_CACHE_HOME:-$HOME/.cache}/hibr/browser-activity.log"
-BW_ACTJS='(function(){if(!window.__hl){var H=window.__hl=[];function L(k,s){if(H.length<60)H.push(k+"\t"+String(s).slice(0,160))}addEventListener("error",function(e){L("error",e.message)});addEventListener("unhandledrejection",function(e){var r=e.reason;L("rejected",r&&r.name?r.name+" "+r.message:r)});var ce=console.error;console.error=function(){try{L("console.error",Array.prototype.join.call(arguments," "))}catch(x){}return ce.apply(console,arguments)};var wo=window.open;window.open=function(u){L("window.open",u);return wo.apply(window,arguments)};var md=navigator.mediaDevices;if(md&&md.getUserMedia){var g=md.getUserMedia.bind(md);md.getUserMedia=function(c){L("camera/mic asked",JSON.stringify(c));return g(c).then(function(s){var v=s.getVideoTracks()[0];L("camera/mic given",s.getTracks().map(function(t){return t.kind}).join("+"));if(v){var e=document.createElement("video");e.muted=true;e.autoplay=true;e.playsInline=true;e.style.cssText="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";(document.body||document.documentElement).appendChild(e);e.srcObject=s;e.play().catch(function(){});var t0=Date.now(),dn=0,rep=function(){if(dn)return;if(e.videoWidth>0){dn=1;L("camera frames",e.videoWidth+"x"+e.videoHeight+" after "+(Date.now()-t0)+" ms "+JSON.stringify(v.getSettings()));e.remove()}else if(Date.now()-t0>8000){dn=1;L("camera frames","none after 8 s, ready="+e.readyState+" "+JSON.stringify(v.getSettings()));e.remove()}};e.addEventListener("loadedmetadata",rep);var iv=setInterval(function(){rep();if(dn)clearInterval(iv)},500)}return s},function(e){L("camera/mic refused",e.name+" "+e.message);throw e})}}if(md&&md.enumerateDevices){var ed=md.enumerateDevices.bind(md);md.enumerateDevices=function(){return ed().then(function(d){L("devices listed",d.map(function(x){return x.kind+(x.label?"":"(no label)")}).join(","));return d})}}var P=window.RTCPeerConnection;if(P){window.RTCPeerConnection=new Proxy(P,{construct:function(t,a){var p=new t(...a);L("call connection","created");p.addEventListener("connectionstatechange",function(){L("call connection",p.connectionState)});return p}})}}return window.__hl.splice(0).join("\n")})()'
+BW_ACTJS='(function(){if(!window.__hl){var H=window.__hl=[];function L(k,s){if(H.length<60)H.push(k+"\t"+String(s).slice(0,160))}addEventListener("error",function(e){L("error",e.message)});addEventListener("unhandledrejection",function(e){var r=e.reason;L("rejected",r&&r.name?r.name+" "+r.message:r)});var ce=console.error;console.error=function(){try{L("console.error",Array.prototype.join.call(arguments," "))}catch(x){}return ce.apply(console,arguments)};var wo=window.open;window.open=function(u){L("window.open",u);return wo.apply(window,arguments)};var md=navigator.mediaDevices;if(md&&md.getUserMedia){var g=md.getUserMedia.bind(md);md.getUserMedia=function(c){L("camera/mic asked",JSON.stringify(c));return g(c).then(function(s){var v=s.getVideoTracks()[0];L("camera/mic given",s.getTracks().map(function(t){return t.kind}).join("+"));if(v){var e=document.createElement("video");e.muted=true;e.autoplay=true;e.playsInline=true;e.style.cssText="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none";(document.body||document.documentElement).appendChild(e);e.srcObject=s;e.play().catch(function(){});var t0=Date.now(),dn=0,rep=function(){if(dn)return;if(e.videoWidth>0){dn=1;L("camera frames",e.videoWidth+"x"+e.videoHeight+" after "+(Date.now()-t0)+" ms "+JSON.stringify(v.getSettings()));e.remove()}else if(Date.now()-t0>8000){dn=1;L("camera frames","none after 8 s, ready="+e.readyState+" "+JSON.stringify(v.getSettings()));e.remove()}};e.addEventListener("loadedmetadata",rep);var iv=setInterval(function(){rep();if(dn)clearInterval(iv)},500)}return s},function(e){L("camera/mic refused",e.name+" "+e.message);throw e})}}if(md&&md.enumerateDevices){var ed=md.enumerateDevices.bind(md);md.enumerateDevices=function(){return ed().then(function(d){L("devices listed",d.map(function(x){return x.kind+(x.label?"":"(no label)")}).join(","));return d})}}var P=window.RTCPeerConnection;if(P){window.RTCPeerConnection=new Proxy(P,{construct:function(t,a){var p=new t(...a);L("call connection","created");p.addEventListener("connectionstatechange",function(){L("call connection",p.connectionState)});return p}})}}var pr=function(o,k,nm){try{if(o&&!(k in o)){var sn=0;Object.defineProperty(o,k,{configurable:true,get:function(){if(!sn){sn=1;L("probed, missing",nm)}return undefined}})}}catch(x){}};pr(window,"MediaStreamTrackProcessor","MediaStreamTrackProcessor");pr(window,"MediaStreamTrackGenerator","MediaStreamTrackGenerator");pr(window,"VideoTrackGenerator","VideoTrackGenerator");pr(window,"SharedArrayBuffer","SharedArrayBuffer");pr(window,"WebTransport","WebTransport");pr(window,"Highlight","Highlight");if(window.RTCRtpSender)pr(RTCRtpSender.prototype,"createEncodedStreams","RTCRtpSender.createEncodedStreams");if(window.RTCRtpReceiver)pr(RTCRtpReceiver.prototype,"createEncodedStreams","RTCRtpReceiver.createEncodedStreams");if(window.HTMLMediaElement)pr(HTMLMediaElement.prototype,"setSinkId","HTMLMediaElement.setSinkId");if(window.AudioContext)pr(AudioContext.prototype,"setSinkId","AudioContext.setSinkId");if(window.Navigator)pr(Navigator.prototype,"userAgentData","navigator.userAgentData");return window.__hl.splice(0).join("\n")})()'
 declare -gA BWA
 declare -g BW_ACTAT=0
 
 fn bw_actmeeting(host) {
 	case $host in
-	zoom.us | *.zoom.us | *.zoom.com | meet.google.com | jit.si | *.jit.si | teams.microsoft.com | teams.live.com | *.webex.com | whereby.com | *.whereby.com) return 0 ;;
+	zoom.us | *.zoom.us | *.zoom.com | meet.google.com | jit.si | *.jit.si | teams.microsoft.com | teams.live.com | *.webex.com | whereby.com | *.whereby.com | web.whatsapp.com | *.whatsapp.com) return 0 ;;
 	esac
 	# more sites, by name (a test serves its own meeting page)
 	case " ${BW_ACTHOSTS-} " in *" $host "*) return 0 ;; esac
@@ -3356,22 +3459,19 @@ fn bw_enginemb() {
 	ret "${o:-0}"
 }
 
-# When the engine holds more than 1.5 GB, said in the record (about:diagnostics): how much, and which sites are open -- once, and again only
-# after it has grown by a quarter -- so that "the browser ate all my memory" leaves the page that did it. Looked at every 20 seconds.
-declare -g BW_MEMAT=0 BW_MEMLAST=0
-fn bw_memwatch() {
-	local mb id t u h hosts=
+# The engine's processes' CPU time so far, in seconds (the sum of what each has used).
+fn bw_enginecpu() {
+	local o
+
+	o=$(ps -U "$(id -u)" -o cputimes=,comm= 2> /dev/null | awk '/hibr-wpe|WPEWebProcess|WPENetworkProcess/ { s += $1 } END { printf "%d", s }')
+	ret "${o:-0}"
+}
+
+# The sites open in the Browser's windows, once each, in a line.
+fn bw_openhosts() {
+	local id t u h hosts=
 	local -a seen=()
 
-	[ $((EPOCHSECONDS - BW_MEMAT)) -ge 20 ] || return 0
-	BW_MEMAT=$EPOCHSECONDS
-	mb := bw_enginemb
-	if [ "$mb" -lt 1500 ]; then
-		BW_MEMLAST=0
-		return 0
-	fi
-	[ "$BW_MEMLAST" -gt 0 ] && [ "$mb" -lt $((BW_MEMLAST * 5 / 4)) ] && return 0
-	BW_MEMLAST=$mb
 	for id in "${!BW[@]}"; do
 		[ -n "${BW[$id]["cur"]-}" ] || continue
 		bw_tabs "$id"
@@ -3381,7 +3481,43 @@ fn bw_memwatch() {
 			[ -n "$h" ] && [[ " ${seen[*]} " != *" $h "* ]] && { seen+=("$h"); hosts+="${hosts:+, }$h"; }
 		done
 	done
-	bw_actlog "engine" "memory" "$mb MB held; open: ${hosts:-nothing}"
+	ret "${hosts:-nothing}"
+}
+
+# Said in the record (about:diagnostics), so that "the browser ate my memory" and "this site is slow" leave the page that did it: when the engine
+# holds more than 1.5 GB (how much, which sites are open) -- once, and again only after it has grown by a quarter; and when it has used more than a
+# core and a fifth for forty seconds running (how much, which sites), not more than every two minutes.  Looked at every 20 seconds.
+declare -g BW_MEMAT=0 BW_MEMLAST=0 BW_CPUAT=0 BW_CPUWAS=0 BW_CPUBUSY=0 BW_CPUNOTE=0
+fn bw_memwatch() {
+	local mb cpu pct dt hosts
+
+	[ $((EPOCHSECONDS - BW_MEMAT)) -ge 20 ] || return 0
+	cpu := bw_enginecpu
+	if [ "$BW_MEMAT" -gt 0 ] && [ "$cpu" -ge "$BW_CPUWAS" ]; then
+		dt=$((EPOCHSECONDS - BW_MEMAT))
+		pct=$(((cpu - BW_CPUWAS) * 100 / dt))
+		if [ "$pct" -ge 120 ]; then
+			BW_CPUBUSY=$((BW_CPUBUSY + 1))
+		else
+			BW_CPUBUSY=0
+		fi
+		if [ "$BW_CPUBUSY" -ge 2 ] && [ $((EPOCHSECONDS - BW_CPUNOTE)) -ge 120 ]; then
+			BW_CPUNOTE=$EPOCHSECONDS
+			hosts := bw_openhosts
+			bw_actlog "engine" "busy" "$pct% of a core for ${BW_CPUBUSY} looks; open: $hosts"
+		fi
+	fi
+	BW_CPUWAS=$cpu
+	BW_MEMAT=$EPOCHSECONDS
+	mb := bw_enginemb
+	if [ "$mb" -lt 1500 ]; then
+		BW_MEMLAST=0
+		return 0
+	fi
+	[ "$BW_MEMLAST" -gt 0 ] && [ "$mb" -lt $((BW_MEMLAST * 5 / 4)) ] && return 0
+	BW_MEMLAST=$mb
+	hosts := bw_openhosts
+	bw_actlog "engine" "memory" "$mb MB held; open: $hosts"
 	return 0
 }
 
@@ -3598,6 +3734,7 @@ fn bw_open(int id, url) {
 	BW[$id]["aed"]=
 	if [ -n "$t" ]; then
 		bw_sndarm "$t"
+		bw_siteprep "$t" "$url"
 		web go "$t" "$url"
 	else
 		bw_newtab "$id" "$url"
