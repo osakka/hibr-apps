@@ -421,6 +421,9 @@ ENTHIBR["apps/write"]=0.99.517
 ENTHIBR["apps/term"]=0.99.517
 ENTHIBR["apps/mail"]=0.99.517
 ENTHIBR["menubar/network"]=0.99.517
+# Language & Region 1.0.3 has the Input Method row, over the desktop's own
+# keyboard list (hibr Gitea #543).
+ENTHIBR["control-panel/language"]=0.99.519
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
