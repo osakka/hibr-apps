@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.50
+app browser "The web, in a window" 2.51
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -436,6 +436,18 @@ fn bw_dlstop() {
 # ended, and a page's notification, each a note of the desktop's own.
 bw_heard() {
 	local l k o x why tn dn du dir tb ux
+	local iw ic
+
+	# Text an input method holds for a page whose focus has since moved to something that is not free text (a password field, a number): it is
+	# dropped, not typed there when the keys move away.  The desktop would commit it into the window's field as typing.
+	if [ -n "${DT_IMEPRE-}" ] && [ "${DT_IMEAT-}" != "${DT_IMEAT#web }" ] && dt_has dt_imeflush; then
+		iw=${DT_IMEAT#web }
+		ic=${BW[$iw]["cur"]-}
+		if [ -n "$ic" ] && ! bw_pagetext "$ic"; then
+			x := dt_imeflush || x=
+			DT_IMEPRE=
+		fi
+	fi
 
 	if x := web downloaded 2> /dev/null; then
 		while IFS=$'\t' read -r k l why; do
@@ -1470,7 +1482,7 @@ fn bw_goaddr(int id) {
 }
 
 fn browser_draw(int id, int h, int w, int row, int col) {
-	local t=${BW[$id]["cur"]} ph ar pt
+	local t=${BW[$id]["cur"]} ph ar pt ipre
 
 	bw_navfocus "$id"
 	bw_atpoll "$id"
@@ -1524,6 +1536,12 @@ fn browser_draw(int id, int h, int w, int row, int col) {
 	bw_askcheck "$id"
 	bw_askbar "$id" "$pt" "$w"
 	bw_sound "$id"
+	# What an input method holds for this window's page, underlined at the window's foot where it is being typed (the page's own caret is not
+	# known here): the text then goes into the page when it is committed.
+	if [ -n "${DT_IMEPRE-}" ] && ipre := dt_imepre "$id" "web $id"; then
+		console pen "$DT_INK" "$DT_WELL" underline
+		console put -p "w$id" "$h" 2 " ${ipre:0:$((w - 4))} "
+	fi
 	BW[$id]["dkey"] := bw_drawkey "$id"
 	# The address bar's list of suggestions, last of all, over the page.
 	[ "${BW[$id]["aed"]}" = 1 ] && dt_has dt_omnilist && dt_omnilist "$id" "$h"
@@ -1564,6 +1582,7 @@ fn bw_drawkey(int id) {
 		k+="|$x"
 	fi
 	dt_searchon "$id" && k+="|on"
+	[ -n "${DT_IMEPRE-}" ] && k+="|${DT_IMEPRE-}"
 	ret "$k"
 }
 
@@ -2038,6 +2057,28 @@ fn bw_isshortcut(key) {
 	return 1
 }
 
+# Whether the page's focus is in a field that takes free text (what an input method may be given the keys of): `web focus` says text, secret,
+# keys or structured, and only `text` is given to a method; an engine that says nothing (0.5.37 and older, the light engine) is never asked, as a
+# password could not be told from the rest.  The answer is the engine's last report, kept in the module: no round trip to the engine.
+fn bw_pagetext(t) {
+	local f
+
+	f := web focus "$t" 2> /dev/null || return 1
+	[ "$f" = text ]
+}
+
+# What an input method holds for this window is typed into the page now, where it was typed: before a press moves the page's focus to another
+# field (it would be committed there), as the desktop does for its own windows.
+fn bw_imecommit(int id) {
+	local c t=${BW[$id]["cur"]-}
+
+	[ -n "${DT_IMEPRE-}" ] && [ -n "$t" ] && dt_has dt_imeflush && dt_imepre "$id" "web $id" > /dev/null 2>&1 || return 0
+	c := dt_imeflush || c=
+	DT_IMEPRE=
+	[ -n "$c" ] && web type "$t" "$c" 2> /dev/null
+	return 0
+}
+
 fn browser_key(int id, key) {
 	local t=${BW[$id]["cur"]} r k
 
@@ -2120,6 +2161,13 @@ fn browser_key(int id, key) {
 	[ -n "$t" ] || return 1
 	# the address field is active: what it did not use is not for the page
 	[ "${BW[$id]["aed"]}" = 1 ] && return 1
+	# Typed through an input method (Arabizi, for one) while the page's focus is in something that takes text -- never a password field, never
+	# the page's other keys (a game's, a shortcut, `/`): the method holds what is typed, and what it commits goes to the page as typing.  The
+	# desktop itself types held text into the window it belongs to, through this, with DT_IMEBY set: those keys go straight through.
+	if [ -n "${DT_IME-}" ] && [ -z "${DT_IMEBY-}" ] && dt_has dt_imekey && bw_pagetext "$t" && dt_imekey "$key" "web $id"; then
+		[ -n "${DT_IMEC-}" ] && web type "$t" "$DT_IMEC" 2> /dev/null
+		[ "${DT_IMEP-}" = 1 ] || { dt_want 10; return 0; }
+	fi
 	bw_sndarm "$t"
 	web key "$t" "$key" 2> /dev/null || return 1
 	# a key the page is given is answered by a change in it -- a letter in a field, a scroll that glides: the window is drawn at the
@@ -2225,6 +2273,7 @@ fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 		esac
 	fi
 	[ "$act" = press ] || return 0
+	bw_imecommit "$id"
 	# A press on one of the address bar's suggestions goes there; anywhere
 	# else but the field it shuts the list (dt_omnihit, first with every press).
 	if [ "${BW[$id]["aed"]}" = 1 ] && dt_has dt_omnihit; then
