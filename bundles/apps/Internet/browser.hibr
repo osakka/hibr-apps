@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.49
+app browser "The web, in a window" 2.49.1
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -67,7 +67,7 @@ command -v dt_ticker > /dev/null && dt_ticker bw_presencetick
 # a terminal sends Alt-Shift-L as alt-L, which the desktop does not yet take
 # for alt-shift-l, so a Shift combination would not reach.
 command -v dt_vwfill > /dev/null ||
-	{ command -v dt_appaction > /dev/null && dt_appaction browser vaultfill "Fill Sign-In from Vault" "mod-l"; }
+	{ command -v dt_appaction > /dev/null && dt_appaction browser vaultfill "Fill Sign-In from Vault" "alt-l"; }
 
 declare -gA BW
 command -v dt_keepstate > /dev/null && dt_keepstate browser BW
@@ -1927,10 +1927,10 @@ fn bw_textmove(int id, k) {
 }
 
 
-# Whether a key is a shortcut and not text: a chord (ctrl-, alt-, mod-) or a function key.
+# Whether a key is a shortcut and not text: a chord (ctrl-, alt-, super-) or a function key.
 fn bw_isshortcut(key) {
 	case $key in
-	ctrl-* | alt-* | mod-* | f[0-9] | f1[0-9] | f2[0-4]) return 0 ;;
+	ctrl-* | alt-* | super-* | f[0-9] | f1[0-9] | f2[0-4]) return 0 ;;
 	esac
 	return 1
 }
@@ -1994,11 +1994,11 @@ fn browser_key(int id, key) {
 		bw_textmove "$id" "$key" && return 0
 		[ "$key" = " " ] && bw_textmove "$id" pagedown && return 0
 	fi
-	# A desktop shortcut goes back to the desktop. Its keys are written with
-	# the Shortcut Key (`mod-enter`) and arrive as what it is (`alt-enter`), so
-	# they are compared through the desktop's own normaliser (dt_keyassigned,
-	# which also knows the app launchers); compared as strings, Zoom and Full
-	# Screen went to the page.
+	# A desktop shortcut goes back to the desktop. Its chords may be written
+	# in another order than they arrive (`ctrl-alt-t` as `alt-ctrl-t`), and a
+	# shortcut may have several, so they are compared through the desktop's
+	# own (dt_keyassigned, which also knows the app launchers); compared as
+	# strings, Zoom and Full Screen went to the page.
 	if dt_has dt_keyassigned; then
 		dt_keyassigned "$key" && return 1
 	else
