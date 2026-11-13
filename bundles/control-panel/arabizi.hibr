@@ -11,8 +11,8 @@
 #
 # edit: fields
 
-app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.2
-command -v cp_pane > /dev/null && cp_pane arabizi "Arabizi" "ع"
+app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.3
+command -v cp_pane > /dev/null && cp_pane arabizi "Arabizi" "⌨"
 
 strict
 
@@ -191,17 +191,18 @@ fn arabizi_rows(int w) {
 		return 0
 	fi
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Typing"; n=$((n + 1))
-	v=Off
-	[ -n "$AZP_TASHKEEL" ] && v=On
+	# A checkbox: the panel draws one for a bool row valued on or off.
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Write Tashkeel"
-	CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]=tashkeel; n=$((n + 1))
-	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Readings"; n=$((n + 1))
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ -n "$AZP_TASHKEEL" ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=tashkeel; n=$((n + 1))
+	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="The Letter Each Digit Writes"; n=$((n + 1))
 	for ((i = 0; i < ${#AZP_ROWS[@]}; i++)); do
 		k=${AZP_ROWS[$i]}
 		v=${AZPU["$k"]-${AZP["$k"]}}
 		v := azp_show "${v%%,*}"
 		t := azp_where "${k% *}" "${k#* }"
-		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]=$t
+		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]=$t; CP[$w][$n]["wtype"]=
 		CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]="rd:$i"; n=$((n + 1))
 	done
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="My Words"; n=$((n + 1))
