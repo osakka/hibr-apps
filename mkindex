@@ -410,6 +410,9 @@ ENTHIBR["control-panel/shortcuts"]=0.99.507
 ENTHIBR["control-panel/shortcuts"]=0.99.509
 ENTHIBR["control-panel/language"]=0.99.511
 ENTHIBR["control-panel/language"]=0.99.512
+# Write 1.7.1 draws its cursor by cluster with widgets/cluster.hibr, which
+# an older desktop does not have (hibr Gitea #542).
+ENTHIBR["apps/write"]=0.99.516
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
