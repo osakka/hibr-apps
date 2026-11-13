@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.34
+app blit "API configuration and diagnostics for the Blit display server" 0.1.35
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -1547,6 +1547,22 @@ fn blit_mouse_rows(int w) {
                 fi
             fi
         fi
+        # Blit 0.3.106 (ADR 0235): a program that stops answering shows the
+        # busy pointer, a ring going round. Offered when the server reports it.
+        if [ -n "${BCP_SNAPSHOT[settings][effective][pointer][busy_pointer]}" ]; then
+            blit_cp_row "$w" "$n" head "Busy Pointer (staged until Save)"; n=$((n + 1))
+            value := blit_mouse_shake busy_pointer
+            [ "$value" != false ] && value=on || value=off
+            blit_cp_row "$w" "$n" set "Busy Pointer" "$value" busy bool; n=$((n + 1))
+            if [ "$value" = on ]; then
+                value := blit_mouse_shake busy_after_ms
+                blit_cp_row "$w" "$n" set "Busy After" "$value" busyafter slider
+                CP[$w][$n][min]=500; CP[$w][$n][max]=10000; CP[$w][$n][after]="($value ms without an answer)"; n=$((n + 1))
+            fi
+            value := blit_mouse_shake busy_spin_ms
+            blit_cp_row "$w" "$n" set "Spin Once Every" "$value" busyspin slider
+            CP[$w][$n][min]=400; CP[$w][$n][max]=3000; CP[$w][$n][after]="($value ms)"; n=$((n + 1))
+        fi
     fi
     blit_cp_row "$w" "$n" head "Physical pointer (staged until Save)"; n=$((n + 1))
     i := blit_mouse_index
@@ -1603,6 +1619,13 @@ fn blit_mouse_slide(int w, key, int value) {
         [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ] || return 0
         [ "$value" -ge 24 ] && [ "$value" -le 64 ] || return 0
         json set BCP_DRAFT .pointer.size_px "$value"
+    elif [ "$key" = busy ] || [ "$key" = busyafter ] || [ "$key" = busyspin ]; then
+        [ -n "${BCP_SNAPSHOT[settings][effective][pointer][busy_pointer]}" ] || return 0
+        case $key in
+        busy) flag=false; [ "$value" != 1 ] || flag=true; json set BCP_DRAFT .pointer.busy_pointer "$flag" ;;
+        busyafter) [ "$value" -ge 500 ] && [ "$value" -le 10000 ] || return 0; json set BCP_DRAFT .pointer.busy_after_ms "$value" ;;
+        busyspin) [ "$value" -ge 400 ] && [ "$value" -le 3000 ] || return 0; json set BCP_DRAFT .pointer.busy_spin_ms "$value" ;;
+        esac
     elif [ "$key" = shake ] || [ "$key" = shakemax ] || [ "$key" = shakesens ] || [ "$key" = shakeshrink ]; then
         [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shake_to_find]}" ] || return 0
         case $key in
@@ -1657,6 +1680,13 @@ fn blit_mouse_do(int w, key, int dir) {
         blit_mouse_slide "$w" shakesens "$(( value + dir ))" ;;
     shakeshrink) value := blit_mouse_shake shake_shrink_ms
         blit_mouse_slide "$w" shakeshrink "$(( value + dir * 50 ))" ;;
+    busy) value := blit_mouse_shake busy_pointer
+        [ "$value" = false ] && value=1 || value=0
+        blit_mouse_slide "$w" busy "$value" ;;
+    busyafter) value := blit_mouse_shake busy_after_ms
+        blit_mouse_slide "$w" busyafter "$(( value + dir * 250 ))" ;;
+    busyspin) value := blit_mouse_shake busy_spin_ms
+        blit_mouse_slide "$w" busyspin "$(( value + dir * 100 ))" ;;
     sensitivity | wheel | natural | tap | tapdrag | dwt)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
         raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null

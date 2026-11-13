@@ -155,6 +155,30 @@ Dir.mktmpdir('blit-mouse') do |root|
       blit_mouse_do 45 save 1; finish
       blit_cp_start refresh; finish
       [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_to_find]}" = false ] || exit 52
+      # The busy pointer (Blit 0.3.106): offered, stepped, bounded, saved;
+      # switched off hides its threshold but keeps the spin speed.
+      n := blit_mouse_rows 45
+      hasrow 45 "$n" "Busy Pointer" || { echo 'no busy pointer row'; exit 57; }
+      hasrow 45 "$n" "Busy After" || exit 58
+      hasrow 45 "$n" "Spin Once Every" || exit 59
+      blit_mouse_do 45 busyafter 1
+      blit_mouse_do 45 busyspin -1
+      [ "${BCP_DRAFT[pointer][busy_after_ms]}" = 2250 ] && [ "${BCP_DRAFT[pointer][busy_spin_ms]}" = 900 ] || exit 60
+      blit_mouse_slide 45 busyafter 10001
+      [ "${BCP_DRAFT[pointer][busy_after_ms]}" = 2250 ] || exit 61
+      blit_mouse_do 45 save 1; finish
+      [ "$BCP_DIRTY" = 0 ] || { echo "busy save failed:$BCP_STATUS"; exit 62; }
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][busy_after_ms]}" = 2250 ] || exit 63
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][busy_spin_ms]}" = 900 ] || exit 64
+      blit_mouse_do 45 busy 1
+      [ "${BCP_DRAFT[pointer][busy_pointer]}" = false ] || exit 65
+      n := blit_mouse_rows 45
+      ! hasrow 45 "$n" "Busy After" || { echo 'off still offered its threshold'; exit 66; }
+      hasrow 45 "$n" "Spin Once Every" || exit 67
+      blit_mouse_do 45 save 1; finish
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][busy_pointer]}" = false ] || exit 68
       echo BLIT_MOUSE_CALLBACK_PASS
     HIBR
     out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},'/usr/bin/hibr',script)

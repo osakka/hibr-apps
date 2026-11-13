@@ -374,6 +374,14 @@ Sensitivity** (1, a hard shake, to 10, a light one) tune it, and with Blit
 shrinks back once the shaking calms. The rows are
 offered when Blit reports the setting, so older servers show none.
 
+**Busy Pointer** (Blit 0.3.106, ADR 0235): a program in a window that
+stops answering shows a ring of spokes going round over its windows until
+it answers, as on a Mac. On by default; **Busy After** (500–10000 ms,
+default 2000) is how long a program may go without answering, and **Spin
+Once Every** (400–3000 ms, default 1000) is how fast it goes round (also
+for programs that ask for the busy pointer themselves). Offered when Blit
+reports the setting.
+
 A touchpad has three more rows, shown only when the device offers them
 (Blit 0.2.34, ADR 0193):
 - **Tap to Click,** off by default.
