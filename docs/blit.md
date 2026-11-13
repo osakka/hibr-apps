@@ -369,7 +369,9 @@ Other devices and unedited fields are preserved.
 **Shake to Find** (Blit 0.3.102, ADR 0234): shaking the mouse grows the
 pointer, the harder the shake the bigger, and it eases back as the shaking
 calms. On by default; **Largest When Shaken** (64–256 px) and **Shake
-Sensitivity** (1, a hard shake, to 10, a light one) tune it. The rows are
+Sensitivity** (1, a hard shake, to 10, a light one) tune it, and with Blit
+0.3.104 **Shrink Back Over** (150–3000 ms, default 900) sets how quickly it
+shrinks back once the shaking calms. The rows are
 offered when Blit reports the setting, so older servers show none.
 
 A touchpad has three more rows, shown only when the device offers them

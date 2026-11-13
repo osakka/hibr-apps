@@ -138,6 +138,16 @@ Dir.mktmpdir('blit-mouse') do |root|
       blit_cp_start refresh; finish
       [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_max_px]}" = 168 ] || exit 48
       [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_sensitivity]}" = 4 ] || exit 49
+      # The shrink time (Blit 0.3.104): offered, stepped, bounded, saved.
+      n := blit_mouse_rows 45
+      hasrow 45 "$n" "Shrink Back Over" || { echo 'no shrink row'; exit 53; }
+      blit_mouse_do 45 shakeshrink 1
+      [ "${BCP_DRAFT[pointer][shake_shrink_ms]}" = 950 ] || exit 54
+      blit_mouse_slide 45 shakeshrink 3001
+      [ "${BCP_DRAFT[pointer][shake_shrink_ms]}" = 950 ] || exit 55
+      blit_mouse_do 45 save 1; finish
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][shake_shrink_ms]}" = 950 ] || exit 56
       blit_mouse_do 45 shake 1
       [ "${BCP_DRAFT[pointer][shake_to_find]}" = false ] || exit 50
       n := blit_mouse_rows 45

@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.33
+app blit "API configuration and diagnostics for the Blit display server" 0.1.34
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -1539,6 +1539,12 @@ fn blit_mouse_rows(int w) {
                 value := blit_mouse_shake shake_sensitivity
                 blit_cp_row "$w" "$n" set "Shake Sensitivity" "$value" shakesens slider
                 CP[$w][$n][min]=1; CP[$w][$n][max]=10; CP[$w][$n][after]="($value; 10 is a light shake)"; n=$((n + 1))
+                # Blit 0.3.104: how long it takes to shrink back.
+                if [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shake_shrink_ms]}" ]; then
+                    value := blit_mouse_shake shake_shrink_ms
+                    blit_cp_row "$w" "$n" set "Shrink Back Over" "$value" shakeshrink slider
+                    CP[$w][$n][min]=150; CP[$w][$n][max]=3000; CP[$w][$n][after]="($value ms)"; n=$((n + 1))
+                fi
             fi
         fi
     fi
@@ -1597,12 +1603,14 @@ fn blit_mouse_slide(int w, key, int value) {
         [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ] || return 0
         [ "$value" -ge 24 ] && [ "$value" -le 64 ] || return 0
         json set BCP_DRAFT .pointer.size_px "$value"
-    elif [ "$key" = shake ] || [ "$key" = shakemax ] || [ "$key" = shakesens ]; then
+    elif [ "$key" = shake ] || [ "$key" = shakemax ] || [ "$key" = shakesens ] || [ "$key" = shakeshrink ]; then
         [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shake_to_find]}" ] || return 0
         case $key in
         shake) flag=false; [ "$value" != 1 ] || flag=true; json set BCP_DRAFT .pointer.shake_to_find "$flag" ;;
         shakemax) [ "$value" -ge 64 ] && [ "$value" -le 256 ] || return 0; json set BCP_DRAFT .pointer.shake_max_px "$value" ;;
         shakesens) [ "$value" -ge 1 ] && [ "$value" -le 10 ] || return 0; json set BCP_DRAFT .pointer.shake_sensitivity "$value" ;;
+        shakeshrink) [ -n "${BCP_SNAPSHOT[settings][effective][pointer][shake_shrink_ms]}" ] || return 0
+            [ "$value" -ge 150 ] && [ "$value" -le 3000 ] || return 0; json set BCP_DRAFT .pointer.shake_shrink_ms "$value" ;;
         esac
     else
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
@@ -1647,6 +1655,8 @@ fn blit_mouse_do(int w, key, int dir) {
         blit_mouse_slide "$w" shakemax "$(( value + dir * 8 ))" ;;
     shakesens) value := blit_mouse_shake shake_sensitivity
         blit_mouse_slide "$w" shakesens "$(( value + dir ))" ;;
+    shakeshrink) value := blit_mouse_shake shake_shrink_ms
+        blit_mouse_slide "$w" shakeshrink "$(( value + dir * 50 ))" ;;
     sensitivity | wheel | natural | tap | tapdrag | dwt)
         i := blit_mouse_index; [ "$i" -ge 0 ] || return 0
         raw := json get BCP_DRAFT ".input_devices[$BCP_POINTER_ID]" 2> /dev/null || raw=null
