@@ -1,14 +1,40 @@
 # Blit Control Panel
 
+## Program Windows, and retired rows (pane 0.1.32)
+
+The **Screens** section is now **Program Windows**, after
+`blit-compositor`, which shows programs in desktop windows (Blit ADR 0228).
+- **Compositor**: its version on this computer, or not installed.
+- **Running**: `Yes, <version>`, `No`, or
+  `An older build: Restart Desktop for <version>` when an upgrade has
+  replaced the running compositor's file. It is checked at most every 5 s.
+- **X programs**: Xwayland's version, or not installed, in which case X
+  programs can't open.
+- **GPU frames**, and each pane's frames and input route, as before.
+
+The **Wayland Screen bridge** (`blit-gamescope`) and **gamescope** rows
+are gone: Blit retired both in 0.3.75.
+
+The Keyboard section's Super row no longer reads the desktop's Shortcut
+Key (`DT_MOD`, gone in Hibr 0.99.509, whose shortcuts are literal chords).
+Whenever Super is made another key, it says the Start Menu's Super tap
+and the desktop's `super-` shortcuts need Super.
+
+Rows that named an old Blit release ("Requires Blit 0.2.27", "Keyboards
+other than US need Blit 0.3.93", and so on) are gone. The pane is for a
+current Blit, and a field the server doesn't send reads "Not reported by
+server". Zoom always snaps to 25 % steps, and the performance panel's
+opacity is always shown.
+
 ## Keyboards, and one rule with Shortcuts (pane 0.1.31)
 
 Blit Keyboard says what each key is and what it types; what a combination
 of keys does is the desktop's Shortcuts pane, and the pane's first line
 says so. Its words are the desktop's: **Caps Lock Key Is** and **Super Key
 Is** offer Caps Lock, Control, Alt, Super and Nothing (Blit's `meta` is
-Super, `none` Nothing). When the desktop's Shortcut Key uses Super and
-Super is made another key here, a row says Super must stay Super: every
-Super shortcut, and the Super tap that opens the Start Menu, need it.
+Super, `none` Nothing). When Super is made another key here, a row says
+the Start Menu's Super tap and the desktop's `super-` shortcuts need it
+(0.1.32; before, only when the old Shortcut Key used Super).
 
 The **Keyboards** section (Blit 0.3.93, ADR 0231) is live, like the font:
 **In Use**, **Remove <name>** and **Add Keyboard** (a layout from **Add
@@ -44,7 +70,7 @@ Needs Blit 0.3.90: before it, Blit reported the read-only repeat period in
 a keyboard's configuration, and a draft that carried it back had that
 keyboard's whole entry refused.
 
-## Screens (pane 0.1.29)
+## Screens (pane 0.1.29; Program Windows since 0.1.32, above)
 
 A read-only **Screens** section, after Rendering, for programs shown in a
 window through Wayland Screen (Blit's `blit-gamescope`, ADR 0225):

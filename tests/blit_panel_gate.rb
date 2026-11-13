@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Actual Hibr callbacks and bounded worker against the actual Blit API.
 require 'json'
+require 'fileutils'
 require 'net/http'
 require 'tmpdir'
 require 'open3'
@@ -40,6 +41,16 @@ Dir.mktmpdir('blit-panel') do |root|
         end
       end
     end
+    # Pane 0.1.32's compositor rows: a stand-in named blit-compositor (a copy
+    # of sleep) running, and a blit-compositor on PATH that says 9.9.9.
+    fake=File.join(root,'fakebin')
+    Dir.mkdir(fake); Dir.mkdir(File.join(fake,'run'))
+    File.write(File.join(fake,'blit-compositor'),"#!/bin/sh\necho 'blit-compositor 9.9.9'\n")
+    File.chmod(0755,File.join(fake,'blit-compositor'))
+    FileUtils.cp('/bin/sleep',File.join(fake,'run','blit-compositor'))
+    stand_in=spawn(File.join(fake,'run','blit-compositor'),'120')
+    Process.detach(stand_in)   # reaped when killed: no zombie for pgrep to see
+    File.write(File.join(fake,'pid'),stand_in.to_s)
     script=File.join(root,'test.hibr')
     File.write(script,<<~HIBR)
       strict
@@ -232,12 +243,13 @@ Dir.mktmpdir('blit-panel') do |root|
       done
       [ "$seen" = 3 ] || { echo "rendering rows missing ($seen)" >&2; exit 63; }
       json parse 'BCP_SNAPSHOT[diagnostics][render][outputs]' "$rendering"
-      # Screens (pane 0.1.29, Blit ADR 0225): GPU frames offered or not, and per
+      # Program Windows (pane 0.1.32, Blit ADR 0228): the compositor and X
+      # programs (Xwayland) rows; GPU frames offered or not, and per
       # pane how frames arrive and whether input is live, from the snapshot.
       screens_g := json get BCP_SNAPSHOT .diagnostics.graphics
       screens_s := json get BCP_SNAPSHOT .sessions
       json parse 'BCP_SNAPSHOT[diagnostics][graphics]' '{"frames":{"dmabuf":{"advertised":false,"unavailable":"cpu compositor"}}}'
-      json parse 'BCP_SNAPSHOT[sessions]' '{"sessions":[{"id":"1","pane_id":"pane-display-93-2","frames":{"accepted":120,"dmabuf":{"accepted":100},"input":{"events":42,"last_error":"","routes":[{"image":7,"state":"live"}]}}},{"id":"2","pane_id":"pane-display-93-1","frames":{"accepted":0,"dmabuf":{"accepted":0},"input":{"events":0,"routes":[]}}},{"id":"3","pane_id":"pane-display-102-1","frames":{"accepted":5,"dmabuf":{"accepted":0},"input":{"events":0,"last_error":"eis-disconnected","routes":[]}}}]}'
+      json parse 'BCP_SNAPSHOT[sessions]' '{"sessions":[{"id":"1","pane_id":"pane-display-93-2","frames":{"accepted":120,"dmabuf":{"accepted":100},"input":{"events":42,"last_error":"","routes":[{"image":7,"state":"live"}]}}},{"id":"2","pane_id":"pane-display-93-1","frames":{"accepted":0,"dmabuf":{"accepted":0},"input":{"events":0,"routes":[]}}},{"id":"3","pane_id":"pane-display-102-1","frames":{"accepted":5,"dmabuf":{"accepted":0},"input":{"events":0,"last_error":"sock-disconnected","routes":[]}}}]}'
       n := blit_rows 999999
       i=0; seen=0
       while [ "$i" -lt "$n" ]; do
@@ -245,13 +257,40 @@ Dir.mktmpdir('blit-panel') do |root|
           "GPU frames") [ "${CP[999999][$i][val]}" = "Not offered: cpu compositor" ] || { echo "gpu frames row: ${CP[999999][$i][val]}" >&2; exit 70; }; seen=$((seen + 1)) ;;
           "pane-display-93-2 frames") [ "${CP[999999][$i][val]}" = "100 by the GPU, 20 copied" ] || { echo "frames row: ${CP[999999][$i][val]}" >&2; exit 71; }; seen=$((seen + 1)) ;;
           "pane-display-93-2 input") [ "${CP[999999][$i][val]}" = "Live; 42 events" ] || { echo "input row: ${CP[999999][$i][val]}" >&2; exit 72; }; seen=$((seen + 1)) ;;
-          "pane-display-102-1 input") [ "${CP[999999][$i][val]}" = "None; 0 events; last: eis-disconnected" ] || { echo "input row 3: ${CP[999999][$i][val]}" >&2; exit 73; }; seen=$((seen + 1)) ;;
+          "pane-display-102-1 input") [ "${CP[999999][$i][val]}" = "None; 0 events; last: sock-disconnected" ] || { echo "input row 3: ${CP[999999][$i][val]}" >&2; exit 73; }; seen=$((seen + 1)) ;;
           pane-display-93-1*) echo "a pane with no frames got a Screens row" >&2; exit 74 ;;
-          "Wayland Screen bridge"|gamescope) seen=$((seen + 1)) ;;
+          Compositor|"X programs") seen=$((seen + 1)) ;;
+          "Wayland Screen bridge"|gamescope) echo "a retired row: ${CP[999999][$i][text]}" >&2; exit 76 ;;
           esac
           i=$((i + 1))
       done
       [ "$seen" = 6 ] || { echo "screens rows missing ($seen)" >&2; exit 75; }
+      # The compositor: running (the installed build), running an older
+      # build (its file replaced, as by an upgrade), not running.
+      PATH="#{fake}:$PATH"
+      fn running_row() {
+          local m k=0
+          BCP_COMP_RUNNING=
+          m := blit_rows 999999
+          while [ "$k" -lt "$m" ]; do
+              case "${CP[999999][$k][text]}" in
+              Running) ret "${CP[999999][$k][val]}"; return 0 ;;
+              Compositor) [ "${CP[999999][$k][val]}" = "blit-compositor 9.9.9" ] || { echo "compositor row: ${CP[999999][$k][val]}" >&2; exit 77; } ;;
+              esac
+              k=$((k + 1))
+          done
+          ret missing
+      }
+      BCP_COMPOSITOR_VERSION=
+      got := running_row
+      [ "$got" = "Yes, 9.9.9" ] || { echo "running row: $got" >&2; exit 78; }
+      rm -f "#{fake}/run/blit-compositor"
+      got := running_row
+      [ "$got" = "An older build: Restart Desktop for 9.9.9" ] || { echo "older-build row: $got" >&2; exit 79; }
+      kill "$(cat '#{fake}/pid')"
+      sleep 0.3
+      got := running_row
+      [ "$got" = No ] || { echo "not-running row: $got" >&2; exit 80; }
       json parse 'BCP_SNAPSHOT[diagnostics][graphics]' "$screens_g"
       json parse 'BCP_SNAPSHOT[sessions]' "$screens_s"
       i=0; compositor_row=0; timing_row=0
@@ -657,11 +696,12 @@ Dir.mktmpdir('blit-panel') do |root|
     _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into the desktop settings') if File.read(File.join(root,'config/hibr/desktop.json')).include?('panel-test-token')
-    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity zoom=slider_210to200+160to150+100 restart_after_update=manual+at-login-screen restart=confirmed+back'
+    puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity zoom=slider_210to200+160to150+100 compositor=running+older_build+none restart_after_update=manual+at-login-screen restart=confirmed+back'
   ensure
     File.chmod(0700,root)
     Process.kill('TERM',pid) rescue nil
     Timeout.timeout(10){Process.wait(pid)} rescue nil
+    (Process.kill('TERM',stand_in) rescue nil) if defined?(stand_in) && stand_in
   end
 end
 hang.close

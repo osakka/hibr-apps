@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.31
+app blit "API configuration and diagnostics for the Blit display server" 0.1.32
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -50,9 +50,13 @@ BCP_ZOOM_HELDW=
 # The settings document the draft was based on, to tell Blit saving the
 # pane's own font change from somebody else changing the settings (#364).
 BCP_BASE_DOC=
-# Screens (Blit 0.3.66+, ADR 0225): the Wayland Screen bridge's version on
-# this computer, asked once ("" until asked, "-" when it is not installed).
-BCP_BRIDGE_VERSION=
+# Program windows (Blit ADR 0228): blit-compositor's and Xwayland's versions
+# on this computer, asked once ("" until asked, "-" when not installed), and
+# whether the compositor runs, asked again after BCP_COMP_ASKED + 5 s.
+BCP_COMPOSITOR_VERSION=
+BCP_XWAYLAND_VERSION=
+BCP_COMP_RUNNING=
+BCP_COMP_ASKED=0
 BCP_POINTER_ID=
 BCP_KEYBOARD_ID=
 # The keyboards (layouts): the one being added and its variant (Blit's
@@ -555,22 +559,12 @@ fn blit_cp_zoom_of(id) {
     ret 100
 }
 
-# A slider position as a zoom Blit takes: any 25 % step from 100 to 400
-# since Blit 0.3.27, the nearest of 0.3.26's eight before that.
+# A slider position as a zoom Blit takes: the nearest 25 % step from 100
+# to 400.
 fn blit_cp_zoom_snap(int value) {
-    local v best=100 major minor patch
     [ "$value" -ge 100 ] || value=100
     [ "$value" -le 400 ] || value=400
-    IFS=. read -r major minor patch <<< "${BCP_SNAPSHOT[version][server_version]:-0.0.0}"
-    patch=${patch%%[!0-9]*}
-    if [ "${major:-0}" -gt 0 ] || [ "${minor:-0}" -gt 3 ] ||
-       { [ "${minor:-0}" = 3 ] && [ "${patch:-0}" -ge 27 ]; }; then
-        ret $(( (value + 12) / 25 * 25 )); return 0
-    fi
-    for v in 100 125 150 175 200 250 300 400; do
-        [ $(( v > value ? v - value : value - v )) -ge $(( best > value ? best - value : value - best )) ] || best=$v
-    done
-    ret "$best"
+    ret $(( (value + 12) / 25 * 25 ))
 }
 
 # Whether two settings documents differ in nothing but what the panes apply
@@ -714,7 +708,7 @@ fn blit_rows(int w) {
         blit_cp_row "$w" "$n" set "Font size" "$size" font_size slider
         CP[$w][$n][min]=8; CP[$w][$n][max]=64; CP[$w][$n][after]="($size px)"
     else
-        blit_cp_row "$w" "$n" info "Font size" "Requires Blit 0.1.561+"
+        blit_cp_row "$w" "$n" info "Font size" "Not reported by server"
     fi
     n=$((n + 1))
     # How text is hinted (Blit 0.3.47+, ADR 0218 there); fitted icons ignore it.
@@ -761,31 +755,53 @@ fn blit_rows(int w) {
     ret "$n"
 }
 
-# Screens (Blit 0.3.66+, ADR 0225): read-only. Whether this computer has
-# the Wayland Screen bridge (blit-gamescope) and gamescope, whether Blit
-# offers GPU frames (dmabuf, ADR 0223), and for each pane showing frames by
-# descriptor how they arrive -- by the GPU or copied -- and whether its input
-# route to the program is live. The bridge itself has no settings: a
-# window's size and its display's refresh decide them.
+# Program Windows (Blit ADR 0228): read-only. blit-compositor, which shows
+# programs in desktop windows: its version on this computer, whether it runs
+# for this desktop and whether that is the installed build or an older one
+# (replaced by an upgrade, until Restart Desktop); Xwayland for X programs;
+# whether Blit offers GPU frames (dmabuf, ADR 0223); and for each pane
+# showing frames by descriptor how they arrive -- by the GPU or copied --
+# and whether its input route to the program is live.
 fn blit_cp_screens_rows(int w, int n) {
-    local i=0 pane accepted gpu copied state routes j events error text bin
-    blit_cp_row "$w" "$n" head "Screens"; n=$((n + 1))
-    if [ -z "$BCP_BRIDGE_VERSION" ]; then
-        BCP_BRIDGE_VERSION=-
-        if command -v blit-gamescope > /dev/null; then
-            BCP_BRIDGE_VERSION=$(blit-gamescope --version 2> /dev/null)
-            BCP_BRIDGE_VERSION=${BCP_BRIDGE_VERSION#blit-gamescope }
-            [ -n "$BCP_BRIDGE_VERSION" ] || BCP_BRIDGE_VERSION=installed
+    local i=0 pane accepted gpu copied state routes j events error text v pid exe
+    blit_cp_row "$w" "$n" head "Program Windows"; n=$((n + 1))
+    if [ -z "$BCP_COMPOSITOR_VERSION" ]; then
+        BCP_COMPOSITOR_VERSION=-
+        if command -v blit-compositor > /dev/null; then
+            v=$(blit-compositor --version 2> /dev/null)
+            v=${v#blit-compositor }
+            BCP_COMPOSITOR_VERSION=${v:-installed}
+        fi
+        BCP_XWAYLAND_VERSION=-
+        if command -v Xwayland > /dev/null; then
+            v=$(Xwayland -version 2>&1 | sed -n 's/.*Version \([0-9][0-9.]*\).*/\1/p' | head -n 1)
+            BCP_XWAYLAND_VERSION=${v:-installed}
         fi
     fi
-    text="Not installed (blit-gamescope)"
-    [ "$BCP_BRIDGE_VERSION" = - ] || text="blit-gamescope $BCP_BRIDGE_VERSION"
-    blit_cp_row "$w" "$n" info "Wayland Screen bridge" "$text"; n=$((n + 1))
-    bin=$(command -v gamescope 2> /dev/null)
-    [ -n "$bin" ] || { [ ! -x /usr/games/gamescope ] || bin=/usr/games/gamescope; }
-    text="Not installed"
-    [ -z "$bin" ] || text="Installed ($bin)"
-    blit_cp_row "$w" "$n" info "gamescope" "$text"; n=$((n + 1))
+    text="Not installed (blit-compositor)"
+    [ "$BCP_COMPOSITOR_VERSION" = - ] || text="blit-compositor $BCP_COMPOSITOR_VERSION"
+    blit_cp_row "$w" "$n" info "Compositor" "$text"; n=$((n + 1))
+    if [ "$BCP_COMPOSITOR_VERSION" != - ]; then
+        if [ -z "$BCP_COMP_RUNNING" ] || [ "$EPOCHSECONDS" -ge $((BCP_COMP_ASKED + 5)) ]; then
+            BCP_COMP_ASKED=$EPOCHSECONDS
+            BCP_COMP_RUNNING=no
+            pid=$(pgrep -u "$(id -u)" -x blit-compositor 2> /dev/null | head -n 1)
+            if [ -n "$pid" ]; then
+                BCP_COMP_RUNNING=yes
+                exe=$(readlink "/proc/$pid/exe" 2> /dev/null)
+                case $exe in *" (deleted)") BCP_COMP_RUNNING=old ;; esac
+            fi
+        fi
+        case $BCP_COMP_RUNNING in
+        yes) text="Yes, $BCP_COMPOSITOR_VERSION" ;;
+        old) text="An older build: Restart Desktop for $BCP_COMPOSITOR_VERSION" ;;
+        *) text="No" ;;
+        esac
+        blit_cp_row "$w" "$n" info "Running" "$text"; n=$((n + 1))
+    fi
+    text="Not installed: X programs cannot open (xwayland)"
+    [ "$BCP_XWAYLAND_VERSION" = - ] || text="Xwayland $BCP_XWAYLAND_VERSION"
+    blit_cp_row "$w" "$n" info "X programs" "$text"; n=$((n + 1))
     case ${BCP_SNAPSHOT[diagnostics][graphics][frames][dmabuf][advertised]} in
     true) text="Offered" ;;
     false) text="Not offered: ${BCP_SNAPSHOT[diagnostics][graphics][frames][dmabuf][unavailable]:-no reason given}" ;;
@@ -880,7 +896,7 @@ fn blit_effects_rows(int w) {
     blit_cp_row "$w" "$n" info "$BCP_STATUS"; n=$((n + 1))
     [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
     if [ -z "${BCP_EFFECTS[available][0][name]}" ]; then
-        blit_cp_row "$w" "$n" info "Pane effects" "Requires Blit 0.2.27"; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "Pane effects" "Not reported by server"; n=$((n + 1))
         ret "$n"; return 0
     fi
     on=on; [ "${BCP_FX[enabled]:-true}" != false ] || on=off
@@ -914,8 +930,9 @@ fn blit_effects_slide(int w, key, int value) { blit_slide "$w" "$key" "$value"; 
 fn blit_effects_drop(int w, int r, int c, key) { blit_drop "$w" "$r" "$c" "$key"; }
 
 # One slider per effect Blit lists, for one pane. Its range is Blit's own:
-# brightness and contrast run -100..100 around 0 (Blit ADR 0207), and an
-# older Blit sends no minimum. A colour (the phosphor) is a choice instead.
+# brightness and contrast run -100..100 around 0 (Blit ADR 0207), the rest
+# from 0, which Blit leaves unsaid. A colour (the phosphor) is a choice
+# instead.
 fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
     local j=0 name param value label unit max min
     while [ -n "${BCP_EFFECTS[available][$j][name]}" ]; do
@@ -925,7 +942,7 @@ fn blit_cp_effect_sliders(int w, int n, output, ordinal) {
         min=${BCP_EFFECTS[available][$j][minimum]:-0}
         value=${BCP_FX[$output][$ordinal][$name][$param]:-0}
         unit=%; [ "$param" != radius_px ] || { unit=" px"; max=64; }
-        # Blit's own title ("RGB shift"); an older Blit sends none.
+        # Blit's own title ("RGB shift").
         label=${BCP_EFFECTS[available][$j][title]:-${name^}}
         if [ "$param" = color ]; then
             value := blit_cp_phosphor_name "$value"
@@ -1038,11 +1055,11 @@ fn blit_cp_effects_apply() {
 }
 
 # The performance panel (Blit ADR 0203): drawn by Blit over everything, its
-# switch here. Applied live, like the effects; Blit before 0.3.22 has none.
+# switch here. Applied live, like the effects.
 fn blit_cp_hud_rows(int w, int n) {
     local on=off hibr=off
     if [ -z "${BCP_SNAPSHOT[settings][effective][hud][hz]}" ]; then
-        blit_cp_row "$w" "$n" info "Performance panel" "Requires Blit 0.3.22"; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "Performance panel" "Not reported by server"; n=$((n + 1))
         ret "$n"; return 0
     fi
     [ "${BCP_SNAPSHOT[settings][effective][hud][enabled]}" != true ] || on=on
@@ -1050,12 +1067,9 @@ fn blit_cp_hud_rows(int w, int n) {
     blit_cp_row "$w" "$n" set "Panel corner" "${BCP_SNAPSHOT[settings][effective][hud][corner]:-top-right}" hud_corner; n=$((n + 1))
     blit_cp_hud_has hibr && hibr=on
     blit_cp_row "$w" "$n" set "Hibr section" "$hibr" hud_hibr bool; n=$((n + 1))
-    # Opacity arrived in Blit 0.3.25; an older Blit has no such field.
-    if [ -n "${BCP_SNAPSHOT[settings][effective][hud][opacity]}" ]; then
-        local opacity=${BCP_HUD_HELD:-${BCP_SNAPSHOT[settings][effective][hud][opacity]}}
-        blit_cp_row "$w" "$n" set "Panel opacity" "$opacity" hud_opacity slider
-        CP[$w][$n][min]=10; CP[$w][$n][max]=100; CP[$w][$n][after]="($opacity%)"; n=$((n + 1))
-    fi
+    local opacity=${BCP_HUD_HELD:-${BCP_SNAPSHOT[settings][effective][hud][opacity]:-100}}
+    blit_cp_row "$w" "$n" set "Panel opacity" "$opacity" hud_opacity slider
+    CP[$w][$n][min]=10; CP[$w][$n][max]=100; CP[$w][$n][after]="($opacity%)"; n=$((n + 1))
     ret "$n"
 }
 
@@ -1500,7 +1514,7 @@ fn blit_mouse_rows(int w) {
     blit_cp_row "$w" "$n" action "Reload (discard draft)" "" reload; n=$((n + 1))
     [ "$BCP_BASE_REV" -ge 0 ] || { ret "$n"; return 0; }
     if [ -z "${BCP_SNAPSHOT[settings][effective][pointer][shape]}" ]; then
-        blit_cp_row "$w" "$n" info "Pointer appearance requires Blit 0.1.549"; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "Pointer appearance" "Not reported by server"; n=$((n + 1))
     else
         blit_cp_row "$w" "$n" head "Appearance (staged until Save)"; n=$((n + 1))
         blit_cp_row "$w" "$n" set Shape "${BCP_DRAFT[pointer][shape]:-arrow}" shape; n=$((n + 1))
@@ -1780,19 +1794,17 @@ fn blit_keyboard_rows(int w) {
         value := blit_role_word "${cfg[modifiers][125]:-meta}"
         blit_cp_row "$w" "$n" set "Super Key Is" "$value" superkey; n=$((n + 1))
         blit_cp_row "$w" "$n" info "Super is the Search key on a Chromebook"; n=$((n + 1))
-        # The desktop's Shortcut Key (its Shortcuts pane) is Super, or may
-        # be: Super made another key here takes that key, and the Super tap
-        # that opens the Start Menu, away from every shortcut.
-        case " ${DT_MOD:-} " in
-        *" super "*) [ "${cfg[modifiers][125]:-meta}" = meta ] ||
-            { blit_cp_row "$w" "$n" info "Shortcuts use Super: Super must stay Super"; n=$((n + 1)); } ;;
-        esac
+        # Super made another key here takes the Super tap that opens the
+        # Start Menu, and every super- shortcut in the desktop's Shortcuts
+        # pane, with it.
+        [ "${cfg[modifiers][125]:-meta}" = meta ] ||
+            { blit_cp_row "$w" "$n" info "The Start Menu's Super tap and super- shortcuts need Super"; n=$((n + 1)); }
     fi
     # The keyboards (layouts) Blit types with, one list for every keyboard,
     # staged like the rest (Blit 0.3.93, ADR 0231).
     blit_cp_row "$w" "$n" head "Keyboards (live)"; n=$((n + 1))
     if [ -z "${BCP_KBLIVE[current]}" ]; then
-        blit_cp_row "$w" "$n" info "Keyboards other than US need Blit 0.3.93"; n=$((n + 1))
+        blit_cp_row "$w" "$n" info "Keyboards" "Not reported by server"; n=$((n + 1))
     else
         blit_kb_list
         value := blit_kb_name "${BCP_KBL[$BCP_KBC]}" "${BCP_KBV[$BCP_KBC]}"
