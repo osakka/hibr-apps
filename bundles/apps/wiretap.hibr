@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.7.1
+app wtview "Wiretap: a live graph and every app's traffic" 0.7.2
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -25,6 +25,8 @@ declare -gA WV
 WV_SCALES=(1m 1h 24h 7d)
 WV_LABELS=("1 min" "1 hour" "24 hours" "7 days")
 WV_AGE=("60 s ago" "1 h ago" "24 h ago" "7 d ago")
+WV_AGESEC=(60 3600 86400 604800)
+WV_AGEFMT=("" "%H:%M" "%a %H:%M" "%a %d %b")
 declare -ag WV_BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
 
 fn wtview_open(int id, ...rest) {
@@ -68,6 +70,16 @@ fn wv_head(int id, int w) {
 		wv_put "$id" 1 "$col" " ${WV_LABELS[$i]} "
 		col=$((col + ${#WV_LABELS[$i]} + 3))
 	done
+}
+
+# wv_since SCALE [NOW]: the clock time at the left edge of the graph (ADR 0035). printf's own time conversion, so no fork in a frame.
+# The 1-minute graph keeps "60 s ago", which is clearer than a clock for a minute.
+fn wv_since(int s, int now = 0) {
+	local t
+	if [ -z "${WV_AGEFMT[$s]}" ]; then ret "${WV_AGE[$s]}"; return 0; fi
+	[ "$now" -gt 0 ] || printf -v now '%(%s)T' -1
+	printf -v t "%(${WV_AGEFMT[$s]})T" "$((now - WV_AGESEC[s]))"
+	ret "$t"
 }
 
 # One half of the ribbon (ADR 0020): the last minute, a column a second, each column stacked from the axis outwards in the colour of
@@ -157,7 +169,8 @@ fn wv_graph(int id, int h, int w) {
 	done
 	fi
 	console pen "$DT_DIM" "$DT_FACE"
-	wv_put "$id" $((4 + 2 * half)) 2 "${WV_AGE[$s]}"
+	line := wv_since "$s"
+	wv_put "$id" $((4 + 2 * half)) 2 "$line"
 	wv_put "$id" $((4 + 2 * half)) $((cols - 1)) "now"
 	if [ "$by" = 1 ]; then			# the legend: a swatch and the name of each program in the ribbon, in the row of the time labels
 		k=12
