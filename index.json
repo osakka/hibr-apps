@@ -312,16 +312,17 @@
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "3.28",
+      "version": "3.29",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "7bdabb01dd5e6add8ee8ac31e52e477f8ef28f43ed6a6d1bbb50569c74c99cd9",
+      "sha256": "c5134baac9573863507ded24d68d2a2f461314b87ba64f97a2d53bf321e270b5",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "youtube",
-      "hibr": "0.99.523",
+      "hibr": "0.99.526",
       "modules": "media web",
+      "needs": "lib/videocore",
       "dir": "Internet",
       "parts": [
         {
@@ -1879,16 +1880,17 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "3.28",
+      "version": "3.29",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "7bdabb01dd5e6add8ee8ac31e52e477f8ef28f43ed6a6d1bbb50569c74c99cd9",
+      "sha256": "c5134baac9573863507ded24d68d2a2f461314b87ba64f97a2d53bf321e270b5",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "youtube",
-      "hibr": "0.99.523",
+      "hibr": "0.99.526",
       "modules": "media web",
+      "needs": "lib/videocore",
       "dir": "Internet"
     },
     "dbase": {

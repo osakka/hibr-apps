@@ -36,7 +36,8 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.28
+# needs: lib/videocore
+app youtube "YouTube, in a window" 3.29
 # part: control-panel/tube.hibr
 # part: lang/youtube.ar.json
 # modules: media web
@@ -82,8 +83,6 @@ YT_DATA="${YT_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/youtube}"
 YT_HIST="$YT_DATA/history.tsv"
 YT_FAVS="$YT_DATA/favourites.tsv"
 YT_KEEP=500
-# The shared video library (docs/video-library.md): every title watched, in every video app, in one file.
-YT_LIB="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
 
 # A video is taken up where it was left once more than YT_RESUME seconds
 # in; within YT_ENDED seconds of its end it counts as watched to the end.
@@ -369,67 +368,23 @@ fn yt_heading(int id) {
 
 # Rewrite a file of entries without the one for an id, then with a new
 # line at its end; at most YT_KEEP lines are kept, the oldest dropped.
+# A history or favourites file's line for a key replaced, or taken out (the core's: lib/videocore).
 fn yt_fileput(f, vid, line = "") {
-	local -a lines out
-	local l n
-
-	[ -r "$f" ] && mapfile -t lines < "$f"
-	out=()
-	for l in "${lines[@]}"; do
-		[[ $l == *$'\t'"$vid"$'\t'* ]] && continue
-		out+=("$l")
-	done
-	[ -n "$line" ] && out+=("$line")
-	n=${#out[@]}
-	[ "$n" -gt "$YT_KEEP" ] && out=("${out[@]:$((n - YT_KEEP))}")
-	command mkdir -p -- "${f%/*}" 2> /dev/null
-	if [ "${#out[@]}" -gt 0 ]; then
-		printf '%s\n' "${out[@]}" > "$f" 2> /dev/null
-	else
-		: > "$f" 2> /dev/null
-	fi
+	vc_fileput "$f" "$vid" "$line" "$YT_KEEP"
 }
 
 # The history's line for a video, or nothing; its fields into YTH.
 declare -ga YTH
 fn yt_histget(vid) {
-	local -a lines
-	local l
-
 	YTH=()
-	[ -r "$YT_HIST" ] || return 1
-	mapfile -t lines < "$YT_HIST"
-	for l in "${lines[@]}"; do
-		if [[ $l == *$'\t'"$vid"$'\t'* ]]; then
-			# split on the unit separator: `read` takes a run of tabs for one, so an empty field (no channel) would shift the position
-			l=${l//$'\t'/$'\037'}
-			IFS=$'\037' read -ra YTH <<< "$l"
-			return 0
-		fi
-	done
-	return 1
+	vc_histget "$YT_HIST" "$vid" || return 1
+	YTH=("${VCH[@]}")
+	return 0
 }
 
 # A title into the shared library, replacing its line and putting it last: kind key title sub pos dur.
 fn yt_libput(kind, key, title, sub, pos, dur) {
-	local -a lines out
-	local l n
-
-	[ -n "$key" ] || return 0
-	title=${title//[$'\t\n']/ }
-	sub=${sub//[$'\t\n']/ }
-	[ -r "$YT_LIB" ] && mapfile -t lines < "$YT_LIB"
-	out=()
-	for l in "${lines[@]}"; do
-		[[ $l == *$'\t'youtube$'\t'*$'\t'"$key"$'\t'* ]] && continue
-		out+=("$l")
-	done
-	out+=("$EPOCHSECONDS"$'\t'youtube$'\t'"$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'"${pos:-0}"$'\t'"${dur:-0}")
-	n=${#out[@]}
-	[ "$n" -gt 1000 ] && out=("${out[@]:$((n - 1000))}")
-	command mkdir -p -- "${YT_LIB%/*}" 2> /dev/null
-	printf '%s\n' "${out[@]}" > "$YT_LIB" 2> /dev/null
-	return 0
+	vc_libput youtube "$kind" "$key" "$title" "$sub" "$pos" "$dur"
 }
 
 # Note where a window's video was left: watched to the end it starts from
@@ -1132,6 +1087,15 @@ fn yt_seek(int id, to) {
 
 # --- the window -----------------------------------------------------------
 
+# The shared core (lib/videocore of the catalogue, API 1): the files and lines every video app keeps. Without it, or an older one, the window says
+# so and does nothing else, rather than half work.
+fn yt_core(int id) {
+	vc_ok 1 2> /dev/null && return 0
+	YT[$id]["nocore"]=1
+	YT[$id]["err"]="YouTube needs the Video Core (lib/videocore): update hibr (0.99.526 or later), run catalogue update and start the desktop again"
+	return 1
+}
+
 fn youtube_open(int id, arg = "") {
 	YT[$id]["view"]=list
 	YT[$id]["kind"]=
@@ -1149,6 +1113,7 @@ fn youtube_open(int id, arg = "") {
 	YT[$id]["pt"]=
 	YT[$id]["p"]=
 	YT[$id]["err"]=
+	yt_core "$id" || return 0
 	yt_favload
 	yt_need "$id" || return 0
 	# `play:ID`, from the Video Library: that video, with what the history knows of it
@@ -1434,14 +1399,9 @@ fn yt_drawlist(int id, int h, int w) {
 
 # Minutes and seconds, with hours in front of an hour or more.
 fn yt_mmss(t) {
-	local s=${t%.*} out
+	local out
 
-	[ -n "$s" ] || s=0
-	if [ "$s" -ge 3600 ]; then
-		printf -v out '%d:%02d:%02d' $((s / 3600)) $((s / 60 % 60)) $((s % 60))
-	else
-		printf -v out '%d:%02d' $((s / 60)) $((s % 60))
-	fi
+	out := vc_mmss "$t"
 	ret "$out"
 }
 
@@ -1640,6 +1600,7 @@ fn yt_drawplay(int id, int h, int w) {
 }
 
 fn youtube_key(int id, key) {
+	[ -n "${YT[$id]["nocore"]-}" ] && return 1
 	local r n=${YT[$id]["n"]} sel=${YT[$id]["sel"]} p=${YT[$id]["p"]} v k
 	local q0
 
