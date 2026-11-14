@@ -11,7 +11,7 @@
 #
 # edit: fields
 
-app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.4
+app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.5
 command -v cp_pane > /dev/null && cp_pane arabizi "Arabizi" "⌨"
 
 strict
@@ -166,9 +166,12 @@ fn azp_choices(int i) {
 # Make the reading shown as v the one row i reads as: it goes first and the
 # others keep their order; the shipped order again is no choice of theirs.
 fn azp_choose(int i, v) {
-	local k=${AZP_ROWS[$i]} s t first= rest=
+	local k s t first= rest=
 	local -a os
 
+	# Read again first: a word taught while the pane was open is kept.
+	azp_load || return 0
+	k=${AZP_ROWS[$i]}
 	IFS=, read -ra os <<< "${AZP["$k"]}"
 	for s in "${os[@]}"; do
 		t := azp_show "$s"
