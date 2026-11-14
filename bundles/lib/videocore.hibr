@@ -1,0 +1,107 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# videocore -- what the video apps (YouTube, Tubi, Bilibili, and the ones after them) share: the history and favourites files, the line of the shared
+# video library (docs/video-library.md of the catalogue), the reading of a line, and a time as 1:05. Provider-free: it knows no site and no window,
+# and holds nothing of an app's state; each app keeps its own names (`yt_fileput`, `tu_libput`, ...) as thin calls into this, so what the apps and their
+# tests use does not move.
+#
+# A library of the catalogue (kind `lib`): installed to <scope>/lib/videocore.hibr, read by the desktop at start (it is chosen by the line below), and
+# named by an app with `# needs: lib/videocore`. Entries are updated apart, and `needs:` carries no version, so the core has its own: VC_API. An app
+# asks `vc_ok N` when it opens and says so in its window when the core is not there or is older than it needs; it never half-works.
+#
+# VC_API 1: vc_fileput, vc_histget, vc_libput, vc_mmss, vc_ok.
+
+strict
+
+app videocore "The video apps' shared core: history, favourites and library lines" 1.0
+
+VIDEOCORE_LIBDONE=1
+VC_API=1
+
+# The shared library's file: every title watched, in every video app.
+VC_LIB="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
+declare -ga VCH
+
+# Whether this core is at least API n (an app's check when it opens).
+fn vc_ok(int n) {
+	[ "${VC_API:-0}" -ge "$n" ]
+}
+
+# A history or favourites file: its line for KEY (a line that has KEY between two tabs) replaced by LINE, put last; no LINE takes it out. At most
+# KEEP lines are kept, the oldest dropped. The file is rewritten whole and quietly: one that cannot be written is not an error for a player.
+fn vc_fileput(f, key, line = "", keep = 500) {
+	local -a lines out
+	local l n
+
+	[ -r "$f" ] && mapfile -t lines < "$f"
+	out=()
+	for l in "${lines[@]}"; do
+		[[ $l == *$'\t'"$key"$'\t'* ]] && continue
+		out+=("$l")
+	done
+	[ -n "$line" ] && out+=("$line")
+	n=${#out[@]}
+	[ "$n" -gt "$keep" ] && out=("${out[@]:$((n - keep))}")
+	command mkdir -p -- "${f%/*}" 2> /dev/null
+	if [ "${#out[@]}" -gt 0 ]; then
+		printf '%s\n' "${out[@]}" > "$f" 2> /dev/null
+	else
+		: > "$f" 2> /dev/null
+	fi
+	return 0
+}
+
+# The line for KEY in file F, split into VCH (status 1 when there is none). Fields are split on the unit separator, not on the tab: `read` takes a run
+# of tabs for one, so an empty field (a title with no channel) would vanish and shift the rest.
+fn vc_histget(f, key) {
+	local -a lines
+	local l
+
+	VCH=()
+	[ -r "$f" ] || return 1
+	mapfile -t lines < "$f"
+	for l in "${lines[@]}"; do
+		if [[ $l == *$'\t'"$key"$'\t'* ]]; then
+			l=${l//$'\t'/$'\037'}
+			IFS=$'\037' read -ra VCH <<< "$l"
+			return 0
+		fi
+	done
+	return 1
+}
+
+# A title into the shared library, replacing its line and putting it last: provider kind key title sub pos dur (docs/video-library.md).
+fn vc_libput(provider, kind, key, title, sub, pos, dur) {
+	local -a lines out
+	local l n
+
+	[ -n "$key" ] || return 0
+	title=${title//[$'\t\n']/ }
+	sub=${sub//[$'\t\n']/ }
+	[ -r "$VC_LIB" ] && mapfile -t lines < "$VC_LIB"
+	out=()
+	for l in "${lines[@]}"; do
+		[[ $l == *$'\t'"$provider"$'\t'*$'\t'"$key"$'\t'* ]] && continue
+		out+=("$l")
+	done
+	out+=("$EPOCHSECONDS"$'\t'"$provider"$'\t'"$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'"${pos:-0}"$'\t'"${dur:-0}")
+	n=${#out[@]}
+	[ "$n" -gt 1000 ] && out=("${out[@]:$((n - 1000))}")
+	command mkdir -p -- "${VC_LIB%/*}" 2> /dev/null
+	printf '%s\n' "${out[@]}" > "$VC_LIB" 2> /dev/null
+	return 0
+}
+
+# Seconds as 1:05 or 1:02:03.
+fn vc_mmss(t) {
+	local s=${t%.*} out
+
+	[ -n "$s" ] || s=0
+	if [ "$s" -ge 3600 ]; then
+		printf -v out '%d:%02d:%02d' $((s / 3600)) $((s / 60 % 60)) $((s % 60))
+	else
+		printf -v out '%d:%02d' $((s / 60)) $((s % 60))
+	fi
+	ret "$out"
+}

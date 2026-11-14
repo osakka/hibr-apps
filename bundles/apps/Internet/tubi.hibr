@@ -28,7 +28,8 @@
 
 strict
 
-app tubi "Tubi, in a window" 1.2
+# needs: lib/videocore
+app tubi "Tubi, in a window" 1.3
 # part: control-panel/tubiset.hibr
 # modules: web
 
@@ -50,8 +51,6 @@ TU_DATA="${TU_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/tubi}"
 TU_HIST="$TU_DATA/history.tsv"
 TU_FAVS="$TU_DATA/favourites.tsv"
 TU_KEEP=500
-# The shared video library (docs/video-library.md): every title watched, in every video app, in one file.
-TU_LIB="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
 # A title is taken up where it was left once more than TU_RESUME seconds in;
 # within TU_ENDED seconds of its end it counts as watched to the end.
 TU_RESUME="${TU_RESUME-30}"
@@ -308,67 +307,23 @@ fn tu_num(path) {
 
 # Rewrite a file of entries without the one for a path, then with a new line at
 # its end; at most TU_KEEP lines are kept, the oldest dropped.
+# A history or favourites file's line for a key replaced, or taken out (the core's: lib/videocore).
 fn tu_fileput(f, key, line = "") {
-	local -a lines out
-	local l n
-
-	[ -r "$f" ] && mapfile -t lines < "$f"
-	out=()
-	for l in "${lines[@]}"; do
-		[[ $l == *$'\t'"$key"$'\t'* ]] && continue
-		out+=("$l")
-	done
-	[ -n "$line" ] && out+=("$line")
-	n=${#out[@]}
-	[ "$n" -gt "$TU_KEEP" ] && out=("${out[@]:$((n - TU_KEEP))}")
-	command mkdir -p -- "${f%/*}" 2> /dev/null
-	if [ "${#out[@]}" -gt 0 ]; then
-		printf '%s\n' "${out[@]}" > "$f" 2> /dev/null
-	else
-		: > "$f" 2> /dev/null
-	fi
+	vc_fileput "$f" "$key" "$line" "$TU_KEEP"
 }
 
 # The history's line for a path, or nothing; its fields into TUH.
 declare -ga TUH
 fn tu_histget(key) {
-	local -a lines
-	local l
-
 	TUH=()
-	[ -r "$TU_HIST" ] || return 1
-	mapfile -t lines < "$TU_HIST"
-	for l in "${lines[@]}"; do
-		if [[ $l == *$'\t'"$key"$'\t'* ]]; then
-			# split on the unit separator: `read` takes a run of tabs for one, so an empty field (no subtitle) would shift the position
-			l=${l//$'\t'/$'\037'}
-			IFS=$'\037' read -ra TUH <<< "$l"
-			return 0
-		fi
-	done
-	return 1
+	vc_histget "$TU_HIST" "$key" || return 1
+	TUH=("${VCH[@]}")
+	return 0
 }
 
 # A title into the shared library, replacing its line and putting it last: kind key title sub pos dur.
 fn tu_libput(kind, key, title, sub, pos, dur) {
-	local -a lines out
-	local l n
-
-	[ -n "$key" ] || return 0
-	title=${title//[$'\t\n']/ }
-	sub=${sub//[$'\t\n']/ }
-	[ -r "$TU_LIB" ] && mapfile -t lines < "$TU_LIB"
-	out=()
-	for l in "${lines[@]}"; do
-		[[ $l == *$'\t'tubi$'\t'*$'\t'"$key"$'\t'* ]] && continue
-		out+=("$l")
-	done
-	out+=("$EPOCHSECONDS"$'\t'tubi$'\t'"$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'"${pos:-0}"$'\t'"${dur:-0}")
-	n=${#out[@]}
-	[ "$n" -gt 1000 ] && out=("${out[@]:$((n - 1000))}")
-	command mkdir -p -- "${TU_LIB%/*}" 2> /dev/null
-	printf '%s\n' "${out[@]}" > "$TU_LIB" 2> /dev/null
-	return 0
+	vc_libput tubi "$kind" "$key" "$title" "$sub" "$pos" "$dur"
 }
 
 # Note where a window's title was left: watched to the end it starts from the
@@ -828,18 +783,22 @@ fn tu_volume(int id, int v) {
 
 # Minutes and seconds, with hours in front of an hour or more.
 fn tu_mmss(t) {
-	local s=${t%.*} out
+	local out
 
-	[ -n "$s" ] || s=0
-	if [ "$s" -ge 3600 ]; then
-		printf -v out '%d:%02d:%02d' $((s / 3600)) $((s / 60 % 60)) $((s % 60))
-	else
-		printf -v out '%d:%02d' $((s / 60)) $((s % 60))
-	fi
+	out := vc_mmss "$t"
 	ret "$out"
 }
 
 # --- the window -----------------------------------------------------------
+
+# The shared core (lib/videocore of the catalogue, API 1): the files and lines every video app keeps. Without it, or an older one, the window says
+# so and does nothing else, rather than half work.
+fn tu_core(int id) {
+	vc_ok 1 2> /dev/null && return 0
+	TU[$id]["nocore"]=1
+	TU[$id]["err"]="Tubi needs the Video Core (lib/videocore): update hibr (0.99.526 or later), run catalogue update and start the desktop again"
+	return 1
+}
 
 fn tubi_open(int id, arg = "") {
 	TU[$id]["view"]=list
@@ -858,6 +817,7 @@ fn tubi_open(int id, arg = "") {
 	TU[$id]["pt"]=
 	TU[$id]["p"]=
 	TU[$id]["err"]=
+	tu_core "$id" || return 0
 	tu_favload
 	tu_need "$id" || return 0
 	# `play:PATH`, from the Video Library: that title, with what the history knows of it
@@ -1244,6 +1204,7 @@ fn tu_drawmode() {
 }
 
 fn tubi_key(int id, key) {
+	[ -n "${TU[$id]["nocore"]-}" ] && return 1
 	local n=${TU[$id]["n"]} sel=${TU[$id]["sel"]} p=${TU[$id]["p"]} v q0
 
 	if [ "${TU[$id]["view"]}" = play ]; then
