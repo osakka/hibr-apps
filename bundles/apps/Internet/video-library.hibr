@@ -1,15 +1,18 @@
 #!/usr/bin/env hibr
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# library -- everything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared
+# video-library -- everything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared
 # file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left,
 # and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.
+#
+# It was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and
+# `catalogue install video-library` brings this one.
 #
 #   up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      x  take it out of the library
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.0.1
+app vlib "Video Library: what you watched, in every video app" 1.0.2
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
 fi
