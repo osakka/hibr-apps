@@ -27,7 +27,7 @@
 
 strict
 
-app quran "The Quran in Arabic, with tashkeel, to read, search and hear" 1.0
+app quran "The Quran in Arabic, with tashkeel, to read, search and hear" 1.0.1
 # modules: media dav
 
 command -v dt_app > /dev/null && dt_app quran "Quran" 28 70 once "☪"
@@ -609,6 +609,15 @@ fn qr_tick(int id) {
 	[ -n "$p" ] || return 0
 	media frame "$p" > /dev/null 2>&1
 	inf := media info "$p" 2> /dev/null || { qr_stop "$id"; return 0; }
+	# A recitation opens in the player's own thread (hibr 0.99.529), so one
+	# that cannot be opened says so here, ended with no sound and its
+	# error, rather than at media open: stop and say why, rather than run
+	# on through every ayah left.
+	if [ "${inf["ended"]}" = 1 ] && [ -z "${inf["audio"]}" ] && [ -n "${inf["error"]}" ]; then
+		qr_stop "$id"
+		QR[$id]["err"]="The sound could not be opened: ${inf["error"]}"
+		return 0
+	fi
 	if [ -n "${inf["error"]}" ] && [ "${inf["output"]}" = none ]; then
 		QR[$id]["err"]="No sound device: ${inf["error"]}"
 	fi
