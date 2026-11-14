@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.52
+app browser "The web, in a window" 2.53
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -1663,9 +1663,12 @@ fn bw_strip(int id, t, int w) {
 		console put -p "w$id" 1 "$x" "$g"
 		x=$((x + 1))
 	done
-	console pen "$DT_ACTIVE" "$DT_WELL" bold
-	console put -p "w$id" 1 "$x" " ${GL[plus]} "
-	dt_wreg "$id" 1 "$x" 3 newtab
+	# A web app is an application: the strip a page's own window brings has no New Tab button
+	if [ -z "${BW[$id]["app"]-}" ]; then
+		console pen "$DT_ACTIVE" "$DT_WELL" bold
+		console put -p "w$id" 1 "$x" " ${GL[plus]} "
+		dt_wreg "$id" 1 "$x" 3 newtab
+	fi
 }
 
 # Back, forward, reload and the address, on row ar.
@@ -2154,7 +2157,8 @@ fn browser_key(int id, key) {
 	# Tabs, with the keys every browser has (Gitea #292) -- after the
 	# desktop's own, so a desktop shortcut on one of them still wins.
 	case $key in
-	ctrl-t) bw_newtab "$id"; return 0 ;;
+	# A new tab is the Browser's; a web app is an application, and the key is its page's (a page it opens itself still becomes a tab)
+	ctrl-t) [ -z "${BW[$id]["app"]-}" ] && { bw_newtab "$id"; return 0; } ;;
 	ctrl-w) [ -n "$t" ] && bw_closetab "$id" "$t"; return 0 ;;
 	ctrl-pagedown) bw_steptab "$id" 1; return 0 ;;
 	ctrl-pageup) bw_steptab "$id" -1; return 0 ;;
@@ -2190,7 +2194,7 @@ fn browser_click(int id, int r, int c, btn = "") {
 		;;
 	close:*) bw_closetab "$id" "${tag#close:}"; return 0 ;;
 	ask:*) bw_askanswer "$id" "${tag#ask:}"; return 0 ;;
-	newtab) bw_newtab "$id"; return 0 ;;
+	newtab) [ -z "${BW[$id]["app"]-}" ] && bw_newtab "$id"; return 0 ;;
 	back) BW[$id]["aed"]=; [ -n "$t" ] && web back "$t" 2> /dev/null; return 0 ;;
 	forward) BW[$id]["aed"]=; [ -n "$t" ] && web forward "$t" 2> /dev/null; return 0 ;;
 	reload) BW[$id]["aed"]=; [ -n "$t" ] && web reload "$t"; return 0 ;;
@@ -2288,7 +2292,7 @@ fn browser_mouse(int id, act, btn, int r, int c, mods = "") {
 	# A middle press on a link opens it in a new tab behind this one, as
 	# other browsers do; asked of the engine without waiting, as the right
 	# press is (bw_atpoll). Anywhere else it does nothing.
-	if [ "$btn" = middle ]; then
+	if [ "$btn" = middle ] && [ -z "${BW[$id]["app"]-}" ]; then
 		bw_drawmode
 		if [ -n "$t" ] && [ "$r" -ge "$pt" ] && [ "$BW_DRAWN" != text ] && bw_tabhas "$t" atask &&
 		   q := web atask "$t" $((r - pt)) $((c - 1)) 2> /dev/null; then
@@ -4052,7 +4056,7 @@ fn browser_context(int? id = "") {
 	dt_menu "Page"
 	case $BW_AT_KIND in
 	link | linkimage)
-		dt_item "Open Link in New Tab" o bw_newtab "$id" "$BW_AT_HREF"
+		[ -z "${BW[$id]["app"]-}" ] && dt_item "Open Link in New Tab" o bw_newtab "$id" "$BW_AT_HREF"
 		dt_item "Copy Link Address" c bw_copyaddr "$BW_AT_HREF"
 		bw_tabhas "$t" download && dt_item "Save Link As${GL[ellipsis]}" k bw_saveurl "$id" "$BW_AT_HREF"
 		dt_sep
@@ -4060,7 +4064,7 @@ fn browser_context(int? id = "") {
 	esac
 	case $BW_AT_KIND in
 	image | media | linkimage)
-		dt_item "Open Image in New Tab" i bw_newtab "$id" "$BW_AT_SRC"
+		[ -z "${BW[$id]["app"]-}" ] && dt_item "Open Image in New Tab" i bw_newtab "$id" "$BW_AT_SRC"
 		dt_item "Copy Image Address" d bw_copyaddr "$BW_AT_SRC"
 		bw_tabhas "$t" download && dt_item "Save Image As${GL[ellipsis]}" v bw_saveurl "$id" "$BW_AT_SRC"
 		# Boxer loaded: the picture can be a game's box art (bx_setcover).
