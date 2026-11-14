@@ -28,7 +28,7 @@
 
 strict
 
-app tubi "Tubi, in a window" 1.1
+app tubi "Tubi, in a window" 1.2
 # part: control-panel/tubiset.hibr
 # modules: web
 
@@ -190,7 +190,7 @@ fn tu_back(int id) {
 	last=${st##*$'\n'}
 	[ "$last" = "$st" ] && st= || st=${st%$'\n'*}
 	TU[$id]["stack"]=${st:+$st$'\n'}
-	IFS=$'\t' read -ra f <<< "$last"
+	IFS=$'\037' read -ra f <<< "${last//$'\t'/$'\037'}"
 	tu_load "$id" "${f[0]}" "${f[1]}" "${f[2]}" 0
 }
 
@@ -264,7 +264,7 @@ fn tu_filelist(int id, f) {
 	[ -r "$f" ] && mapfile -t lines < "$f"
 	i=$((${#lines[@]} - 1))
 	while [ "$i" -ge 0 ]; do
-		IFS=$'\t' read -ra fl <<< "${lines[$i]}"
+		IFS=$'\037' read -ra fl <<< "${lines[$i]//$'\t'/$'\037'}"
 		if [ -n "${fl[1]}" ]; then
 			j=0
 			for k in kind id title ch len; do
@@ -340,7 +340,9 @@ fn tu_histget(key) {
 	mapfile -t lines < "$TU_HIST"
 	for l in "${lines[@]}"; do
 		if [[ $l == *$'\t'"$key"$'\t'* ]]; then
-			IFS=$'\t' read -ra TUH <<< "$l"
+			# split on the unit separator: `read` takes a run of tabs for one, so an empty field (no subtitle) would shift the position
+			l=${l//$'\t'/$'\037'}
+			IFS=$'\037' read -ra TUH <<< "$l"
 			return 0
 		fi
 	done
@@ -430,7 +432,7 @@ tu_favload() {
 	[ -r "$TU_FAVS" ] || return 0
 	mapfile -t lines < "$TU_FAVS"
 	for l in "${lines[@]}"; do
-		IFS=$'\t' read -ra fl <<< "$l"
+		IFS=$'\037' read -ra fl <<< "${l//$'\t'/$'\037'}"
 		[ -n "${fl[1]}" ] && TUF["${fl[1]}"]=1
 	done
 	return 0
@@ -858,6 +860,11 @@ fn tubi_open(int id, arg = "") {
 	TU[$id]["err"]=
 	tu_favload
 	tu_need "$id" || return 0
+	# `play:PATH`, from the Video Library: that title, with what the history knows of it
+	if [[ $arg == play:* ]]; then
+		tu_playkey "$id" "${arg#play:}"
+		return 0
+	fi
 	if [ -n "$arg" ]; then
 		dt_searchset "$id" "$arg"
 		tu_search "$id" "$arg"
@@ -865,6 +872,25 @@ fn tubi_open(int id, arg = "") {
 		tu_load "$id" home ""
 	fi
 	return 0
+}
+
+# Play one title by its path, as if it had been chosen in a list of one.
+fn tu_playkey(int id, key) {
+	local kind=movie title= sub=
+
+	if tu_histget "$key"; then
+		kind=${TUH[0]:-movie}
+		title=${TUH[2]-}
+		sub=${TUH[3]-}
+	fi
+	TR[$id][0]["kind"]=$kind
+	TR[$id][0]["id"]=$key
+	TR[$id][0]["title"]=$title
+	TR[$id][0]["ch"]=$sub
+	TU[$id]["n"]=1
+	TU[$id]["sel"]=0
+	TU[$id]["top"]=0
+	tu_play "$id" 0
 }
 
 fn tubi_find(int id) {

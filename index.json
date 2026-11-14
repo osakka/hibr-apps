@@ -220,15 +220,15 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "2.51",
+      "version": "2.52",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "a5a7905502dd2a38c9624b59c7f64528017db9f4eb2643a284cc5a314c5499ab",
+      "sha256": "6b3c70bc43bcd2887324913a28817c045c391d188454bf821d43534b831756cf",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "browser",
-      "hibr": "0.99.332",
+      "hibr": "0.99.523",
       "modules": "web",
       "dir": "Internet",
       "parts": [
@@ -243,6 +243,12 @@
           "as": "webapps.hibr",
           "path": "bundles/control-panel/webapps.hibr",
           "sha256": "2b6fac606a9bcf470520d893bc2dd81ffd2dc8b1d3d745df8893446376b895f4"
+        },
+        {
+          "kind": "lang",
+          "as": "browser.ar.json",
+          "path": "bundles/lang/browser.ar.json",
+          "sha256": "d395c05bbfc94f372f5ec2c57efceb415fdabdf73e30f36ee1c3c4562bd864aa"
         }
       ]
     },
@@ -270,10 +276,10 @@
     },
     "apps/tubi": {
       "title": "Tubi",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/tubi.hibr",
-      "sha256": "a984fbde0efbe3faa9e134e06af8f27ef1d9a1379ff1ae16d1798a866d87624b",
+      "sha256": "995b7563eb604ae4d9f6b47c8f80bf9687a1f97f87ae82ef722b3fa98fe18283",
       "about": "Tubi, in a window\n\nTubi (tubitv.com) in a window: its free films and series, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a title up where it was left, and favourites. Built on the same shape as the YouTube app.\n\nNothing here is a Tubi client of its own. Tubi's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself, picture and sound; the page is cut down to its one <video> and drawn here, and this app drives that element: play and pause, a time, the volume. The titles a page lists (the home page, a search, a series and its seasons) are read from the page's own links. A title that Tubi protects with DRM cannot be played by this engine, and the window says so rather than waiting.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -292,10 +298,10 @@
     },
     "apps/video-library": {
       "title": "Video Library",
-      "version": "1.0.2",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/video-library.hibr",
-      "sha256": "ad617e69768418ad8d2277f43daf2abefaa5a9f8f3a997fa11efbf8ae6fd2efd",
+      "sha256": "77fe29e3e015ab60c8b37cf2935c077150b1da2d1158d7a8f88ae795ae6264db",
       "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -305,15 +311,15 @@
     },
     "apps/youtube": {
       "title": "YouTube",
-      "version": "3.27",
+      "version": "3.28",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "5213e3aab4ec30bcd830b9b549d6601eb95ffac4384b01d3b516cf02088da6f1",
+      "sha256": "7bdabb01dd5e6add8ee8ac31e52e477f8ef28f43ed6a6d1bbb50569c74c99cd9",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "youtube",
-      "hibr": "0.99.413",
+      "hibr": "0.99.523",
       "modules": "media web",
       "dir": "Internet",
       "parts": [
@@ -322,6 +328,12 @@
           "as": "tube.hibr",
           "path": "bundles/control-panel/tube.hibr",
           "sha256": "a88f3a526efc08d0d7b3a3898a66f3248710acce5eb28222c7e4e3dc07815942"
+        },
+        {
+          "kind": "lang",
+          "as": "youtube.ar.json",
+          "path": "bundles/lang/youtube.ar.json",
+          "sha256": "c0784fcfa8007b16e2a5f41a68571e18c2465585fbe41a0b7bf81aae349a7815"
         }
       ]
     },
@@ -1798,15 +1810,15 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "2.51",
+      "version": "2.52",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "a5a7905502dd2a38c9624b59c7f64528017db9f4eb2643a284cc5a314c5499ab",
+      "sha256": "6b3c70bc43bcd2887324913a28817c045c391d188454bf821d43534b831756cf",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "browser",
-      "hibr": "0.99.332",
+      "hibr": "0.99.523",
       "modules": "web",
       "dir": "Internet"
     },
@@ -1826,10 +1838,10 @@
     },
     "tubi": {
       "title": "Tubi",
-      "version": "1.1",
+      "version": "1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/tubi.hibr",
-      "sha256": "a984fbde0efbe3faa9e134e06af8f27ef1d9a1379ff1ae16d1798a866d87624b",
+      "sha256": "995b7563eb604ae4d9f6b47c8f80bf9687a1f97f87ae82ef722b3fa98fe18283",
       "about": "Tubi, in a window\n\nTubi (tubitv.com) in a window: its free films and series, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a title up where it was left, and favourites. Built on the same shape as the YouTube app.\n\nNothing here is a Tubi client of its own. Tubi's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself, picture and sound; the page is cut down to its one <video> and drawn here, and this app drives that element: play and pause, a time, the volume. The titles a page lists (the home page, a search, a series and its seasons) are read from the page's own links. A title that Tubi protects with DRM cannot be played by this engine, and the window says so rather than waiting.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1840,10 +1852,10 @@
     },
     "video-library": {
       "title": "Video Library",
-      "version": "1.0.2",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/video-library.hibr",
-      "sha256": "ad617e69768418ad8d2277f43daf2abefaa5a9f8f3a997fa11efbf8ae6fd2efd",
+      "sha256": "77fe29e3e015ab60c8b37cf2935c077150b1da2d1158d7a8f88ae795ae6264db",
       "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1853,15 +1865,15 @@
     },
     "youtube": {
       "title": "YouTube",
-      "version": "3.27",
+      "version": "3.28",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "5213e3aab4ec30bcd830b9b549d6601eb95ffac4384b01d3b516cf02088da6f1",
+      "sha256": "7bdabb01dd5e6add8ee8ac31e52e477f8ef28f43ed6a6d1bbb50569c74c99cd9",
       "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "youtube",
-      "hibr": "0.99.413",
+      "hibr": "0.99.523",
       "modules": "media web",
       "dir": "Internet"
     },

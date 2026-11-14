@@ -340,6 +340,8 @@ ENTHIBR["control-panel/pictures"]=0.99.403
 ENTHIBR["apps/youtube"]=0.99.413   # YouTube 3.24 asks for each frame as WebKit makes it; before 0.99.413 the wallpaper was repainted on each one (a whole core)
 ENTHIBR["apps/tubi"]=0.99.413   # Tubi asks for each frame as WebKit makes it, as YouTube 3.24 does (the wallpaper was repainted on each before 0.99.413)
 ENTHIBR["apps/video-library"]=0.99.413   # the Video Library (docs/video-library.md): what every video app watched, in one list; it was `library` in 1.0 and 1.0.1
+ENTHIBR["apps/browser"]=0.99.523   # Browser 2.52 carries its Arabic as a part (lang/browser.ar.json, read with `lang add`); an older desktop would list browser.ar as a language
+ENTHIBR["apps/youtube"]=0.99.523   # YouTube 3.28 carries its Arabic as a part (lang/youtube.ar.json), and writes the shared video library
 # Sheet 1.7 runs its formulas in the contain module, and its pane writes
 # SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
 # hibr would run every formula as a dry run and say "contained" nowhere.

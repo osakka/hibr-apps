@@ -36,8 +36,9 @@
 
 strict
 
-app youtube "YouTube, in a window" 3.27
+app youtube "YouTube, in a window" 3.28
 # part: control-panel/tube.hibr
+# part: lang/youtube.ar.json
 # modules: media web
 
 command -v dt_app > /dev/null && dt_app youtube "YouTube" 24 84 many "▶"
@@ -287,7 +288,7 @@ fn yt_back(int id) {
 	last=${st##*$'\n'}
 	[ "$last" = "$st" ] && st= || st=${st%$'\n'*}
 	YT[$id]["stack"]=${st:+$st$'\n'}
-	IFS=$'\t' read -ra f <<< "$last"
+	IFS=$'\037' read -ra f <<< "${last//$'\t'/$'\037'}"
 	yt_load "$id" "${f[0]}" "${f[1]}" "${f[2]}" 0
 }
 
@@ -333,7 +334,7 @@ fn yt_filelist(int id, f) {
 	[ -r "$f" ] && mapfile -t lines < "$f"
 	i=$((${#lines[@]} - 1))
 	while [ "$i" -ge 0 ]; do
-		IFS=$'\t' read -ra fl <<< "${lines[$i]}"
+		IFS=$'\037' read -ra fl <<< "${lines[$i]//$'\t'/$'\037'}"
 		if [ -n "${fl[1]}" ]; then
 			j=0
 			for k in kind id title ch len views age; do
@@ -400,7 +401,9 @@ fn yt_histget(vid) {
 	mapfile -t lines < "$YT_HIST"
 	for l in "${lines[@]}"; do
 		if [[ $l == *$'\t'"$vid"$'\t'* ]]; then
-			IFS=$'\t' read -ra YTH <<< "$l"
+			# split on the unit separator: `read` takes a run of tabs for one, so an empty field (no channel) would shift the position
+			l=${l//$'\t'/$'\037'}
+			IFS=$'\037' read -ra YTH <<< "$l"
 			return 0
 		fi
 	done
@@ -492,7 +495,7 @@ yt_favload() {
 	[ -r "$YT_FAVS" ] || return 0
 	mapfile -t lines < "$YT_FAVS"
 	for l in "${lines[@]}"; do
-		IFS=$'\t' read -ra fl <<< "$l"
+		IFS=$'\037' read -ra fl <<< "${l//$'\t'/$'\037'}"
 		[ -n "${fl[1]}" ] && YTF["${fl[1]}"]=1
 	done
 	return 0
@@ -1148,11 +1151,36 @@ fn youtube_open(int id, arg = "") {
 	YT[$id]["err"]=
 	yt_favload
 	yt_need "$id" || return 0
+	# `play:ID`, from the Video Library: that video, with what the history knows of it
+	if [[ $arg == play:* ]]; then
+		yt_playkey "$id" "${arg#play:}"
+		return 0
+	fi
 	if [ -n "$arg" ]; then
 		dt_searchset "$id" "$arg"
 		yt_search "$id" "$arg"
 	fi
 	return 0
+}
+
+# Play one video by its id, as if it had been chosen in a list of one.
+fn yt_playkey(int id, vid) {
+	local title= ch= len=
+
+	if yt_histget "$vid"; then
+		title=${YTH[2]-}
+		ch=${YTH[3]-}
+		len=${YTH[4]-}
+	fi
+	YR[$id][0]["kind"]=video
+	YR[$id][0]["id"]=$vid
+	YR[$id][0]["title"]=$title
+	YR[$id][0]["ch"]=$ch
+	YR[$id][0]["len"]=$len
+	YT[$id]["n"]=1
+	YT[$id]["sel"]=0
+	YT[$id]["top"]=0
+	yt_play "$id" 0
 }
 
 fn youtube_find(int id) {

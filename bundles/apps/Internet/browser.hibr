@@ -50,10 +50,11 @@
 
 strict
 
-app browser "The web, in a window" 2.51
+app browser "The web, in a window" 2.52
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
+# part: lang/browser.ar.json
 
 command -v dt_app > /dev/null && dt_app browser "Browser" 26 96 many "◎"
 # Every tab told whether it is on show and whether its window has the keyboard
@@ -4069,7 +4070,7 @@ fn browser_context(int? id = "") {
 		;;
 	esac
 	dt_item "Back" b bw_back "$id"
-	dt_item "Forward" f bw_fwd "$id"
+	dt_item "Go Forward" f bw_fwd "$id"
 	dt_item "Reload" r bw_reload "$id"
 	[ -n "$t" ] && bw_tabhas "$t" fill && dt_has dt_vwmatch && web loginform "$t" > /dev/null 2>&1 && dt_item "Fill Sign-In from Vault" v bw_vaultfill "$id"
 	[ -n "$t" ] && [ -z "${BW[$id]["app"]-}" ] && bw_tabhas "$t" nopicture && dt_item "Reopen in WebKit" w bw_reopenwk "$id"
@@ -4105,7 +4106,7 @@ browser_menus() {
 		dt_menu "Go"
 		dt_item "Back" b bw_back "$id"
 		dt_rowaccel alt-b
-		dt_item "Forward" f bw_fwd "$id"
+		dt_item "Go Forward" f bw_fwd "$id"
 		dt_rowaccel alt-f
 		dt_item "Reload" r bw_reload "$id"
 		dt_rowaccel f5
@@ -4175,11 +4176,11 @@ browser_menus() {
 	dt_menu "Go"
 	dt_item "Back" b bw_back "$id"
 	dt_rowaccel alt-b
-	dt_item "Forward" f bw_fwd "$id"
+	dt_item "Go Forward" f bw_fwd "$id"
 	dt_rowaccel alt-f
 	dt_item "Reload" r bw_reload "$id"
 	dt_rowaccel f5
-	dt_item "Home" h bw_open "$id" "$BW_HOME"
+	dt_item "Home Page" h bw_open "$id" "$BW_HOME"
 	if [ -n "${BW[$id]["cur"]}" ] && bw_tabhas "${BW[$id]["cur"]}" nopicture; then
 		dt_item "Reopen in WebKit" k bw_reopenwk "$id"
 	else

@@ -12,7 +12,7 @@
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.0.2
+app vlib "Video Library: what you watched, in every video app" 1.1
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
 fi
@@ -85,10 +85,52 @@ fn vl_left(pos, dur) {
 	fi
 }
 
+# Once, the first time the library is opened with no shared file yet: what YouTube and Tubi had kept in their own histories, so a person's past
+# is in the list too. Those histories have no times, only an order, so each line is given the time of its file less one second for each line after it
+# (the newest of a file is its file's time); the two apps' titles are interleaved by those times, which is as good as it can be. A marker beside the
+# shared file says it was done, so a library emptied on purpose stays empty.
+fn vl_seed() {
+	local d=${VL_FILE%/*} yh th mk=$VL_FILE.seeded f l o n i m provider kind key title sub pos dur
+	local -a lines out ff rows
+
+	[ -e "$mk" ] && return 0
+	[ -e "$VL_FILE" ] && { : > "$mk" 2> /dev/null; return 0; }
+	yh=${VL_YT-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/youtube/history.tsv}
+	th=${VL_TU-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/tubi/history.tsv}
+	rows=()
+	for f in "$yh" "$th"; do
+		[ -r "$f" ] || continue
+		m=$(command stat -c %Y -- "$f" 2> /dev/null) || continue
+		lines=()
+		mapfile -t lines < "$f"
+		n=${#lines[@]}
+		i=0
+		for l in "${lines[@]}"; do
+			o=${l//$'\t'/$VL_US}
+			IFS=$VL_US read -ra ff <<< "$o"
+			if [ "$f" = "$yh" ]; then
+				provider=youtube; kind=${ff[0]-video}; key=${ff[1]-}; title=${ff[2]-}; sub=${ff[3]-}; pos=${ff[5]-0}; dur=${ff[6]-0}
+			else
+				provider=tubi; kind=${ff[0]-movie}; key=${ff[1]-}; title=${ff[2]-}; sub=${ff[3]-}; pos=${ff[4]-0}; dur=0
+			fi
+			i=$((i + 1))
+			[ -n "$key" ] || continue
+			rows+=("$((m - (n - i)))"$'\t'"$provider"$'\t'"$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'"$pos"$'\t'"$dur")
+		done
+	done
+	command mkdir -p -- "$d" 2> /dev/null
+	if [ "${#rows[@]}" -gt 0 ]; then
+		printf '%s\n' "${rows[@]}" | command sort -n -s -k1,1 | command tail -n 1000 > "$VL_FILE" 2> /dev/null
+	fi
+	: > "$mk" 2> /dev/null
+	return 0
+}
+
 fn vlib_open(int id, ...rest) {
 	VL[$id]["only"]=
 	VL[$id]["sel"]=0
 	VL[$id]["top"]=0
+	vl_seed
 	vl_load "$id"
 	return 0
 }
@@ -128,7 +170,13 @@ fn vlib_draw(int id, int h, int w, int row, int col) {
 		tail := vl_left "${f[5]}" "${f[6]}"
 		tail="  $tail"
 		lab := str pad "$lab" 9
-		lab+=${f[3]}
+		# a title the app did not have when it wrote the line: what its address says (/movies/550822/hacksaw-ridge: hacksaw ridge)
+		x=${f[3]}
+		if [ -z "$x" ]; then
+			x=${f[2]##*/}
+			x=${x//-/ }
+		fi
+		lab+=$x
 		[ -n "${f[4]}" ] && lab+="  ${f[4]:0:20}"
 		[ $((${#lab} + ${#tail})) -gt "$w" ] && lab="${lab:0:$((w - ${#tail} - 1))}${GL[ellipsis]}"
 		lab := str pad "$lab" $((w - ${#tail}))
