@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.5
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.6
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.5}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.6}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -44,9 +44,9 @@ usage: wiretap <command>
   off | down                 stop the node
   show                       how the node is, in a few lines
   top [N]                    who is talking now: the busiest N programs (default 10), by their last five seconds
-  usage [N]                  who has used the most since the node started
+  usage [N] [--csv]          who has used the most since the node started
   history [1h|24h|7d] [N]    who used the most in the last hour, day (default) or week; kept per program, across restarts; --csv for a spreadsheet
-  hosts [N] [--names]        who it is talking to: the biggest N remote addresses (default 20), with the program, bytes and how long ago
+  hosts [N] [--names|--csv] who it is talking to: the biggest N remote addresses (default 20), with the program, bytes and how long ago
   graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
   watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
   status                     the raw status (JSON)
@@ -172,17 +172,23 @@ fn wt_table(by, int n) {
 	local i shown=0 mark tot
 
 	wt_apps "$by" || { echo "wiretap: $ERRMSG" >&2; exit 1; }
-	printf '%-20s %7s %9s %9s %9s\n' APP PID DOWN/s UP/s TOTAL
+	[ "$csv" = 1 ] && echo "app,pid,attributed,down_bytes,up_bytes,total_bytes" || printf '%-20s %7s %9s %9s %9s\n' APP PID DOWN/s UP/s TOTAL
 	for ((i = 0; i < ${#A_NAME[@]} && shown < n; i++)); do
 		tot=$((A_RX[i] + A_TX[i]))
 		[ "$tot" -gt 0 ] || continue
 		if [ "$by" = rate ] && [ $((A_RX5[i] + A_TX5[i])) -eq 0 ]; then continue; fi
+		if [ "$csv" = 1 ]; then
+			wt_csvname "${A_NAME[$i]}"
+			printf '%s,%s,%s,%s,%s,%s\n' "$CSVN" "${A_PID[$i]}" "${A_OK[$i]}" "${A_RX[$i]}" "${A_TX[$i]}" "$tot"
+			shown=$((shown + 1))
+			continue
+		fi
 		mark=
 		[ "${A_OK[$i]}" = true ] || mark="  ?"
 		printf '%-20s %7s %9s %9s %9s%s\n' "${A_NAME[$i]}" "${A_PID[$i]}" "$(wt_human "${A_RX5[$i]}")" "$(wt_human "${A_TX5[$i]}")" "$(wt_human "$tot")" "$mark"
 		shown=$((shown + 1))
 	done
-	[ "$shown" -gt 0 ] || echo "(nothing talking just now)"
+	[ "$shown" -gt 0 ] || [ "$csv" = 1 ] || echo "(nothing talking just now)"
 	return 0
 }
 
@@ -242,13 +248,18 @@ fn wt_hosts(int n, int names) {
 	json parse HJ "$H"
 	now := json get HJ .now
 	cnt := json len HJ .hosts
-	printf '%-40s %-14s %9s %9s %6s\n' ADDRESS APP DOWN UP AGO
+	[ "$csv" = 1 ] && echo "address,app,down_bytes,up_bytes,seconds_ago" || printf '%-40s %-14s %9s %9s %6s\n' ADDRESS APP DOWN UP AGO
 	for ((i = 0; i < cnt; i++)); do
 		a := json get HJ ".hosts[$i].addr"
 		app := json get HJ ".hosts[$i].app"
 		rx := json get HJ ".hosts[$i].rx"
 		tx := json get HJ ".hosts[$i].tx"
 		last := json get HJ ".hosts[$i].last"
+		if [ "$csv" = 1 ]; then		# addresses only: an export never sends a lookup to a name server
+			wt_csvname "$app"
+			printf '%s,%s,%s,%s,%s\n' "$a" "$CSVN" "$rx" "$tx" "$((now - last))"
+			continue
+		fi
 		nm=$a
 		if [ "$names" = 1 ]; then
 			nm=$(timeout 2 getent hosts "$a" 2> /dev/null | { read -r _ x _; echo "${x:-}"; })
@@ -256,7 +267,7 @@ fn wt_hosts(int n, int names) {
 		fi
 		printf '%-40s %-14s %9s %9s %5ss\n' "$nm" "$app" "$(wt_human "$rx")" "$(wt_human "$tx")" "$((now - last))"
 	done
-	[ "$cnt" -gt 0 ] || echo "(no remote hosts yet)"
+	[ "$cnt" -gt 0 ] || [ "$csv" = 1 ] || echo "(no remote hosts yet)"
 	return 0
 }
 
