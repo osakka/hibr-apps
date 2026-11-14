@@ -12,7 +12,8 @@
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.2
+app vlib "Video Library: what you watched, in every video app" 1.3
+# part: lang/video-library.ar.json
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
 fi

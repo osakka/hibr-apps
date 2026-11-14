@@ -29,8 +29,9 @@
 strict
 
 # needs: lib/videocore
-app tubi "Tubi, in a window" 1.3
+app tubi "Tubi, in a window" 1.4
 # part: control-panel/tubiset.hibr
+# part: lang/tubi.ar.json
 # modules: web
 
 command -v dt_app > /dev/null && dt_app tubi "Tubi" 24 84 many "▶"
@@ -1371,7 +1372,7 @@ tubi_menus() {
 	dt_rowaccel enter
 	dt_item "Back" b tu_back "$id"
 	dt_rowaccel escape
-	dt_item "Home" m tu_load "$id" home ""
+	dt_item "Home Page" m tu_load "$id" home ""
 	dt_rowaccel t
 	dt_item "History" h tu_load "$id" history ""
 	dt_rowaccel h

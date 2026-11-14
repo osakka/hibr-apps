@@ -22,7 +22,8 @@
 strict
 
 # needs: lib/videocore
-app bilibili "Bilibili, in a window" 1.0
+app bilibili "Bilibili, in a window" 1.1
+# part: lang/bilibili.ar.json
 # modules: web
 
 command -v dt_app > /dev/null && dt_app bilibili "Bilibili" 24 84 many "▶"
