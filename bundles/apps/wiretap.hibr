@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.5.3
+app wtview "Wiretap: a live graph and every app's traffic" 0.6.0
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -82,7 +82,7 @@ fn wv_stack(int id, dir, int half, int cols, int n, int max) {
 		ht=$((tot * half * 8 / max))
 		cum=0; bound=()
 		for ((j = 0; j < WTP_ASCNT; j++)); do
-			if [ "$dir" = rx ]; then v=${WTP_ASRX[$((j * 60 + i))]}; else v=${WTP_ASTX[$((j * 60 + i))]}; fi
+			if [ "$dir" = rx ]; then v=${WTP_ASRX[$((j * WTP_ASSTR + i))]}; else v=${WTP_ASTX[$((j * WTP_ASSTR + i))]}; fi
 			cum=$((cum + v * half * 8 / max))
 			bound+=("$cum")
 		done
@@ -115,8 +115,9 @@ fn wv_graph(int id, int h, int w) {
 	for v in "${WTP_RI[@]}" "${WTP_RO[@]}"; do [ "$v" -gt "$max" ] && max=$v; done
 	inr=0; outr=0
 	[ "$n" -gt 0 ] && { inr=${WTP_RI[$((n - 1))]}; outr=${WTP_RO[$((n - 1))]}; }
-	if [ "$s" = 0 ] && [ "${WV[$id]["by"]:-1}" = 1 ] && [ "$n" = 60 ]; then
-		wtp_appseries && [ "$WTP_ASCNT" -gt 0 ] && by=1
+	if [ "${WV[$id]["by"]:-1}" = 1 ] && [ "$n" -gt 0 ]; then
+		wtp_appseries "${WV_SCALES[$s]}" "$cols"
+		if wtp_aslive "${WV_SCALES[$s]}" "$cols" && [ "$WTP_ASSTR" = "$n" ]; then by=1; fi
 	fi
 	console pen "$DT_GOOD" "$DT_FACE" bold
 	line := wtp_rate "$inr"

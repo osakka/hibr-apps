@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.5.3
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.6.0
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.5.3}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.6.0}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -45,6 +45,7 @@ usage: wiretap <command>
   show                       how the node is, in a few lines
   top [N]                    who is talking now: the busiest N programs (default 10), by their last five seconds
   usage [N]                  who has used the most since the node started
+  history [1h|24h|7d] [N]    who used the most in the last hour, day (default) or week; kept per program, across restarts
   hosts [N] [--names]        who it is talking to: the biggest N remote addresses (default 20), with the program, bytes and how long ago
   graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
   watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
@@ -72,7 +73,7 @@ fn wt_human(int b) {
 }
 
 # Is a node answering? Fills WT_ST with its status.
-declare -g WT_ST AJ SJ
+declare -g WT_ST AJ SJ HS HN HP
 fn wt_up() {
 	local st
 
@@ -182,6 +183,41 @@ fn wt_table(by, int n) {
 		shown=$((shown + 1))
 	done
 	[ "$shown" -gt 0 ] || echo "(nothing talking just now)"
+	return 0
+}
+
+# A program's bytes over the last hour, day or week (ADR 0032), the busiest first: the node keeps a minute a slot for a day and an hour a slot for a
+# week for each named program, and saves them, so this survives a restart of the node.
+fn wt_hscale(sc) {
+	case $sc in
+	1h) ret "60 60" ;;
+	24h) ret "60 1440" ;;
+	7d) ret "3600 168" ;;
+	*) return 1 ;;
+	esac
+}
+
+fn wt_history(sc, int n) {
+	local H HJ res cnt i j k cnt2 name rx tx v sp shown=0
+
+	wt_need
+	sp := wt_hscale "$sc" || { echo "wiretap: history takes 1h, 24h or 7d" >&2; exit 1; }
+	res=${sp% *}; cnt=${sp#* }
+	H := wt apphist "$res" "$cnt" "$n" || { echo "wiretap: $ERRMSG" >&2; exit 1; }
+	json parse HJ "$H"
+	cnt2 := json len HJ .apps
+	printf '%-20s %9s %9s %9s   (last %s)\n' APP DOWN UP TOTAL "$sc"
+	for ((j = 0; j < ${cnt2:-0}; j++)); do
+		name := json get HJ ".apps[$j].name"
+		rx=0; tx=0
+		for ((k = 0; k < cnt; k++)); do
+			v := json get HJ ".apps[$j].rx[$k]"; rx=$((rx + ${v:-0}))
+			v := json get HJ ".apps[$j].tx[$k]"; tx=$((tx + ${v:-0}))
+		done
+		printf '%-20s %9s %9s %9s\n' "$name" "$(wt_human "$rx")" "$(wt_human "$tx")" "$(wt_human $((rx + tx)))"
+		shown=$((shown + 1))
+	done
+	[ "$shown" -gt 0 ] || echo "(nothing yet: the node keeps this from when it started)"
 	return 0
 }
 
@@ -449,6 +485,18 @@ top)
 usage)
 	wt_need
 	if [ "$json" = 1 ]; then run wt apps; else wt_table total "${args[1]:-10}"; fi ;;
+history)
+	wt_need
+	case ${args[1]:-} in
+	1h | 24h | 7d) HS=${args[1]}; HN=${args[2]:-10} ;;
+	'') HS=24h; HN=10 ;;
+	*[!0-9]*) echo "wiretap: history takes 1h, 24h or 7d" >&2; exit 1 ;;
+	*) HS=24h; HN=${args[1]} ;;
+	esac
+	if [ "$json" = 1 ]; then
+		HP := wt_hscale "$HS"
+		run wt apphist "${HP% *}" "${HP#* }" "$HN"
+	else wt_history "$HS" "$HN"; fi ;;
 hosts)
 	if [ "$json" = 1 ]; then wt_need; run wt hosts "${args[1]:-20}"; else wt_hosts "${args[1]:-20}" "$names"; fi ;;
 graph)

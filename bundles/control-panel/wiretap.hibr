@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.5.3
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.6.0
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -62,19 +62,44 @@ fn wtp_hue(name) {
 # second i at index j*60+i (oldest second first). At most once a second; WTP_ASCNT is how many programs there are.
 declare -ga WTP_ASN=() WTP_ASRX=() WTP_ASTX=()
 declare -gi WTP_ASCNT=0 WTP_ASAT=-100
-declare -gi WTP_ASBUSY=0 WTP_HBUSY=0
-fn wtp_appseries() {
+declare -gi WTP_ASBUSY=0 WTP_HBUSY=0 WTP_ASSTR=60
+declare -g WTP_ASKEY="" WTP_ASKEYR="" WTP_ASK="" WTP_ASQ=""
+# Programs for a timescale (sc is 1m, 1h, 24h or 7d; cols the columns the graph has): asked for at most once a second on the
+# 1-minute scale, every ten seconds on the others (ADR 0032). The answer is WTP_ASN with, for program j, column i at j*WTP_ASSTR+i,
+# and WTP_ASKEYR says which scale it is for. Never waits: a job reads it.
+fn wtp_appseries(sc = 1m, int cols = 60) {
+	local key=$sc every=1 sp secs cnt grp
+
 	[ "$WTP_UP" = 1 ] || { WTP_ASCNT=0; return 1; }
-	[ $((SECONDS - WTP_ASAT)) -ge 1 ] || return 0
+	if [ "$sc" != 1m ]; then key=$sc/$cols; every=10; fi
+	if [ "$key" != "$WTP_ASKEY" ]; then WTP_ASKEY=$key; WTP_ASAT=-100; fi
+	[ $((SECONDS - WTP_ASAT)) -ge "$every" ] || return 0
 	WTP_ASAT=$SECONDS
+	if [ "$sc" = 1m ]; then
+		WTP_ASQ="1m 1 60 1"
+	else
+		sp := wtp_scale "$sc" || return 1
+		secs=${sp% *}; cnt=${sp#* }
+		[ "$cols" -ge 1 ] || return 1
+		grp=$(((cnt + cols - 1) / cols))
+		WTP_ASQ="$sc $secs $cnt $grp"
+	fi
+	WTP_ASK=$key
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then		# on a desktop a job reads it (ADR 0031)
 		[ "$WTP_ASBUSY" = 0 ] || return 0
 		WTP_ASBUSY=1
-		dt_jobvars wtp appseries wtp_asdone wtp_asfetch WTP_ASN WTP_ASRX WTP_ASTX WTP_ASCNT > /dev/null || { WTP_ASBUSY=0; wtp_asfetch; }
+		dt_jobvars wtp appseries wtp_asdone wtp_asfetch WTP_ASN WTP_ASRX WTP_ASTX WTP_ASCNT WTP_ASSTR WTP_ASKEYR > /dev/null || { WTP_ASBUSY=0; wtp_asfetch; }
 		return 0
 	fi
 	wtp_asfetch
 	return 0
+}
+
+# Whether the programs held are for this scale and these columns (the answer to an older one may still be in WTP_ASN).
+fn wtp_aslive(sc = 1m, int cols = 60) {
+	local key=$sc
+	[ "$sc" = 1m ] || key=$sc/$cols
+	[ "$WTP_ASKEYR" = "$key" ] && [ "$WTP_ASCNT" -gt 0 ]
 }
 
 fn wtp_asdone(int n, int st) {
@@ -83,21 +108,37 @@ fn wtp_asdone(int n, int st) {
 	return 0
 }
 
+# The read: the busiest eight programs, a second a column on the 1-minute scale and otherwise a column per group of the node's
+# minutes or hours, grouped as the graph's own columns are (wtp_rbuild), so a program's column is the same column of the total.
 fn wtp_asfetch() {
-	local r j i name v AS
+	local r j i name v AS kind res cnt grp nc c lo hi sr st
 
-	WTP_ASN=(); WTP_ASRX=(); WTP_ASTX=(); WTP_ASCNT=0
-	r := wt appseries 8 2> /dev/null || return 1
+	read -r kind res cnt grp <<< "$WTP_ASQ"
+	WTP_ASN=(); WTP_ASRX=(); WTP_ASTX=(); WTP_ASCNT=0; WTP_ASKEYR=""
+	if [ "$kind" = 1m ]; then
+		r := wt appseries 8 2> /dev/null || return 1
+		nc=60; grp=1; res=1
+	else
+		r := wt apphist "$res" "$cnt" 8 2> /dev/null || return 1
+		nc=$(((cnt + grp - 1) / grp))
+	fi
 	json parse AS "$r" 2> /dev/null || return 1
 	for ((j = 0; j < 8; j++)); do
 		name := json get AS ".apps[$j].name" 2> /dev/null || break
 		WTP_ASN+=("$name")
-		for ((i = 0; i < 60; i++)); do
-			v := json get AS ".apps[$j].rx[$i]"; WTP_ASRX+=("${v:-0}")
-			v := json get AS ".apps[$j].tx[$i]"; WTP_ASTX+=("${v:-0}")
+		for ((c = 0; c < nc; c++)); do
+			lo=$((c * grp)); hi=$((lo + grp)); [ "$hi" -gt "$((nc * grp))" ] && hi=$((nc * grp)); [ "$hi" -gt "$cnt" ] && hi=$cnt
+			sr=0; st=0
+			for ((i = lo; i < hi; i++)); do
+				v := json get AS ".apps[$j].rx[$i]"; sr=$((sr + ${v:-0}))
+				v := json get AS ".apps[$j].tx[$i]"; st=$((st + ${v:-0}))
+			done
+			WTP_ASRX+=($((sr / ((hi - lo) * res)))); WTP_ASTX+=($((st / ((hi - lo) * res))))
 		done
 	done
 	WTP_ASCNT=${#WTP_ASN[@]}
+	WTP_ASSTR=$nc
+	WTP_ASKEYR=$WTP_ASK
 	return 0
 }
 
