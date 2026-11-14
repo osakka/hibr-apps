@@ -8,12 +8,12 @@
 #
 # Called wtview: wiretap is the Control Panel pane's prefix (a pane with a wiretap_draw would be taken for one that draws itself).
 #
-#   1 2 3 4   timescale: 1 minute, 1 hour, 24 hours, 7 days      g  Graph      u  Usage      tab  the other one
+#   1 2 3 4   timescale: 1 minute, 1 hour, 24 hours, 7 days      g  Graph      u  Usage      m  Map      tab  the next one
 #   up/down   in Usage, the selected row                         
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.7.6
+app wtview "Wiretap: a live graph and every app's traffic" 0.8.0
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -64,6 +64,8 @@ fn wv_head(int id, int w) {
 	wv_put "$id" 1 18 " Hosts "
 	if [ "${WV[$id]["view"]}" = firewall ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
 	wv_put "$id" 1 26 " Firewall "
+	if [ "${WV[$id]["view"]}" = map ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
+	wv_put "$id" 1 36 " Map "
 	col=$((w - 34))
 	for i in 0 1 2 3; do
 		if [ "$i" = "$s" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi
@@ -220,6 +222,91 @@ fn wv_usage(int id, int h, int w) {
 	wv_foot "$id" "$h"
 }
 
+# The Map tab, Flow layout (ADR 0039): programs on the left, the remote hosts they talk to on the right, a line for each conversation. The
+# line's length and weight are its bytes against the biggest; its colour is the program's; a host not heard from for a minute fades. Hosts are
+# grouped under their program (a tree, so no lines cross). The rows come from the same list as the Hosts tab, so selection, b and n work alike.
+declare -ga WV_ORD=()		# the host list's index of each row shown, in the order drawn: what b acts on
+
+fn wv_flow(int id, int h, int w) {
+	local n i j k m r row vis=$((h - 5)) sel=${WV[$id]["sel"]} now a app last nm tot b maxb=1 hue lw len thin line pre gl bracket nmw
+	local -a HA=() HP=() HB=() HL=() APPS=()
+
+	wtp_hosts
+	wtp_fw_blocked
+	n := json len WTP_H .hosts 2> /dev/null || n=0
+	n=${n:-0}
+	[ "$n" -le "$vis" ] || n=$vis
+	WV_ORD=()
+	WV[$id]["n"]=$n
+	console pen "$DT_DIM" "$DT_FACE" bold
+	wv_put "$id" 2 2 "PROGRAM       a line is bytes (heavy: a fifth of the biggest or more), faded: quiet for a minute"
+	if [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		wv_put "$id" 4 2 "No remote hosts yet."
+		wv_foot "$id" "$h"
+		return 0
+	fi
+	now := json get WTP_H .now
+	for ((i = 0; i < n; i++)); do
+		a := json get WTP_H ".hosts[$i].addr"; HA[$i]=$a
+		app := json get WTP_H ".hosts[$i].app"; HP[$i]=$app
+		b := json get WTP_H ".hosts[$i].rx"; tot=$b
+		b := json get WTP_H ".hosts[$i].tx"; tot=$((tot + b))
+		HB[$i]=$tot; [ "$tot" -gt "$maxb" ] && maxb=$tot
+		last := json get WTP_H ".hosts[$i].last"; HL[$i]=$last
+		k=0; for ((j = 0; j < ${#APPS[@]}; j++)); do [ "${APPS[$j]}" = "$app" ] && { k=1; break; }; done
+		[ "$k" = 1 ] || APPS+=("$app")
+	done
+	if [ "${WV[$id]["names"]:-0}" = 1 ]; then wtp_names_want "${HA[@]}"; fi
+	for ((j = 0; j < ${#APPS[@]}; j++)); do
+		for ((i = 0; i < n; i++)); do [ "${HP[$i]}" = "${APPS[$j]}" ] && WV_ORD+=("$i"); done
+	done
+	[ "$sel" -ge "$n" ] && sel=$((n - 1))
+	WV[$id]["sel"]=$sel
+	lw=$((w - 17 - 2 - 42 - 1)); [ "$lw" -ge 4 ] || lw=4
+	nmw=26
+	pre=""
+	for ((r = 0; r < n; r++)); do
+		i=${WV_ORD[$r]}; app=${HP[$i]}; tot=${HB[$i]}; a=${HA[$i]}
+		hue := wtp_hue "$app"
+		# the bracket: the first row of a program's block carries its name
+		m=0
+		for ((j = 0; j < n; j++)); do [ "${HP[${WV_ORD[$j]}]}" = "$app" ] && m=$((m + 1)); done
+		if [ "$pre" != "$app" ]; then
+			if [ "$m" = 1 ]; then bracket="─"; else bracket="┬"; fi
+		else
+			if [ "$r" -ge $((n - 1)) ] || [ "${HP[${WV_ORD[$((r + 1))]}]}" != "$app" ]; then bracket="└"; else bracket="├"; fi
+		fi
+		len=$((1 + tot * (lw - 1) / maxb))
+		thin=1; [ $((tot * 5)) -ge "$maxb" ] && thin=0
+		line=""
+		if [ "$thin" = 1 ]; then gl="─"; else gl="━"; fi
+		for ((j = 0; j < len; j++)); do line+=$gl; done
+		nm=$a
+		[ "${WV[$id]["names"]:-0}" = 1 ] && [ "${WTP_NAME[$a]:--}" != - ] && nm=${WTP_NAME[$a]}
+		b := wtp_rate "$tot"
+		row=$((3 + r))
+		if [ "$r" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
+		if [ "$pre" != "$app" ]; then wv_put "$id" "$row" 2 "$(printf '%-12s' "${app:0:12}")"; else wv_put "$id" "$row" 2 "            "; fi
+		if [ "$r" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
+		wv_put "$id" "$row" 15 "$bracket"
+		if [ $((now - HL[i])) -gt 60 ]; then if [ "$r" = "$sel" ]; then console pen "$DT_DIM" "$DT_INK"; else console pen "$DT_DIM" "$DT_FACE"; fi; fi
+		wv_put "$id" "$row" 16 "$line●"
+		if [ "$r" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
+		printf -v line "%-${nmw}s %8s %5ss" "${nm:0:$nmw}" "$b" "$((now - HL[i]))"
+		wv_put "$id" "$row" $((16 + lw + 2)) "$line"
+		if [ -n "${WTP_BLK[$a]:-}" ]; then
+			console pen "$DT_WARN" "$DT_FACE"; [ "$r" = "$sel" ] && console pen "$DT_WARN" "$DT_INK"
+			wv_put "$id" "$row" 1 "✕"
+		elif [ -n "${WTP_ALW[$a]:-}" ]; then
+			console pen "$DT_GOOD" "$DT_FACE"; [ "$r" = "$sel" ] && console pen "$DT_GOOD" "$DT_INK"
+			wv_put "$id" "$row" 1 "✓"
+		fi
+		pre=$app
+	done
+	wv_foot "$id" "$h"
+}
+
 # Who the machine talks to (ADR 0016, 0018): one row per remote address, the program that last spoke to it, bytes each way, and how long ago.
 # Addresses, until n is pressed (ADR 0036): then the names on screen are looked up in a job and kept, as `wiretap hosts --names` does in a terminal.
 fn wv_hosts(int id, int h, int w) {
@@ -290,6 +377,7 @@ fn wv_foot(int id, int h) {
 		else
 			case ${WV[$id]["view"]} in
 			firewall) t="x removes the rule   space turns the firewall on or off   (add rules from Usage or Hosts: b)" ;;
+			map) t="up and down pick a host   b blocks or allows it (asks for a password)   n shows names (asks your name server)" ;;
 			usage) t="b blocks or allows the selected program (asks for a password)" ;;
 			*) t="b blocks or allows the selected host (asks for a password)   n shows names (asks your name server)" ;;
 			esac
@@ -389,9 +477,10 @@ fn wv_begin(int id) {
 	wtp_fw_blocked
 	WV[$id]["note"]=
 	case $v in
-	hosts)
+	hosts | map)
 		[ "$n" -gt 0 ] || return 0
-		a := json get WTP_H ".hosts[${WV[$id]["sel"]}].addr"
+		if [ "$v" = map ]; then a := json get WTP_H ".hosts[${WV_ORD[${WV[$id]["sel"]}]}].addr"
+		else a := json get WTP_H ".hosts[${WV[$id]["sel"]}].addr"; fi
 		WV[$id]["wlab"]=$a; WV[$id]["wwho"]=any; WV[$id]["whost"]=$a
 		act=""; [ -n "${WTP_BLK[$a]:-}" ] && act=block; [ -n "${WTP_ALW[$a]:-}" ] && act=allow
 		if [ -n "$act" ]; then WV[$id]["wrule"]="$act out any any $a any"; WV[$id]["wlab"]="$a is on the $act list"; WV[$id]["wiz"]=del
@@ -439,6 +528,7 @@ fn wtview_draw(int id, int h, int w, int row, int col) {
 	case ${WV[$id]["view"]} in
 	usage) wv_usage "$id" "$h" "$w" ;;
 	hosts) wv_hosts "$id" "$h" "$w" ;;
+	map) wv_flow "$id" "$h" "$w" ;;
 	firewall) wv_fw "$id" "$h" "$w" ;;
 	*) wv_graph "$id" "$h" "$w" ;;
 	esac
@@ -461,12 +551,13 @@ fn wtview_key(int id, key) {
 	g) WV[$id]["view"]=graph ;;
 	u) WV[$id]["view"]=usage ;;
 	h) WV[$id]["view"]=hosts ;;
-	n) if [ "${WV[$id]["view"]}" = hosts ]; then
+	m) WV[$id]["view"]=map; WV[$id]["sel"]=0; WV[$id]["top"]=0 ;;
+	n) if [ "${WV[$id]["view"]}" = hosts ] || [ "${WV[$id]["view"]}" = map ]; then
 		if [ "${WV[$id]["names"]:-0}" = 1 ]; then WV[$id]["names"]=0; WV[$id]["note"]="Names off: addresses only."
 		else WV[$id]["names"]=1; WV[$id]["note"]="Names on: your name server is asked about the addresses shown (n turns it off)."; fi
 	fi ;;
 	c) WV[$id]["by"]=$((1 - ${WV[$id]["by"]:-1})) ;;
-	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; hosts) WV[$id]["view"]=firewall ;; *) WV[$id]["view"]=graph ;; esac ;;
+	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; hosts) WV[$id]["view"]=firewall ;; firewall) WV[$id]["view"]=map ;; *) WV[$id]["view"]=graph ;; esac ;;
 	up) [ "${WV[$id]["sel"]}" -gt 0 ] && WV[$id]["sel"]=$((WV[$id]["sel"] - 1)) ;;
 	down) [ "${WV[$id]["sel"]}" -lt $((n - 1)) ] && WV[$id]["sel"]=$((WV[$id]["sel"] + 1)) ;;
 	*) return 1 ;;
