@@ -248,14 +248,15 @@
     },
     "apps/library": {
       "title": "Video Library",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/library.hibr",
-      "sha256": "77ad1d7c608308058e302c4fba56c840386b7f147a164163a46573c0dc7f7228",
+      "sha256": "18e1c6b31ffcd74d1b92533c0280bc3d0ca717970d421e78c1bd0fc23c327da0",
       "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.\n\n  up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      x  take it out of the library",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "library",
+      "hibr": "0.99.413",
       "dir": "Internet"
     },
     "apps/mail": {
@@ -1811,14 +1812,15 @@
     },
     "library": {
       "title": "Video Library",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/library.hibr",
-      "sha256": "77ad1d7c608308058e302c4fba56c840386b7f147a164163a46573c0dc7f7228",
+      "sha256": "18e1c6b31ffcd74d1b92533c0280bc3d0ca717970d421e78c1bd0fc23c327da0",
       "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.\n\n  up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      x  take it out of the library",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "library",
+      "hibr": "0.99.413",
       "dir": "Internet"
     },
     "mail": {

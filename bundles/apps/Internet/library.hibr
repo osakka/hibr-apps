@@ -9,7 +9,7 @@
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.0
+app vlib "Video Library: what you watched, in every video app" 1.0.1
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
 fi
@@ -17,6 +17,9 @@ fi
 VL_FILE="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
 declare -gA VL
 declare -ga VLR
+# Fields are split on the unit separator, not on the tab: `read` takes a run of tabs for one, so an empty field (a title with no channel) would
+# vanish and shift the rest.
+VL_US=$'\037'
 
 # The name an app is known by, and its tile.
 fn vl_name(p) {
@@ -39,10 +42,11 @@ fn vl_load(int id) {
 	while [ "$i" -gt 0 ]; do
 		i=$((i - 1))
 		l=${lines[$i]}
-		IFS=$'\t' read -ra f <<< "$l"
+		l=${l//$'\t'/$VL_US}
+		IFS=$VL_US read -ra f <<< "$l"
 		[ "${#f[@]}" -ge 8 ] || continue
 		[ -n "$want" ] && [ "${f[1]}" != "$want" ] && continue
-		VLR+=("${f[1]}"$'\t'"${f[2]}"$'\t'"${f[3]}"$'\t'"${f[4]}"$'\t'"${f[5]}"$'\t'"${f[6]}"$'\t'"${f[7]}")
+		VLR+=("${f[1]}$VL_US${f[2]}$VL_US${f[3]}$VL_US${f[4]}$VL_US${f[5]}$VL_US${f[6]}$VL_US${f[7]}")
 		n=$((n + 1))
 	done
 	VL[$id]["n"]=$n
@@ -78,7 +82,7 @@ fn vl_left(pos, dur) {
 	fi
 }
 
-fn library_open(int id, ...rest) {
+fn vlib_open(int id, ...rest) {
 	VL[$id]["only"]=
 	VL[$id]["sel"]=0
 	VL[$id]["top"]=0
@@ -86,14 +90,14 @@ fn library_open(int id, ...rest) {
 	return 0
 }
 
-fn library_close(int id) {
+fn vlib_close(int id) {
 	unset "VL[$id]"
 	return 0
 }
 
 fn vl_put(int id, int r, int c, text) { console put -p "w$id" "$r" "$c" "$text"; }
 
-fn library_draw(int id, int h, int w, int row, int col) {
+fn vlib_draw(int id, int h, int w, int row, int col) {
 	local -a f
 	local n=${VL[$id]["n"]:-0} sel=${VL[$id]["sel"]:-0} top=${VL[$id]["top"]:-0} vis=$((h - 2)) i r=1 lab tail head p x
 
@@ -116,7 +120,7 @@ fn library_draw(int id, int h, int w, int row, int col) {
 	r=2
 	i=$top
 	while [ "$i" -lt "$n" ] && [ "$r" -le "$vis" ]; do
-		IFS=$'\t' read -ra f <<< "${VLR[$i]}"
+		IFS=$VL_US read -ra f <<< "${VLR[$i]}"
 		lab := vl_name "${f[0]}"
 		tail := vl_left "${f[5]}" "${f[6]}"
 		tail="  $tail"
@@ -140,7 +144,7 @@ fn vl_play(int id) {
 	local sel=${VL[$id]["sel"]:-0}
 
 	[ "${VL[$id]["n"]:-0}" -gt 0 ] || return 0
-	IFS=$'\t' read -ra f <<< "${VLR[$sel]}"
+	IFS=$VL_US read -ra f <<< "${VLR[$sel]}"
 	dt_launch "${f[0]}" "play:${f[2]}"
 	return 0
 }
@@ -148,14 +152,15 @@ fn vl_play(int id) {
 # Take the chosen title out of the shared file (the app's own history is not touched).
 fn vl_remove(int id) {
 	local -a f lines out
-	local sel=${VL[$id]["sel"]:-0} l g
+	local sel=${VL[$id]["sel"]:-0} l o g
 
 	[ "${VL[$id]["n"]:-0}" -gt 0 ] || return 0
-	IFS=$'\t' read -ra f <<< "${VLR[$sel]}"
+	IFS=$VL_US read -ra f <<< "${VLR[$sel]}"
 	[ -r "$VL_FILE" ] && mapfile -t lines < "$VL_FILE"
 	out=()
 	for l in "${lines[@]}"; do
-		IFS=$'\t' read -ra g <<< "$l"
+		o=${l//$'\t'/$VL_US}
+		IFS=$VL_US read -ra g <<< "$o"
 		[ "${g[1]-}" = "${f[0]}" ] && [ "${g[3]-}" = "${f[2]}" ] && continue
 		out+=("$l")
 	done
@@ -164,7 +169,7 @@ fn vl_remove(int id) {
 	return 0
 }
 
-fn library_key(int id, key) {
+fn vlib_key(int id, key) {
 	local n=${VL[$id]["n"]:-0} sel=${VL[$id]["sel"]:-0} vis=${VL[$id]["vis"]:-10}
 
 	case $key in
@@ -184,7 +189,7 @@ fn library_key(int id, key) {
 	return 0
 }
 
-fn library_click(int id, int row, int col, button) {
+fn vlib_click(int id, int row, int col, button) {
 	local top=${VL[$id]["top"]:-0} n=${VL[$id]["n"]:-0} i
 
 	[ "$row" -ge 2 ] || return 0
@@ -194,7 +199,7 @@ fn library_click(int id, int row, int col, button) {
 	return 0
 }
 
-fn library_wheel(int id, dir, int r = 0, int c = 0) {
+fn vlib_wheel(int id, dir, int r = 0, int c = 0) {
 	local top
 
 	top := dt_scrollmove "$dir" "${VL[$id]["top"]:-0}" "${VL[$id]["n"]:-0}" "${VL[$id]["vis"]:-1}" "$DT_SCROLLWHEEL" || return 1
@@ -202,16 +207,16 @@ fn library_wheel(int id, dir, int r = 0, int c = 0) {
 	return 0
 }
 
-library_menus() {
+vlib_menus() {
 	local id=$DT_FOCUS only=${VL[$id]["only"]-}
 
 	dt_menu "File"
 	dt_item "Close Window" w dt_close_focused
 	dt_menu "Library"
-	dt_item "Open in its App" enter library_key "$id" enter
-	dt_item "Take Out of the Library" x library_key "$id" x
+	dt_item "Open in its App" enter vlib_key "$id" enter
+	dt_item "Take Out of the Library" x vlib_key "$id" x
 	dt_sep
-	dt_mark "All" a "$([ -z "$only" ] && echo 1 || echo 0)" library_key "$id" a
-	dt_mark "YouTube" y "$([ "$only" = youtube ] && echo 1 || echo 0)" library_key "$id" y
-	dt_mark "Tubi" t "$([ "$only" = tubi ] && echo 1 || echo 0)" library_key "$id" t
+	dt_mark "All" a "$([ -z "$only" ] && echo 1 || echo 0)" vlib_key "$id" a
+	dt_mark "YouTube" y "$([ "$only" = youtube ] && echo 1 || echo 0)" vlib_key "$id" y
+	dt_mark "Tubi" t "$([ "$only" = tubi ] && echo 1 || echo 0)" vlib_key "$id" t
 }
