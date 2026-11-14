@@ -48,7 +48,7 @@ set -u
 
 HERE=${BASH_SOURCE%/*}
 [ -n "$HERE" ] || HERE=.
-KINDS="apps system control-panel control-strip menubar savers themes colours lang mods cli bundles"
+KINDS="apps system control-panel control-strip menubar savers themes colours lang mods cli lib bundles"
 
 fn die(...msg) {
 	printf 'addapp: %s\n' "${msg[*]}" >&2
