@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.0
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.1
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.0}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.1}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -50,7 +50,6 @@ usage: wiretap <command>
   graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
   watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
   status                     the raw status (JSON)
-  profile [list|save N|use N|show N|rm N]  named sets of firewall rules (use asks for an administrator)
   fw [list]                  the firewall rules, numbered;  fw block|allow HOST [PORT] [--tcp|--udp] [--in] [--uid N] [--cgroup /P] [--first]
                              adds one, fw rm N removes one, fw on | off turns the firewall on or off (asks for an administrator; docs/CLI.md)
   doctor                     say whether it can see everything, and what is out of step
@@ -362,54 +361,6 @@ fn wt_fw(...a) {
 	esac
 }
 
-# ---- profiles (ADR 0033): a named copy of the rules, kept per user -------------------------------------------------------
-# A profile is only text. "use" hands it to the same checked, root-helper apply as any rule change, so a profile grants nothing.
-WT_PROFILES=${WT_PROFILES:-${XDG_CONFIG_HOME:-$HOME/.config}/wiretap/profiles}
-
-fn wt_pf_name(n) {
-	case $n in ''|*[!A-Za-z0-9_-]*) echo "wiretap: a profile name is letters, digits, - and _ (got '$n')" >&2; return 2 ;; esac
-	[ "${#n}" -le 40 ] || { echo "wiretap: a profile name is at most 40 characters" >&2; return 2; }
-	return 0
-}
-
-fn wt_profile(...a) {
-	local f n t k
-	case ${a[0]:-list} in
-	list | "")
-		k=0
-		for f in "$WT_PROFILES"/*; do
-			[ -f "$f" ] || continue
-			n=${f##*/}; t=$(grep -c -v -e '^[[:space:]]*\(#\|$\)' "$f")
-			printf '%-20s %s rule(s)\n' "$n" "$t"; k=$((k + 1))
-		done
-		[ "$k" -gt 0 ] || echo "(no profiles: wiretap profile save NAME keeps the current rules)"
-		;;
-	save)
-		wt_pf_name "${a[1]:-}" || return 2
-		mkdir -p "$WT_PROFILES" || return 1
-		wt_fw_text > "$WT_PROFILES/${a[1]}.new" && mv "$WT_PROFILES/${a[1]}.new" "$WT_PROFILES/${a[1]}" || return 1
-		echo "wiretap: profile ${a[1]} saved"
-		;;
-	show)
-		wt_pf_name "${a[1]:-}" || return 2
-		[ -f "$WT_PROFILES/${a[1]}" ] || { echo "wiretap: there is no profile ${a[1]}" >&2; return 1; }
-		cat "$WT_PROFILES/${a[1]}"
-		;;
-	use)
-		wt_pf_name "${a[1]:-}" || return 2
-		[ -f "$WT_PROFILES/${a[1]}" ] || { echo "wiretap: there is no profile ${a[1]}" >&2; return 1; }
-		t=$(cat "$WT_PROFILES/${a[1]}")
-		wt_fw_set "$t" && echo "wiretap: profile ${a[1]} is in force"
-		;;
-	rm)
-		wt_pf_name "${a[1]:-}" || return 2
-		[ -f "$WT_PROFILES/${a[1]}" ] || { echo "wiretap: there is no profile ${a[1]}" >&2; return 1; }
-		rm -f "$WT_PROFILES/${a[1]}" && echo "wiretap: profile ${a[1]} removed"
-		;;
-	*) echo "usage: wiretap profile [list | save NAME | use NAME | show NAME | rm NAME]" >&2; return 2 ;;
-	esac
-}
-
 declare -ga BLK=(" " "▁" "▂" "▃" "▄" "▅" "▆" "▇" "█")
 
 # A mirrored graph of the last `secs` seconds: download above the line, upload below it, hung from it.
@@ -558,7 +509,6 @@ watch)
 		sleep 1
 	done ;;
 fw) wt_fw "${args[@]:1}" ;;
-profile) wt_profile "${args[@]:1}" ;;
 doctor) wt_doctor ;;
 version)
 	echo "wiretap $SELF_VERSION"
