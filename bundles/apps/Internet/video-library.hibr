@@ -12,7 +12,7 @@
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.3
+app vlib "Video Library: what you watched, in every video app" 1.4
 # part: lang/video-library.ar.json
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
@@ -149,8 +149,9 @@ fn vlib_draw(int id, int h, int w, int row, int col) {
 
 	[ "$vis" -lt 1 ] && vis=1
 	VL[$id]["vis"]=$vis
-	[ "$sel" -lt "$top" ] && top=$sel
-	[ "$sel" -ge $((top + vis)) ] && top=$((sel - vis + 1))
+	# the list follows the selected row when that moves, and is left where the wheel put it otherwise
+	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${VL[$id]["seen"]-}"
+	VL[$id]["seen"]=$sel
 	VL[$id]["top"]=$top
 	console pen "$DT_INK" "$DT_FACE"
 	vl_load "$id"
