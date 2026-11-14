@@ -8,11 +8,11 @@
 # It was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and
 # `catalogue install video-library` brings this one.
 #
-#   up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      x  take it out of the library
+#   up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      b  Bilibili      x  take it out of the library
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.1
+app vlib "Video Library: what you watched, in every video app" 1.2
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
 fi
@@ -156,7 +156,7 @@ fn vlib_draw(int id, int h, int w, int row, int col) {
 	n=${VL[$id]["n"]}
 	p=${VL[$id]["only"]-}
 	if [ -n "$p" ]; then head := vl_name "$p"; else head=All; fi
-	x := str pad " Library: $head, $n watched   (a all, y YouTube, t Tubi)" "$w"
+	x := str pad " Library: $head, $n watched   (a all, y YouTube, t Tubi, b Bilibili)" "$w"
 	vl_put "$id" 1 1 "$x"
 	if [ "$n" = 0 ]; then
 		vl_put "$id" 3 2 "Nothing watched yet. What you watch in YouTube, Tubi and the other video apps is listed here."
@@ -234,6 +234,7 @@ fn vlib_key(int id, key) {
 	a) VL[$id]["only"]=; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
 	y) VL[$id]["only"]=youtube; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
 	t) VL[$id]["only"]=tubi; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
+	b) VL[$id]["only"]=bilibili; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
 	x | delete) vl_remove "$id" ;;
 	*) return 1 ;;
 	esac
@@ -270,4 +271,5 @@ vlib_menus() {
 	dt_mark "All" a "$([ -z "$only" ] && echo 1 || echo 0)" vlib_key "$id" a
 	dt_mark "YouTube" y "$([ "$only" = youtube ] && echo 1 || echo 0)" vlib_key "$id" y
 	dt_mark "Tubi" t "$([ "$only" = tubi ] && echo 1 || echo 0)" vlib_key "$id" t
+	dt_mark "Bilibili" b "$([ "$only" = bilibili ] && echo 1 || echo 0)" vlib_key "$id" b
 }

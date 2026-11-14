@@ -1,0 +1,1465 @@
+#!/usr/bin/env hibr
+#
+# bilibili -- Bilibili (bilibili.com) in a window: what is popular, a search, the picture drawn as cells or pixels and the sound through the machine's
+# own device, with a history that takes a video up where it was left, and favourites. Built on the same shape as the Tubi app and on the video core
+# (lib/videocore), which the video apps share.
+#
+# Nothing here is a Bilibili client of its own. The lists come from Bilibili's own public pages of data (the popular list and the search), which the web
+# module's WebKit engine loads like any page and this app reads, after the window has visited the site once (without that the search says no). A video
+# is looked up in two steps (its part, then its file: an MP4, 720p or 360p, which expires, so it is asked for each time one starts) and played in a small
+# page of this app's own with one <video> in it, which the engine plays itself; the page is drawn here and this app drives the element: play and pause, a
+# time, the volume. A file the engine cannot reach or play never says so (it stalls), so a video that has not started in thirty seconds is given up.
+#
+# A list: up from the first row opens the search, type and enter; up and down choose, enter plays, f keeps it as a favourite, escape goes back to the
+# list before, h is the history, v the favourites and t the popular list.
+# The player: space pauses, left and right are five seconds, shift with them thirty, up and down the volume, n and p the next and the one before, f a
+# favourite, m the picture (half blocks, ASCII, plain, pixels), escape back to the list. A click on the bar goes there. At the end of a video the next in
+# the list plays, unless Play > Play Next Automatically is off.
+#
+# The history and the favourites are files of their own, a line to an entry (~/.local/share/hibr/bilibili/), and every title watched is also in the
+# shared video library (docs/video-library.md of the catalogue).
+
+strict
+
+# needs: lib/videocore
+app bilibili "Bilibili, in a window" 1.0
+# modules: web
+
+command -v dt_app > /dev/null && dt_app bilibili "Bilibili" 24 84 many "▶"
+
+declare -gA BL
+command -v dt_keepstate > /dev/null && dt_keepstate bilibili BL
+declare -gA BR
+
+BL_BASE="${BL_BASE-https://www.bilibili.com}"
+# Where the data pages are, and where the pages this app writes for the player are kept.
+BL_API="${BL_API-https://api.bilibili.com}"
+BL_PLAYDIR="${BL_PLAYDIR-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-bilibili-$UID}"
+# How the picture is drawn: `follow` is Control Panel > Pictures, the rest say
+# outright.
+BL_MODE="${BL_MODE-follow}"
+BL_AUTONEXT="${BL_AUTONEXT-1}"
+BL_SAVERHOLD="${BL_SAVERHOLD-1}"
+command -v dt_keep > /dev/null && dt_keep BL_MODE BL_AUTONEXT BL_SAVERHOLD
+BL_MODES=(follow half ascii mono pixels)
+BL_DATA="${BL_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/bilibili}"
+BL_HIST="$BL_DATA/history.tsv"
+BL_FAVS="$BL_DATA/favourites.tsv"
+BL_KEEP=500
+# A title is taken up where it was left once more than BL_RESUME seconds in;
+# within BL_ENDED seconds of its end it counts as watched to the end.
+BL_RESUME="${BL_RESUME-30}"
+BL_ENDED="${BL_ENDED-20}"
+
+# The titles a data page lists, as the rows the lists draw: kind id title channel length. The page is JSON text; "" until it is one (the page before is
+# still there for a moment after a go). A search's titles carry <em> markup and entities, its durations are 1:02 and the popular list's are seconds.
+BL_RJS='(function(){var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data)return JSON.stringify({list:[],err:String(j.message||j.code)});var l=j.data.list||j.data.result||[];function tx(s){return String(s||"").replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"\x27").replace(/\s+/g," ").trim()}function secs(d){if(typeof d==="number")return d;var s=0;String(d||"0").split(":").forEach(function(x){s=s*60+(Number(x)||0)});return s}function hms(n){var h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return h?h+":"+("0"+m).slice(-2)+":"+("0"+s).slice(-2):m+":"+("0"+s).slice(-2)}return JSON.stringify({list:l.filter(function(x){return x.bvid}).map(function(x){return {kind:"video",id:x.bvid,title:tx(x.title),ch:tx(x.author||(x.owner&&x.owner.name)),len:hms(secs(x.duration))}})})})()'
+# A video's first part, and then its file's address: each from its own data page (the page before is told by its address).
+BL_CIDJS='(function(){if(location.href.indexOf("pagelist")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data||!j.data[0])return "err:"+(j.message||j.code);return String(j.data[0].cid)})()'
+BL_URLJS='(function(){if(location.href.indexOf("playurl")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data||!j.data.durl||!j.data.durl[0])return "err:"+(j.message||j.code);return j.data.durl[0].url})()'
+
+# Where Bilibili's player is: the one <video>, its time, length and state, and the
+# path of the page it is on. Empty until there is one.
+BL_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
+
+# The page set aside and the video laid over it, edge to edge. Not the cut the
+# YouTube app makes (everything that does not hold the video hidden): Bilibili takes
+# that for the player having left the screen and tears it down after a few seconds.
+BL_CSS='html,body{overflow:hidden!important;background:#000!important}video{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483647!important;object-fit:contain!important;background:#000!important;border-radius:0!important}'
+
+# Start the player once the video holds data: the volume set and the video started. "ok" when it is going.
+fn bl_startjs(v, num) {
+	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";var v=document.querySelector(\"video\");if(!v||v.readyState<2)return \"\";v.muted=false;v.volume=$v/100;if(v.paused)v.play();return \"ok\"})()"
+}
+
+# What the engine does, as `web caps` says it, asked the first time.
+BL_CAPS=
+fn bl_has(c) {
+	if [ -z "$BL_CAPS" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		BL_CAPS := web caps 2> /dev/null
+	fi
+	case " $BL_CAPS " in *" $c "*) return 0 ;; esac
+	return 1
+}
+
+# A script whose answer nothing reads, sent and not waited for where the
+# engine can, so a key never holds the desktop while the page is busy.
+fn bl_send(t, js) {
+	if bl_has send; then
+		web send "$t" "$js" 2> /dev/null
+	else
+		web eval "$t" "$js" > /dev/null 2>&1
+	fi
+}
+
+# Whether the engine is here; the reason in the window when not.
+fn bl_need(int id) {
+	if ! need web 2> /dev/null; then
+		BL[$id]["err"]="The web module is not installed"
+		return 1
+	fi
+	bl_has sound && return 0
+	BL[$id]["err"]="Bilibili needs an engine that plays sound: apt install hibr-browser"
+	return 1
+}
+
+# A tab of the window's own: st for lists, pt for playing (let play sound
+# without a press, since the page is one opened to be watched).
+fn bl_tab(int id, which) {
+	local t=${BL[$id]["$which"]}
+
+	if [ -z "$t" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		t := web open 2> /dev/null || {
+			BL[$id]["err"]="No browser engine to reach Bilibili with -- install hibr-browser"
+			return 1
+		}
+		[ "$which" = pt ] && web sound "$t" load 2> /dev/null
+		BL[$id]["$which"]=$t
+	fi
+	ret "$t"
+}
+
+# --- lists: the popular list, a search, the history, the favourites --
+
+# Show a list: a data page's for the popular list or a search, read when it
+# is ready; the history's or the favourites' from their files at once. Unless
+# told not to, the list shown before is kept to go back to.
+fn bl_load(int id, kind, arg, head = "", push = 1) {
+	local t u q
+
+	bl_need "$id" || return 0
+	[ -n "${BL[$id]["p"]}" ] && bl_stop "$id"
+	if [ "$push" = 1 ] && [ -n "${BL[$id]["kind"]}" ]; then
+		BL[$id]["stack"]+="${BL[$id]["kind"]}"$'\t'"${BL[$id]["arg"]}"$'\t'"${BL[$id]["head"]}"$'\n'
+	fi
+	BL[$id]["kind"]=$kind
+	BL[$id]["arg"]=$arg
+	BL[$id]["head"]=$head
+	BL[$id]["err"]=
+	BL[$id]["view"]=list
+	dt_searchshut "$id"
+	BL[$id]["n"]=0
+	BL[$id]["sel"]=0
+	BL[$id]["top"]=0
+	case $kind in
+	history) bl_filelist "$id" "$BL_HIST"; return 0 ;;
+	favourites) bl_filelist "$id" "$BL_FAVS"; return 0 ;;
+	home) u="$BL_API/x/web-interface/popular?ps=20&pn=1" ;;
+	search)
+		# the engine percent-encodes what it must; the few characters that mean something in an address are done here
+		q=${arg//%/%25}
+		q=${q//&/%26}
+		q=${q//#/%23}
+		q=${q//+/%2B}
+		q=${q// /%20}
+		u="$BL_API/x/web-interface/search/type?search_type=video&page=1&keyword=$q"
+		;;
+	esac
+	t := bl_tab "$id" st || return 0
+	BL[$id]["searching"]=$EPOCHSECONDS
+	# A first visit to the site in this window, for the cookies its data pages ask for (a search is refused without them): the list's own address
+	# is gone to once that has loaded.
+	if [ -z "${BL[$id]["warm"]-}" ]; then
+		BL[$id]["pend"]=$u
+		web go "$t" "$BL_BASE/" 2> /dev/null
+	else
+		web go "$t" "$u" 2> /dev/null
+	fi
+}
+
+# A search, as typed.
+fn bl_search(int id, q) {
+	q=${q#"${q%%[! ]*}"}
+	q=${q%"${q##*[! ]}"}
+	[ -n "$q" ] || return 0
+	BL[$id]["q"]=$q
+	bl_load "$id" search "$q"
+}
+
+# Back to the list shown before this one; none left puts the keyboard in the
+# search field.
+fn bl_back(int id) {
+	local st=${BL[$id]["stack"]} last
+	local -a f
+
+	if [ -z "$st" ]; then
+		dt_searchopen "$id"
+		return 0
+	fi
+	st=${st%$'\n'}
+	last=${st##*$'\n'}
+	[ "$last" = "$st" ] && st= || st=${st%$'\n'*}
+	BL[$id]["stack"]=${st:+$st$'\n'}
+	IFS=$'\037' read -ra f <<< "${last//$'\t'/$'\037'}"
+	bl_load "$id" "${f[0]}" "${f[1]}" "${f[2]}" 0
+}
+
+# The list a page has made, once it has: into BR, an entry to a row.
+fn bl_results(int id) {
+	local t=${BL[$id]["st"]} js i k u
+	local -A r
+
+	if web loading "$t" 2> /dev/null; then
+		dt_want 300
+		return 0
+	fi
+	if [ -n "${BL[$id]["pend"]-}" ]; then
+		u=${BL[$id]["pend"]}
+		BL[$id]["pend"]=
+		BL[$id]["warm"]=1
+		web go "$t" "$u" 2> /dev/null
+		dt_want 300
+		return 0
+	fi
+	js := web eval "$t" "$BL_RJS" 2> /dev/null
+	if [ -z "$js" ]; then
+		if [ $((EPOCHSECONDS - BL[$id]["searching"])) -gt 25 ]; then
+			BL[$id]["searching"]=
+			BL[$id]["err"]="Bilibili did not answer"
+		fi
+		dt_want 300
+		return 0
+	fi
+	json parse r <<< "$js" 2> /dev/null || r=()
+	i=0
+	while [ -n "${r["list"][$i]["id"]}" ]; do
+		for k in kind id title ch len; do
+			BR[$id][$i]["$k"]=${r["list"][$i]["$k"]}
+		done
+		i=$((i + 1))
+	done
+	BL[$id]["n"]=$i
+	BL[$id]["searching"]=
+	if [ "$i" = 0 ]; then
+		BL[$id]["err"]="Nothing found"
+		[ -n "${r["err"]}" ] && BL[$id]["err"]="Bilibili said: ${r["err"]}"
+	fi
+	return 0
+}
+
+# A list kept in a file -- the history or the favourites -- newest first: a line
+# to an entry, its fields tab-separated.
+fn bl_filelist(int id, f) {
+	local -a lines fl
+	local i n=0 k j
+
+	[ -r "$f" ] && mapfile -t lines < "$f"
+	i=$((${#lines[@]} - 1))
+	while [ "$i" -ge 0 ]; do
+		IFS=$'\037' read -ra fl <<< "${lines[$i]//$'\t'/$'\037'}"
+		if [ -n "${fl[1]}" ]; then
+			j=0
+			for k in kind id title ch len; do
+				BR[$id][$n]["$k"]=${fl[$j]}
+				j=$((j + 1))
+			done
+			n=$((n + 1))
+		fi
+		i=$((i - 1))
+	done
+	BL[$id]["n"]=$n
+	[ "$n" = 0 ] && [ "$f" = "$BL_HIST" ] && BL[$id]["err"]="Nothing watched yet"
+	[ "$n" = 0 ] && [ "$f" = "$BL_FAVS" ] && BL[$id]["err"]="No favourites yet -- f keeps one"
+	return 0
+}
+
+# What the list heading says.
+fn bl_heading(int id) {
+	case ${BL[$id]["kind"]} in
+	home) ret "Bilibili: popular" ;;
+	search) ret "Results for ${BL[$id]["arg"]}" ;;
+	history) ret "History" ;;
+	favourites) ret "Favourites" ;;
+	*) ret "" ;;
+	esac
+}
+
+# --- history and favourites ---------------------------------------------
+
+# Rewrite a file of entries without the one for a path, then with a new line at
+# its end; at most BL_KEEP lines are kept, the oldest dropped.
+# A history or favourites file's line for a key replaced, or taken out (the core's: lib/videocore).
+fn bl_fileput(f, key, line = "") {
+	vc_fileput "$f" "$key" "$line" "$BL_KEEP"
+}
+
+# The history's line for a path, or nothing; its fields into BLH.
+declare -ga BLH
+fn bl_histget(key) {
+	BLH=()
+	vc_histget "$BL_HIST" "$key" || return 1
+	BLH=("${VCH[@]}")
+	return 0
+}
+
+# A title into the shared library, replacing its line and putting it last: kind key title sub pos dur.
+fn bl_libput(kind, key, title, sub, pos, dur) {
+	vc_libput bilibili "$kind" "$key" "$title" "$sub" "$pos" "$dur"
+}
+
+# Note where a window's title was left: watched to the end it starts from the
+# beginning next time; left part way it is taken up there.
+fn bl_histput(int id, pos = "") {
+	local key=${BL[$id]["vid"]} d=${BL[$id]["dur"]} p
+
+	[ -n "$key" ] || return 0
+	p=$pos
+	if [ -z "$p" ] && [ -n "${BL[$id]["p"]}" ]; then
+		bl_info "$id"
+		p=${BLI["pos"]}
+	fi
+	p=${p%.*}
+	d=${d%.*}
+	[ -n "$p" ] || p=0
+	[ -n "$d" ] || d=0
+	[ "$d" -gt 0 ] && [ "$p" -ge $((d - BL_ENDED)) ] && p=0
+	bl_fileput "$BL_HIST" "$key" "${BL[$id]["kind0"]:-video}"$'\t'"$key"$'\t'"${BL[$id]["title"]}"$'\t'"${BL[$id]["sub"]}"$'\t'"$p"
+	bl_libput "${BL[$id]["kind0"]:-video}" "$key" "${BL[$id]["title"]}" "${BL[$id]["sub"]}" "$p" "$d"
+}
+
+# Keep an entry as a favourite, or take it out: the chosen one in a list, the
+# one playing in the player.
+fn bl_fav(int id) {
+	local i=${BL[$id]["sel"]} kind key title sub
+
+	if [ "${BL[$id]["view"]}" = play ]; then
+		kind=${BL[$id]["kind0"]:-video}
+		key=${BL[$id]["vid"]}
+		title=${BL[$id]["title"]}
+		sub=${BL[$id]["sub"]}
+	else
+		kind=${BR[$id][$i]["kind"]}
+		key=${BR[$id][$i]["id"]}
+		title=${BR[$id][$i]["title"]}
+		sub=${BR[$id][$i]["ch"]}
+	fi
+	[ -n "$key" ] || return 0
+	if [ -n "${BLF["$key"]}" ]; then
+		unset BLF["$key"]
+		bl_fileput "$BL_FAVS" "$key"
+		dt_notep low "Taken out of the favourites: %s" "$title"
+	else
+		BLF["$key"]=1
+		bl_fileput "$BL_FAVS" "$key" "$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'
+		dt_notep low "Kept as a favourite: %s" "$title"
+	fi
+	[ "${BL[$id]["kind"]}" = favourites ] && [ "${BL[$id]["view"]}" = list ] &&
+		bl_load "$id" favourites "" "" 0
+	return 0
+}
+
+# Which paths are favourites, for the star beside them.
+declare -gA BLF
+bl_favload() {
+	local -a lines fl
+	local l
+
+	BLF=()
+	[ -r "$BL_FAVS" ] || return 0
+	mapfile -t lines < "$BL_FAVS"
+	for l in "${lines[@]}"; do
+		IFS=$'\037' read -ra fl <<< "${l//$'\t'/$'\037'}"
+		[ -n "${fl[1]}" ] && BLF["${fl[1]}"]=1
+	done
+	return 0
+}
+
+# Forget everything watched -- Control Panel's Clear History.
+bl_histclear() {
+	: > "$BL_HIST" 2> /dev/null
+	dt_notep low "The Bilibili history is empty"
+}
+
+# --- playing ------------------------------------------------------------
+
+# Open an entry: play the video.
+fn bl_choose(int id, int i) {
+	bl_play "$id" "$i"
+}
+
+# Whether a key is what Bilibili's own ids look like: BV and letters and digits. It reaches a file name, an address and a script, so nothing else is let
+# through, whether it came from its list, the history file or a `play:` argument.
+fn bl_validkey(key) {
+	case $key in
+	BV* | bv*) ;;
+	*) return 1 ;;
+	esac
+	case $key in
+	*[!0-9A-Za-z]*) return 1 ;;
+	esac
+	return 0
+}
+
+# Play a list's film or episode: Bilibili's page for it in the player tab, which the
+# engine plays itself. One left part way is taken up where it was.
+fn bl_play(int id, int i) {
+	local key=${BR[$id][$i]["id"]} t
+
+	[ -n "$key" ] || return 0
+	bl_validkey "$key" || { BL[$id]["err"]="That is not a Bilibili video id"; return 0; }
+	bl_need "$id" || return 0
+	bl_stop "$id"
+	t := bl_tab "$id" pt || return 0
+	BL[$id]["p"]=$t
+	BL[$id]["cur"]=$i
+	BL[$id]["vid"]=$key
+	BL[$id]["num"]=$key
+	BL[$id]["kind0"]=${BR[$id][$i]["kind"]:-video}
+	BL[$id]["title"]=${BR[$id][$i]["title"]}
+	BL[$id]["sub"]=${BR[$id][$i]["ch"]}
+	BL[$id]["state"]=resolving
+	BL[$id]["rstep"]=cid
+	BL[$id]["since"]=$EPOCHSECONDS
+	BL[$id]["sized"]=
+	BL[$id]["view"]=play
+	BL[$id]["err"]=
+	BL[$id]["dur"]=0
+	BL[$id]["lpos"]=0
+	BL[$id]["tries"]=0
+	BL[$id]["bad"]=0
+	BL[$id]["chk"]=$EPOCHSECONDS
+	BL[$id]["resume"]=
+	BL[$id]["upause"]=
+	BL[$id]["efr"]=
+	BL[$id]["sat"]=
+	bl_stale "$id"
+	if bl_histget "$key" && [ "${BLH[4]:-0}" -gt "$BL_RESUME" ]; then
+		BL[$id]["resume"]=${BLH[4]}
+	fi
+	web size "$t" 40 120 2> /dev/null
+	web go "$t" "$BL_API/x/player/pagelist?bvid=$key" 2> /dev/null
+}
+
+# Looking a video up, two data pages in the player tab: its first part, then the address of its file; then a small page of this app's own is written with
+# that one <video> in it and gone to, and the player starts from it as it would from any page. A step that says no (the page's own words), or does not
+# answer, ends in the window.
+fn bl_resolve(int id) {
+	local t=${BL[$id]["pt"]} js key=${BL[$id]["vid"]} f u
+
+	web loading "$t" 2> /dev/null && return 0
+	if [ "${BL[$id]["rstep"]}" = cid ]; then
+		js := web eval "$t" "$BL_CIDJS" 2> /dev/null
+		[ -n "$js" ] || return 0
+		case $js in
+		err:*) BL[$id]["err"]="Bilibili said: ${js#err:}"; bl_stop "$id"; return 0 ;;
+		esac
+		BL[$id]["rstep"]=url
+		web go "$t" "$BL_API/x/player/playurl?bvid=$key&cid=$js&qn=64&fnval=1&platform=html5" 2> /dev/null
+		return 0
+	fi
+	js := web eval "$t" "$BL_URLJS" 2> /dev/null
+	[ -n "$js" ] || return 0
+	case $js in
+	err:*) BL[$id]["err"]="Bilibili said: ${js#err:}"; bl_stop "$id"; return 0 ;;
+	esac
+	u=${js//&/&amp;}
+	u=${u//\"/&quot;}
+	f="$BL_PLAYDIR/$key.html"
+	command mkdir -p -- "$BL_PLAYDIR" 2> /dev/null
+	printf '<!doctype html><meta charset=utf-8><title>%s</title><style>%s</style><video src="%s" autoplay muted playsinline></video>\n' "$key" "$BL_CSS" "$u" > "$f" 2> /dev/null || {
+		BL[$id]["err"]="Cannot write the player's page"
+		bl_stop "$id"
+		return 0
+	}
+	BL[$id]["state"]=loading
+	BL[$id]["since"]=$EPOCHSECONDS
+	web go "$t" "file://$f" 2> /dev/null
+	return 0
+}
+
+# What the player tab holds, in a few words, for when a title will not start.
+BL_WHYJS='(function(){var v=document.querySelector("video");if(!v)return "no video";return "readyState "+v.readyState+(v.error?", error "+v.error.code:"")+", network "+v.networkState})()'
+
+# Stop playing, noting where it was left: the page left.
+fn bl_stop(int id) {
+	local p=${BL[$id]["p"]} t=${BL[$id]["pt"]}
+
+	# the page written for the player holds the file's signed address: gone with the playing
+	[ -n "${BL[$id]["vid"]-}" ] && [ -n "$p" ] && command rm -f -- "$BL_PLAYDIR/${BL[$id]["vid"]}.html" 2> /dev/null
+
+	[ -n "$p" ] && [ "${BL[$id]["state"]}" = playing ] && bl_histput "$id"
+	[ -n "$t" ] && web go "$t" about:blank 2> /dev/null
+	BL[$id]["p"]=
+	BL[$id]["state"]=
+}
+
+# The next video in the list after the one playing, or before it: its index; fails at either end.
+fn bl_step(int id, int dir) {
+	local i=${BL[$id]["cur"]} n=${BL[$id]["n"]}
+
+	i=$((i + dir))
+	[ "$i" -ge 0 ] && [ "$i" -lt "$n" ] || return 1
+	ret "$i"
+}
+
+# Play the next one or the one before.
+fn bl_next(int id, int dir) {
+	local i
+
+	i := bl_step "$id" "$dir" || { dt_notep low "No more in this list"; return 0; }
+	BL[$id]["sel"]=$i
+	bl_play "$id" "$i"
+}
+
+# --- asking the player ----------------------------------------------------
+
+# Ask the page's video where it is, into BLP; at most five times a second. The
+# player was just told something (play, pause, seek, volume): an answer the page
+# gave before is about the player as it was, so each command counts (bl_stale)
+# and an answer is relied on only when it was asked after the last.
+declare -gA BLP
+BLPID=
+fn bl_stale(int id) {
+	BL[$id]["pat"]=
+	BL[$id]["gen"]=$(( ${BL[$id]["gen"]:-0} + 1 ))
+	return 0
+}
+
+# What the page's video says, into BLP: 0 when it is an answer to rely on.
+# Where the engine waits for it (no `web evask`) it is asked and read now; where
+# it does not, it is asked for in one call and read in a later one, so the
+# desktop never waits on a busy page.
+fn bl_page(int id) {
+	local js rc now
+
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	if ! bl_has evask; then
+		if [ "$BLPID" = "$id" ] && [ -n "${BL[$id]["pat"]}" ] && [ $((now - BL[$id]["pat"])) -lt 200 ] && [ -n "${BLP["u"]}" ]; then
+			return 0
+		fi
+		js := web eval "${BL[$id]["pt"]}" "$BL_PJS" 2> /dev/null || return 1
+		bl_take "$id" "$js" "$now" || return 1
+		BL[$id]["pgen"]=${BL[$id]["gen"]:-0}
+		BL[$id]["pvid"]=${BL[$id]["vid"]}
+		return 0
+	fi
+	if [ -n "${BL[$id]["pq"]-}" ]; then
+		rc=0
+		js := web evget "${BL[$id]["pt"]}" "${BL[$id]["pq"]}" 2> /dev/null || rc=$?
+		if [ "$rc" = 1 ] && [ $((now - ${BL[$id]["pqat"]:-0})) -lt 3000 ]; then
+			bl_fresh "$id"
+			return
+		fi
+		BL[$id]["pq"]=
+		if [ "$rc" = 0 ] && [ "${BL[$id]["pqv"]}" = "${BL[$id]["pt"]} ${BL[$id]["vid"]} ${BL[$id]["gen"]:-0}" ]; then
+			bl_take "$id" "$js" "${BL[$id]["pqat"]}" || return 1
+			BL[$id]["pgen"]=${BL[$id]["gen"]:-0}
+			BL[$id]["pvid"]=${BL[$id]["vid"]}
+		fi
+	fi
+	if [ -z "${BL[$id]["pq"]-}" ] && ! { bl_fresh "$id" && [ $((now - BL[$id]["pat"])) -lt 200 ]; }; then
+		BL[$id]["pq"] := web evask "${BL[$id]["pt"]}" "$BL_PJS" 2> /dev/null || return 1
+		BL[$id]["pqat"]=$now
+		BL[$id]["pqv"]="${BL[$id]["pt"]} ${BL[$id]["vid"]} ${BL[$id]["gen"]:-0}"
+	fi
+	bl_fresh "$id"
+}
+
+# An answer the page gave, into BLP, as of AT: 1 when it is not about the title
+# playing (right after a go, the page before is still there).
+fn bl_take(int id, js, at) {
+	[ -n "$js" ] || return 1
+	BLP=()
+	json parse BLP <<< "$js" 2> /dev/null || return 1
+	case ${BLP["u"]} in
+	*"${BL[$id]["num"]}"*) ;;
+	*)
+		BLP=()
+		[ "$BLPID" = "$id" ] && BLPID=
+		return 1 ;;
+	esac
+	BL[$id]["pat"]=$at
+	BLPID=$id
+	BL[$id]["lpos"]=${BLP["t"]}
+	return 0
+}
+
+# Whether BLP holds an answer to rely on now, asking nothing.
+fn bl_fresh(int id) {
+	local now
+
+	[ "$BLPID" = "$id" ] && [ -n "${BL[$id]["pat"]}" ] || return 1
+	bl_has evask || return 0
+	[ "${BL[$id]["pvid"]}" = "${BL[$id]["vid"]}" ] || return 1
+	[ "${BL[$id]["pgen"]}" = "${BL[$id]["gen"]:-0}" ] || return 1
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - BL[$id]["pat"])) -lt 2000 ]
+}
+
+# Whether BLP is at least this window's last answer about the title playing:
+# enough for the clock and the bar, never for a decision.
+fn bl_known(int id) {
+	bl_has evask || return 1
+	[ "$BLPID" = "$id" ] && [ -n "${BLP["u"]}" ] && [ "${BL[$id]["pvid"]}" = "${BL[$id]["vid"]}" ]
+}
+
+# What the player reports, into BLI: the position and length, paused or ended,
+# the volume, and a count of the frames it has shown. What was last known stands
+# where the page cannot answer, as at the very start.
+declare -gA BLI
+fn bl_info(int id) {
+	BLI["pos"]=${BL[$id]["lpos"]:-0}
+	BLI["dur"]=${BL[$id]["dur"]:-0}
+	BLI["paused"]=0
+	BLI["ended"]=0
+	BLI["volume"]=${BL[$id]["vol"]:-100}
+	BLI["shown"]=${BL[$id]["lshown"]:-0}
+	[ -n "${BL[$id]["pt"]}" ] || return 0
+	bl_page "$id" || bl_known "$id" || return 0
+	BLI["pos"]=${BLP["t"]}
+	BLI["paused"]=${BLP["pa"]:-0}
+	BLI["ended"]=${BLP["en"]:-0}
+	BLI["shown"]=${BLP["fr"]:-0}
+	BL[$id]["lshown"]=${BLP["fr"]:-0}
+	return 0
+}
+
+# One step of playing: start the page's player once it is there, take a title up
+# where it was left, and at the end go on to the next.
+fn bl_tick(int id) {
+	local t=${BL[$id]["pt"]} p=${BL[$id]["p"]} s js m i e wf why
+
+	if dt_has dt_live; then
+		if [ "${BL[$id]["state"]}" = playing ]; then
+			dt_live "$id" on
+		else
+			dt_live "$id"
+		fi
+	fi
+	[ -n "$p" ] || return 0
+	# The engine's word of each new frame is what wakes the desktop.
+	if bl_has pollbuild && wf := web fd 2> /dev/null; then
+		command -v console > /dev/null && console watch "$wf"
+	fi
+	if [ "${BL[$id]["state"]}" = resolving ]; then
+		bl_resolve "$id"
+		if [ "${BL[$id]["state"]}" = resolving ] && [ $((EPOCHSECONDS - BL[$id]["since"])) -gt 25 ]; then
+			BL[$id]["err"]="Bilibili did not answer"
+			bl_stop "$id"
+			return 0
+		fi
+		dt_want 300
+	fi
+	if [ "${BL[$id]["state"]}" = loading ]; then
+		js := bl_startjs_now "$id"
+		s := web eval "$t" "$js" 2> /dev/null
+		if [ "$s" = ok ]; then
+			BL[$id]["state"]=playing
+			BL[$id]["sat"]=${EPOCHREALTIME/./}
+			BL[$id]["sat"]=${BL[$id]["sat"]:0:-3}
+		fi
+		if [ "${BL[$id]["state"]}" = loading ] &&
+		   [ $((EPOCHSECONDS - BL[$id]["since"])) -gt 30 ]; then
+			why := web eval "$t" "$BL_WHYJS" 2> /dev/null
+			printf 'bilibili: %s did not start (%s)\n' "${BL[$id]["vid"]}" "$why" >&2
+			BL[$id]["err"]="The video would not start (${why:-no page answer}) -- its link may have expired or be refused"
+			bl_stop "$id"
+			return 0
+		fi
+		dt_want 300
+	fi
+	if [ "${BL[$id]["dur"]%.*}" = 0 ] && bl_page "$id"; then
+		BL[$id]["dur"]=${BLP["d"]}
+	fi
+	# Taking a title up where it was left waits for the player to know its length
+	# and to hold some of it: before that there is nothing to go to.
+	if [ -n "${BL[$id]["resume"]}" ] && [ "${BL[$id]["state"]}" = playing ] &&
+	   [ "${BL[$id]["dur"]%.*}" -gt 0 ] && bl_page "$id" && [ "${BLP["rs"]:-0}" -ge 3 ]; then
+		m := bl_mmss "${BL[$id]["resume"]}"
+		bl_seek "$id" "${BL[$id]["resume"]}"
+		BL[$id]["resume"]=
+		dt_notep low "Taken up at %s, where it was left" "$m"
+	fi
+	[ "${BL[$id]["state"]}" = playing ] && bl_has evask && bl_page "$id" > /dev/null
+	if [ "${BL[$id]["state"]}" = playing ] &&
+	   [ $((EPOCHSECONDS - ${BL[$id]["chk"]:-0})) -ge 3 ]; then
+		BL[$id]["chk"]=$EPOCHSECONDS
+		bl_watch "$id"
+		[ "${BL[$id]["state"]}" = playing ] || return 0
+	fi
+	if [ "${BL[$id]["state"]}" = playing ]; then
+		bl_info "$id"
+		m=${BL[$id]["dur"]%.*}
+		# Ended: the page says so, or the clock is within a second of the length
+		# and no frame has come for two. Never in the first seconds (the clock is
+		# still the last title's), and never in a clip of an advert's length.
+		e=0
+		[ "${BLI["ended"]}" = 1 ] && e=1
+		if bl_has evask && ! bl_fresh "$id"; then
+			e=0
+		elif [ "$e" = 0 ] && [ "${m:-0}" -gt 0 ] && [ "${BLI["pos"]%.*}" -ge $((m - 1)) ]; then
+			if [ "${BLI["shown"]}" != "${BL[$id]["efr"]}" ]; then
+				BL[$id]["efr"]=${BLI["shown"]}
+				BL[$id]["eat"]=$EPOCHSECONDS
+			elif [ $((EPOCHSECONDS - ${BL[$id]["eat"]:-$EPOCHSECONDS})) -ge 2 ]; then
+				e=1
+			fi
+		fi
+		[ $((EPOCHSECONDS - ${BL[$id]["since"]:-0})) -lt 3 ] && e=0
+		[ "${m:-0}" -lt 40 ] && e=0
+		if [ "$e" = 1 ]; then
+			bl_histput "$id" "${BL[$id]["dur"]}"
+			BL[$id]["state"]=ended
+			if [ "$BL_AUTONEXT" = 1 ] && i := bl_step "$id" 1; then
+				BL[$id]["sel"]=$i
+				bl_play "$id" "$i"
+				return 0
+			fi
+		fi
+	fi
+	dt_want 250
+}
+
+# The script that starts the player, for this title and its volume.
+fn bl_startjs_now(int id) {
+	local j
+
+	j := bl_startjs "${BL[$id]["vol"]:-100}" "${BL[$id]["num"]}"
+	ret "$j"
+}
+
+# Every few seconds while playing: whether the page's video is still going. It
+# can fail (its error), and then nothing more plays; the title is loaded again
+# and taken up where it was, up to twice, and after that the window says so.
+fn bl_watch(int id) {
+	[ -n "${BL[$id]["upause"]}" ] && return 0
+	bl_info "$id"
+	bl_page "$id" || return 0
+	if [ "${BLP["e"]}" = 1 ]; then
+		BL[$id]["bad"]=$(( ${BL[$id]["bad"]:-0} + 1 ))
+		[ "${BL[$id]["bad"]}" -ge 2 ] && bl_recover "$id" "${BLI["pos"]%.*}"
+	else
+		BL[$id]["bad"]=0
+	fi
+	return 0
+}
+
+# Load the title again and take it up at a time, after the player failed.
+fn bl_recover(int id, int pos) {
+	local m n=${BL[$id]["tries"]:-0}
+
+	BL[$id]["bad"]=0
+	if [ "$n" -ge 2 ]; then
+		BL[$id]["err"]="Bilibili's player keeps stopping on this title"
+		bl_stop "$id"
+		return 0
+	fi
+	BL[$id]["tries"]=$((n + 1))
+	m := bl_mmss "$pos"
+	printf 'bilibili: the page stopped %s at %s; loading it again\n' "${BL[$id]["vid"]}" "$m" >&2
+	[ "$pos" -gt 0 ] && BL[$id]["resume"]=$pos
+	dt_notep low "Bilibili stopped -- trying again"
+	BL[$id]["state"]=loading
+	BL[$id]["since"]=$EPOCHSECONDS
+	bl_stale "$id"
+	web go "${BL[$id]["pt"]}" "$BL_BASE${BL[$id]["vid"]}" 2> /dev/null
+}
+
+# Pause or play, in the page's video.
+fn bl_toggle(int id) {
+	local p=${BL[$id]["p"]} t=${BL[$id]["pt"]} pz
+
+	[ -n "$p" ] || return 0
+	bl_stale "$id"
+	bl_info "$id"
+	pz=${BLI["paused"]}
+	# No answer since the last command: this app's own last word decides, so a
+	# quick second press undoes the first.
+	if bl_has evask && ! bl_fresh "$id"; then
+		pz=0
+		[ -n "${BL[$id]["upause"]}" ] && pz=1
+	fi
+	if [ "$pz" = 1 ]; then
+		BL[$id]["upause"]=
+		bl_send "$t" 'document.querySelector("video").play()'
+	else
+		BL[$id]["upause"]=1
+		bl_send "$t" 'document.querySelector("video").pause()'
+		bl_histput "$id"
+	fi
+	bl_stale "$id"
+}
+
+# Go to a time: the page's video sent there.
+fn bl_seek(int id, to) {
+	local p=${BL[$id]["p"]} t=${BL[$id]["pt"]} d
+
+	[ -n "$p" ] || return 0
+	bl_stale "$id"
+	bl_info "$id"
+	case $to in
+	+* | -*) to=$(( ${BLI["pos"]%.*} + to )) ;;
+	esac
+	d=${BL[$id]["dur"]%.*}
+	[ "$to" -lt 0 ] && to=0
+	[ "$d" -gt 0 ] && [ "$to" -gt "$d" ] && to=$d
+	bl_send "$t" "document.querySelector(\"video\").currentTime=$to"
+	bl_stale "$id"
+}
+
+# The volume, 0 to 100, set in the page's video.
+fn bl_volume(int id, int v) {
+	[ "$v" -gt 100 ] && v=100
+	[ "$v" -lt 0 ] && v=0
+	BL[$id]["vol"]=$v
+	bl_send "${BL[$id]["pt"]}" "(function(){var v=document.querySelector(\"video\");if(v){v.muted=false;v.volume=$v/100}})()"
+	bl_stale "$id"
+}
+
+# Minutes and seconds, with hours in front of an hour or more.
+fn bl_mmss(t) {
+	local out
+
+	out := vc_mmss "$t"
+	ret "$out"
+}
+
+# --- the window -----------------------------------------------------------
+
+# The shared core (lib/videocore of the catalogue, API 1): the files and lines every video app keeps. Without it, or an older one, the window says
+# so and does nothing else, rather than half work.
+fn bl_core(int id) {
+	vc_ok 1 2> /dev/null && return 0
+	BL[$id]["nocore"]=1
+	BL[$id]["err"]="Bilibili needs the Video Core (lib/videocore): update hibr (0.99.526 or later), run catalogue update and start the desktop again"
+	return 1
+}
+
+fn bilibili_open(int id, arg = "") {
+	BL[$id]["view"]=list
+	BL[$id]["kind"]=
+	BL[$id]["arg"]=
+	BL[$id]["head"]=
+	BL[$id]["stack"]=
+	BL[$id]["q"]=
+	dt_searchclear "$id"
+	dt_searchopen "$id"
+	BL[$id]["n"]=0
+	BL[$id]["sel"]=0
+	BL[$id]["top"]=0
+	BL[$id]["vol"]=100
+	BL[$id]["st"]=
+	BL[$id]["pt"]=
+	BL[$id]["p"]=
+	BL[$id]["err"]=
+	bl_core "$id" || return 0
+	bl_favload
+	bl_need "$id" || return 0
+	# `play:PATH`, from the Video Library: that title, with what the history knows of it
+	if [[ $arg == play:* ]]; then
+		bl_playkey "$id" "${arg#play:}"
+		return 0
+	fi
+	if [ -n "$arg" ]; then
+		dt_searchset "$id" "$arg"
+		bl_search "$id" "$arg"
+	else
+		bl_load "$id" home ""
+	fi
+	return 0
+}
+
+# Play one title by its path, as if it had been chosen in a list of one.
+fn bl_playkey(int id, key) {
+	local kind=video title= sub=
+
+	if ! bl_validkey "$key"; then
+		BL[$id]["n"]=0
+		BL[$id]["err"]="That is not a Bilibili video id"
+		return 0
+	fi
+	if bl_histget "$key"; then
+		kind=${BLH[0]:-video}
+		title=${BLH[2]-}
+		sub=${BLH[3]-}
+	fi
+	BR[$id][0]["kind"]=$kind
+	BR[$id][0]["id"]=$key
+	BR[$id][0]["title"]=$title
+	BR[$id][0]["ch"]=$sub
+	BL[$id]["n"]=1
+	BL[$id]["sel"]=0
+	BL[$id]["top"]=0
+	bl_play "$id" 0
+}
+
+fn bilibili_find(int id) {
+	dt_searchopen "$id"
+	return 0
+}
+
+fn bilibili_close(int id) {
+	local t
+
+	bl_stop "$id"
+	for t in "${BL[$id]["st"]}" "${BL[$id]["pt"]}"; do
+		[ -n "$t" ] && web close "$t" 2> /dev/null
+	done
+	unset "BL[$id]"
+	unset "BR[$id]"
+	bl_webquit "$id"
+}
+
+# Stop the engine when no window that uses it is left -- the Browser's or ours.
+fn bl_webquit(int id) {
+	local o ids
+	local -a il
+
+	ids := dt_ids
+	read -ra il <<< "$ids"
+	for o in "${il[@]}"; do
+		[ "$o" = "$id" ] && continue
+		case ${DT[$o]["app"]} in browser | youtube | bilibili) return 0 ;; esac
+	done
+	web quit 2> /dev/null
+	return 0
+}
+
+# After a restart the list is shown again; what was playing is noted in the
+# history first, so choosing it again takes it up there.
+fn bilibili_stash(int id, dir) {
+	bl_histput "$id"
+	BL[$id]["st"]=
+	BL[$id]["pt"]=
+	BL[$id]["p"]=
+}
+
+fn bilibili_resume(int id) {
+	local k=${BL[$id]["kind"]} a=${BL[$id]["arg"]} h=${BL[$id]["head"]}
+
+	BL[$id]["view"]=list
+	BL[$id]["st"]=
+	BL[$id]["pt"]=
+	BL[$id]["p"]=
+	BL[$id]["state"]=
+	bl_favload
+	[ -n "$k" ] && bl_load "$id" "$k" "$a" "$h" 0
+	return 0
+}
+
+# Whether this window is keeping the screen awake: the picture is moving -- not
+# paused, and the frame on screen a later one than when the desktop last asked.
+fn bilibili_awake(int id) {
+	local was
+
+	[ "${BL_SAVERHOLD:-1}" = 1 ] || return 1
+	dt_hidden "$id" && return 1
+	[ "${BL[$id]["state"]}" = loading ] && return 0
+	[ -n "${BL[$id]["p"]}" ] || return 1
+	bl_info "$id"
+	[ "${BLI["paused"]}" = 1 ] && return 1
+	was=${BL[$id]["awshown"]}
+	BL[$id]["awshown"]=${BLI["shown"]}
+	[ "${BLI["shown"]}" != "$was" ]
+}
+
+# Full screen is the picture alone: the picture is laid out again.
+fn bilibili_fullscreen(int id, on) {
+	BL[$id]["fs"]=
+	[ "$on" = on ] && BL[$id]["fs"]=1
+	BL[$id]["sized"]=
+	BL[$id]["decl"]=
+	return 0
+}
+
+fn bilibili_idle(int id) {
+	[ "${BL[$id]["view"]}" = play ] && bl_tick "$id"
+	web poll > /dev/null 2>&1
+	return 0
+}
+
+fn bilibili_draw(int id, int h, int w, int row, int col) {
+	dt_wclear "$id"
+	[ -n "${BL[$id]["searching"]}" ] && bl_results "$id"
+	BL[$id]["dkey"]=
+	if [ -n "${BL[$id]["fs"]-}" ] && [ "${BL[$id]["view"]}" = play ]; then
+		bl_drawfull "$id" "$h" "$w"
+	elif [ "${BL[$id]["view"]}" = play ]; then
+		bl_drawplay "$id" "$h" "$w"
+	else
+		bl_drawlist "$id" "$h" "$w"
+		BL[$id]["dkey"] := bl_listkey "$id"
+	fi
+	[ "${BL[$id]["view"]}" = play ] && [ -n "${BL[$id]["pt"]}" ] &&
+		web dirty "${BL[$id]["pt"]}" 2> /dev/null && dt_want 1
+}
+
+# What the list shows, in one line, to be compared with the line kept when it
+# was last drawn.
+fn bl_listkey(int id) {
+	local i n=${BL[$id]["n"]:-0} top=${BL[$id]["top"]:-0} vis=${BL[$id]["vis"]:-1} k mk x
+
+	x := dt_searchrows "$id"
+	k="$n|${BL[$id]["sel"]}|$top|$vis|$x|${BL[$id]["kind"]}|${BL[$id]["head"]}|${BL[$id]["arg"]}|${BL[$id]["err"]}|${DT[$id]["h"]}x${DT[$id]["w"]}|$DT_FACE"
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$i" -lt $((top + vis + 1)) ]; do
+		mk=
+		[ -n "${BLF["${BR[$id][$i]["id"]}"]}" ] && mk=*
+		k+="|${BR[$id][$i]["id"]}$mk"
+		i=$((i + 1))
+	done
+	ret "$k"
+}
+
+# Whether the window has anything new to draw. Only the list can be left as it is.
+fn bilibili_dirty(int id) {
+	local k
+
+	[ "${BL[$id]["view"]}" = play ] && return 0
+	[ -n "${BL[$id]["searching"]}" ] && return 0
+	[ "${BL[$id]["state"]}" = loading ] && return 0
+	[ -n "${BL[$id]["dkey"]}" ] || return 0
+	dt_searchon "$id" && return 0
+	k := bl_listkey "$id"
+	[ "$k" = "${BL[$id]["dkey"]}" ] || return 0
+	return 1
+}
+
+# The list: a heading, then an entry to a row -- a star for a favourite, the
+# title, the episode or the kind -- the chosen one lit.
+fn bl_drawlist(int id, int h, int w) {
+	local n=${BL[$id]["n"]} sel=${BL[$id]["sel"]} top=${BL[$id]["top"]}
+	local r=2 i lab tail vis hd mk kd star=${GL[star]} srows ow=$w
+
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "Bilibili"
+	srows := dt_searchrows "$id"
+	vis=$((h - 1 - srows))
+	[ "$vis" -lt 1 ] && vis=1
+	console pen "$DT_INK" "$DT_FACE"
+	hd := bl_heading "$id"
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	if [ "$DT_MIRRORON" = 1 ]; then
+		lab := dt_rpad "${hd:0:$((w - 3))}" $((w - 2))
+		console put -p "w$id" 1 1 "$lab"
+	else
+		console put -p "w$id" 1 2 "${hd:0:$((w - 3))}"
+	fi
+	if [ -n "${BL[$id]["searching"]}" ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 2 2 "Looking${GL[ellipsis]}"
+		n=0
+	elif [ -n "${BL[$id]["err"]}" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" 2 2 "${BL[$id]["err"]:0:$((w - 3))}"
+	elif [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		dt_tput "$id" 2 2 "Type what to look for and enter."
+	fi
+	# the scrollbar takes the last column: the rows stop short of it
+	w=$((w - 1))
+	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${BL[$id]["seen"]-}"
+	BL[$id]["seen"]=$sel
+	BL[$id]["top"]=$top
+	BL[$id]["vis"]=$vis
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$r" -lt "$h" ]; do
+		kd=${BR[$id][$i]["ch"]}
+		[ -n "${BR[$id][$i]["len"]}" ] && kd="$kd ${BR[$id][$i]["len"]}"
+		tail="  ${kd:0:18}"
+		mk=" "
+		[ -n "${BLF["${BR[$id][$i]["id"]}"]}" ] && mk=$star
+		lab="$mk${BR[$id][$i]["title"]}"
+		[ $((${#lab} + ${#tail})) -gt "$w" ] && lab="${lab:0:$((w - ${#tail} - 1))}${GL[ellipsis]}"
+		if [ "$DT_MIRRORON" = 1 ]; then
+			lab="${lab#"$mk"}$mk"
+			lab := dt_rpad "$lab" $((w - ${#tail}))
+			tail="${kd:0:18}  "
+			lab="$tail$lab"
+			tail=
+		else
+			lab := str pad "$lab" $((w - ${#tail}))
+		fi
+		if [ "$i" = "$sel" ] && ! dt_searchon "$id"; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		elif [ "$i" = "$sel" ]; then
+			console pen "$DT_INK" "$DT_WELL"
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" "$r" 1 "$lab$tail"
+		dt_wreg "$id" "$r" 1 "$w" "row:$i"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	r=$ow
+	[ "$DT_MIRRORON" = 1 ] && r=1
+	dt_scrollbar "$id" 2 "$r" "$vis" "$n" "$vis" "$top" list
+	dt_searchdraw "$id" "$h" "$ow"
+}
+
+# Whether the page must not be shown yet: loading, or just now started (until
+# the start has cut it down to the video it is the real site, filling the window).
+fn bl_veiled(int id) {
+	local now
+
+	[ "${BL[$id]["state"]}" = loading ] && return 0
+	[ -n "${BL[$id]["sat"]}" ] || return 1
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - BL[$id]["sat"])) -lt 500 ]
+}
+
+# The page in the player's tab, drawn into the window from a row and column: laid
+# out at the window's size and drawn as pixels where the display takes them,
+# else as cells, or as characters for ascii and mono. A display that declines the
+# pixels is found out by the draw failing while the title plays; the picture then
+# goes on as cells. Fails until the page has made a frame.
+fn bl_picture(int id, w, h, row, col, md) {
+	local t=${BL[$id]["pt"]} m=cells nu
+
+	[ -n "$t" ] || return 1
+	bl_veiled "$id" && return 1
+	case $md in
+	pixels | ascii | mono) m=$md ;;
+	esac
+	[ "$m" = pixels ] && [ "${BL[$id]["decl"]}" = "$w $h" ] && m=cells
+	if [ "${BL[$id]["sized"]}" != "$w $h $m" ]; then
+		bl_has renderasync && web set "$t" render async 2> /dev/null
+		web size "$t" "$h" "$w" 2> /dev/null
+		web mode "$t" "$m" 2> /dev/null
+		BL[$id]["sized"]="$w $h $m"
+		BL[$id]["md"]=$m
+		BL[$id]["pfail"]=0
+		BL[$id]["pfat"]=
+		BL[$id]["sizedat"]=${EPOCHREALTIME/./}
+	fi
+	web render "$t" 2> /dev/null || return 1
+	if web draw "$t" "$row" "$col" -p "w$id" 2> /dev/null; then
+		BL[$id]["pfail"]=0
+		BL[$id]["pfat"]=
+		return 0
+	fi
+	# A draw fails both when the display turns the picture down and when the
+	# engine has no frame at this size yet. Turned down is two seconds of
+	# failures, from two seconds after the picture was laid out.
+	if [ "$m" = pixels ] && [ "${BL[$id]["state"]}" = playing ]; then
+		nu=${EPOCHREALTIME/./}
+		BL[$id]["pfail"]=$(( ${BL[$id]["pfail"]:-0} + 1 ))
+		[ -n "${BL[$id]["pfat"]-}" ] || BL[$id]["pfat"]=$nu
+		if [ $(( (nu - BL[$id]["pfat"]) / 1000 )) -ge 2000 ] &&
+		   [ $(( (nu - ${BL[$id]["sizedat"]:-0}) / 1000 )) -ge 4000 ]; then
+			BL[$id]["decl"]="$w $h"
+			BL[$id]["sized"]=
+		fi
+	fi
+	return 1
+}
+
+# The player: the title, the picture, the bar.
+fn bl_drawplay(int id, int h, int w) {
+	local p=${BL[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm wt r
+
+	[ -n "$p" ] && bl_tick "$id"
+	p=${BL[$id]["p"]}
+	if command -v dt_retitle > /dev/null; then
+		wt := dt_wintitle Bilibili "${BL[$id]["title"]:0:40}"
+		dt_retitle "$id" "$wt"
+	fi
+	console pen "$DT_INK" "$DT_FACE" bold
+	[ -n "${BLF["${BL[$id]["vid"]}"]}" ] && mk="${GL[star]} "
+	lab="$mk${BL[$id]["title"]}"
+	[ -n "${BL[$id]["sub"]}" ] && lab="$lab -- ${BL[$id]["sub"]}"
+	lab := str pad " ${lab:0:$((w - 2))}" "$w"
+	console put -p "w$id" 1 1 "$lab"
+	if [ -n "${BL[$id]["err"]}" ] || [ -z "$p" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		lab=${BL[$id]["err"]}
+		r=3
+		while [ -n "$lab" ] && [ "$r" -lt "$h" ]; do
+			console put -p "w$id" "$r" 2 "${lab:0:$((w - 3))}"
+			lab=${lab:$((w - 3))}
+			r=$((r + 1))
+		done
+		return 0
+	fi
+	md := bl_drawmode
+	if ! bl_picture "$id" "$w" "$ph" 2 1 "$md"; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 3 2 "Loading${GL[ellipsis]}"
+	fi
+	bl_info "$id"
+	pos=${BLI["pos"]}
+	dur=${BL[$id]["dur"]}
+	[ "${BL[$id]["state"]}" = ended ] && pos=$dur
+	a := bl_mmss "$pos"
+	b := bl_mmss "$dur"
+	st="playing"
+	[ "${BLI["paused"]}" = 1 ] && st="paused"
+	[ "${BLI["ended"]}" = 1 ] || [ "${BL[$id]["state"]}" = ended ] && st="ended"
+	[ "${BL[$id]["state"]}" = loading ] && st="starting"
+	pm=$md
+	[ "$BL_MODE" = follow ] && pm="follow:$md"
+	lab=" $a / $b  $st  vol ${BLI["volume"]}  ${pm}"
+	fill=0
+	[ "${dur%.*}" -gt 0 ] 2> /dev/null && fill=$(( ${pos%.*} * w / ${dur%.*} ))
+	[ "$fill" -gt "$w" ] && fill=$w
+	lab := str pad "$lab" "$w"
+	console pen "$DT_SELINK" "$DT_ACTIVE"
+	[ "$fill" -gt 0 ] && console put -p "w$id" "$h" 1 "${lab:0:$fill}"
+	console pen "$DT_INK" "$DT_WELL"
+	console put -p "w$id" "$h" $((fill + 1)) "${lab:$fill}"
+	dt_wreg "$id" "$h" 1 "$w" bar
+}
+
+# Full screen: the picture alone, edge to edge.
+fn bl_drawfull(int id, int h, int w) {
+	local md
+
+	bl_tick "$id"
+	if [ -n "${BL[$id]["p"]}" ]; then
+		md := bl_drawmode
+		bl_picture "$id" "$w" "$h" 0 0 "$md" && return 0
+	fi
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((h / 2)) 1 "${BL[$id]["title"]:0:$((w - 2))}"
+}
+
+# What the engine is given: BL_MODE says outright unless it is `follow`, and then
+# it is Control Panel > Pictures; `auto` there means pixels where the terminal can
+# place them and blocks where it cannot.
+fn bl_drawmode() {
+	local m=$BL_MODE
+
+	[ "$m" = follow ] && m=${DT_IMGMODE:-auto}
+	case $m in
+	pixels | sixel) ret pixels ;;
+	half | mono | ascii) ret "$m" ;;
+	esac
+	command -v dt_imgpix > /dev/null && dt_imgpix && ret pixels
+	ret half
+}
+
+fn bilibili_key(int id, key) {
+	[ -n "${BL[$id]["nocore"]-}" ] && return 1
+	local n=${BL[$id]["n"]} sel=${BL[$id]["sel"]} p=${BL[$id]["p"]} v q0
+
+	if [ "${BL[$id]["view"]}" = play ]; then
+		case $key in
+		" ") bl_toggle "$id"; return 0 ;;
+		left) bl_seek "$id" -5; return 0 ;;
+		right) bl_seek "$id" +5; return 0 ;;
+		shift-left) bl_seek "$id" -30; return 0 ;;
+		shift-right) bl_seek "$id" +30; return 0 ;;
+		up | down)
+			[ -n "$p" ] || return 0
+			bl_info "$id"
+			v=${BLI["volume"]}
+			[ "$key" = up ] && v=$((v + 10)) || v=$((v - 10))
+			bl_volume "$id" "$v"
+			return 0
+			;;
+		n) bl_next "$id" 1; return 0 ;;
+		p) bl_next "$id" -1; return 0 ;;
+		f) bl_fav "$id"; return 0 ;;
+		m) bl_mode; return 0 ;;
+		h) bl_load "$id" history ""; return 0 ;;
+		v) bl_load "$id" favourites ""; return 0 ;;
+		t) bl_load "$id" home ""; return 0 ;;
+		escape | backspace)
+			bl_stop "$id"
+			BL[$id]["view"]=list
+			return 0
+			;;
+		esac
+		return 1
+	fi
+	# Bilibili asks a server, so it acts when the search bar is left rather than on
+	# every keystroke: enter searches.
+	if dt_searchon "$id" && [ "$key" = enter ]; then
+		q0 := dt_searchq "$id"
+		dt_searchshut "$id"
+		bl_search "$id" "$q0"
+		return 0
+	fi
+	if dt_searchkey "$id" "$key"; then
+		return 0
+	fi
+	case $key in
+	up) [ "$sel" -gt 0 ] && BL[$id]["sel"]=$((sel - 1)) || dt_searchopen "$id" ;;
+	down) [ "$sel" -lt $((n - 1)) ] && BL[$id]["sel"]=$((sel + 1)) ;;
+	pageup) sel=$((sel - ${BL[$id]["vis"]:-10})); [ "$sel" -lt 0 ] && sel=0; BL[$id]["sel"]=$sel ;;
+	pagedown) sel=$((sel + ${BL[$id]["vis"]:-10})); [ "$sel" -ge "$n" ] && sel=$((n - 1)); BL[$id]["sel"]=$sel ;;
+	home) BL[$id]["sel"]=0 ;;
+	end) BL[$id]["sel"]=$((n > 0 ? n - 1 : 0)) ;;
+	enter) [ "$n" -gt 0 ] && bl_choose "$id" "$sel" ;;
+	f) [ "$n" -gt 0 ] && bl_fav "$id" ;;
+	h) bl_load "$id" history "" ;;
+	v) bl_load "$id" favourites "" ;;
+	t) bl_load "$id" home "" ;;
+	escape | backspace) bl_back "$id" ;;
+	tab) dt_searchopen "$id" ;;
+	*) return 1 ;;
+	esac
+	return 0
+}
+
+# The next way of drawing the picture, for every window.
+bl_mode() {
+	local i=0 n=${#BL_MODES[@]}
+
+	while [ "$i" -lt "$n" ]; do
+		if [ "${BL_MODES[$i]}" = "$BL_MODE" ]; then
+			BL_MODE=${BL_MODES[$(( (i + 1) % n ))]}
+			break
+		fi
+		i=$((i + 1))
+	done
+	[ "$i" -lt "$n" ] || BL_MODE=${BL_MODES[0]}
+	command -v dt_save > /dev/null && dt_save
+	return 0
+}
+
+fn bilibili_click(int id, int r, int c, btn = "") {
+	local tag d
+
+	tag := dt_hit "$id" "$r" "$c"
+	case $tag in
+	dtsearch) dt_searchopen "$id" ;;
+	row:*)
+		if [ "${BL[$id]["sel"]}" = "${tag#row:}" ] && ! dt_searchon "$id"; then
+			bl_choose "$id" "${tag#row:}"
+		else
+			BL[$id]["sel"]=${tag#row:}
+			dt_searchshut "$id"
+		fi
+		;;
+	bar)
+		d=${BL[$id]["dur"]%.*}
+		[ "$d" -gt 0 ] 2> /dev/null && bl_seek "$id" $(( (c - 1) * d / ${DT[$id]["w"]} ))
+		;;
+	*) [ "${BL[$id]["view"]}" = play ] && bl_toggle "$id" ;;
+	esac
+	return 0
+}
+
+fn bilibili_wheel(int id, dir, int r = 0, int c = 0) {
+	local n=${BL[$id]["n"]:-0} top
+
+	if [ "${BL[$id]["view"]}" = play ]; then
+		[ "$dir" = up ] && bl_seek "$id" +5 || bl_seek "$id" -5
+		return 0
+	fi
+	top := dt_scrollmove "$dir" "${BL[$id]["top"]:-0}" "$n" \
+		"${BL[$id]["vis"]:-1}" "$DT_SCROLLWHEEL" || return 1
+	BL[$id]["top"]=$top
+	return 0
+}
+
+# The list's scrollbar held and dragged.
+fn bilibili_scroll(int id, key, int top) { BL[$id]["top"]=$top; }
+
+# The address of what is chosen or playing, or the search being typed.
+fn bilibili_copy(int id) {
+	local i=${BL[$id]["sel"]}
+
+	if dt_searchon "$id"; then
+		i := dt_searchq "$id"
+		ret "$i"
+		return 0
+	fi
+	if [ "${BL[$id]["view"]}" = play ] && [ -n "${BL[$id]["vid"]}" ]; then
+		ret "$BL_BASE${BL[$id]["vid"]}"
+		return 0
+	fi
+	[ -n "${BR[$id][$i]["id"]}" ] || return 1
+	ret "$BL_BASE${BR[$id][$i]["id"]}"
+}
+
+fn bilibili_paste(int id, text, op = "") {
+	local r q
+
+	dt_searchopen "$id"
+	q := dt_searchq "$id"
+	r := dt_textpaste "$q" "${#q}" "$text"
+	dt_searchset "$id" "${r% *}"
+}
+
+bilibili_menus() {
+	local id=$DT_FOCUS v on
+
+	dt_menu "File"
+	dt_item "New Window" n dt_launch bilibili
+	dt_item "Search${GL[ellipsis]}" s bilibili_key "$id" /
+	dt_rowaccel /
+	dt_item "Favourite" f bl_fav "$id"
+	dt_rowaccel f
+	dt_sep
+	dt_item "Close Window" w dt_close_focused
+	dt_editmenu
+	dt_menu "Go"
+	if [ "${BL[$id]["view"]}" != play ] && [ "${BL[$id]["n"]:-0}" -gt 0 ]; then
+		dt_item "Open" o bilibili_key "$id" enter
+	else
+		dt_dim "Open"
+	fi
+	dt_rowaccel enter
+	dt_item "Back" b bl_back "$id"
+	dt_rowaccel escape
+	dt_item "Popular" m bl_load "$id" home ""
+	dt_rowaccel t
+	dt_item "History" h bl_load "$id" history ""
+	dt_rowaccel h
+	dt_item "Favourites" v bl_load "$id" favourites ""
+	dt_rowaccel v
+	dt_menu "Play"
+	if [ -n "${BL[$id]["p"]}" ]; then
+		dt_item "Pause or Play" p bl_toggle "$id"
+		dt_rowaccel space
+		dt_item "Next" n bl_next "$id" 1
+		dt_rowaccel n
+		dt_item "Previous" r bl_next "$id" -1
+		dt_rowaccel p
+		dt_item "Back 5 Seconds" k bl_seek "$id" -5
+		dt_rowaccel left
+		dt_item "On 5 Seconds" l bl_seek "$id" +5
+		dt_rowaccel right
+		dt_item "Back 30 Seconds" b bl_seek "$id" -30
+		dt_rowaccel shift-left
+		dt_item "On 30 Seconds" o bl_seek "$id" +30
+		dt_rowaccel shift-right
+		dt_item "Volume Up" u bilibili_key "$id" up
+		dt_rowaccel up
+		dt_item "Volume Down" d bilibili_key "$id" down
+		dt_rowaccel down
+		dt_item "Stop" s bilibili_key "$id" escape
+		dt_rowaccel escape
+	else
+		dt_dim "Pause or Play"
+		dt_dim "Next"
+		dt_dim "Previous"
+		dt_dim "Back 5 Seconds"
+		dt_dim "On 5 Seconds"
+		dt_dim "Back 30 Seconds"
+		dt_dim "On 30 Seconds"
+		dt_dim "Volume Up"
+		dt_dim "Volume Down"
+		dt_dim "Stop"
+	fi
+	dt_sep
+	on=0
+	[ "$BL_AUTONEXT" = 1 ] && on=1
+	dt_mark "Play Next Automatically" a "$on" bl_autonext
+	dt_menu "Picture"
+	for v in "${BL_MODES[@]}"; do
+		on=0
+		[ "$BL_MODE" = "$v" ] && on=1
+		dt_mark "${v^}" "${v:0:1}" "$on" bl_setmode "$v"
+	done
+	dt_sep
+	dt_item "Next Picture" x bl_mode
+	dt_rowaccel m
+}
+
+fn bl_setmode(v) {
+	BL_MODE=$v
+	command -v dt_save > /dev/null && dt_save
+}
+
+bl_autonext() {
+	if [ "$BL_AUTONEXT" = 1 ]; then BL_AUTONEXT=0; else BL_AUTONEXT=1; fi
+	command -v dt_save > /dev/null && dt_save
+}
