@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.3
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.4
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.3}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.4}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -45,7 +45,7 @@ usage: wiretap <command>
   show                       how the node is, in a few lines
   top [N]                    who is talking now: the busiest N programs (default 10), by their last five seconds
   usage [N]                  who has used the most since the node started
-  history [1h|24h|7d] [N]    who used the most in the last hour, day (default) or week; kept per program, across restarts
+  history [1h|24h|7d] [N]    who used the most in the last hour, day (default) or week; kept per program, across restarts; --csv for a spreadsheet
   hosts [N] [--names]        who it is talking to: the biggest N remote addresses (default 20), with the program, bytes and how long ago
   graph [SECONDS] [ROWS]     a graph of the last SECONDS (default 60), download above the line, upload below
   watch                      top, refreshed every second (Ctrl-C leaves; the node goes on)
@@ -197,6 +197,14 @@ fn wt_hscale(sc) {
 	esac
 }
 
+# wt_csvname NAME: sets CSVN to a field a spreadsheet takes as text: quoted, quotes doubled, and a leading = + - @ made harmless with
+# a quote mark (a program's name is not something to trust as a formula).
+declare -g CSVN=""
+fn wt_csvname(n) {
+	case ${n:0:1} in = | + | - | @) n="'$n" ;; esac
+	CSVN="\"${n//\"/\"\"}\""
+}
+
 fn wt_history(sc, int n) {
 	local H HJ res cnt i j k cnt2 name rx tx v sp shown=0
 
@@ -206,7 +214,7 @@ fn wt_history(sc, int n) {
 	H := wt apphist "$res" "$cnt" "$n" || { echo "wiretap: $ERRMSG" >&2; exit 1; }
 	json parse HJ "$H"
 	cnt2 := json len HJ .apps
-	printf '%-20s %9s %9s %9s   (last %s)\n' APP DOWN UP TOTAL "$sc"
+	[ "$csv" = 1 ] && echo "app,down_bytes,up_bytes,total_bytes,window" || printf '%-20s %9s %9s %9s   (last %s)\n' APP DOWN UP TOTAL "$sc"
 	for ((j = 0; j < ${cnt2:-0}; j++)); do
 		name := json get HJ ".apps[$j].name"
 		rx=0; tx=0
@@ -214,10 +222,13 @@ fn wt_history(sc, int n) {
 			v := json get HJ ".apps[$j].rx[$k]"; rx=$((rx + ${v:-0}))
 			v := json get HJ ".apps[$j].tx[$k]"; tx=$((tx + ${v:-0}))
 		done
-		printf '%-20s %9s %9s %9s\n' "$name" "$(wt_human "$rx")" "$(wt_human "$tx")" "$(wt_human $((rx + tx)))"
+		if [ "$csv" = 1 ]; then
+			wt_csvname "$name"
+			printf '%s,%s,%s,%s,%s\n' "$CSVN" "$rx" "$tx" "$((rx + tx))" "$sc"
+		else printf '%-20s %9s %9s %9s\n' "$name" "$(wt_human "$rx")" "$(wt_human "$tx")" "$(wt_human $((rx + tx)))"; fi
 		shown=$((shown + 1))
 	done
-	[ "$shown" -gt 0 ] || echo "(nothing yet: the node keeps this from when it started)"
+	[ "$shown" -gt 0 ] || [ "$csv" = 1 ] || echo "(nothing yet: the node keeps this from when it started)"
 	return 0
 }
 
@@ -458,11 +469,13 @@ fn wt_doctor() {
 
 json=0
 names=0
+csv=0
 args=()
 for a in "$@"; do
 	case $a in
 	--json) json=1 ;;
 	--names) names=1 ;;
+	--csv) csv=1 ;;
 	*) args+=("$a") ;;
 	esac
 done
