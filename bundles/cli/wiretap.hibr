@@ -6,12 +6,12 @@
 # changes a firewall (that is M2). See docs/CLI.md.
 
 # What the catalogue reads before it fetches this: the name, a description, the version, and the module it needs.
-app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.4
+app wiretap "See every byte: a network monitor for the hibr desktop" 0.7.5
 # modules: wiretap
 
 strict
 
-SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.4}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${WIRETAP_SELF_VERSION:-0.7.5}	# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 # Where the node's control socket is: WT_SOCK; else the system service's; else this user's own.
 fn wt_findsock() {
@@ -420,10 +420,22 @@ fn wt_graph(int secs, int rows) {
 	return 0
 }
 
+# The firewall's parts, said before they are needed (ADR 0038). Information only: a machine that just monitors is not out of step for lacking them.
+fn wt_doctor_fw() {
+	local miss="" h
+	h=${WT_RULES_HELPER:-/usr/libexec/wiretap-rules}
+	command -v nft > /dev/null 2>&1 || miss+=" nft(nftables package)"
+	[ -x "$h" ] || miss+=" helper($h)"
+	[ "$(id -u)" = 0 ] || [ -n "${WT_RULES_HELPER:-}" ] || command -v pkexec > /dev/null 2>&1 || miss+=" pkexec(polkit)"
+	if [ -z "$miss" ]; then echo "firewall  its parts are installed (nft, helper, polkit); it has not been tried here until you apply a rule"
+	else echo "firewall  cannot be used yet, missing:$miss (monitoring is not affected)"; fi
+}
+
 fn wt_doctor() {
 	local mod run cap un bad=0 note
 
 	echo "script    $SELF_VERSION"
+	wt_doctor_fw
 	if mod := wt version 2> /dev/null; then
 		echo "engine    $mod (the installed module)"
 		[ "$mod" = "$SELF_VERSION" ] || { echo "          out of step with the script"; bad=1; }

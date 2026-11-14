@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.7.4
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.7.5
 # modules: wiretap
 # needs: cli/wiretap
 
