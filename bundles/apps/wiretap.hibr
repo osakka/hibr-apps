@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.7.2
+app wtview "Wiretap: a live graph and every app's traffic" 0.7.3
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -221,9 +221,9 @@ fn wv_usage(int id, int h, int w) {
 }
 
 # Who the machine talks to (ADR 0016, 0018): one row per remote address, the program that last spoke to it, bytes each way, and how long ago.
-# Addresses, not names: the service cannot look names up, and a lookup here would stall the window (wiretap hosts --names does it in a terminal).
+# Addresses, until n is pressed (ADR 0036): then the names on screen are looked up in a job and kept, as `wiretap hosts --names` does in a terminal.
 fn wv_hosts(int id, int h, int w) {
-	local n i a app rx tx last now vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r b c hue
+	local n i a app rx tx last now vis=$((h - 5)) top=${WV[$id]["top"]} sel=${WV[$id]["sel"]} line r b c hue nm
 
 	wtp_hosts
 	wtp_fw_blocked
@@ -239,6 +239,11 @@ fn wv_hosts(int id, int h, int w) {
 		return 0
 	fi
 	now := json get WTP_H .now
+	if [ "${WV[$id]["names"]:-0}" = 1 ]; then		# ADR 0036: the addresses on screen that are not known yet
+		local want=()
+		for ((i = ${WV[$id]["top"]:-0}; i < n && i < ${WV[$id]["top"]:-0} + vis; i++)); do a := json get WTP_H ".hosts[$i].addr"; want+=("$a"); done
+		wtp_names_want "${want[@]}"
+	fi
 	[ "$sel" -ge "$n" ] && sel=$((n > 0 ? n - 1 : 0))
 	[ "$sel" -lt "$top" ] && top=$sel
 	[ "$sel" -ge $((top + vis)) ] && top=$((sel - vis + 1))
@@ -251,7 +256,9 @@ fn wv_hosts(int id, int h, int w) {
 		r=$((3 + i - top))
 		if [ "$i" = "$sel" ]; then console pen "$DT_FACE" "$DT_INK"; else console pen "$DT_INK" "$DT_FACE"; fi
 		b := wtp_rate "$rx"; c := wtp_rate "$tx"
-		printf -v line "%-39s   %-12s %10s %10s %7ss" "${a:0:39}" "${app:0:12}" "$b" "$c" "$((now - last))"
+		nm=
+		[ "${WV[$id]["names"]:-0}" = 1 ] && [ "${WTP_NAME[$a]:--}" != - ] && nm=${WTP_NAME[$a]}
+		printf -v line "%-39s   %-12s %10s %10s %7ss" "${nm:-$a}" "${app:0:12}" "$b" "$c" "$((now - last))"
 		wv_put "$id" "$r" 2 "$line"
 		hue := wtp_hue "$app"
 		if [ "$i" = "$sel" ]; then console pen "$hue" "$DT_INK"; else console pen "$hue" "$DT_FACE"; fi
@@ -284,7 +291,7 @@ fn wv_foot(int id, int h) {
 			case ${WV[$id]["view"]} in
 			firewall) t="x removes the rule   space turns the firewall on or off   (add rules from Usage or Hosts: b)" ;;
 			usage) t="b blocks or allows the selected program (asks for a password)" ;;
-			*) t="b blocks or allows the selected host (asks for a password)" ;;
+			*) t="b blocks or allows the selected host (asks for a password)   n shows names (asks your name server)" ;;
 			esac
 		fi ;;
 	esac
@@ -454,6 +461,10 @@ fn wtview_key(int id, key) {
 	g) WV[$id]["view"]=graph ;;
 	u) WV[$id]["view"]=usage ;;
 	h) WV[$id]["view"]=hosts ;;
+	n) if [ "${WV[$id]["view"]}" = hosts ]; then
+		if [ "${WV[$id]["names"]:-0}" = 1 ]; then WV[$id]["names"]=0; WV[$id]["note"]="Names off: addresses only."
+		else WV[$id]["names"]=1; WV[$id]["note"]="Names on: your name server is asked about the addresses shown (n turns it off)."; fi
+	fi ;;
 	c) WV[$id]["by"]=$((1 - ${WV[$id]["by"]:-1})) ;;
 	tab|$'\t') case ${WV[$id]["view"]} in graph) WV[$id]["view"]=usage ;; usage) WV[$id]["view"]=hosts ;; hosts) WV[$id]["view"]=firewall ;; *) WV[$id]["view"]=graph ;; esac ;;
 	up) [ "${WV[$id]["sel"]}" -gt 0 ] && WV[$id]["sel"]=$((WV[$id]["sel"] - 1)) ;;

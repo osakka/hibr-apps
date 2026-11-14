@@ -11,7 +11,7 @@
 
 strict
 
-app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.7.2
+app wiretapbar "Wiretap on the menu bar: the Tap, a live graph and the busiest apps" 0.7.3
 # needs: control-panel/wiretap
 
 declare -ag WTB_HI=() WTB_HO=()

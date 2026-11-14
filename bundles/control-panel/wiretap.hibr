@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.7.2
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.7.3
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -168,6 +168,59 @@ fn wtp_hfetch() {
 fn wtp_hdone(int n, int st) {
 	WTP_HBUSY=0
 	command -v dt_want > /dev/null && dt_want 0
+	return 0
+}
+
+# ---- names for the Hosts tab (ADR 0036) -------------------------------------------------------------------------------------------
+# Off until the person asks (key n): a lookup tells the name server which addresses this machine talks to. When on, the addresses on
+# screen that are not known yet are looked up in a job (getent, two seconds each, at most 12 at a time) and kept for the session.
+declare -gA WTP_NAME
+declare -g WTP_NBUSY=0 WTP_NQ="" WTP_NR=""
+
+fn wtp_nfetch() {
+	local a n x qs=()
+
+	WTP_NR=""
+	read -r -a qs <<< "$WTP_NQ"
+	for a in "${qs[@]}"; do
+		n=$(timeout 2 getent hosts "$a" 2> /dev/null | { read -r _ x _; echo "${x:-}"; })
+		WTP_NR+="$a ${n:--}"$'\n'
+	done
+	return 0
+}
+
+fn wtp_ndone(int n, int st) {
+	local a nm
+
+	WTP_NBUSY=0
+	while read -r a nm; do
+		[ -n "$a" ] && WTP_NAME[$a]=${nm:--}
+	done <<< "$WTP_NR"
+	WTP_NR=""
+	command -v dt_want > /dev/null && dt_want 0
+	return 0
+}
+
+# wtp_names_want ADDR...: start one lookup job for those not yet known (never two at once). Only plain address characters are let through.
+fn wtp_names_want(...a) {
+	local x q="" k=0
+
+	[ "$WTP_NBUSY" = 0 ] || return 0
+	for x in "${a[@]}"; do
+		case $x in ''|*[!0-9A-Fa-f:.]*) continue ;; esac
+		[ "${#x}" -le 45 ] || continue
+		[ -z "${WTP_NAME[$x]+set}" ] || continue
+		WTP_NAME[$x]=-			# marked now, so a slow lookup is not asked for again; the answer replaces it
+		q+="$x "; k=$((k + 1))
+		[ "$k" -lt 12 ] || break
+	done
+	[ "$k" -gt 0 ] || return 0
+	WTP_NQ=$q; WTP_NBUSY=1
+	if command -v dt_jobvars > /dev/null && [ "${WTP_SYNC:-0}" != 1 ]; then
+		dt_jobvars wtp names wtp_ndone wtp_nfetch WTP_NQ WTP_NR > /dev/null || { wtp_nfetch; wtp_ndone 0 0; }
+	else
+		wtp_nfetch; wtp_ndone 0 0
+	fi
 	return 0
 }
 
