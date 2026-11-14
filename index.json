@@ -788,15 +788,15 @@
     },
     "control-panel/language": {
       "title": "Language & Region",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "74e62db8a830cc817661dd1bab685b2667f67414f5276fbea65284c9844d343a",
+      "sha256": "03338e3d9ae3551eb538f94f6273061dc9467c02c56353db20e6fe5bbd8a67fa",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language",
-      "hibr": "0.99.519"
+      "hibr": "0.99.522"
     },
     "control-panel/loginmgr": {
       "title": "Login Manager",
@@ -1099,15 +1099,15 @@
     },
     "menubar/keyboard": {
       "title": "Keyboard",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "menubar",
       "bundle": "bundles/menubar/keyboard.hibr",
-      "sha256": "e02ac26596b0ef894d49e994368729650838db063a58c48424df1f109f10c6b5",
+      "sha256": "b5ed618078ffb73de7c9205dd2b811d3b48423d6bc74e57e45cb252b1f7cf0fe",
       "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "keyboard",
-      "hibr": "0.99.521"
+      "hibr": "0.99.522"
     },
     "menubar/longwire": {
       "title": "Longwire",
@@ -1534,11 +1534,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.9",
+      "version": "3.99.10",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "337bc4a174d9a7a7bd839e61d24988b46b6341fcdc7fc2b5ce66476762fc1484",
-      "about": "The desktop's own words in العربية (ar): 1574 strings, read right to left.",
+      "sha256": "5f8af41a1338003ab8ac384e0a0b279c0bacbaf15657f482e3d3d5c559e59c0a",
+      "about": "The desktop's own words in العربية (ar): 1578 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2215,15 +2215,15 @@
     },
     "language": {
       "title": "Language & Region",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "74e62db8a830cc817661dd1bab685b2667f67414f5276fbea65284c9844d343a",
+      "sha256": "03338e3d9ae3551eb538f94f6273061dc9467c02c56353db20e6fe5bbd8a67fa",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language",
-      "hibr": "0.99.519"
+      "hibr": "0.99.522"
     },
     "loginmgr": {
       "title": "Login Manager",

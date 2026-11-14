@@ -439,6 +439,11 @@ ENTHIBR["apps/files"]=0.99.520
 # The keyboard on the menu bar became an item of its own in 0.99.521: the
 # window manager before it draws the item itself and has no dt_kbshow.
 ENTHIBR["menubar/keyboard"]=0.99.521
+# Its name shown or not (DT_KBNAME) is 0.99.522's, which its strict file
+# cannot create on an older desktop; and the Language pane's row for it, the
+# same.
+ENTHIBR["menubar/keyboard"]=0.99.522
+ENTHIBR["control-panel/language"]=0.99.522
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
