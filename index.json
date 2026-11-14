@@ -1546,15 +1546,15 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.10",
+      "version": "3.99.11",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "5f8af41a1338003ab8ac384e0a0b279c0bacbaf15657f482e3d3d5c559e59c0a",
-      "about": "The desktop's own words in العربية (ar): 1578 strings, read right to left.",
+      "sha256": "f7c971121fb83b9a93a612b02a82b97a40c0e093670ecd26c6888e4578a482d1",
+      "about": "The desktop's own words in العربية (ar): 1422 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
-      "hibr": "0.99.187"
+      "hibr": "0.99.523"
     },
     "cli/longwire-switchboard": {
       "title": "longwire-switchboard",

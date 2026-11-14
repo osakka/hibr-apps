@@ -446,6 +446,10 @@ ENTHIBR["menubar/keyboard"]=0.99.521
 # same.
 ENTHIBR["menubar/keyboard"]=0.99.522
 ENTHIBR["control-panel/language"]=0.99.522
+# Arabic 3.99.11 no longer carries the Browser's and YouTube's words, which
+# are their own parts now (lang/browser.ar.json, youtube.ar.json): a desktop
+# before 0.99.523 cannot add those, so it keeps the Arabic it has.
+ENTHIBR["lang/ar"]=0.99.523
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
