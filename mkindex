@@ -453,6 +453,15 @@ ENTHIBR["control-panel/language"]=0.99.522
 # are their own parts now (lang/browser.ar.json, youtube.ar.json): a desktop
 # before 0.99.523 cannot add those, so it keeps the Arabic it has.
 ENTHIBR["lang/ar"]=0.99.523
+# The menu bar's one rule (0.99.531, the owner): keyboard and tray are
+# catalogue-only with their panes as parts, the tray asks for its names with
+# `dbus tray on` and draws icons through `img flatten`, the keyboard keeps
+# DT_KBNAME itself, Program Notifications is its own entry on wm/bus.hibr,
+# and Language no longer holds the keyboard's row -- all of 0.99.531.
+ENTHIBR["menubar/keyboard"]=0.99.531
+ENTHIBR["menubar/tray"]=0.99.531
+ENTHIBR["control-panel/pnotes"]=0.99.531
+ENTHIBR["control-panel/language"]=0.99.531
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

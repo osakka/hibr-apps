@@ -839,15 +839,15 @@
     },
     "control-panel/language": {
       "title": "Language & Region",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "03338e3d9ae3551eb538f94f6273061dc9467c02c56353db20e6fe5bbd8a67fa",
+      "sha256": "2faaaa744ab5ea91d55df80a0b43bb43f3f35e898ba6246dfa984bdc191bc89d",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language",
-      "hibr": "0.99.522"
+      "hibr": "0.99.531"
     },
     "control-panel/loginmgr": {
       "title": "Login Manager",
@@ -945,6 +945,18 @@
       "author": "Omar Sakka",
       "name": "pictures",
       "hibr": "0.99.403"
+    },
+    "control-panel/pnotes": {
+      "title": "Program Notifications",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/pnotes.hibr",
+      "sha256": "552cf256f6dc04e40bba7534cda794e28d16ae3c15f59a38558ba74821cd1d1a",
+      "about": "Programs' notifications as the desktop's own, and their pane\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15), its pane and the listener behind it in one file. Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "pnotes",
+      "hibr": "0.99.531"
     },
     "control-panel/power": {
       "title": "Power",
@@ -1150,15 +1162,23 @@
     },
     "menubar/keyboard": {
       "title": "Keyboard",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "menubar",
       "bundle": "bundles/menubar/keyboard.hibr",
-      "sha256": "b5ed618078ffb73de7c9205dd2b811d3b48423d6bc74e57e45cb252b1f7cf0fe",
-      "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has.",
+      "sha256": "3aa70e10baa71f93cd5e5125df498ea542b4fd221d98edb2e61976ac070e596e",
+      "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has. A catalogue entry, not part of the package (the owner, 2026-11-15), and it brings its own pane.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "keyboard",
-      "hibr": "0.99.522"
+      "hibr": "0.99.531",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "kbdbar.hibr",
+          "path": "bundles/control-panel/kbdbar.hibr",
+          "sha256": "269c3779b1bc5410d6e4b79f1a52954f3c8e7734305c02d4612b9ffc98692938"
+        }
+      ]
     },
     "menubar/longwire": {
       "title": "Longwire",
@@ -1207,6 +1227,26 @@
       "author": "Omar Sakka",
       "name": "sound",
       "hibr": "0.99.400"
+    },
+    "menubar/tray": {
+      "title": "Tray Icons",
+      "version": "1.0.2",
+      "kind": "menubar",
+      "bundle": "bundles/menubar/tray.hibr",
+      "sha256": "1e36d30d5660a9e8b7ff07cf6a96a39749779c9c454b31d2a07b078a0316f19f",
+      "about": "Programs' tray icons on the menu bar (Gitea #505): Steam, a chat program, anything that puts up a StatusNotifierItem. A catalogue entry, not part of the package (the owner, 2026-11-15): installed, the desktop asks to be the session's tray -- its watcher, or a host where another program already is -- and each item a program registers is drawn on the bar as its own picture, or its letter where the terminal shows no pixels. A left click activates the program (or opens its menu, as chosen, or for one that is only a menu), a right click opens its menu in its own words, the wheel scrolls it. Switched off or removed, the desktop lets the names go, so no program hides itself in a tray nobody draws.\n\nThe bus is never waited on, and this does not read it: wm/bus.hibr does, once for everybody, and hands this the events it asks for.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "tray",
+      "hibr": "0.99.531",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "trayset.hibr",
+          "path": "bundles/control-panel/trayset.hibr",
+          "sha256": "9a4c86de4cb5925aa8a009de634e5bb7536157263a21a1bdbfa26a8c579c3df1"
+        }
+      ]
     },
     "menubar/wiretap": {
       "title": "Wiretap",
@@ -1585,11 +1625,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.12",
+      "version": "3.99.13",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "5db52dbd22930514144bf3ca4d720cff1ef428823e6449a071a278ed72653a04",
-      "about": "The desktop's own words in العربية (ar): 1423 strings, read right to left.",
+      "sha256": "71e175a8fabdb7f20543dad6d4deae48257e05835ce63998a08b3a885f4daecf",
+      "about": "The desktop's own words in العربية (ar): 1445 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2295,15 +2335,15 @@
     },
     "language": {
       "title": "Language & Region",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "03338e3d9ae3551eb538f94f6273061dc9467c02c56353db20e6fe5bbd8a67fa",
+      "sha256": "2faaaa744ab5ea91d55df80a0b43bb43f3f35e898ba6246dfa984bdc191bc89d",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language",
-      "hibr": "0.99.522"
+      "hibr": "0.99.531"
     },
     "loginmgr": {
       "title": "Login Manager",
@@ -2377,6 +2417,18 @@
       "author": "Omar Sakka",
       "name": "pictures",
       "hibr": "0.99.403"
+    },
+    "pnotes": {
+      "title": "Program Notifications",
+      "version": "1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/pnotes.hibr",
+      "sha256": "552cf256f6dc04e40bba7534cda794e28d16ae3c15f59a38558ba74821cd1d1a",
+      "about": "Programs' notifications as the desktop's own, and their pane\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15), its pane and the listener behind it in one file. Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "pnotes",
+      "hibr": "0.99.531"
     },
     "screensaver": {
       "title": "Screen Saver",
