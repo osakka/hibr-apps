@@ -45,6 +45,21 @@ Dir.mktmpdir('blit-mouse') do |root|
           for ((i = 0; i < n; i++)); do [ "${CP[$w][$i][text]}" = "$text" ] && return 0; done
           return 1
       }
+      # hibr 0.99.534: a dropdown row declares its list (cp_choice), and the
+      # panel's own cp_rowstep steps it, as the arrows do. Rows are built
+      # again first, so the step starts from the value in force.
+      fn step(int w, rows, key, int dir) {
+          local i n
+          n := "$rows" "$w"
+          for ((i = 0; i < n; i++)); do
+              if [ "${CP[$w][$i][key]}" = "$key" ]; then
+                  [ "${CP[$w][$i][set]}" = blit_cp_set ] && [ "${CP[$w][$i][sarg]}" = "$key" ] ||
+                      { echo "row $key declares no list" >&2; exit 97; }
+                  cp_rowstep "$w" "$i" "$dir"; return 0
+              fi
+          done
+          echo "no row $key" >&2; exit 98
+      }
       fn finish() {
           local i=0
           while [ "$BCP_BUSY" = 1 ]; do blit_cp_poll; /bin/sleep 0.02; i=$((i+1)); [ "$i" -lt 800 ] || exit 90; done
@@ -58,28 +73,26 @@ Dir.mktmpdir('blit-mouse') do |root|
       [ "$selected" = 0 ] || { echo 'mixed keyboard/pointer ignored'; exit 13; }
       id=$BCP_POINTER_ID
       # Popup callbacks apply the exact choice, never another cp_next step.
-      BCP_DROP_KEY[45]=shape
-      blit_cp_selected 45 precision
+      blit_cp_set 45 precision shape
       [ "${BCP_DRAFT[pointer][shape]}" = precision ] || exit 25
-      blit_cp_selected 45 invalid
+      blit_cp_set 45 invalid shape
       [ "${BCP_DRAFT[pointer][shape]}" = precision ] || exit 26
       blit_cp_choose shape arrow
       blit_cp_choose palette amber
       [ "${BCP_DRAFT[pointer][palette]}" = amber ] || exit 27
       blit_cp_choose palette pearl
-      BCP_DROP_KEY[45]=device
       blit_cp_choices device
-      blit_cp_selected 45 "${BCP_CHOICES[1]}"
+      blit_cp_set 45 "${BCP_CHOICES[1]}" device
       [ "$BCP_POINTER_ID" != "$id" ] || exit 28
       blit_cp_choose device "$id"
-      blit_mouse_do 45 shape 1
-      blit_mouse_do 45 palette 1
+      step 45 blit_mouse_rows shape 1
+      step 45 blit_mouse_rows palette 1
       blit_mouse_do 45 shadow 1
       blit_mouse_slide 45 size 48
       blit_mouse_slide 45 sensitivity 175
       blit_mouse_slide 45 wheel 4
       blit_mouse_do 45 natural 1
-      blit_mouse_do 45 acceleration 1
+      step 45 blit_mouse_rows acceleration 1
       [ "${BCP_DRAFT[pointer][shape]}" = hand ] && [ "${BCP_DRAFT[pointer][palette]}" = obsidian ] || exit 14
       [ "${BCP_DRAFT[pointer][size_px]}" = 48 ] && [ "${BCP_DRAFT[pointer][shadow]}" = false ] || exit 15
       [ "$BCP_BUSY" = 0 ] && [ "$BCP_DIRTY" = 1 ] || exit 16
@@ -100,7 +113,7 @@ Dir.mktmpdir('blit-mouse') do |root|
       ! hasrow 45 "$n" "Disable While Typing" || { echo 'a mouse offered disable while typing'; exit 36; }
       blit_mouse_do 45 tap 1
       [ -z "${BCP_DRAFT[input_devices][$id][tap_to_click]}" ] || exit 30
-      blit_mouse_do 45 device 1
+      step 45 blit_mouse_rows device 1
       [ "$BCP_POINTER_ID" != "$id" ] || exit 24
       n := blit_mouse_rows 45
       hasrow 45 "$n" "Tap to Click" || { echo 'the touchpad offered no tap'; exit 31; }

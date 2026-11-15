@@ -66,6 +66,21 @@ Dir.mktmpdir('blit-panel') do |root|
           [ "$BCP_TEST_WAKE" != 0 ] || BCP_TEST_WAKE=$ms
           return 0
       }
+      # hibr 0.99.534: a dropdown row declares its list (cp_choice), and the
+      # panel's own cp_rowstep steps it, as the arrows do. Rows are built
+      # again first, so the step starts from the value in force.
+      fn step(int w, rows, key, int dir) {
+          local i n
+          n := "$rows" "$w"
+          for ((i = 0; i < n; i++)); do
+              if [ "${CP[$w][$i][key]}" = "$key" ]; then
+                  [ "${CP[$w][$i][set]}" = blit_cp_set ] && [ "${CP[$w][$i][sarg]}" = "$key" ] ||
+                      { echo "row $key declares no list" >&2; exit 97; }
+                  cp_rowstep "$w" "$i" "$dir"; return 0
+              fi
+          done
+          echo "no row $key" >&2; exit 98
+      }
       fn finish() {
           local i=0
           while [ "$BCP_BUSY" = 1 ]; do
@@ -81,10 +96,9 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_cp_start refresh
       finish
       [ "$BCP_BASE_REV" -ge 0 ] || { echo "refresh failed: $BCP_STATUS" >&2; exit 1; }
-      BCP_DROP_KEY[44]=primary
-      blit_cp_selected 44 "${BCP_SNAPSHOT[topology][panes][0][id]}"
+      blit_cp_set 44 "${BCP_SNAPSHOT[topology][panes][0][id]}" primary
       [ "${BCP_DRAFT[login][preferred_pane_id]}" = "${BCP_SNAPSHOT[topology][panes][0][id]}" ] || exit 55
-      blit_cp_selected 44 auto
+      blit_cp_set 44 auto primary
       [ "${BCP_DRAFT[login][preferred_pane_id]}" = null ] || exit 56
       blit_cp_choose fallback wait
       blit_cp_choose fallback invalid
@@ -305,7 +319,7 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_cp_choose frame_timing immediate
       blit_cp_choose frame_timing soon
       [ "${BCP_DRAFT[server][kms_compositor]}" = cpu ] && [ "${BCP_DRAFT[server][kms_frame_timing]}" = immediate ] || { echo 'rendering choices not staged' >&2; exit 65; }
-      blit_do 44 frame_timing 1
+      step 999999 blit_rows frame_timing 1
       [ "${BCP_DRAFT[server][kms_frame_timing]}" = late ] || { echo 'frame timing does not step' >&2; exit 66; }
       blit_cp_choose frame_timing immediate
       # Blit Effects: its own pane, live. The draft holds staged edits here

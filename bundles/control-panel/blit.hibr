@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.35
+app blit "API configuration and diagnostics for the Blit display server" 0.1.36
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -83,7 +83,6 @@ BCP_REPLY=
 BCP_EDITKEY=
 DAV_CODE=
 declare -gA BCP_SNAPSHOT BCP_LIVE BCP_DRAFT BCP_HTTP BCP_EFFECTS BCP_FX BCP_ZAP BCP_KBLIVE BCP_KBAVAIL BCP_KBVARS
-declare -gA BCP_DROP_KEY
 declare -ga BCP_CHOICES
 BCP_CHOICE_CURRENT=
 json parse BCP_SNAPSHOT '{}'
@@ -535,6 +534,36 @@ fn blit_cp_toggle(output, ordinal) {
 fn blit_cp_row(int w, int n, kind, text, value = "", key = "", wtype = "") {
     CP[$w][$n][kind]=$kind; CP[$w][$n][text]=$text
     CP[$w][$n][val]=$value; CP[$w][$n][key]=$key; CP[$w][$n][wtype]=$wtype
+    # hibr 0.99.534 (Gitea #558): a dropdown row declares its list once, from
+    # the pane's one choice source, and the panel opens it on the value in
+    # force, ticked, and steps the same list on the arrows. A row with
+    # nothing to choose shows its value with no caret.
+    [ "$kind" = set ] && [ -n "$key" ] || return 0
+    case $wtype in bool | slider) return 0 ;; esac
+    blit_cp_choices "$key"
+    cp_choice "$w" "$n" "$BCP_CHOICE_CURRENT" blit_cp_set "${BCP_CHOICES[@]}"
+    CP[$w][$n][sarg]=$key
+    # Stored as an id, said as a name: a device, or the layout not yet chosen.
+    case $key in device | kbdevice | kbaddlayout) CP[$w][$n][vname]=blit_cp_vname ;; esac
+    return 0
+}
+
+# A row's chosen value, from the panel's list or its arrows (cp_choice).
+fn blit_cp_set(int w, value, key) {
+    blit_cp_choose "$key" "$value"
+}
+
+# A stored value in words: a device id as its name; nothing chosen as "choose".
+fn blit_cp_vname(v) {
+    local i=0
+    [ -n "$v" ] || { ret choose; return 0; }
+    while [ -n "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" ]; do
+        if [ "${BCP_SNAPSHOT[input_devices][devices][$i][id]}" = "$v" ]; then
+            ret "${BCP_SNAPSHOT[input_devices][devices][$i][name]}"; return 0
+        fi
+        i=$((i + 1))
+    done
+    ret "$v"
 }
 
 # Whether a display offers pixel zoom: Blit 0.3.26 lists it in capabilities.
@@ -927,7 +956,6 @@ fn blit_effects_rows(int w) {
 }
 fn blit_effects_do(int w, key, int dir) { blit_do "$w" "$key" "$dir"; }
 fn blit_effects_slide(int w, key, int value) { blit_slide "$w" "$key" "$value"; }
-fn blit_effects_drop(int w, int r, int c, key) { blit_drop "$w" "$r" "$c" "$key"; }
 
 # One slider per effect Blit lists, for one pane. Its range is Blit's own:
 # brightness and contrast run -100..100 around 0 (Blit ADR 0207), the rest
@@ -1314,19 +1342,6 @@ fn blit_cp_choose(key, value) {
     return 0
 }
 
-fn blit_cp_selected(int w, value) {
-    blit_cp_choose "${BCP_DROP_KEY[$w]}" "$value"
-}
-fn blit_drop(int w, int r, int c, key) {
-    [ "$BCP_BUSY" = 0 ] || { [ "$key" != font ] && [ "$key" != hinting ] && [ "$key" != kbcurrent ] && [ "$key" != kbaddlayout ]; } || return 0
-    blit_cp_choices "$key"
-    [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
-    BCP_DROP_KEY[$w]=$key
-    dt_droplist "$w" "$r" "$c" blit_cp_selected "${BCP_CHOICES[@]}"
-}
-fn blit_mouse_drop(int w, int r, int c, key) {
-    blit_drop "$w" "$r" "$c" "$key"
-}
 
 fn blit_do(int w, key, int dir) {
     local raw body pane=auto i=0 value tenths output ordinal
@@ -1353,11 +1368,6 @@ fn blit_do(int w, key, int dir) {
     enabled)
         value=true; [ "${BCP_DRAFT[login][enabled]:-true}" = true ] && value=false
         json set BCP_DRAFT .login.enabled "$value"; BCP_DIRTY=1 ;;
-    primary | fallback | font | compositor | frame_timing | hud_corner | update_restart | fxcolor:* | fxkind:*)
-        blit_cp_choices "$key"
-        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
-        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
-        blit_cp_choose "$key" "$value" ;;
     aux:*) output=${key#aux:}; ordinal=${output##*:}; output=${output%:*}; blit_cp_toggle "$output" "$ordinal" ;;
     apply | retry)
         raw := blit_cp_auxiliary_json
@@ -1663,11 +1673,6 @@ fn blit_mouse_slide(int w, key, int value) {
 fn blit_mouse_do(int w, key, int dir) {
     local value raw i
     case $key in
-    shape | palette | device | acceleration)
-        blit_cp_choices "$key"
-        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
-        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
-        blit_cp_choose "$key" "$value" ;;
     shadow) value=true; [ "${BCP_DRAFT[pointer][shadow]:-true}" != true ] || value=false
         json set BCP_DRAFT .pointer.shadow "$value"; BCP_DIRTY=1 ;;
     size) blit_mouse_slide "$w" size "$(( ${BCP_DRAFT[pointer][size_px]:-24} + dir ))" ;;
@@ -1936,16 +1941,6 @@ fn blit_keyboard_do(int w, key, int dir) {
         BCP_KBL+=("$BCP_KBADD_LAYOUT"); BCP_KBV+=("$BCP_KBADD_VARIANT")
         BCP_KBADD_LAYOUT=; BCP_KBADD_VARIANT=
         blit_kb_store ;;
-    kbcurrent | kbaddlayout | kbaddvariant)
-        blit_cp_choices "$key"
-        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
-        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
-        blit_cp_choose "$key" "$value" ;;
-    kbdevice | capsboot | numboot | capskey | superkey)
-        blit_cp_choices "$key"
-        [ "${#BCP_CHOICES[@]}" -gt 0 ] || return 0
-        value := cp_next "$BCP_CHOICE_CURRENT" "$dir" "${BCP_CHOICES[@]}"
-        blit_cp_choose "$key" "$value" ;;
     delay | rate)
         i := blit_keyboard_index; [ "$i" -ge 0 ] || return 0
         raw := blit_keyboard_raw "$i"; json parse cfg "$raw"
@@ -1955,9 +1950,6 @@ fn blit_keyboard_do(int w, key, int dir) {
     *) blit_do "$w" "$key" "$dir" ;;
     esac
     return 0
-}
-fn blit_keyboard_drop(int w, int r, int c, key) {
-    blit_drop "$w" "$r" "$c" "$key"
 }
 
 fn blit_cp_exported(path, context = "") {

@@ -754,15 +754,15 @@
     },
     "control-panel/blit": {
       "title": "Blit",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "6855c3809ea6dc13e19725b8a488c079ba0db55c2482849a4855ab5cd61d01a0",
+      "sha256": "28120edadcb80ce75cc43dc4fb5e29f897e0d5645eea42ab6f44f34a91f5cd6b",
       "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request is hibr's own dav request, in a bounded background job of the desktop's (dt_job); no curl, and the token never on a command line. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested. The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps), not the Blit tree.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "blit",
-      "hibr": "0.99.297"
+      "hibr": "0.99.534"
     },
     "control-panel/bluetooth": {
       "title": "Bluetooth",
@@ -2267,15 +2267,15 @@
     },
     "blit": {
       "title": "Blit",
-      "version": "0.1.35",
+      "version": "0.1.36",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/blit.hibr",
-      "sha256": "6855c3809ea6dc13e19725b8a488c079ba0db55c2482849a4855ab5cd61d01a0",
+      "sha256": "28120edadcb80ce75cc43dc4fb5e29f897e0d5645eea42ab6f44f34a91f5cd6b",
       "about": "API configuration and diagnostics for the Blit display server.\n\nAuxiliary Apply changes the running policy; Save as Default writes Blit's existing settings resource with revision protection. Login preferences take effect at restart. Font changes use Blit's live-and-saved font API. Hibr Displays continues to own native desktop arrangement after initial attachment. Every network request is hibr's own dav request, in a bounded background job of the desktop's (dt_job); no curl, and the token never on a command line. The connection token is kept in a private user file, is masked in its editor, and is excluded from configuration exports. The privileged updater token is never requested. The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps), not the Blit tree.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "blit",
-      "hibr": "0.99.297"
+      "hibr": "0.99.534"
     },
     "control-strip": {
       "title": "Control Strip",
