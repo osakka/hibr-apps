@@ -254,10 +254,10 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "2.5.3",
+      "version": "2.5.4",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "a26ab9296992fa89bd530b1f5513d4bfdee2155da0aabf5855424157c446ea2f",
+      "sha256": "b7fbc315d46f4a0b206bee49e5ad6462952bb13347fa401fd89c071b7087a6f0",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1154,21 +1154,21 @@
     },
     "menubar/tray": {
       "title": "Tray Icons",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "kind": "menubar",
       "bundle": "bundles/menubar/tray.hibr",
-      "sha256": "2b59a5f6e5518dba527b7941dc3cd9c13ee2b4f58a4e8c99de22d2c84a360f14",
+      "sha256": "e02a25372820c32908109902314a5d9ed1057ffd3568bb1d6258a86cb26db8d8",
       "about": "Programs' tray icons on the menu bar (Gitea #505): Steam, a chat program, anything that puts up a StatusNotifierItem. A catalogue entry, not part of the package (the owner, 2026-11-15): installed, the desktop asks to be the session's tray -- its watcher, or a host where another program already is -- and each item a program registers is drawn on the bar as its own picture, or its letter where the terminal shows no pixels. A left click activates the program (or opens its menu, as chosen, or for one that is only a menu), a right click opens its menu in its own words, the wheel scrolls it. Switched off or removed, the desktop lets the names go, so no program hides itself in a tray nobody draws.\n\nThe bus is never waited on, and this does not read it: wm/bus.hibr does, once for everybody, and hands this the events it asks for.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tray",
-      "hibr": "0.99.535",
+      "hibr": "0.99.539",
       "parts": [
         {
           "kind": "control-panel",
           "as": "trayset.hibr",
           "path": "bundles/control-panel/trayset.hibr",
-          "sha256": "a774134c70877ee44846e624f50126d418fac20ccc4e0de4577d20b3bd84b5d4"
+          "sha256": "96b25c18cacd3517e1bc3a0b9688a3cb24ebb5537ca4cff54bfce486e9ee2177"
         }
       ]
     },
@@ -1875,10 +1875,10 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "2.5.3",
+      "version": "2.5.4",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "a26ab9296992fa89bd530b1f5513d4bfdee2155da0aabf5855424157c446ea2f",
+      "sha256": "b7fbc315d46f4a0b206bee49e5ad6462952bb13347fa401fd89c071b7087a6f0",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
