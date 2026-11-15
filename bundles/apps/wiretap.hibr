@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.8.2
+app wtview "Wiretap: a live graph and every app's traffic" 0.8.3
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -22,6 +22,7 @@ if command -v dt_app > /dev/null; then
 fi
 
 declare -gA WV
+declare -gi WV_WAIT0=0		# when this window first had nothing to show (SECONDS), for the waiting note
 WV_SCALES=(1m 1h 24h 7d)
 WV_LABELS=("1 min" "1 hour" "24 hours" "7 days")
 WV_AGE=("60 s ago" "1 h ago" "24 h ago" "7 d ago")
@@ -610,7 +611,15 @@ fn wtview_draw(int id, int h, int w, int row, int col) {
 		wv_put "$id" 2 2 "The wiretap module is not installed. Install the package (apt install wiretap)."
 		return 0
 	fi
-	if [ "$WTP_SEEN" = 0 ]; then		# the first reading is on its way (a job): say nothing wrong meanwhile
+	if [ "$WTP_SEEN" = 0 ]; then		# the first reading is on its way (a job): say nothing wrong for a moment, then say what it is waiting for
+		local waited
+		[ "$WV_WAIT0" -gt 0 ] || WV_WAIT0=$SECONDS
+		waited=$((SECONDS - WV_WAIT0))
+		if [ "$waited" -ge 3 ]; then
+			console pen "$DT_DIM" "$DT_FACE"
+			wv_put "$id" 2 2 "Waiting for the first reading from the node (${waited}s)..."
+			[ "$waited" -lt 6 ] || wv_put "$id" 4 2 "reading job running: $WTP_BUSY   module loaded: $WTP_MOD   node answering: $WTP_UP"
+		fi
 		dt_want 100
 		return 0
 	fi

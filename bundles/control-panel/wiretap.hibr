@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.2
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.3
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -63,6 +63,14 @@ fn wtp_hue(name) {
 declare -ga WTP_ASN=() WTP_ASRX=() WTP_ASTX=()
 declare -gi WTP_ASCNT=0 WTP_ASAT=-100
 declare -gi WTP_ASBUSY=0 WTP_HBUSY=0 WTP_ASSTR=60
+declare -gi WTP_BUSYAT=0 WTP_HBUSYAT=0 WTP_RBUSYAT=0 WTP_ASBUSYAT=0		# when each job was started (SECONDS), to tell a slow job from a lost one
+
+# A job that has not come back in 20 seconds is taken as lost (its answer never arrived), said in desktop.log, and the next call starts another;
+# without this a lost answer leaves the flag set for good, nothing is ever read again, and the window stays blank.
+fn wtp_lost(what) {
+	command -v dt_log > /dev/null && dt_log "wiretap: the $what job did not come back in 20 s; starting another"
+	return 0
+}
 declare -g WTP_ASKEY="" WTP_ASKEYR="" WTP_ASK="" WTP_ASQ=""
 # Programs for a timescale (sc is 1m, 1h, 24h or 7d; cols the columns the graph has): asked for at most once a second on the
 # 1-minute scale, every ten seconds on the others (ADR 0032). The answer is WTP_ASN with, for program j, column i at j*WTP_ASSTR+i,
@@ -86,8 +94,9 @@ fn wtp_appseries(sc = 1m, int cols = 60) {
 	fi
 	WTP_ASK=$key
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then		# on a desktop a job reads it (ADR 0031)
+		if [ "$WTP_ASBUSY" = 1 ] && [ $((SECONDS - WTP_ASBUSYAT)) -gt 20 ]; then wtp_lost "programs"; WTP_ASBUSY=0; fi
 		[ "$WTP_ASBUSY" = 0 ] || return 0
-		WTP_ASBUSY=1
+		WTP_ASBUSY=1; WTP_ASBUSYAT=$SECONDS
 		dt_jobvars wtp appseries wtp_asdone wtp_asfetch WTP_ASN WTP_ASRX WTP_ASTX WTP_ASCNT WTP_ASSTR WTP_ASKEYR > /dev/null || { WTP_ASBUSY=0; wtp_asfetch; }
 		return 0
 	fi
@@ -149,8 +158,9 @@ fn wtp_hosts() {
 	[ $((SECONDS - WTP_HAT)) -ge 2 ] || return 0
 	WTP_HAT=$SECONDS
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
+		if [ "$WTP_HBUSY" = 1 ] && [ $((SECONDS - WTP_HBUSYAT)) -gt 20 ]; then wtp_lost "hosts"; WTP_HBUSY=0; fi
 		[ "$WTP_HBUSY" = 0 ] || return 0
-		WTP_HBUSY=1
+		WTP_HBUSY=1; WTP_HBUSYAT=$SECONDS
 		dt_jobvars wtp hosts wtp_hdone wtp_hfetch WTP_H MH_ROW MP_NAME MP_TOT MP_RX MP_TX MP_CNT MP_RATE MP_HOSTS MTOTAL MNOW MHOSTS MKNOWN MRATEMAX MSNAP MSNAPAT > /dev/null || { WTP_HBUSY=0; wtp_hfetch; WTP_HGEN=$((WTP_HGEN + 1)); }
 		return 0
 	fi
@@ -542,9 +552,10 @@ fn wtp_polled(int n, int st) {
 fn wtp_poll() {
 	[ "$WTP_T" -lt 0 ] || [ $((SECONDS - WTP_T)) -ge 1 ] || return 0
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
+		if [ "$WTP_BUSY" = 1 ] && [ $((SECONDS - WTP_BUSYAT)) -gt 20 ]; then wtp_lost "reading"; WTP_BUSY=0; fi
 		[ "$WTP_BUSY" = 0 ] || return 0
-		WTP_BUSY=1
-		dt_jobvars wtp "" wtp_polled wtp_read WTP_S WTP_A WTP_SER WTP_UP WTP_MOD WT_SOCK WTP_FWON > /dev/null || { WTP_BUSY=0; WTP_T=$SECONDS; wtp_read; }
+		WTP_BUSY=1; WTP_BUSYAT=$SECONDS
+		dt_jobvars wtp "" wtp_polled wtp_read WTP_S WTP_A WTP_SER WTP_UP WTP_MOD WT_SOCK WTP_FWON > /dev/null || { WTP_BUSY=0; WTP_T=$SECONDS; wtp_read; WTP_SEEN=1; }
 		return 0
 	fi
 	WTP_T=$SECONDS
@@ -581,8 +592,9 @@ fn wtp_range(sc, int cols) {
 	if [ "$WTP_UP" != 1 ]; then WTP_RKEY=$key; WTP_RSEEN=$SECONDS; WTP_RI=(); WTP_RO=(); return 0; fi
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
 		# on a desktop: read in a job and draw what is there; the columns follow when it is back (never wait on the node in a frame)
+		if [ "$WTP_RBUSY" = 1 ] && [ $((SECONDS - WTP_RBUSYAT)) -gt 20 ]; then wtp_lost "graph"; WTP_RBUSY=0; fi
 		[ "$WTP_RBUSY" = 0 ] || return 0
-		WTP_RBUSY=1; WTP_RSEEN=$SECONDS
+		WTP_RBUSY=1; WTP_RSEEN=$SECONDS; WTP_RBUSYAT=$SECONDS
 		WTP_RQ="$secs $cnt"; WTP_RCOLS=$cols; WTP_RSECS=$secs; WTP_RJOB=$key
 		if [ "$key" != "$WTP_RKEY" ]; then WTP_RI=(); WTP_RO=(); fi
 		dt_jobvars wtp range wtp_ranged wtp_rfetch WTP_RNG > /dev/null || { WTP_RBUSY=0; WTP_RKEY=$key; wtp_rfetch; wtp_rbuild; }
