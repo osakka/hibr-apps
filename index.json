@@ -254,10 +254,10 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "2.5.2",
+      "version": "2.5.3",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "6edd8f01e09d41b4292bc53ba4c7c2e967528890130854381411c5634a869088",
+      "sha256": "a26ab9296992fa89bd530b1f5513d4bfdee2155da0aabf5855424157c446ea2f",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -767,10 +767,10 @@
     },
     "control-panel/language": {
       "title": "Language & Region",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "d12bc0a408126b80bfd63f35208983057eccb50caacdf036747760249c2cdbaa",
+      "sha256": "a3b81ab798251a201464f1612f6bfd5df240684c45873181f3b3da30d290ed84",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1094,23 +1094,15 @@
     },
     "menubar/keyboard": {
       "title": "Keyboard",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "menubar",
       "bundle": "bundles/menubar/keyboard.hibr",
-      "sha256": "3aa70e10baa71f93cd5e5125df498ea542b4fd221d98edb2e61976ac070e596e",
-      "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has. A catalogue entry, not part of the package (the owner, 2026-11-15), and it brings its own pane.",
+      "sha256": "cc004d0fa69e41f0eb46b236024e15e5299aa7908be26c965f1234926129da65",
+      "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has. A catalogue entry, not part of the package (the owner, 2026-11-15). Its one setting is a row of Language & Region, there while this is installed, not a pane of its own (the owner, 2026-11-15, 0.99.538).",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "keyboard",
-      "hibr": "0.99.531",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "kbdbar.hibr",
-          "path": "bundles/control-panel/kbdbar.hibr",
-          "sha256": "269c3779b1bc5410d6e4b79f1a52954f3c8e7734305c02d4612b9ffc98692938"
-        }
-      ]
+      "hibr": "0.99.538"
     },
     "menubar/longwire": {
       "title": "Longwire",
@@ -1557,11 +1549,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.15",
+      "version": "3.99.16",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "bac397f4941a4f13bfeb67dac0799857a30fd4c39077e0111c31cbfa846e8ca3",
-      "about": "The desktop's own words in العربية (ar): 1443 strings, read right to left.",
+      "sha256": "4245656c7a986640ac85718d8125f98e0a45230533d6df97e29ee2995e139edc",
+      "about": "The desktop's own words in العربية (ar): 1441 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1883,10 +1875,10 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "2.5.2",
+      "version": "2.5.3",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "6edd8f01e09d41b4292bc53ba4c7c2e967528890130854381411c5634a869088",
+      "sha256": "a26ab9296992fa89bd530b1f5513d4bfdee2155da0aabf5855424157c446ea2f",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2261,10 +2253,10 @@
     },
     "language": {
       "title": "Language & Region",
-      "version": "1.0.6",
+      "version": "1.0.7",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "d12bc0a408126b80bfd63f35208983057eccb50caacdf036747760249c2cdbaa",
+      "sha256": "a3b81ab798251a201464f1612f6bfd5df240684c45873181f3b3da30d290ed84",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
