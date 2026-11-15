@@ -697,10 +697,10 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.6.1",
+      "version": "1.6.2",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "debb20e5a1be5bd6e1d57dae540da204d31c084ce0ab57d739a10ce0e507b3a8",
+      "sha256": "c481dae37d804af302ed3ffd750a18bde68c4375b4db7043274f4fe3f5b4cb28",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -711,7 +711,7 @@
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "3171d3b8079318e668ea41fd4a43b3b825787386908e7db745d4a51434acaa48"
+          "sha256": "0459e9bf86ddcdf95fbd2e11bdcb5ac41ed51788a1cbff349d012f913dcb5bd4"
         }
       ]
     },
@@ -979,15 +979,15 @@
     },
     "control-panel/pnotes": {
       "title": "Program Notifications",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pnotes.hibr",
-      "sha256": "552cf256f6dc04e40bba7534cda794e28d16ae3c15f59a38558ba74821cd1d1a",
-      "about": "Programs' notifications as the desktop's own, and their pane\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15), its pane and the listener behind it in one file. Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
+      "sha256": "7097acbbec680b8294996dafa078d30293bbaf024dc27c9b0a49907dd199ef01",
+      "about": "Programs' notifications as the desktop's own, switched in Notifications\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15). The listener alone: its switch is a row of Notifications, which shows it while this is installed, since a pane of its own beside Notifications was a second place for the same notes (the owner, 2026-11-15, 0.99.536). Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pnotes",
-      "hibr": "0.99.531"
+      "hibr": "0.99.536"
     },
     "control-panel/power": {
       "title": "Power",
@@ -1264,15 +1264,15 @@
     },
     "menubar/tray": {
       "title": "Tray Icons",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "kind": "menubar",
       "bundle": "bundles/menubar/tray.hibr",
-      "sha256": "ee205fde95ff767e4e506b2aa54c4f374fa44315545e1de6d2d8fef7cb161b78",
+      "sha256": "2b59a5f6e5518dba527b7941dc3cd9c13ee2b4f58a4e8c99de22d2c84a360f14",
       "about": "Programs' tray icons on the menu bar (Gitea #505): Steam, a chat program, anything that puts up a StatusNotifierItem. A catalogue entry, not part of the package (the owner, 2026-11-15): installed, the desktop asks to be the session's tray -- its watcher, or a host where another program already is -- and each item a program registers is drawn on the bar as its own picture, or its letter where the terminal shows no pixels. A left click activates the program (or opens its menu, as chosen, or for one that is only a menu), a right click opens its menu in its own words, the wheel scrolls it. Switched off or removed, the desktop lets the names go, so no program hides itself in a tray nobody draws.\n\nThe bus is never waited on, and this does not read it: wm/bus.hibr does, once for everybody, and hands this the events it asks for.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tray",
-      "hibr": "0.99.534",
+      "hibr": "0.99.535",
       "parts": [
         {
           "kind": "control-panel",
@@ -1659,11 +1659,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.14",
+      "version": "3.99.15",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "ee8ed1eaf19679faa8b4107fdca751e0609aff396e63cd3e383b81081ea17743",
-      "about": "The desktop's own words in العربية (ar): 1444 strings, read right to left.",
+      "sha256": "bac397f4941a4f13bfeb67dac0799857a30fd4c39077e0111c31cbfa846e8ca3",
+      "about": "The desktop's own words in العربية (ar): 1443 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2278,10 +2278,10 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.6.1",
+      "version": "1.6.2",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "debb20e5a1be5bd6e1d57dae540da204d31c084ce0ab57d739a10ce0e507b3a8",
+      "sha256": "c481dae37d804af302ed3ffd750a18bde68c4375b4db7043274f4fe3f5b4cb28",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2506,15 +2506,15 @@
     },
     "pnotes": {
       "title": "Program Notifications",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pnotes.hibr",
-      "sha256": "552cf256f6dc04e40bba7534cda794e28d16ae3c15f59a38558ba74821cd1d1a",
-      "about": "Programs' notifications as the desktop's own, and their pane\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15), its pane and the listener behind it in one file. Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
+      "sha256": "7097acbbec680b8294996dafa078d30293bbaf024dc27c9b0a49907dd199ef01",
+      "about": "Programs' notifications as the desktop's own, switched in Notifications\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15). The listener alone: its switch is a row of Notifications, which shows it while this is installed, since a pane of its own beside Notifications was a second place for the same notes (the owner, 2026-11-15, 0.99.536). Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pnotes",
-      "hibr": "0.99.531"
+      "hibr": "0.99.536"
     },
     "screensaver": {
       "title": "Screen Saver",

@@ -515,6 +515,8 @@ ENTHIBR["control-panel/arabizi"]=0.99.534
 # Blit's pane 0.1.36 declares its dropdowns the same way (cp_choice, one
 # choice source for the four Blit panes).
 ENTHIBR["control-panel/blit"]=0.99.534
+ENTHIBR["menubar/tray"]=0.99.535
+ENTHIBR["control-panel/pnotes"]=0.99.536
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
@@ -834,11 +836,17 @@ fn dirof(path, kind) {
 # four it is. A later `dt_app` is a dialog of its own (Write declares
 # `wrfile` for its file box), so the first is the thing. A Control Strip
 # module and a saver name themselves without quotes, which is why there are
-# two patterns rather than one.
+# two patterns rather than one. A file that registers nothing a person sees
+# by name -- a listener whose switch is a row of another pane -- says it in
+# a `# title:` line instead.
 fn titleof(path, name) {
 	local l
 
 	while read -r l; do
+		if match "$l" '^# title:[ 	]+(.*[^ 	])'; then
+			ret "${M[1]}"
+			return 0
+		fi
 		if match "$l" '(dt_app|cp_pane)[ 	]+[a-z0-9_]+[ 	]+"([^"]+)"'; then
 			ret "${M[2]}"
 			return 0
