@@ -738,6 +738,29 @@ fn needsof(path, kind) {
 	ret "$out"
 }
 
+# What an entry replaces, from its own `# replaces:` lines: entries the
+# person may have installed that this one takes the place of (the single
+# Video app for YouTube, Tubi and Bilibili). `catalogue update` from hibr
+# 0.99.532 installs this one and removes those, saying each (the owner,
+# 2026-11-15); an older client ignores the field.
+fn replacesof(path, kind) {
+	local l out=
+
+	case $kind in
+	themes | colours | lang | mods | bundles)
+		ret ""
+		return 0 ;;
+	esac
+	while read -r l; do
+		case $l in
+		"# replaces: "*)
+			l=${l#"# replaces: "}
+			out="$out${out:+ }$l" ;;
+		esac
+	done < "$path"
+	ret "$out"
+}
+
 # The folder a bundle sits in *inside* its kind, which `addapp` took from
 # where the thing lives in hibr's own tree: `bundles/apps/Internet/mail.hibr`
 # gives `Internet`, and `catalogue install` then places it as
@@ -1029,6 +1052,7 @@ for kind in $KINDS; do
 		pl0=
 		ml0=
 		nd0=
+		rp0=
 		march=
 		# A property of where the bundle sits, so it is read for
 		# every kind rather than inside the script branch below.
@@ -1054,6 +1078,7 @@ builds for several machines has mkindex run on each of them."
 			pl0 := partsof "$src" "$kind"
 			ml0 := modsof "$src" "$kind"
 			nd0 := needsof "$src" "$kind"
+			rp0 := replacesof "$src" "$kind"
 			ver := verof "$src" "$kind" ||
 				die "$kind/$name: it declares no version -- an app says so on its \`app\` line, a theme in its own \"version\""
 		fi
@@ -1163,7 +1188,7 @@ builds for several machines has mkindex run on each of them."
 		# catalogue that is honest about one thing it knows and one that
 		# guesses about everything (Gitea #224).
 		for f in title version kind bundle sha256 about licence author \
-			 name hibr arch abi modules needs dir; do
+			 name hibr arch abi modules needs replaces dir; do
 			case $f in
 			title) v=$title ;;
 			version) v=$ver ;;
@@ -1193,13 +1218,14 @@ builds for several machines has mkindex run on each of them."
 			# What it needs installed before it, from its own
 			# `# needs:` lines (hibr Gitea #392).
 			needs) v=$nd0 ;;
+			replaces) v=$rp0 ;;
 			# Where inside its kind it lands, from the bundle's
 			# own path (Gitea #233). Only `apps` has folders
 			# today; every other root is scanned flat.
 			dir) v=$dr0 ;;
 			esac
 			case $f in
-			hibr | arch | abi | modules | needs | dir) [ -n "$v" ] || continue ;;
+			hibr | arch | abi | modules | needs | replaces | dir) [ -n "$v" ] || continue ;;
 			esac
 			# A module's bundle, hash, machine and ABI belong to
 			# **one build** of it, not to the entry: the entry is
@@ -1268,6 +1294,8 @@ builds for several machines has mkindex run on each of them."
 			printf '   %s needs %s\n' "$kind/$name" "$ml0"
 		[ -n "$nd0" ] &&
 			printf '   %s needs %s\n' "$kind/$name" "$nd0"
+		[ -n "$rp0" ] &&
+			printf '   %s replaces %s\n' "$kind/$name" "$rp0"
 
 		t := htesc "$title"
 		s := htesc "$sum"
