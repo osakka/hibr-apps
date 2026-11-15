@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.5
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.6
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -766,7 +766,7 @@ fn wtp_fw_rows(int w, int n) {
 		ret "$n"; return 0
 	fi
 	on=off; wtp_fw_active && on=on
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Firewall"; CP[$w][$n]["val"]=$on; CP[$w][$n]["key"]=DT_WTFW; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="Firewall"; CP[$w][$n]["val"]=$on; CP[$w][$n]["key"]=DT_WTFW; n=$((n + 1))
 	k=0
 	while IFS= read -r l; do
 		t=${l%%#*}
@@ -946,12 +946,12 @@ fn wiretap_rows(int w) {
 		n=$((n + 1))
 	done
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Alerts"; n=$((n + 1))
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program talks for the first time"; CP[$w][$n]["val"]=$([ "$DT_WTNEW" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTNEW; n=$((n + 1))
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program uploads a lot"; CP[$w][$n]["val"]=$([ "$DT_WTBIG" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBIG; n=$((n + 1))
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="A program reaches a new public host"; CP[$w][$n]["val"]=$([ "$DT_WTHOST" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTHOST; n=$((n + 1))
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with a graph beside the tap"; CP[$w][$n]["val"]=$([ "$DT_WTGAUGE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTGAUGE; n=$((n + 1))
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="  with the download rate"; CP[$w][$n]["val"]=$([ "$DT_WTRATE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTRATE; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="A program talks for the first time"; CP[$w][$n]["val"]=$([ "$DT_WTNEW" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTNEW; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="A program uploads a lot"; CP[$w][$n]["val"]=$([ "$DT_WTBIG" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBIG; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="A program reaches a new public host"; CP[$w][$n]["val"]=$([ "$DT_WTHOST" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTHOST; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="Menu Bar Item"; CP[$w][$n]["val"]=$([ "$DT_WTBAR" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTBAR; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="  with a graph beside the tap"; CP[$w][$n]["val"]=$([ "$DT_WTGAUGE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTGAUGE; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["wtype"]=bool; CP[$w][$n]["text"]="  with the download rate"; CP[$w][$n]["val"]=$([ "$DT_WTRATE" = 1 ] && echo on || echo off); CP[$w][$n]["key"]=DT_WTRATE; n=$((n + 1))
 	n := wtp_fw_rows "$w" "$n"
 	ret "$n"
 }
@@ -964,4 +964,3 @@ fn wiretap_do(int? w = "", k = "", int? dir = "") {
 	cp_save
 }
 
-fn wiretap_drop(int? w = "", int? r = "", int? c = "", k = "") { :; }
