@@ -14,7 +14,7 @@
 
 strict
 
-app webapps "The Control Panel pane for web apps" 1.0
+app webapps "The Control Panel pane for web apps" 1.1
 command -v cp_pane > /dev/null && cp_pane webapps "Web Apps" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app wafield "Web App" 15 70 "" "" fixed hidden
@@ -148,26 +148,29 @@ fn wafield_draw(int id, int h, int w, int row, int col) {
 	dt_dlgbtns "$id" "$h" "$w" "$f" ok Save del Remove cancel Cancel
 }
 
-# The choices of each drop-down, by field.
-fn waf_choices(field) {
+# A drop-down's list opened under its field, on the value in force: the one list, for a click, Enter and Space alike, which does the moving (the field steps
+# nothing itself). Where each field is drawn is where its list goes.
+fn waf_drop(int id, field) {
+	local r c
+
 	case $field in
-	scope) ret "${WAP_STAYS[*]}" ;;
-	zoom) ret "${WAP_ZOOMS[*]}" ;;
-	geo | cam | mic | note) ret "${WAP_PERMS[*]}" ;;
-	*) ret "" ;;
+	scope) r=5; c=15 ;;
+	zoom) r=5; c=41 ;;
+	geo) r=7; c=15 ;;
+	cam) r=7; c=43 ;;
+	mic) r=9; c=15 ;;
+	note) r=9; c=49 ;;
+	*) return 0 ;;
 	esac
-}
-
-# Step one of the choices on, or back.
-fn waf_cycle(int id, field, int dir) {
-	local v ch
-	local -a c
-
-	ch := waf_choices "$field"
-	[ -n "$ch" ] || return 0
-	read -ra c <<< "$ch"
-	v := cp_next "${WAF[$id]["$field"]}" "$dir" "${c[@]}"
-	WAF[$id]["$field"]=$v
+	WAF[$id]["focus"]=$field
+	DT_POPCURNEXT=${WAF[$id]["$field"]}
+	case $field in
+	scope) dt_droplist "$id" "$r" "$c" waf_setscope "${WAP_STAYS[@]}" ;;
+	zoom) dt_droplist "$id" "$r" "$c" waf_setzoom "${WAP_ZOOMS[@]}" ;;
+	*)
+		dt_droplist "$id" "$r" "$c" "waf_set$field" "${WAP_PERMS[@]}" ;;
+	esac
+	return 0
 }
 
 # The drop-downs' callbacks: the dialog's id comes back as the first word.
@@ -224,18 +227,7 @@ fn wafield_click(int id, int r, int c, btn = "") {
 		WAF[$id]["focus"]=$tag
 		WAF[$id]["cur"]=${#WAF[$id]["$tag"]}
 		;;
-	scope) WAF[$id]["focus"]=scope
-		dt_droplist "$id" "$r" "$c" waf_setscope "${WAP_STAYS[@]}" ;;
-	zoom) WAF[$id]["focus"]=zoom
-		dt_droplist "$id" "$r" "$c" waf_setzoom "${WAP_ZOOMS[@]}" ;;
-	geo) WAF[$id]["focus"]=geo
-		dt_droplist "$id" "$r" "$c" waf_setgeo "${WAP_PERMS[@]}" ;;
-	cam) WAF[$id]["focus"]=cam
-		dt_droplist "$id" "$r" "$c" waf_setcam "${WAP_PERMS[@]}" ;;
-	mic) WAF[$id]["focus"]=mic
-		dt_droplist "$id" "$r" "$c" waf_setmic "${WAP_PERMS[@]}" ;;
-	note) WAF[$id]["focus"]=note
-		dt_droplist "$id" "$r" "$c" waf_setnote "${WAP_PERMS[@]}" ;;
+	scope | zoom | geo | cam | mic | note) waf_drop "$id" "$tag" ;;
 	ok) wafield_ok "$id" ;;
 	del) wafield_del "$id" ;;
 	cancel) dt_del "$id" ;;
@@ -259,7 +251,7 @@ fn wafield_key(int id, key) {
 		case $f in
 		cancel) dt_del "$id" ;;
 		del) wafield_del "$id" ;;
-		scope | zoom | geo | cam | mic | note) waf_cycle "$id" "$f" 1 ;;
+		scope | zoom | geo | cam | mic | note) waf_drop "$id" "$f" ;;
 		*) wafield_ok "$id" ;;
 		esac
 		return 0
@@ -268,8 +260,7 @@ fn wafield_key(int id, key) {
 	case $f in
 	scope | zoom | geo | cam | mic | note)
 		case $key in
-		left) waf_cycle "$id" "$f" -1 ;;
-		right | " ") waf_cycle "$id" "$f" 1 ;;
+		" ") waf_drop "$id" "$f" ;;
 		esac
 		return 0
 		;;

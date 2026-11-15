@@ -20,7 +20,6 @@
   "From what you watched": "من مشاهداتك",
   "Full Player": "المشغل الكامل",
   "Go": "انتقال",
-  "HUI Video Player": "مشغّل فيديو HUI",
   "History": "السجل",
   "Home Page": "الصفحة الرئيسية",
   "Keep the Screen Saver Away While Playing": "أبعد شاشة التوقف أثناء التشغيل",
@@ -68,6 +67,7 @@
   "Taken up at %s, where it was left": "استُؤنف عند %s، حيث توقّف",
   "The %s history is empty": "سجل %s فارغ",
   "Video": "الفيديو",
+  "Video Player": "مشغّل الفيديو",
   "Volume Down": "خفض الصوت",
   "Volume Up": "رفع الصوت",
   "YouTube": "YouTube"

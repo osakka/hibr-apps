@@ -10,8 +10,8 @@
 
 strict
 
-app videoset "The Control Panel pane for the Video player" 1.1
-command -v cp_pane > /dev/null && cp_pane videoset "Video" "▶" app
+app videoset "The Control Panel pane for the Video Player" 1.2
+command -v cp_pane > /dev/null && cp_pane videoset "Video Player" "▶" app
 
 # follow is Control Panel > Pictures, which is the one setting meant to reach every picture the desktop draws; the rest say outright.
 VS_MODES=(follow half ascii mono pixels)
@@ -85,7 +85,7 @@ fn videoset_rows(int w) {
 	local n=0 md k x nm spec kk t lab ch on i pos np=0 c h
 	local -a nums=() ch2
 
-	dt_has video_draw || { cp_absent "$w" Video; ret 1; }
+	dt_has video_draw || { cp_absent "$w" "Video Player"; ret 1; }
 	h := dt_tr "Playing"
 	vs_head "$w" "$n" "$h"; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Picture"; CP[$w][$n]["key"]=mode

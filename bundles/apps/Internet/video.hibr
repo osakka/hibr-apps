@@ -22,12 +22,12 @@ strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube
 # replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
-app video "Video, every site in one player" 1.1
+app video "Video Player, every site in one player" 1.2
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web
 
-command -v dt_app > /dev/null && dt_app video "Video" 24 84 many "▶"
+command -v dt_app > /dev/null && dt_app video "Video Player" 24 84 many "▶"
 
 declare -gA VP
 command -v dt_keepstate > /dev/null && dt_keepstate video VP
@@ -1043,7 +1043,7 @@ fn video_context(int? id = "") {
 			dt_sep
 			dt_item "Mini Player" i vp_mini "$id"
 		else
-			dt_menu "Video"
+			dt_menu "Video Player"
 			dt_item "Search${GL[ellipsis]}" s video_key "$id" "/"
 			dt_item "History" h video_key "$id" h
 			dt_item "Favourites" v video_key "$id" v
@@ -1836,7 +1836,7 @@ fn video_idle(int id) {
 	return 0
 }
 
-# --- the home: one search over every site (HUI Video Player) ---------------------------------------------------------------------------------------
+# --- the home: one search over every site (Video Player) ---------------------------------------------------------------------------------------
 
 declare -gA VH VHR VPA
 VPA=([k]="#1b1b2f" [M]="#868e96" [m]="#ced4da" [d]="#343a40" [s]="#adb5bd" [w]="#f8f9fa" [r]="#e03131" [b]="#3b5bdb" [p]="#845ef7" [c]="#22b8cf" [y]="#fcc419" [g]="#40c057" [X]="#e03131")
@@ -2198,8 +2198,8 @@ fn vp_drawhome(int id, int h, int w) {
 	local -a tc2=(r b p)
 	local title sub hint ph
 
-	command -v dt_retitle > /dev/null && dt_retitle "$id" "HUI Video Player"
-	title := dt_tr "HUI Video Player"
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "Video Player"
+	title := dt_tr "Video Player"
 	sub := dt_tr "One search, every site"
 	ph := dt_tr "Search every site"
 	q := dt_searchq "$id"
@@ -2390,7 +2390,7 @@ fn vp_drawlist(int id, int h, int w) {
 	local n=${VP[$id]["n"]} sel=${VP[$id]["sel"]} top=${VP[$id]["top"]}
 	local r=2 i lab tail vis on=0 hd mk len star=${GL[star]} srows h2 rs
 
-	command -v dt_retitle > /dev/null && dt_retitle "$id" "Video"
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "Video Player"
 	# The ` Search:` row is gone: the search is the desktop's one
 	# search now (widgets/search.hibr), on this window's bottom row
 	# and drawn only once `/` has asked for it.
@@ -2549,7 +2549,7 @@ fn vp_drawplay(int id, int h, int w) {
 	if command -v dt_retitle > /dev/null; then
 		tt=${VP[$id]["title"]:0:40}
 		[ "${VP[$id]["parts"]:-1}" -gt 1 ] && tt="${VP[$id]["title"]:0:34} [${VP[$id]["part"]}/${VP[$id]["parts"]}]"
-		wt := dt_wintitle Video "$tt"
+		wt := dt_wintitle "Video Player" "$tt"
 		dt_retitle "$id" "$wt"
 	fi
 	console pen "$DT_INK" "$DT_FACE" bold

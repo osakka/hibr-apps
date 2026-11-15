@@ -27,7 +27,7 @@
 
 strict
 
-app browserset "The Control Panel pane for the Browser" 1.14
+app browserset "The Control Panel pane for the Browser" 1.15
 command -v cp_pane > /dev/null && cp_pane browserset "Browser" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app bwfield "Browser Setting" 8 64 "" "" fixed hidden
@@ -104,12 +104,19 @@ fn cp_set_bwppop(int? id = "", value = "") { BW_PPOP=$value; cp_save; bs_tell; }
 # One permission's row: refuse or allow, a dropdown.
 fn bs_perm(int w, int n, var, key) {
 	local v=${!var}
+	local -a pl
 
 	# ask, with an engine that cannot wait for an answer, is what the Browser
 	# does then: refuse
 	[ "$v" = ask ] && ! bs_has permask && v=refuse
-	CP[$w][$n]["kind"]=set; CP[$w][$n]["val"]=$v
-	CP[$w][$n]["key"]=$key
+	# location, camera and microphone can be asked about where the engine can wait for the answer; the other two are allowed or refused
+	case $key in
+	pgeo | pcam | pmic) bs_perms; pl=("${BS_PL[@]}") ;;
+	*) pl=("${BS_PERMS[@]}") ;;
+	esac
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["key"]=$key
+	# the list is declared here once, for the click and the arrows alike (hibr 0.99.534); its setter is cp_set_bw<key>
+	cp_choice "$w" "$n" "$v" "cp_set_bw$key" "${pl[@]}"
 }
 fn cp_set_bwzoom(int? id = "", int? value = "") {
 	BW_ZOOM=$value
@@ -143,10 +150,12 @@ fn browserset_rows(int w) {
 	CP[$w][$n]["text"]="Home Page"; bs_row "$w" "$n" BW_HOME; n=$((n + 1))
 	CP[$w][$n]["text"]="Search With"; bs_row "$w" "$n" BW_SEARCH; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Engine For New Tabs"
-	CP[$w][$n]["val"]="$BW_ENGINE"; CP[$w][$n]["key"]=engine
+	CP[$w][$n]["key"]=engine
+	cp_choice "$w" "$n" "$BW_ENGINE" cp_set_bwengine "${BS_ENGINES[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Picture"
-	CP[$w][$n]["val"]="$BW_MODE"; CP[$w][$n]["key"]=mode
+	CP[$w][$n]["key"]=mode
+	cp_choice "$w" "$n" "$BW_MODE" cp_set_bwmode "${BS_MODES[@]}"
 	n=$((n + 1))
 	if [ "$BW_MODE" = follow ]; then
 		md := bw_drawnname
@@ -166,9 +175,12 @@ fn browserset_rows(int w) {
 	CP[$w][$n]["val"]=off; [ "$BW_AUTOPLAY" = 1 ] && CP[$w][$n]["val"]=on
 	CP[$w][$n]["key"]=BW_AUTOPLAY; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Ask Sites for Dark Pages"
-	CP[$w][$n]["val"]="$BW_DARKMODE"; CP[$w][$n]["key"]=darkmode; n=$((n + 1))
+	CP[$w][$n]["key"]=darkmode
+	cp_choice "$w" "$n" "$BW_DARKMODE" cp_set_bwdark "${BS_DARKS[@]}"
+	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Page Zoom"
-	CP[$w][$n]["val"]="$BW_ZOOM"; CP[$w][$n]["key"]=zoom
+	CP[$w][$n]["key"]=zoom
+	cp_choice "$w" "$n" "$BW_ZOOM" cp_set_bwzoom "${BS_ZOOMS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["text"]="User Agent"; bs_row "$w" "$n" BW_UA; n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Privacy"; n=$((n + 1))
@@ -281,42 +293,14 @@ fn browserset_do(int? w = "", k = "", int? dir = "") {
 	local v
 
 	case $k in
-	mode) v := cp_next "$BW_MODE" "$dir" "${BS_MODES[@]}"; BW_MODE=$v ;;
-	engine) v := cp_next "$BW_ENGINE" "$dir" "${BS_ENGINES[@]}"; BW_ENGINE=$v ;;
-	zoom)
-		v := cp_next "$BW_ZOOM" "$dir" "${BS_ZOOMS[@]}"
-		BW_ZOOM=$v
-		bs_tell
-		;;
-	darkmode) v := cp_next "$BW_DARKMODE" "$dir" "${BS_DARKS[@]}"; BW_DARKMODE=$v; bs_tell ;;
 	BW_DL | BW_AUTOPLAY | BW_RTC | BW_ADBLOCK) cp_toggle "$k"; bs_tell ;;
 	BW_DNT) cp_toggle "$k"; bs_tell again ;;
-	pgeo) bs_perms; v := cp_next "$BW_PGEO" "$dir" "${BS_PL[@]}"; BW_PGEO=$v; bs_tell ;;
-	pcam) bs_perms; v := cp_next "$BW_PCAM" "$dir" "${BS_PL[@]}"; BW_PCAM=$v; bs_tell ;;
-	pmic) bs_perms; v := cp_next "$BW_PMIC" "$dir" "${BS_PL[@]}"; BW_PMIC=$v; bs_tell ;;
-	ppop) v := cp_next "$BW_PPOP" "$dir" "${BS_PERMS[@]}"; BW_PPOP=$v; bs_tell ;;
-	pnote) v := cp_next "$BW_PNOTE" "$dir" "${BS_PERMS[@]}"; BW_PNOTE=$v
-		bs_tell again ;;
 	preset) bs_preset ;;
 	BW_JS | BW_IMAGES) cp_toggle "$k"; bs_tell again ;;
 	field:*) bs_dialog "${k#field:}" ;;
 	cookies | cache | history) bs_clear "$k" ;;
 	esac
 	cp_save
-}
-
-fn browserset_drop(int? w = "", int? r = "", int? c = "", k = "") {
-	case $k in
-	mode) dt_droplist "$w" "$r" "$c" cp_set_bwmode "${BS_MODES[@]}" ;;
-	darkmode) dt_droplist "$w" "$r" "$c" cp_set_bwdark "${BS_DARKS[@]}" ;;
-	engine) dt_droplist "$w" "$r" "$c" cp_set_bwengine "${BS_ENGINES[@]}" ;;
-	zoom) dt_droplist "$w" "$r" "$c" cp_set_bwzoom "${BS_ZOOMS[@]}" ;;
-	pgeo) bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpgeo "${BS_PL[@]}" ;;
-	pcam) bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpcam "${BS_PL[@]}" ;;
-	pmic) bs_perms; dt_droplist "$w" "$r" "$c" cp_set_bwpmic "${BS_PL[@]}" ;;
-	pnote) dt_droplist "$w" "$r" "$c" cp_set_bwpnote "${BS_PERMS[@]}" ;;
-	ppop) dt_droplist "$w" "$r" "$c" cp_set_bwppop "${BS_PERMS[@]}" ;;
-	esac
 }
 
 # Reset Permissions: every page's grants forgotten, and each of the four

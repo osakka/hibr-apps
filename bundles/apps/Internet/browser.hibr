@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.53
+app browser "The web, in a window" 2.54
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -3948,6 +3948,7 @@ BW_COVGAMES=()
 fn bw_coverlist(int id) {
 	[ -n "${BW[$id]["covopen"]-}" ] || return 0
 	BW[$id]["covopen"]=
+	# a list of pictures to choose one from, none of them in force: there is no current value to tick (a list of things to do, as a menu is)
 	dt_droplist "$id" "${BW[$id]["covr"]}" "${BW[$id]["covc"]}" bw_coverpick "${BW_COVGAMES[@]}"
 	dt_want 10
 }
