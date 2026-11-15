@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.0
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.1
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -143,7 +143,7 @@ fn wtp_asfetch() {
 }
 
 # The remote addresses (ADR 0016), asked for at most every two seconds: WTP_H holds the reply.
-declare -g WTP_H="" WTP_HAT=-100
+declare -g WTP_H="" WTP_HAT=-100 WTP_HGEN=0		# WTP_HGEN counts the readings, so a view can rebuild only when there is a new one
 fn wtp_hosts() {
 	[ "$WTP_UP" = 1 ] || return 1
 	[ $((SECONDS - WTP_HAT)) -ge 2 ] || return 0
@@ -151,24 +151,133 @@ fn wtp_hosts() {
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
 		[ "$WTP_HBUSY" = 0 ] || return 0
 		WTP_HBUSY=1
-		dt_jobvars wtp hosts wtp_hdone wtp_hfetch WTP_H > /dev/null || { WTP_HBUSY=0; wtp_hfetch; }
+		dt_jobvars wtp hosts wtp_hdone wtp_hfetch WTP_H MH_ROW MP_NAME MP_TOT MP_RX MP_TX MP_CNT MP_RATE MP_HOSTS MTOTAL MNOW MHOSTS MKNOWN MRATEMAX MSNAP MSNAPAT > /dev/null || { WTP_HBUSY=0; wtp_hfetch; WTP_HGEN=$((WTP_HGEN + 1)); }
 		return 0
 	fi
 	wtp_hfetch
+	WTP_HGEN=$((WTP_HGEN + 1))
+	return 0
+}
+
+# The Map's model (ADR 0040), made where the reading is made: in the job that fetches it, never in a frame, and handed back packed so landing
+# it costs a few milliseconds. From WTP_H it makes, for each host, one row of fields joined by the unit separator (so a program's name, which
+# is last, can hold anything without moving a number): address, received, sent, first time, last time, its program's number, its speed now
+# in bytes a second, and the program's name. And for each program (the biggest first): name, bytes, host count and the places of its hosts.
+# Every number is made all digits here, so nothing later computes on text a process chose. MPSNAP is the last reading's totals ("addr=bytes"
+# lines) and MSNAPAT its time: the next reading's speeds are the change since then, so the reader keeps one snapshot, not an array each.
+declare -ga MH_ROW=() MP_NAME=() MP_TOT=() MP_RX=() MP_TX=() MP_CNT=() MP_RATE=() MP_HOSTS=()
+declare -g MTOTAL=0 MNOW=0 MHOSTS=0 MKNOWN=0 MRATEMAX=0 MSNAP="" MSNAPAT=0 MUS=$'\x1f'
+
+fn wtp_digits(v) {
+	case $v in '' | *[!0-9]*) ret 0 ;; *) ret "$v" ;; esac
+}
+
+fn wtp_hmodel() {
+	local n i j k p a app rx tx t dt prev tmp row snap="" line
+	local -a ha=() hp=() hrx=() htx=() hf=() hl=() hr=() hh=()
+	local -A seen
+
+	n := json len WTP_H .hosts 2> /dev/null || n=0
+	n := wtp_digits "${n:-0}"
+	MTOTAL := json get WTP_H .total 2> /dev/null || MTOTAL=$n
+	MTOTAL := wtp_digits "$MTOTAL"
+	MNOW := json get WTP_H .now 2> /dev/null || MNOW=0
+	MNOW := wtp_digits "$MNOW"
+	MHOSTS=$n
+	MH_ROW=(); MP_NAME=(); MP_TOT=(); MP_RX=(); MP_TX=(); MP_CNT=(); MP_RATE=(); MP_HOSTS=()
+	dt=$((MNOW - MSNAPAT))
+	MKNOWN=0; [ "$MSNAPAT" -gt 0 ] && [ "$dt" -gt 0 ] && MKNOWN=1
+	MRATEMAX=0
+	while IFS== read -r a t; do [ -n "$a" ] && seen[$a]=$t; done <<< "$MSNAP"
+	for ((i = 0; i < n; i++)); do
+		a := json get WTP_H ".hosts[$i].addr"; ha[$i]=$a
+		app := json get WTP_H ".hosts[$i].app"; hp[$i]=$app
+		rx := json get WTP_H ".hosts[$i].rx"; rx := wtp_digits "$rx"; hrx[$i]=$rx
+		tx := json get WTP_H ".hosts[$i].tx"; tx := wtp_digits "$tx"; htx[$i]=$tx
+		t := json get WTP_H ".hosts[$i].first"; t := wtp_digits "$t"; hf[$i]=$t
+		t := json get WTP_H ".hosts[$i].last"; t := wtp_digits "$t"; hl[$i]=$t
+		t=$((rx + tx))
+		prev=${seen[$a]:-}
+		[ -z "$prev" ] || prev := wtp_digits "$prev"
+		hr[$i]=0
+		if [ "$MKNOWN" = 1 ] && [ -n "$prev" ] && [ "$t" -ge "$prev" ]; then
+			hr[$i]=$(((t - prev) / dt))
+			[ "${hr[$i]}" -gt "$MRATEMAX" ] && MRATEMAX=${hr[$i]}
+		fi
+		snap+="$a=$t"$'\n'
+		p=-1
+		for ((j = 0; j < ${#MP_NAME[@]}; j++)); do [ "${MP_NAME[$j]}" = "$app" ] && { p=$j; break; }; done
+		if [ "$p" = -1 ]; then p=${#MP_NAME[@]}; MP_NAME[$p]=$app; MP_TOT[$p]=0; MP_RX[$p]=0; MP_TX[$p]=0; MP_CNT[$p]=0; MP_RATE[$p]=0; MP_HOSTS[$p]=""; fi
+		MP_TOT[$p]=$((MP_TOT[p] + t)); MP_RX[$p]=$((MP_RX[p] + rx)); MP_TX[$p]=$((MP_TX[p] + tx)); MP_RATE[$p]=$((MP_RATE[p] + hr[i]))
+		MP_CNT[$p]=$((MP_CNT[p] + 1)); MP_HOSTS[$p]+="$i "
+	done
+	MSNAP=$snap; MSNAPAT=$MNOW
+	# the programs, the biggest first (an insertion sort: a dozen of them)
+	for ((i = 1; i < ${#MP_NAME[@]}; i++)); do
+		j=$i
+		while [ "$j" -gt 0 ] && [ "${MP_TOT[$((j - 1))]}" -lt "${MP_TOT[$j]}" ]; do
+			for k in MP_NAME MP_TOT MP_RX MP_TX MP_CNT MP_RATE MP_HOSTS; do
+				eval "tmp=\${$k[$j]}; $k[$j]=\${$k[$((j - 1))]}; $k[$((j - 1))]=\$tmp"
+			done
+			j=$((j - 1))
+		done
+	done
+	for ((p = 0; p < ${#MP_NAME[@]}; p++)); do
+		read -r -a hh <<< "${MP_HOSTS[$p]}"
+		for k in "${hh[@]}"; do
+			MH_ROW[$k]="${ha[$k]}$MUS${hrx[$k]}$MUS${htx[$k]}$MUS${hf[$k]}$MUS${hl[$k]}$MUS$p$MUS${hr[$k]}$MUS${hp[$k]}"
+		done
+	done
 	return 0
 }
 
 fn wtp_hfetch() {
 	local h
 
-	if h := wt hosts 200 2> /dev/null; then json parse WTP_H "$h" 2> /dev/null || WTP_H=""; fi
+	if h := wt hosts 200 2> /dev/null; then
+		json parse WTP_H "$h" 2> /dev/null || WTP_H=""
+		wtp_hmodel
+	fi
 	return 0
 }
 
 fn wtp_hdone(int n, int st) {
 	WTP_HBUSY=0
+	WTP_HGEN=$((WTP_HGEN + 1))
 	command -v dt_want > /dev/null && dt_want 0
 	return 0
+}
+
+# ---- reading an address and a time without a lookup (ADR 0040) -----------------------------------------------------------------------
+# wtp_hostkind ADDR: what a private, loopback, link-local, shared or multicast address is, said from the address alone (no lookup, nothing sent);
+# empty for a public address, which is the usual case and needs no label.
+fn wtp_hostkind(a) {
+	case $a in
+	127.* | ::1) ret "this machine" ;;
+	10.* | 192.168.* | 172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) ret "local net" ;;
+	169.254.* | [fF][eE][89aAbB]*:*) ret "link-local" ;;
+	100.6[4-9].* | 100.[7-9][0-9].* | 100.1[01][0-9].* | 100.12[0-7].*) ret "shared net" ;;
+	22[4-9].* | 23[0-9].* | [fF][fF]*:*) ret "multicast" ;;
+	[fF][cCdD][0-9a-fA-F][0-9a-fA-F]:*) ret "local net" ;;
+	*) ret "" ;;
+	esac
+}
+
+# wtp_bits N: how many binary digits N has (0 for 0): a scale on which a byte a second and a gigabyte a second are both a few steps long.
+fn wtp_bits(int n) {
+	local b=0
+
+	while [ "$n" -gt 0 ]; do n=$((n >> 1)); b=$((b + 1)); done
+	ret "$b"
+}
+
+# wtp_ago SECONDS: 5s, 3m, 4h, 2d.
+fn wtp_ago(int s) {
+	[ "$s" -ge 0 ] || s=0
+	if [ "$s" -lt 60 ]; then ret "${s}s"
+	elif [ "$s" -lt 3600 ]; then ret "$((s / 60))m"
+	elif [ "$s" -lt 86400 ]; then ret "$((s / 3600))h"
+	else ret "$((s / 86400))d"; fi
 }
 
 # ---- names for the Hosts tab (ADR 0036) -------------------------------------------------------------------------------------------
