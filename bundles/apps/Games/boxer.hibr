@@ -17,7 +17,7 @@
 strict
 
 
-app boxer "DOS games, one folder to a game" 1.40
+app boxer "DOS games, one folder to a game" 1.40.1
 # modules: img retro fetch archive
 # part: apps/boxerplay.hibr
 # part: control-panel/boxerset.hibr
@@ -1098,6 +1098,7 @@ fn bxi_open(int id, field, int r, int c) {
 	read -ra o <<< "$ch"
 	[ "${#o[@]}" -gt 0 ] || return 0
 	BX[$id]["pick"]=$field
+	DT_POPCURNEXT=${BX[$id]["i_$field"]}
 	dt_droplist "$id" "$r" "$c" bxi_pick "${o[@]}"
 }
 

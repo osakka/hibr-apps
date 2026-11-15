@@ -9,7 +9,7 @@
 
 strict
 
-app boxerset "The Control Panel pane for Boxer" 0.13
+app boxerset "The Control Panel pane for Boxer" 0.13.1
 command -v cp_pane > /dev/null && cp_pane boxerset "Boxer" "▣" app
 command -v dt_app > /dev/null &&
 	dt_app bxfield "Games Folder" 9 64 "" "" fixed hidden
@@ -98,7 +98,8 @@ fn bxs_midis() {
 }
 
 fn boxerset_rows(int w) {
-	local n=0
+	local n=0 m
+	local -a ml
 
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Games"; n=$((n + 1))
 	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Folder${GL[ellipsis]}"
@@ -117,30 +118,37 @@ fn boxerset_rows(int w) {
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Display"; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Rendering"
-	CP[$w][$n]["val"]="$BX_PIC"; CP[$w][$n]["key"]=pic
+	CP[$w][$n]["key"]=pic
+	cp_choice "$w" "$n" "$BX_PIC" cp_set_bxpic "${BXS_PICS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Shape"
-	CP[$w][$n]["val"]="$BX_ASPECT"; CP[$w][$n]["key"]=aspect
+	CP[$w][$n]["key"]=aspect
+	cp_choice "$w" "$n" "$BX_ASPECT" cp_set_bxaspect "${BXS_ASPECTS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Full Screen Border${GL[ellipsis]}"
 	CP[$w][$n]["val"]="$BX_BORDER"; CP[$w][$n]["key"]=border
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Keys"; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Release Mouse Key"
-	CP[$w][$n]["val"]="$BX_RELKEY"; CP[$w][$n]["key"]=relkey
+	CP[$w][$n]["key"]=relkey
+	cp_choice "$w" "$n" "$BX_RELKEY" cp_set_bxrel "${BXS_RELKEYS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Key Held (ms)"
-	CP[$w][$n]["val"]="$BX_HOLD"; CP[$w][$n]["key"]=hold
+	CP[$w][$n]["key"]=hold
+	cp_choice "$w" "$n" "$BX_HOLD" cp_set_bxhold "${BXS_HOLDS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Mouse"
-	CP[$w][$n]["val"]="$BX_MOUSE"; CP[$w][$n]["key"]=mouse
+	CP[$w][$n]["key"]=mouse
+	cp_choice "$w" "$n" "$BX_MOUSE" cp_set_bxmouse "${BXS_MICE[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Mouse Capture"
-	CP[$w][$n]["val"]="$BX_CAPTURE"; CP[$w][$n]["key"]=capture
+	CP[$w][$n]["key"]=capture
+	cp_choice "$w" "$n" "$BX_CAPTURE" cp_set_bxcap "${BXS_CAPS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Speed"; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Speed Limit"
-	CP[$w][$n]["val"]="$BX_LIMIT"; CP[$w][$n]["key"]=limit
+	CP[$w][$n]["key"]=limit
+	cp_choice "$w" "$n" "$BX_LIMIT" cp_set_bxlimit "${BXS_LIMITS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Quitting"; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Confirm On Exit"
@@ -157,61 +165,35 @@ fn boxerset_rows(int w) {
 	CP[$w][$n]["val"]=off; [ "$BX_SOUND" = on ] && CP[$w][$n]["val"]=on
 	CP[$w][$n]["key"]=sound; n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Sound Card"
-	CP[$w][$n]["val"]="$BX_CARD"; CP[$w][$n]["key"]=card
+	CP[$w][$n]["key"]=card
+	cp_choice "$w" "$n" "$BX_CARD" cp_set_bxcard "${BXS_CARDS[@]}"
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="MIDI"; n=$((n + 1))
 	CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="Synth Folder${GL[ellipsis]}"
 	CP[$w][$n]["val"]="${BX_MIDIDIR:-none}"; CP[$w][$n]["key"]=mididir
 	n=$((n + 1))
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="MIDI Output"
-	CP[$w][$n]["val"]="$BX_MIDI"; CP[$w][$n]["key"]=midi
+	CP[$w][$n]["key"]=midi
+	m := bxs_midis
+	read -ra ml <<< "$m"
+	cp_choice "$w" "$n" "$BX_MIDI" cp_set_bxmidi "${ml[@]}"
 	n=$((n + 1))
 	ret "$n"
 }
 
 fn boxerset_do(int? w = "", k = "", int? dir = "") {
-	local v m
-	local -a ml
-
 	case $k in
 	shelf) bxs_dialog shelf; return 0 ;;
-	pic) v := cp_next "$BX_PIC" "$dir" "${BXS_PICS[@]}"; BX_PIC=$v ;;
-	aspect) v := cp_next "$BX_ASPECT" "$dir" "${BXS_ASPECTS[@]}"; BX_ASPECT=$v ;;
 	border) bxs_colours; return 0 ;;
-	relkey) v := cp_next "$BX_RELKEY" "$dir" "${BXS_RELKEYS[@]}"; BX_RELKEY=$v ;;
-	hold) v := cp_next "$BX_HOLD" "$dir" "${BXS_HOLDS[@]}"; BX_HOLD=$v ;;
-	mouse) v := cp_next "$BX_MOUSE" "$dir" "${BXS_MICE[@]}"; BX_MOUSE=$v ;;
-	capture) v := cp_next "$BX_CAPTURE" "$dir" "${BXS_CAPS[@]}"; BX_CAPTURE=$v ;;
-	limit) v := cp_next "$BX_LIMIT" "$dir" "${BXS_LIMITS[@]}"; BX_LIMIT=$v ;;
 	confirm) [ "$BX_CONFIRM" = on ] && BX_CONFIRM=off || BX_CONFIRM=on ;;
 	autoclose) [ "$BX_AUTOCLOSE" = on ] && BX_AUTOCLOSE=off || BX_AUTOCLOSE=on ;;
 	art) [ "$BX_ART" = on ] && BX_ART=off || BX_ART=on ;;
 	sound) [ "$BX_SOUND" = on ] && BX_SOUND=off || BX_SOUND=on ;;
-	card) v := cp_next "$BX_CARD" "$dir" "${BXS_CARDS[@]}"; BX_CARD=$v ;;
 	mididir) bxs_dialog midi; return 0 ;;
 	search) bxs_dialog search; return 0 ;;
 	engine) bxs_dialog engine; return 0 ;;
-	midi) m := bxs_midis; read -ra ml <<< "$m"; v := cp_next "$BX_MIDI" "$dir" "${ml[@]}"; BX_MIDI=$v ;;
 	esac
 	cp_save
-}
-
-fn boxerset_drop(int? w = "", int? r = "", int? c = "", k = "") {
-	local m
-	local -a ml
-
-	case $k in
-	pic) dt_droplist "$w" "$r" "$c" cp_set_bxpic "${BXS_PICS[@]}" ;;
-	aspect) dt_droplist "$w" "$r" "$c" cp_set_bxaspect "${BXS_ASPECTS[@]}" ;;
-	border) bxs_colours ;;
-	relkey) dt_droplist "$w" "$r" "$c" cp_set_bxrel "${BXS_RELKEYS[@]}" ;;
-	hold) dt_droplist "$w" "$r" "$c" cp_set_bxhold "${BXS_HOLDS[@]}" ;;
-	mouse) dt_droplist "$w" "$r" "$c" cp_set_bxmouse "${BXS_MICE[@]}" ;;
-	capture) dt_droplist "$w" "$r" "$c" cp_set_bxcap "${BXS_CAPS[@]}" ;;
-	limit) dt_droplist "$w" "$r" "$c" cp_set_bxlimit "${BXS_LIMITS[@]}" ;;
-	card) dt_droplist "$w" "$r" "$c" cp_set_bxcard "${BXS_CARDS[@]}" ;;
-	midi) m := bxs_midis; read -ra ml <<< "$m"; dt_droplist "$w" "$r" "$c" cp_set_bxmidi "${ml[@]}" ;;
-	esac
 }
 
 # --- the border colour picker --------------------------------------------------
