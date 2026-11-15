@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.1
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.2
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -639,6 +639,16 @@ fn wtp_get(path, def = "") {
 	local v
 
 	if v := json get WTP_S "$path" 2> /dev/null; then ret "$v"; else ret "$def"; fi
+}
+
+# wtp_fresh: "node started 12s ago" while the node is under two minutes old (a package upgrade restarts it), else empty. The graph, the hosts and the
+# Map are empty or zero for those first seconds, and say so instead of looking broken.
+fn wtp_fresh() {
+	local st nw
+
+	st := wtp_get .started 0; st := wtp_digits "$st"
+	nw := wtp_get .now 0; nw := wtp_digits "$nw"
+	if [ "$st" -gt 0 ] && [ "$nw" -ge "$st" ] && [ $((nw - st)) -lt 120 ]; then ret "node started $((nw - st))s ago"; else ret ""; fi
 }
 
 # One value from the apps list, by path (".apps[0].name"), or the default.

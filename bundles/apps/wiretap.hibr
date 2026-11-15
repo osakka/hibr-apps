@@ -13,7 +13,7 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.8.1
+app wtview "Wiretap: a live graph and every app's traffic" 0.8.2
 # needs: control-panel/wiretap
 if command -v dt_app > /dev/null; then
 	tile=
@@ -142,6 +142,8 @@ fn wv_graph(int id, int h, int w) {
 	console pen "$DT_DIM" "$DT_FACE"
 	line := wtp_rate "$max"
 	wv_put "$id" 2 $((w - ${#line} - 8)) "scale $line/s"
+	line := wtp_fresh
+	[ -z "$line" ] || wv_put "$id" 2 34 "$line"
 	if [ "$by" = 1 ]; then
 		wv_stack "$id" rx "$half" "$cols" "$n" "$max"
 	else
@@ -283,7 +285,8 @@ fn wv_flow(int id, int h, int w) {
 	WV[$id]["n"]=$n
 	console pen "$DT_DIM" "$DT_FACE" bold
 	if [ "$n" = 0 ]; then
-		wv_put "$id" 2 2 "No remote hosts yet."
+		line := wtp_fresh
+		wv_put "$id" 2 2 "No remote hosts yet.${line:+  ($line: hosts appear as traffic is seen)}"
 		wv_foot "$id" "$h"
 		return 0
 	fi
@@ -415,7 +418,8 @@ fn wv_hosts(int id, int h, int w) {
 	wv_put "$id" 2 2 "$line"
 	if [ "$n" = 0 ]; then
 		console pen "$DT_DIM" "$DT_FACE"
-		wv_put "$id" 4 2 "No remote hosts yet."
+		line := wtp_fresh
+		wv_put "$id" 4 2 "No remote hosts yet.${line:+  ($line: hosts appear as traffic is seen)}"
 		return 0
 	fi
 	now := json get WTP_H .now
