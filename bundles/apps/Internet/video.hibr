@@ -1,0 +1,2679 @@
+#!/usr/bin/env hibr
+#
+# video -- every video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list
+# (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the
+# machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.
+#
+# Nothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the
+# page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a
+# list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and
+# whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.
+#
+# A list: up from the first row opens the search, type and enter; up and down choose, enter plays, f keeps it as a favourite, escape goes back to the
+# list before, h is the history, v the favourites, t the site's home page and tab the next site.
+# The player: space pauses, left and right are five seconds, shift with them thirty, up and down the volume, n and p the next and the one before (a
+# video of several parts goes by its parts first), f a favourite, m the picture (half blocks, ASCII, plain, pixels), escape back to the list. A click on
+# the bar goes there. At the end of a video the next part or the next in the list plays, unless Play > Play Next Automatically is off.
+#
+# The history and the favourites are files of their own for each site (~/.local/share/hibr/<site>/), and every title watched is also in the shared video
+# library (docs/video-library.md of the catalogue).
+
+strict
+
+# needs: lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube
+# replaces: apps/youtube apps/tubi apps/bilibili
+app video "Video, every site in one player" 1.0
+# part: control-panel/videoset.hibr
+# part: lang/video.ar.json
+# modules: web
+
+command -v dt_app > /dev/null && dt_app video "Video" 24 84 many "▶"
+
+declare -gA VP
+command -v dt_keepstate > /dev/null && dt_keepstate video VP
+declare -gA VR
+
+# How the picture is drawn: `follow` is Control Panel > Pictures, the rest say
+# outright.
+VP_MODE="${VP_MODE-follow}"
+VP_AUTONEXT="${VP_AUTONEXT-1}"
+VP_SAVERHOLD="${VP_SAVERHOLD-1}"
+VP_MODES=(follow half ascii mono pixels)
+# The mini player (Gitea #304): whether it casts a shadow, whether it is on every workspace, and where it was last left.
+VP_MINISHADOW="${VP_MINISHADOW-1}"
+VP_MINISTICKY="${VP_MINISTICKY-1}"
+VP_MINIGEO="${VP_MINIGEO-}"
+# The sites the home does not search (ids, spaces between): Control Panel > Video says which.
+VP_HUBOFF="${VP_HUBOFF-}"
+# LEGACY-BEGIN
+# Settings carried over from the three apps this one replaced (YouTube's YT_*, Tubi's TU_*, Bilibili's BL_*): a name with no saved value of its own takes the
+# old one, once -- it is saved under the new name from then on. Each value is checked as a choice of this player's: an old one may not be one.
+fn vp_carry(new, ok) {
+	local o v
+
+	command -v dt_keep > /dev/null || return 0
+	[ -z "${DT_CONFJ["settings"]["$new"]+x}" ] || return 0
+	for o in YT TU BL; do
+		v=${DT_CONFJ["settings"]["${o}_${new#VP_}"]-}
+		[ -n "$v" ] || continue
+		case " $ok " in
+		*" $v "*) declare -g "$new=$v"; return 0 ;;
+		esac
+	done
+	return 0
+}
+# the geometry of the mini player: four numbers
+fn vp_carrygeo() {
+	local v
+
+	command -v dt_keep > /dev/null || return 0
+	[ -z "${DT_CONFJ["settings"]["VP_MINIGEO"]+x}" ] || return 0
+	v=${DT_CONFJ["settings"]["YT_MINIGEO"]-}
+	case $v in
+	"" | *[!0-9\ ]*) return 0 ;;
+	esac
+	declare -g "VP_MINIGEO=$v"
+	return 0
+}
+# LEGACY-END
+vp_carry VP_MODE "follow half ascii mono pixels"
+vp_carry VP_AUTONEXT "0 1"
+vp_carry VP_SAVERHOLD "0 1"
+vp_carry VP_MINISHADOW "0 1"
+vp_carry VP_MINISTICKY "0 1"
+vp_carrygeo
+command -v dt_keep > /dev/null && dt_keep VP_MODE VP_AUTONEXT VP_SAVERHOLD VP_MINISHADOW VP_MINISTICKY VP_MINIGEO VP_HUBOFF
+VP_DATA="${VP_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr}"
+# The sites: what each provider lib adds (VIDEO_SITES: the id and the prefix of its functions; VIDEO_NAMES: how it is called; VIDEO_KEYS: its letter in the
+# menus; VIDEO_ORDER: the order tab goes in). A provider is sourced before this app, and never calls it.
+declare -gA VIDEO_SITES VIDEO_NAMES VIDEO_KEYS VIDEO_API VIDEO_REFUSED
+declare -ga VIDEO_ORDER
+# The provider contract this player takes (docs/video-provider.md): a provider says which it was written for (VIDEO_API[site]=N). One for another
+# number, or a second one for an id or a function prefix already taken, is left out, and VIDEO_REFUSED[site] says why, so a stranger's lib that does not
+# fit costs its own site and no other.
+VIDEO_API_NOW=1
+fn vp_sites_check() {
+	local -a all=("${VIDEO_ORDER[@]-}")
+	local k q
+	local -A seen pre
+
+	VIDEO_ORDER=()
+	for k in "${all[@]}"; do
+		[ -n "$k" ] || continue
+		[ -z "${seen[$k]-}" ] || continue
+		seen[$k]=1
+		if [ "${VIDEO_API[$k]-}" != "$VIDEO_API_NOW" ]; then
+			VIDEO_REFUSED[$k]="its provider is for contract ${VIDEO_API[$k]:-none}; this player takes $VIDEO_API_NOW"
+			continue
+		fi
+		q=${VIDEO_SITES[$k]-}
+		if [ -z "$q" ]; then
+			VIDEO_REFUSED[$k]="its provider gave no function prefix"
+			continue
+		fi
+		if [ -n "${pre[$q]-}" ]; then
+			VIDEO_REFUSED[$k]="its function prefix $q is ${pre[$q]}'s"
+			continue
+		fi
+		pre[$q]=$k
+		unset "VIDEO_REFUSED[$k]"
+		VIDEO_ORDER+=("$k")
+	done
+	return 0
+}
+vp_sites_check
+# The history and favourites files of a window's site, set by vp_files before they are read or written (one folder of the data folder to each site).
+VP_HIST=
+VP_FAVS=
+fn vp_files(int id) {
+	local s=${VP[$id]["site"]}
+
+	VP_HIST="$VP_DATA/$s/history.tsv"
+	VP_FAVS="$VP_DATA/$s/favourites.tsv"
+	return 0
+}
+
+# A row's site: its own when the list mixes sites (the home's results), else the window's.
+fn vp_rsite(int id, int i) {
+	local s=${VR[$id][$i]["site"]-}
+
+	[ -n "$s" ] && [ -n "${VIDEO_SITES[$s]-}" ] || s=${VP[$id]["site"]}
+	ret "$s"
+}
+
+# A window's site: the prefix of its provider's functions, and its name.
+fn vp_p(int id) {
+	ret "${VIDEO_SITES[${VP[$id]["site"]}]}"
+}
+fn vp_name(int id) {
+	ret "${VIDEO_NAMES[${VP[$id]["site"]}]}"
+}
+VP_KEEP=500
+# A title is taken up where it was left once more than VP_RESUME seconds in;
+# within VP_ENDED seconds of its end it counts as watched to the end.
+VP_RESUME="${VP_RESUME-30}"
+VP_ENDED="${VP_ENDED-20}"
+
+
+# Where Bilibili's player is: the one <video>, its time, length and state, and the
+# path of the page it is on. Empty until there is one.
+VP_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
+
+# The page set aside and the video laid over it, edge to edge. Not the cut the
+# YouTube app makes (everything that does not hold the video hidden): Bilibili takes
+# that for the player having left the screen and tears it down after a few seconds.
+VP_CSS='html,body{overflow:hidden!important;background:#000!important}video{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;max-width:none!important;max-height:none!important;z-index:2147483647!important;object-fit:contain!important;background:#000!important;border-radius:0!important}'
+
+# What the engine does, as `web caps` says it, asked the first time.
+VP_CAPS=
+fn vp_has(c) {
+	if [ -z "$VP_CAPS" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		VP_CAPS := web caps 2> /dev/null
+	fi
+	case " $VP_CAPS " in *" $c "*) return 0 ;; esac
+	return 1
+}
+
+# A script whose answer nothing reads, sent and not waited for where the
+# engine can, so a key never holds the desktop while the page is busy.
+fn vp_send(t, js) {
+	if vp_has send; then
+		web send "$t" "$js" 2> /dev/null
+	else
+		web eval "$t" "$js" > /dev/null 2>&1
+	fi
+}
+
+# Whether the engine is here; the reason in the window when not.
+fn vp_need(int id) {
+	if ! need web 2> /dev/null; then
+		VP[$id]["err"]="The web module is not installed"
+		return 1
+	fi
+	vp_has sound && return 0
+	VP[$id]["err"]="Video needs an engine that plays sound: apt install hibr-browser"
+	return 1
+}
+
+# A tab of the window's own: st for lists, pt for playing (let play sound
+# without a press, since the page is one opened to be watched).
+fn vp_tab(int id, which) {
+	local t=${VP[$id]["$which"]}
+
+	if [ -z "$t" ]; then
+		dt_has bw_cfg && bw_cfg webkit
+		t := web open 2> /dev/null || {
+			VP[$id]["err"]="No browser engine to reach the site with -- install hibr-browser"
+			return 1
+		}
+		[ "$which" = pt ] && web sound "$t" load 2> /dev/null
+		VP[$id]["$which"]=$t
+	fi
+	ret "$t"
+}
+
+# --- lists: the popular list, a search, the history, the favourites --
+
+# Show a list: a data page's for the popular list or a search, read when it
+# is ready; the history's or the favourites' from their files at once. Unless
+# told not to, the list shown before is kept to go back to.
+fn vp_load(int id, kind, arg, head = "", push = 1) {
+	local t u p w fn
+
+	vp_need "$id" || return 0
+	[ -n "${VP[$id]["p"]}" ] && vp_stop "$id"
+	if [ "$push" = 1 ] && [ -n "${VP[$id]["kind"]}" ]; then
+		VP[$id]["stack"]+="${VP[$id]["kind"]}"$'\t'"${VP[$id]["arg"]}"$'\t'"${VP[$id]["head"]}"$'\n'
+	fi
+	VP[$id]["kind"]=$kind
+	VP[$id]["arg"]=$arg
+	VP[$id]["head"]=$head
+	VP[$id]["err"]=
+	# a search of every site goes on through vp_load for each site (hub is kept then); any other list ends it
+	[ "$kind" = search ] && [ "$push" = 0 ] && [ -n "${VH[$id]["queue"]+x}" ] && [ -n "${VP[$id]["hub"]-}" ] || VP[$id]["hub"]=
+	# a list asked for while another was still being looked for replaces it (the history shown over a slow home is not hidden by its "Looking")
+	VP[$id]["searching"]=
+	VP[$id]["pend"]=
+	VP[$id]["backhome"]=
+	VP[$id]["view"]=list
+	dt_searchshut "$id"
+	VP[$id]["n"]=0
+	VP[$id]["sel"]=0
+	VP[$id]["top"]=0
+	vp_files "$id"
+	case $kind in
+	hub)
+		# back to a search of every site that was finished: its titles are kept, so no site is asked again
+		if [ "${VH[$id]["q"]-}" = "$arg" ] && [ -z "${VH[$id]["queue"]-}" ] && [ -n "${VH[$id]["sig"]-}" ]; then
+			VP[$id]["hub"]=1
+			vp_hubmix "$id" "" 200
+			return 0
+		fi
+		vp_hubstart "$id" "$arg"
+		return 0
+		;;
+	history) vp_filelist "$id" "$VP_HIST"; return 0 ;;
+	favourites) vp_filelist "$id" "$VP_FAVS"; return 0 ;;
+	video)
+		VR[$id][0]["kind"]=video
+		VR[$id][0]["id"]=$arg
+		VR[$id][0]["title"]=$arg
+		VR[$id][0]["ch"]=
+		VR[$id][0]["len"]=
+		VP[$id]["n"]=1
+		vp_play "$id" 0
+		return 0
+		;;
+	esac
+	p := vp_p "$id"
+	fn=${p}url
+	dt_has "$fn" || { VP[$id]["err"]="This site has no such list"; return 0; }
+	u := $fn "$id" "$kind" "$arg"
+	if [ -z "$u" ]; then
+		# a site with no home list of its own (YouTube) opens on its search, empty
+		[ "$kind" = home ] && { dt_searchopen "$id"; return 0; }
+		VP[$id]["err"]="This site has no such list"
+		return 0
+	fi
+	t := vp_tab "$id" st || return 0
+	VP[$id]["searching"]=$EPOCHSECONDS
+	# what a site does to its list tab before a list is loaded in it (YouTube forgets the last page's data)
+	fn=${p}prepare
+	dt_has "$fn" && $fn "$id" "$t"
+	# A first visit to the site in this window, where the site wants one (the cookies its data pages ask for): the list's own address is gone to
+	# once that has loaded.
+	w=
+	fn=${p}warm_url
+	dt_has "$fn" && w := $fn "$id"
+	if [ -n "$w" ] && [ -z "${VP[$id]["warm_${VP[$id]["site"]}"]-}" ]; then
+		VP[$id]["pend"]=$u
+		web go "$t" "$w" 2> /dev/null
+	else
+		web go "$t" "$u" 2> /dev/null
+	fi
+}
+
+# A search, as typed.
+fn vp_search(int id, q) {
+	local p fn
+
+	q=${q#"${q%%[! ]*}"}
+	q=${q%"${q##*[! ]}"}
+	[ -n "$q" ] || return 0
+	VP[$id]["q"]=$q
+	p := vp_p "$id"
+	fn=${p}parse
+	if dt_has "$fn"; then
+		# the site says what was typed is (a search, or an address of a title, a list)
+		$fn "$q"
+		vp_load "$id" "$VPQ_KIND" "$VPQ_ARG"
+	else
+		vp_load "$id" search "$q"
+	fi
+}
+
+# Back to the list shown before this one; none left puts the keyboard in the
+# search field.
+fn vp_back(int id) {
+	local st=${VP[$id]["stack"]} last
+	local -a f
+
+	if [ -z "$st" ]; then
+		vp_gohome "$id" "${VH[$id]["q"]-}"
+		return 0
+	fi
+	st=${st%$'\n'}
+	last=${st##*$'\n'}
+	[ "$last" = "$st" ] && st= || st=${st%$'\n'*}
+	VP[$id]["stack"]=${st:+$st$'\n'}
+	IFS=$'\037' read -ra f <<< "${last//$'\t'/$'\037'}"
+	vp_load "$id" "${f[0]}" "${f[1]}" "${f[2]}" 0
+}
+
+# The list a page has made, once it has: into VR, an entry to a row.
+fn vp_rjs(int id) {
+	local p fn q
+
+	p := vp_p "$id"
+	fn=${p}rjs
+	dt_has "$fn" || { ret ""; return 0; }
+	q := $fn
+	ret "$q"
+}
+
+fn vp_results(int id) {
+	local t=${VP[$id]["st"]} js i k u q n
+	local -A r
+
+	if web loading "$t" 2> /dev/null; then
+		# a site that never answers at all is given up on too, not only one whose page came without its list
+		if [ $((EPOCHSECONDS - VP[$id]["searching"])) -gt 25 ]; then
+			web go "$t" about:blank 2> /dev/null
+			VP[$id]["searching"]=
+			VP[$id]["pend"]=
+			n := vp_name "$id"
+			VP[$id]["err"]="$n did not answer"
+			[ -n "${VP[$id]["hub"]-}" ] && vp_hubgot "$id" 0
+		fi
+		dt_want 300
+		return 0
+	fi
+	if [ -n "${VP[$id]["pend"]-}" ]; then
+		u=${VP[$id]["pend"]}
+		VP[$id]["pend"]=
+		VP[$id]["warm_${VP[$id]["site"]}"]=1
+		web go "$t" "$u" 2> /dev/null
+		dt_want 300
+		return 0
+	fi
+	q := vp_rjs "$id"
+	js := web eval "$t" "$q" 2> /dev/null
+	# A season just chosen shows the old season's titles for a moment.
+	if [ -n "${VP[$id]["settle"]-}" ]; then
+		if [ $((EPOCHSECONDS - VP[$id]["settle"])) -lt 2 ]; then
+			dt_want 300
+			return 0
+		fi
+		VP[$id]["settle"]=
+	fi
+	if [ -z "$js" ]; then
+		if [ $((EPOCHSECONDS - VP[$id]["searching"])) -gt 25 ]; then
+			VP[$id]["searching"]=
+			n := vp_name "$id"
+			VP[$id]["err"]="$n did not answer"
+			[ -n "${VP[$id]["hub"]-}" ] && vp_hubgot "$id" 0
+		fi
+		dt_want 300
+		return 0
+	fi
+	json parse r <<< "$js" 2> /dev/null || r=()
+	i=0
+	while [ -n "${r["list"][$i]["id"]}" ]; do
+		for k in kind id title ch len views age; do
+			VR[$id][$i]["$k"]=${r["list"][$i]["$k"]}
+		done
+		VR[$id][$i]["site"]=
+		i=$((i + 1))
+	done
+	[ -n "${r["head"]}" ] && [ -z "${VP[$id]["head"]}" ] && VP[$id]["head"]=${r["head"]}
+	VP[$id]["seasons"]=${r["seasons"]:-0}
+	VP[$id]["n"]=$i
+	VP[$id]["searching"]=
+	if [ "$i" = 0 ]; then
+		VP[$id]["err"]="Nothing found"
+		n := vp_name "$id"
+		[ -n "${r["err"]}" ] && VP[$id]["err"]="$n said: ${r["err"]}"
+	fi
+	[ -n "${VP[$id]["hub"]-}" ] && vp_hubgot "$id" "$i"
+	return 0
+}
+
+# A list kept in a file -- the history or the favourites -- newest first: a line
+# to an entry, its fields tab-separated.
+fn vp_filelist(int id, f) {
+	local -a lines fl
+	local i n=0 k j
+
+	[ -r "$f" ] && mapfile -t lines < "$f"
+	i=$((${#lines[@]} - 1))
+	while [ "$i" -ge 0 ]; do
+		IFS=$'\037' read -ra fl <<< "${lines[$i]//$'\t'/$'\037'}"
+		if [ -n "${fl[1]}" ]; then
+			j=0
+			for k in kind id title ch len; do
+				VR[$id][$n]["$k"]=${fl[$j]}
+				j=$((j + 1))
+			done
+			VR[$id][$n]["site"]=
+			# a number alone is the position the older Tubi and Bilibili apps kept in this place, not a length (a length is `1:30`)
+			case ${VR[$id][$n]["len"]} in *[!0-9]*) ;; *) VR[$id][$n]["len"]= ;; esac
+			n=$((n + 1))
+		fi
+		i=$((i - 1))
+	done
+	VP[$id]["n"]=$n
+	[ "$n" = 0 ] && [ "$f" = "$VP_HIST" ] && VP[$id]["err"]="Nothing watched yet"
+	[ "$n" = 0 ] && [ "$f" = "$VP_FAVS" ] && VP[$id]["err"]="No favourites yet -- f keeps one"
+	return 0
+}
+
+# What the list heading says.
+fn vp_heading(int id) {
+	local n p fn
+	case ${VP[$id]["kind"]} in
+	hub) n := vp_hubhead "$id"; ret "$n" ;;
+	home) n := vp_name "$id"; ret "$n" ;;
+	search) ret "Results for ${VP[$id]["arg"]}" ;;
+	history) ret "History" ;;
+	favourites) ret "Favourites" ;;
+	*)
+		p := vp_p "$id"
+		fn=${p}heading
+		if dt_has "$fn"; then
+			n := $fn "$id" "${VP[$id]["kind"]}"
+			ret "$n"
+		else
+			ret "${VP[$id]["head"]}"
+		fi
+		;;
+	esac
+}
+
+# --- history and favourites ---------------------------------------------
+
+# Rewrite a file of entries without the one for a path, then with a new line at
+# its end; at most VP_KEEP lines are kept, the oldest dropped.
+# A history or favourites file's line for a key replaced, or taken out (the core's: lib/videocore).
+fn vp_fileput(f, key, line = "") {
+	vc_fileput "$f" "$key" "$line" "$VP_KEEP"
+}
+
+# The history's line for a path, or nothing; its fields into VPH.
+declare -ga VPH
+VP_HPOS=0
+VP_HPART=1
+fn vp_histget(int id, key) {
+	VPH=()
+	VP_HPOS=0
+	VP_HPART=1
+	vp_files "$id"
+	vc_histget "$VP_HIST" "$key" || return 1
+	VPH=("${VCH[@]}")
+	# A line is kind, key, title, channel, length, position, duration, part. The Tubi and Bilibili apps wrote kind, key, title, channel, position[, part]: a
+	# line of fewer than seven fields has its position fifth.
+	if [ "${#VPH[@]}" -ge 7 ]; then
+		VP_HPOS=${VPH[5]:-0}
+		VP_HPART=${VPH[7]:-1}
+	else
+		VP_HPOS=${VPH[4]:-0}
+		VP_HPART=${VPH[5]:-1}
+	fi
+	[ -n "$VP_HPOS" ] || VP_HPOS=0
+	[ -n "$VP_HPART" ] || VP_HPART=1
+	return 0
+}
+
+# Note where a window's title was left: watched to the end it starts from the
+# beginning next time; left part way it is taken up there.
+fn vp_histput(int id, pos = "") {
+	local key=${VP[$id]["vid"]} d=${VP[$id]["dur"]} p
+
+	[ -n "$key" ] || return 0
+	vp_files "$id"
+	p=$pos
+	if [ -z "$p" ] && [ -n "${VP[$id]["p"]}" ]; then
+		vp_info "$id"
+		p=${VPI["pos"]}
+	fi
+	p=${p%.*}
+	d=${d%.*}
+	[ -n "$p" ] || p=0
+	[ -n "$d" ] || d=0
+	[ "$d" -gt 0 ] && [ "$p" -ge $((d - VP_ENDED)) ] && p=0
+	vp_fileput "$VP_HIST" "$key" "${VP[$id]["kind0"]:-video}"$'\t'"$key"$'\t'"${VP[$id]["title"]}"$'\t'"${VP[$id]["sub"]}"$'\t'"${VP[$id]["len"]}"$'\t'"$p"$'\t'"$d"$'\t'"${VP[$id]["part"]:-1}"
+	vc_libput "${VP[$id]["site"]}" "${VP[$id]["kind0"]:-video}" "$key" "${VP[$id]["title"]}" "${VP[$id]["sub"]}" "$p" "$d"
+}
+
+# Keep an entry as a favourite, or take it out: the chosen one in a list, the
+# one playing in the player.
+fn vp_fav(int id) {
+	local i=${VP[$id]["sel"]} kind key title sub rs
+
+	if [ "${VP[$id]["view"]}" = play ]; then
+		kind=${VP[$id]["kind0"]:-video}
+		key=${VP[$id]["vid"]}
+		title=${VP[$id]["title"]}
+		sub=${VP[$id]["sub"]}
+	else
+		kind=${VR[$id][$i]["kind"]}
+		key=${VR[$id][$i]["id"]}
+		title=${VR[$id][$i]["title"]}
+		sub=${VR[$id][$i]["ch"]}
+		rs := vp_rsite "$id" "$i"
+		VP[$id]["site"]=$rs
+	fi
+	[ -n "$key" ] || return 0
+	vp_files "$id"
+	if [ -n "${VPF["${VP[$id]["site"]}:$key"]}" ]; then
+		unset VPF["${VP[$id]["site"]}:$key"]
+		vp_fileput "$VP_FAVS" "$key"
+		dt_notep low "Taken out of the favourites: %s" "$title"
+	else
+		VPF["${VP[$id]["site"]}:$key"]=1
+		vp_fileput "$VP_FAVS" "$key" "$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'
+		dt_notep low "Kept as a favourite: %s" "$title"
+	fi
+	[ "${VP[$id]["kind"]}" = favourites ] && [ "${VP[$id]["view"]}" = list ] &&
+		vp_load "$id" favourites "" "" 0
+	return 0
+}
+
+# Which paths are favourites, for the star beside them.
+declare -gA VPF
+vp_favload() {
+	local -a lines fl
+	local l f site
+
+	VPF=()
+	for site in "${!VIDEO_SITES[@]}"; do
+		f="$VP_DATA/$site/favourites.tsv"
+		[ -r "$f" ] || continue
+		mapfile -t lines < "$f"
+		for l in "${lines[@]}"; do
+			IFS=$'\037' read -ra fl <<< "${l//$'\t'/$'\037'}"
+			[ -n "${fl[1]}" ] && VPF["$site:${fl[1]}"]=1
+		done
+	done
+	return 0
+}
+
+# Forget everything watched -- Control Panel's Clear History.
+vp_histclear() {
+	local id=$DT_FOCUS
+
+	[ -n "${VP[$id]["site"]-}" ] || return 0
+	vp_histclear_site "${VP[$id]["site"]}"
+}
+
+# Forget everything watched on one site -- Control Panel's Clear History for it.
+fn vp_histclear_site(site) {
+	: > "$VP_DATA/$site/history.tsv" 2> /dev/null
+	dt_notep low "The %s history is empty" "${VIDEO_NAMES["$site"]}"
+}
+
+# --- playing ------------------------------------------------------------
+
+# Open an entry: play the video.
+# A key a site's lists have of their own (Tubi's seasons are left and right): its provider's, when it has one.
+fn vp_listhook(int id, key) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}listkey
+	dt_has "$fn" || return 0
+	$fn "$id" "$key"
+	return 0
+}
+
+# Another site: its home page, with nothing of the last site's lists to go back to.
+fn vp_setsite(int id, site) {
+	[ -n "${VIDEO_SITES["$site"]-}" ] || return 0
+	[ "$site" = "${VP[$id]["site"]}" ] && return 0
+	[ -n "${VP[$id]["p"]}" ] && vp_stop "$id"
+	VP[$id]["site"]=$site
+	VP[$id]["stack"]=
+	VP[$id]["kind"]=
+	VP[$id]["warm_$site"]=
+	dt_searchclear "$id"
+	vp_load "$id" home "" "" 0
+	return 0
+}
+
+# The next site (dir 1) or the one before (-1), in the order the providers came.
+fn vp_sitestep(int id, int dir) {
+	local i=0 n=${#VIDEO_ORDER[@]} cur=0 k
+
+	[ "$n" -gt 1 ] || return 0
+	for k in "${VIDEO_ORDER[@]}"; do
+		[ "$k" = "${VP[$id]["site"]}" ] && cur=$i
+		i=$((i + 1))
+	done
+	vp_setsite "$id" "${VIDEO_ORDER[$(( (cur + dir + n) % n ))]}"
+}
+
+# What a site's `parse` says of the words typed (a search, or an address of a title, a playlist, a channel): its kind and its argument.
+VPQ_KIND=
+VPQ_ARG=
+
+# What a provider may add to the player, each optional and called by its prefix (docs/video-player.md): `pjs` (the script that reads its player), `take ID`
+# (whether an answer of the player is about the title playing, and what else the answer says: adverts, the page moving on), `inad ID`, `tick ID` (a step of
+# its own each tick, status 1 ending the tick), `js WHAT [TO]` (the script for play, pause, seek), `tries` (how often a stopped title is loaded again).
+# The script that reads the player: the provider's, or the one <video> element's.
+fn vp_pjs(int id) {
+	local p fn j
+
+	p := vp_p "$id"
+	fn=${p}pjs
+	if dt_has "$fn"; then
+		j := $fn
+		ret "$j"
+	else
+		ret "$VP_PJS"
+	fi
+}
+
+# The script for a command to the player: play, pause, seek TO.
+fn vp_js(int id, what, to = "") {
+	local p fn j
+
+	p := vp_p "$id"
+	fn=${p}js
+	if dt_has "$fn"; then
+		j := $fn "$what" "$to"
+		ret "$j"
+		return 0
+	fi
+	case $what in
+	play) ret 'document.querySelector("video").play()' ;;
+	pause) ret 'document.querySelector("video").pause()' ;;
+	seek) ret "document.querySelector(\"video\").currentTime=$to" ;;
+	volume) ret "(function(){var v=document.querySelector(\"video\");if(v){v.muted=false;v.volume=$to/100}})()" ;;
+	esac
+}
+
+# Whether the site's player is showing an advert (its time and length are not the video's).
+fn vp_inad(int id) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}inad
+	dt_has "$fn" || return 1
+	$fn "$id"
+}
+
+# How many times a title that stopped is loaded again before the window says so.
+fn vp_tries(int id) {
+	local p fn n
+
+	p := vp_p "$id"
+	fn=${p}tries
+	if dt_has "$fn"; then
+		n := $fn
+		ret "$n"
+	else
+		ret 2
+	fi
+}
+
+# The shortest title whose end is believed: a site whose adverts are short clips (Tubi) says how long, else 0.
+fn vp_minlen(int id) {
+	local p fn n
+
+	p := vp_p "$id"
+	fn=${p}minlen
+	if dt_has "$fn"; then
+		n := $fn
+		ret "$n"
+	else
+		ret 0
+	fi
+}
+
+# How wide a picture asked for as pixels need be, in pixels: the site's quality says (YouTube), else 0, no limit.
+fn vp_pixmax(int id, m) {
+	local p fn w
+
+	p := vp_p "$id"
+	fn=${p}pixmax
+	if dt_has "$fn"; then
+		w := $fn "$m"
+		ret "$w"
+	else
+		ret 0
+	fi
+}
+
+# What a site adds under the player (YouTube's captions), the words in the bar about its quality, and the hint in an empty list.
+fn vp_drawextra(int id, int h, int w) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}drawcc
+	dt_has "$fn" && $fn "$id" "$h" "$w"
+	return 0
+}
+fn vp_qbar(int id) {
+	local p fn q
+
+	p := vp_p "$id"
+	fn=${p}qbar
+	if dt_has "$fn"; then
+		q := $fn "$id"
+		ret "$q"
+	else
+		ret ""
+	fi
+}
+fn vp_hint(int id) {
+	local p fn h
+
+	p := vp_p "$id"
+	fn=${p}hint
+	if dt_has "$fn"; then
+		h := $fn
+		ret "$h"
+	else
+		ret "Type what to look for, and enter."
+	fi
+}
+# The menu items a site's player has of its own (YouTube's captions and qualities), at the end of the Picture menu.
+fn vp_sitemenu(int id) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}menus
+	dt_has "$fn" && $fn "$id"
+	return 0
+}
+# A key a site's player has of its own (YouTube's captions and qualities): its provider's, when it has one; status 1 when it does not take the key.
+fn vp_sitekey(int id, key) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}key
+	dt_has "$fn" || return 1
+	$fn "$id" "$key"
+}
+
+# The mini player: only the picture, in a small window with no border,
+# title or bar, kept in view on every workspace and moved by dragging it.
+# A double click or escape goes back to the full player, where it was;
+# a right click on the picture has the player's and the window's controls.
+fn vp_mini(int id) {
+	local r c h w
+	local -a was g
+
+	if [ "${VP[$id]["mini"]}" = 1 ]; then
+		vp_minikeep "$id"
+		read -ra was <<< "${VP[$id]["norm"]}"
+		VP[$id]["mini"]=
+		DT[$id]["chrome"]=
+		DT[$id]["noshadow"]=
+		[ "${was[4]}" = 1 ] || { command -v dt_sticky > /dev/null && dt_sticky "$id" 0; }
+		if [ "${#was[@]}" -ge 4 ]; then
+			DT[$id]["row"]=${was[0]}
+			DT[$id]["col"]=${was[1]}
+			dt_resize "$id" "${was[2]}" "${was[3]}"
+			dt_move "$id" "${was[0]}" "${was[1]}"
+		fi
+		VP[$id]["sized"]=
+		return 0
+	fi
+	[ "${VP[$id]["view"]}" = play ] || return 0
+	VP[$id]["norm"]="${DT[$id]["row"]} ${DT[$id]["col"]} ${DT[$id]["h"]} ${DT[$id]["w"]} ${DT[$id]["sticky"]:-0}"
+	# The corner of the display the player is on, not of the whole
+	# screen, which with several displays is a corner of another one
+	# (Gitea #293).
+	dt_windisp "$id"
+	w=$((DTW_W / 3))
+	[ "$w" -gt 64 ] && w=64
+	[ "$w" -lt 24 ] && w=24
+	h=$(((w * 9 / 16 + 1) / 2 + 1))
+	r=$((DTW_R + DTW_H - h - 1))
+	c=$((DTW_C + DTW_W - w - 2))
+	# Where it was last left, while that still fits the screen.
+	read -ra g <<< "$VP_MINIGEO"
+	if [ "${#g[@]}" = 4 ] && [ $((g[0] + g[2])) -le "$DT_ROWS" ] &&
+	   [ $((g[1] + g[3])) -le "$DT_COLS" ] && [ "${g[2]}" -ge 3 ] &&
+	   [ "${g[3]}" -ge 12 ]; then
+		r=${g[0]}
+		c=${g[1]}
+		h=${g[2]}
+		w=${g[3]}
+	fi
+	VP[$id]["mini"]=1
+	DT[$id]["chrome"]=none
+	DT[$id]["noshadow"]=
+	[ "${VP_MINISHADOW:-1}" = 1 ] || DT[$id]["noshadow"]=1
+	command -v dt_sticky > /dev/null && dt_sticky "$id" "${VP_MINISTICKY:-1}"
+	DT[$id]["row"]=$r
+	DT[$id]["col"]=$c
+	dt_resize "$id" "$h" "$w"
+	dt_move "$id" "$r" "$c"
+	VP[$id]["sized"]=
+}
+
+# Draw the mini player: the picture filling the window, or the title
+# while it loads.
+fn vp_drawmini(int id, int h, int w) {
+	local p md
+
+	vp_tick "$id"
+	p=${VP[$id]["p"]}
+	if [ -n "$p" ]; then
+		md := vp_drawmode
+		vp_picture "$id" "$w" "$h" 0 0 "$md" && return 0
+	fi
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((h / 2)) 1 "${VP[$id]["title"]:0:$((w - 2))}"
+}
+
+# Remember where the mini player is, for the next time it opens.
+fn vp_minikeep(int id) {
+	[ "${VP[$id]["mini"]}" = 1 ] || return 0
+	VP_MINIGEO="${DT[$id]["row"]} ${DT[$id]["col"]} ${DT[$id]["h"]} ${DT[$id]["w"]}"
+	command -v dt_save > /dev/null && dt_save
+}
+
+# The mini player on every workspace or on its own, from its right-click
+# menu, kept for the next time.
+fn vp_ministicky(int id) {
+	if [ "${DT[$id]["sticky"]:-0}" = 1 ]; then VP_MINISTICKY=0; else VP_MINISTICKY=1; fi
+	command -v dt_sticky > /dev/null && dt_sticky "$id" "$VP_MINISTICKY"
+	command -v dt_save > /dev/null && dt_save
+}
+
+# A mini player already open takes the settings as Control Panel changes
+# them, rather than at the next time it opens.
+vp_miniapply() {
+	local id
+
+	for id in "${!VP[@]}"; do
+		[ "${VP[$id]["mini"]}" = 1 ] || continue
+		DT[$id]["noshadow"]=
+		[ "${VP_MINISHADOW:-1}" = 1 ] || DT[$id]["noshadow"]=1
+		command -v dt_sticky > /dev/null && dt_sticky "$id" "${VP_MINISTICKY:-1}"
+	done
+	dt_want 10
+}
+
+# Its shadow, on or off, from the same menu.
+fn vp_minishadow(int id) {
+	if [ "${VP_MINISHADOW:-1}" = 1 ]; then VP_MINISHADOW=0; else VP_MINISHADOW=1; fi
+	DT[$id]["noshadow"]=
+	[ "$VP_MINISHADOW" = 1 ] || DT[$id]["noshadow"]=1
+	command -v dt_save > /dev/null && dt_save
+	dt_want 10
+}
+
+# A right click: the menu is the window's own, not always the mini player's -- the desktop
+# asks for it on any right press once this exists.  The mini player has Sticky, Shadow and the
+# way back to the full player; the full player has what is on its Play menu and the way to the
+# mini one; a list has the lists.
+fn video_context(int? id = "") {
+	if [ "${VP[$id]["mini"]}" != 1 ]; then
+		if [ "${VP[$id]["view"]}" = play ] && [ -n "${VP[$id]["p"]}" ]; then
+			dt_menu "Player"
+			dt_item "Pause or Play" p vp_toggle "$id"
+			dt_item "Back 10 Seconds" b vp_seek "$id" -10
+			dt_item "On 10 Seconds" o vp_seek "$id" +10
+			dt_item "Next" n vp_next "$id" 1
+			dt_item "Previous" r vp_next "$id" -1
+			dt_sep
+			dt_item "Louder" l video_key "$id" up
+			dt_item "Quieter" q video_key "$id" down
+			dt_sep
+			dt_mark "Captions" c "${VP_CAPTIONS:-0}" vp_captions "$id"
+			dt_item "Next Picture" x vp_mode
+			dt_item "Next Quality" y vp_quality "$id"
+			dt_item "Previous Quality" z vp_quality "$id" -1
+			dt_sep
+			dt_item "Mini Player" i vp_mini "$id"
+		else
+			dt_menu "Video"
+			dt_item "Search${GL[ellipsis]}" s video_key "$id" "/"
+			dt_item "History" h video_key "$id" h
+			dt_item "Favourites" v video_key "$id" v
+		fi
+		dt_sep
+		dt_item "Close" w dt_closereq "$id"
+		return 0
+	fi
+	dt_menu "Player"
+	if [ -n "${VP[$id]["p"]}" ]; then
+		dt_item "Pause or Play" p vp_toggle "$id"
+		dt_item "Back 10 Seconds" b vp_seek "$id" -10
+		dt_item "On 10 Seconds" o vp_seek "$id" +10
+		dt_item "Next" n vp_next "$id" 1
+		dt_item "Louder" l video_key "$id" up
+		dt_item "Quieter" q video_key "$id" down
+	else
+		dt_dim "Pause or Play"
+	fi
+	dt_sep
+	dt_mark "Sticky" k "${DT[$id]["sticky"]:-0}" vp_ministicky "$id"
+	dt_mark "Shadow" h "${VP_MINISHADOW:-1}" vp_minishadow "$id"
+	dt_sep
+	dt_item "Full Player" f vp_mini "$id"
+	dt_item "Close" c dt_closereq "$id"
+}
+
+# Whether a row is a title to play (not a series, a playlist or a channel, which open a list of their own).
+fn vp_playable(kind) {
+	case $kind in
+	video | movie | episode | "") return 0 ;;
+	esac
+	return 1
+}
+
+# Open an entry: play a title, or open the list a series, playlist or channel holds.
+fn vp_choose(int id, int i) {
+	local rs
+
+	if vp_playable "${VR[$id][$i]["kind"]}"; then
+		vp_play "$id" "$i"
+	else
+		# a list of every site's titles: the row's own site opens it
+		rs := vp_rsite "$id" "$i"
+		VP[$id]["site"]=$rs
+		vp_load "$id" "${VR[$id][$i]["kind"]}" "${VR[$id][$i]["id"]}" "${VR[$id][$i]["title"]}"
+	fi
+}
+
+# Play a list's film or episode: Bilibili's page for it in the player tab, which the
+# engine plays itself. One left part way is taken up where it was.
+fn vp_start(int id, int i, part = 1) {
+	local key=${VR[$id][$i]["id"]} t a rs
+
+	[ -n "$key" ] || return 0
+	rs := vp_rsite "$id" "$i"
+	VP[$id]["site"]=$rs
+	vp_validkey "$id" "$key" || { VP[$id]["err"]="That is not a video id of this site"; return 0; }
+	vp_need "$id" || return 0
+	vp_stop "$id"
+	t := vp_tab "$id" pt || return 0
+	VP[$id]["p"]=$t
+	VP[$id]["cur"]=$i
+	VP[$id]["vid"]=$key
+	VP[$id]["num"]=$key
+	VP[$id]["kind0"]=${VR[$id][$i]["kind"]:-video}
+	VP[$id]["title"]=${VR[$id][$i]["title"]}
+	VP[$id]["sub"]=${VR[$id][$i]["ch"]}
+	VP[$id]["len"]=${VR[$id][$i]["len"]}
+	VP[$id]["state"]=loading
+	vp_has_step "$id" && VP[$id]["state"]=resolving
+	VP[$id]["rstep"]=cid
+	VP[$id]["part"]=$part
+	VP[$id]["parts"]=1
+	VP[$id]["ptitle"]=
+	VP[$id]["since"]=$EPOCHSECONDS
+	VP[$id]["sized"]=
+	VP[$id]["view"]=play
+	VP[$id]["err"]=
+	VP[$id]["dur"]=0
+	VP[$id]["lpos"]=0
+	VP[$id]["tries"]=0
+	VP[$id]["bad"]=0
+	VP[$id]["chk"]=$EPOCHSECONDS
+	VP[$id]["resume"]=
+	VP[$id]["upause"]=
+	VP[$id]["efr"]=
+	VP[$id]["sat"]=
+	vp_stale "$id"
+	if vp_histget "$id" "$key" && [ "$VP_HPOS" -gt "$VP_RESUME" ] && [ "$VP_HPART" = "$part" ]; then
+		VP[$id]["resume"]=$VP_HPOS
+	fi
+	a := vp_first "$id" "$key" "$part"
+	web size "$t" 40 120 2> /dev/null
+	web go "$t" "$a" 2> /dev/null
+}
+
+# Whether the window's site looks a title up in steps (state resolving, the provider's step function) before there is a page with the video.
+fn vp_has_step(int id) {
+	local p
+
+	p := vp_p "$id"
+	dt_has "${p}step"
+}
+
+# What the site says to load first for a title (and any step it will take after: its lookups), by its provider.
+fn vp_first(int id, key, part) {
+	local p fn a
+
+	p := vp_p "$id"
+	fn=${p}start
+	a := $fn "$id" "$key" "$part"
+	ret "$a"
+}
+
+# Whether a key is one of the window's site's own (it reaches addresses and file names, so the provider says what a key may look like).
+fn vp_validkey(int id, key) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}validkey
+	dt_has "$fn" || return 0
+	$fn "$key"
+}
+
+# The provider's lookups while a title is being found (state resolving): one step, ending in the page with the video.
+fn vp_resolve(int id) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}step
+	dt_has "$fn" || return 0
+	$fn "$id"
+}
+
+# Play a list's video: from the part the history left it at, when it was left part way.
+fn vp_play(int id, int i) {
+	local key=${VR[$id][$i]["id"]} part=1 rs
+
+	rs := vp_rsite "$id" "$i"
+	VP[$id]["site"]=$rs
+
+	if vp_validkey "$id" "$key" && vp_histget "$id" "$key" && [ "$VP_HPOS" -gt "$VP_RESUME" ]; then
+		part=$VP_HPART
+	fi
+	vp_start "$id" "$i" "$part"
+}
+
+# What the player tab holds, in a few words, for when a title will not start.
+VP_WHYJS='(function(){var v=document.querySelector("video");if(!v)return "no video";return "readyState "+v.readyState+(v.error?", error "+v.error.code:"")+", network "+v.networkState})()'
+
+# Stop playing, noting where it was left: the page left.
+# What a provider wrote for the playing (a page of its own), taken away when it stops.
+fn vp_cleanup(int id) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}cleanup
+	dt_has "$fn" && $fn "$id"
+	return 0
+}
+
+fn vp_stop(int id) {
+	local p=${VP[$id]["p"]} t=${VP[$id]["pt"]}
+
+	# the page written for the player holds the file's signed address: gone with the playing
+	[ -n "$p" ] && vp_cleanup "$id"
+
+	[ -n "$p" ] && [ "${VP[$id]["state"]}" = playing ] && vp_histput "$id"
+	[ -n "$t" ] && web go "$t" about:blank 2> /dev/null
+	VP[$id]["p"]=
+	VP[$id]["state"]=
+}
+
+# The next video in the list after the one playing, or before it: its index; fails at either end.
+fn vp_step(int id, int dir) {
+	local i=${VP[$id]["cur"]} n=${VP[$id]["n"]}
+
+	while :; do
+		i=$((i + dir))
+		[ "$i" -ge 0 ] && [ "$i" -lt "$n" ] || return 1
+		vp_playable "${VR[$id][$i]["kind"]}" && { ret "$i"; return 0; }
+	done
+}
+
+# Play the next one or the one before.
+fn vp_next(int id, int dir) {
+	local i part=${VP[$id]["part"]:-1} n=${VP[$id]["parts"]:-1}
+
+	# a video of several parts goes by its parts first, and on to the list's next at the last
+	if [ "${VP[$id]["view"]}" = play ] && [ "$n" -gt 1 ] && [ "$((part + dir))" -ge 1 ] && [ "$((part + dir))" -le "$n" ]; then
+		vp_start "$id" "${VP[$id]["cur"]}" $((part + dir))
+		return 0
+	fi
+	i := vp_step "$id" "$dir" || { dt_notep low "No more in this list"; return 0; }
+	VP[$id]["sel"]=$i
+	vp_play "$id" "$i"
+}
+
+# --- asking the player ----------------------------------------------------
+
+# Ask the page's video where it is, into VPP; at most five times a second. The
+# player was just told something (play, pause, seek, volume): an answer the page
+# gave before is about the player as it was, so each command counts (vp_stale)
+# and an answer is relied on only when it was asked after the last.
+declare -gA VPP
+VPPID=
+fn vp_stale(int id) {
+	VP[$id]["pat"]=
+	VP[$id]["gen"]=$(( ${VP[$id]["gen"]:-0} + 1 ))
+	return 0
+}
+
+# What the page's video says, into VPP: 0 when it is an answer to rely on.
+# Where the engine waits for it (no `web evask`) it is asked and read now; where
+# it does not, it is asked for in one call and read in a later one, so the
+# desktop never waits on a busy page.
+fn vp_page(int id, now = "") {
+	local js nv rc wait=$now q
+
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	q := vp_pjs "$id"
+	# `now`: this one answer is waited for -- for the rare moment that has to know where the page is this instant (a new stream).
+	if ! vp_has evask || [ -n "$wait" ]; then
+		# The last answer serves for 200 ms -- but not for `now`, which is asked when the page has just started a new stream: an answer from
+		# before it is about the last video.
+		if [ -z "$wait" ] && [ "$VPPID" = "$id" ] && [ -n "${VP[$id]["pat"]}" ] && [ $((now - VP[$id]["pat"])) -lt 200 ] && [ -n "${VPP["u"]}" ]; then
+			return 0
+		fi
+		js := web eval "${VP[$id]["pt"]}" "$q" 2> /dev/null || return 1
+		vp_take "$id" "$js" "$now" || return 1
+		VP[$id]["pgen"]=${VP[$id]["gen"]:-0}
+		VP[$id]["pvid"]=${VP[$id]["vid"]}
+		VP[$id]["pseq"]=$(( ${VP[$id]["pseq"]:-0} + 1 ))
+		return 0
+	fi
+	# An answer in: taken if it is about what was asked, dropped if the tab, the video or the command count has moved on since -- and asked again.
+	if [ -n "${VP[$id]["pq"]-}" ]; then
+		rc=0
+		js := web evget "${VP[$id]["pt"]}" "${VP[$id]["pq"]}" 2> /dev/null || rc=$?
+		if [ "$rc" = 1 ] && [ $((now - ${VP[$id]["pqat"]:-0})) -lt 3000 ]; then
+			vp_fresh "$id"
+			return
+		fi
+		VP[$id]["pq"]=
+		if [ "$rc" = 0 ] && [ "${VP[$id]["pqv"]}" = "${VP[$id]["pt"]} ${VP[$id]["vid"]} ${VP[$id]["gen"]:-0}" ]; then
+			vp_take "$id" "$js" "${VP[$id]["pqat"]}" || return 1
+			VP[$id]["pgen"]=${VP[$id]["gen"]:-0}
+			VP[$id]["pvid"]=${VP[$id]["vid"]}
+			VP[$id]["pseq"]=$(( ${VP[$id]["pseq"]:-0} + 1 ))
+		fi
+	fi
+	# The next one asked for, while the last is still fresh enough to use.
+	if [ -z "${VP[$id]["pq"]-}" ] && ! { vp_fresh "$id" && [ $((now - VP[$id]["pat"])) -lt 200 ]; }; then
+		VP[$id]["pq"] := web evask "${VP[$id]["pt"]}" "$q" 2> /dev/null || return 1
+		VP[$id]["pqat"]=$now
+		VP[$id]["pqv"]="${VP[$id]["pt"]} ${VP[$id]["vid"]} ${VP[$id]["gen"]:-0}"
+	fi
+	vp_fresh "$id"
+}
+
+# An answer the page gave, into VPP, as of AT: 1 when it is not about the title
+# playing (right after a go, the page before is still there).
+fn vp_take(int id, js, at) {
+	local p fn
+
+	[ -n "$js" ] || return 1
+	VPP=()
+	json parse VPP <<< "$js" 2> /dev/null || return 1
+	p := vp_p "$id"
+	fn=${p}take
+	if dt_has "$fn"; then
+		# the site's own: about this title (and what else the answer says: an advert, the page gone on to another title)
+		if ! $fn "$id"; then
+			VPP=()
+			[ "$VPPID" = "$id" ] && VPPID=
+			return 1
+		fi
+	else
+		case ${VPP["u"]} in
+		*"${VP[$id]["num"]}"*) ;;
+		*)
+			VPP=()
+			[ "$VPPID" = "$id" ] && VPPID=
+			return 1 ;;
+		esac
+	fi
+	VP[$id]["pat"]=$at
+	VPPID=$id
+	VP[$id]["lpos"]=${VPP["t"]}
+	return 0
+}
+
+# Whether VPP holds an answer to rely on now, asking nothing.
+fn vp_fresh(int id) {
+	local now
+
+	vp_has evask || { [ "$VPPID" = "$id" ] && [ -n "${VP[$id]["pat"]}" ]; return; }
+	[ "$VPPID" = "$id" ] && [ -n "${VP[$id]["pat"]}" ] || return 1
+	[ "${VP[$id]["pvid"]}" = "${VP[$id]["vid"]}" ] || return 1
+	[ "${VP[$id]["pgen"]}" = "${VP[$id]["gen"]:-0}" ] || return 1
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - VP[$id]["pat"])) -lt 2000 ]
+}
+
+# Whether VPP is at least this window's last answer about the title playing:
+# enough for the clock and the bar, never for a decision.
+fn vp_known(int id) {
+	vp_has evask || return 1
+	[ "$VPPID" = "$id" ] && [ -n "${VPP["u"]}" ] && [ "${VP[$id]["pvid"]}" = "${VP[$id]["vid"]}" ]
+}
+
+# What the player reports, into VPI: the position and length, paused or ended,
+# the volume, and a count of the frames it has shown. What was last known stands
+# where the page cannot answer, as at the very start.
+declare -gA VPI
+fn vp_info(int id) {
+	VPI["pos"]=${VP[$id]["lpos"]:-0}
+	VPI["dur"]=${VP[$id]["dur"]:-0}
+	VPI["paused"]=0
+	VPI["ended"]=0
+	VPI["volume"]=${VP[$id]["vol"]:-100}
+	VPI["shown"]=${VP[$id]["lshown"]:-0}
+	VPI["drawn"]=${VP[$id]["md"]:-cells}
+	[ -n "${VP[$id]["pt"]}" ] || return 0
+	vp_page "$id" || vp_known "$id" || return 0
+	VPI["pos"]=${VPP["t"]}
+	VPI["paused"]=${VPP["pa"]:-0}
+	VPI["ended"]=${VPP["en"]:-0}
+	VPI["shown"]=${VPP["fr"]:-0}
+	VP[$id]["lshown"]=${VPP["fr"]:-0}
+	return 0
+}
+
+# One step of playing: start the page's player once it is there, take a title up
+# where it was left, and at the end go on to the next.
+fn vp_tick(int id) {
+	local t=${VP[$id]["pt"]} p=${VP[$id]["p"]} s js m i e wf why nm pf mn
+
+	if dt_has dt_live; then
+		if [ "${VP[$id]["state"]}" = playing ]; then
+			dt_live "$id" on
+		else
+			dt_live "$id"
+		fi
+	fi
+	[ -n "$p" ] || return 0
+	# a step of the site's own each tick (YouTube follows a page that went on by itself, and turns its own autoplay off); status 1 ends the tick
+	pf=${VIDEO_SITES[${VP[$id]["site"]}]}tick
+	if dt_has "$pf"; then
+		$pf "$id" || return 0
+	fi
+	# The engine's word of each new frame is what wakes the desktop.
+	if vp_has pollbuild && wf := web fd 2> /dev/null; then
+		command -v console > /dev/null && console watch "$wf"
+	fi
+	if [ "${VP[$id]["state"]}" = resolving ]; then
+		vp_resolve "$id"
+		if [ "${VP[$id]["state"]}" = resolving ] && [ $((EPOCHSECONDS - VP[$id]["since"])) -gt 25 ]; then
+			nm := vp_name "$id"
+			VP[$id]["err"]="$nm did not answer"
+			vp_stop "$id"
+			return 0
+		fi
+		dt_want 300
+	fi
+	if [ "${VP[$id]["state"]}" = loading ]; then
+		js := vp_startjs_now "$id"
+		s := web eval "$t" "$js" 2> /dev/null
+		if [ "$s" = ok ]; then
+			VP[$id]["state"]=playing
+			VP[$id]["sat"]=${EPOCHREALTIME/./}
+			VP[$id]["sat"]=${VP[$id]["sat"]:0:-3}
+		fi
+		if [ "${VP[$id]["state"]}" = loading ] &&
+		   [ $((EPOCHSECONDS - VP[$id]["since"])) -gt 30 ]; then
+			why := web eval "$t" "$VP_WHYJS" 2> /dev/null
+			printf 'video: %s did not start (%s)\n' "${VP[$id]["vid"]}" "$why" >&2
+			VP[$id]["err"]="The video would not start (${why:-no page answer}) -- its link may have expired or be refused"
+			vp_stop "$id"
+			return 0
+		fi
+		dt_want 300
+	fi
+	if [ "${VP[$id]["dur"]%.*}" = 0 ] && vp_page "$id" && ! vp_inad "$id"; then
+		VP[$id]["dur"]=${VPP["d"]}
+		[ -n "${VPP["title"]}" ] && VP[$id]["title"]=${VPP["title"]}
+		[ -n "${VPP["author"]}" ] && VP[$id]["sub"]=${VPP["author"]}
+		if [ -z "${VP[$id]["len"]}" ] && [ "${VP[$id]["dur"]%.*}" -gt 0 ]; then
+			VP[$id]["len"] := vp_mmss "${VP[$id]["dur"]}"
+		fi
+	fi
+	# Taking a title up where it was left waits for the player to know its length
+	# and to hold some of it: before that there is nothing to go to.
+	if [ -n "${VP[$id]["resume"]}" ] && [ "${VP[$id]["state"]}" = playing ] &&
+	   vp_held "$id"; then
+		m := vp_mmss "${VP[$id]["resume"]}"
+		vp_seek "$id" "${VP[$id]["resume"]}"
+		VP[$id]["resume"]=
+		dt_notep low "Taken up at %s, where it was left" "$m"
+	fi
+	[ "${VP[$id]["state"]}" = playing ] && vp_has evask && vp_page "$id" > /dev/null
+	if [ "${VP[$id]["state"]}" = playing ] &&
+	   [ $((EPOCHSECONDS - ${VP[$id]["chk"]:-0})) -ge 3 ]; then
+		VP[$id]["chk"]=$EPOCHSECONDS
+		vp_watch "$id"
+		[ "${VP[$id]["state"]}" = playing ] || return 0
+	fi
+	if [ "${VP[$id]["state"]}" = playing ]; then
+		vp_info "$id"
+		m=${VP[$id]["dur"]%.*}
+		# Ended: the page says so, or the clock is within a second of the length
+		# and no frame has come for two. Never in the first seconds (the clock is
+		# still the last title's), and never in a clip of an advert's length.
+		e=0
+		[ "${VPI["ended"]}" = 1 ] && e=1
+		if vp_has evask && ! vp_fresh "$id"; then
+			e=0
+		elif [ "$e" = 0 ] && [ "${m:-0}" -gt 0 ] && [ "${VPI["pos"]%.*}" -ge $((m - 1)) ]; then
+			if [ "${VPI["shown"]}" != "${VP[$id]["efr"]}" ]; then
+				VP[$id]["efr"]=${VPI["shown"]}
+				VP[$id]["eat"]=$EPOCHSECONDS
+			elif [ $((EPOCHSECONDS - ${VP[$id]["eat"]:-$EPOCHSECONDS})) -ge 2 ]; then
+				e=1
+			fi
+		fi
+		[ $((EPOCHSECONDS - ${VP[$id]["since"]:-0})) -lt 3 ] && e=0
+		# not in a clip shorter than the site's adverts are (Tubi's: 40 seconds), where an advert's end reads as the title's
+		mn := vp_minlen "$id"
+		[ "${m:-0}" -lt "$mn" ] && e=0
+		# an advert ending is not the video ending
+		vp_inad "$id" && e=0
+		if [ "$e" = 1 ]; then
+			vp_histput "$id" "${VP[$id]["dur"]}"
+			VP[$id]["state"]=ended
+			if [ "$VP_AUTONEXT" = 1 ] && [ "${VP[$id]["part"]:-1}" -lt "${VP[$id]["parts"]:-1}" ]; then
+				vp_start "$id" "${VP[$id]["cur"]}" $((${VP[$id]["part"]} + 1))
+				return 0
+			fi
+			if [ "$VP_AUTONEXT" = 1 ] && i := vp_step "$id" 1; then
+				VP[$id]["sel"]=$i
+				vp_play "$id" "$i"
+				return 0
+			fi
+		fi
+	fi
+	dt_want 250
+}
+
+# The script that starts the player, for this title and its volume.
+fn vp_startjs_now(int id) {
+	local j p fn
+
+	p := vp_p "$id"
+	fn=${p}startjs
+	j := $fn "${VP[$id]["vol"]:-100}" "${VP[$id]["num"]}"
+	ret "$j"
+}
+
+# Every few seconds while playing: whether the page's video is still going. It
+# can fail (its error), and then nothing more plays; the title is loaded again
+# and taken up where it was, up to twice, and after that the window says so.
+fn vp_watch(int id) {
+	local j
+
+	# Paused by the viewer is not stopped: the page pausing itself, as it does when it gives up, is.
+	[ -n "${VP[$id]["upause"]}" ] && return 0
+	vp_info "$id"
+	vp_page "$id" || return 0
+	# An answer is acted on once: read without waiting, the same one can still be the newest at the next look, and counting it twice would load
+	# the video again for one stop.
+	if vp_has evask; then
+		[ "${VP[$id]["wseq"]-}" = "${VP[$id]["pseq"]}" ] && return 0
+		VP[$id]["wseq"]=${VP[$id]["pseq"]}
+	fi
+	# An advert playing is the player at work, whatever it calls the video
+	if vp_inad "$id"; then
+		VP[$id]["bad"]=0
+		return 0
+	fi
+	if [ "${VPP["e"]}" = 1 ]; then
+		vp_recover "$id" "${VPI["pos"]%.*}"
+	elif [ "${VPP["pa"]}" = 1 ] && [ "${VPP["en"]}" != 1 ] && [ "${VPI["pos"]%.*}" -le 3 ]; then
+		# Paused at the very start, and nobody here paused it: a play() the page turned down before it had anything to play. Asked again.
+		j := vp_js "$id" play
+		vp_send "${VP[$id]["pt"]}" "$j"
+		vp_stale "$id"
+	elif [ "${VPP["st"]}" = -1 ] && [ "${VPI["pos"]%.*}" -gt 3 ]; then
+		VP[$id]["bad"]=$(( ${VP[$id]["bad"]:-0} + 1 ))
+		[ "${VP[$id]["bad"]}" -ge 2 ] && vp_recover "$id" "${VPI["pos"]%.*}"
+	else
+		VP[$id]["bad"]=0
+	fi
+	return 0
+}
+
+# Load the title again and take it up at a time, after the player failed.
+fn vp_recover(int id, int pos) {
+	local m a n=${VP[$id]["tries"]:-0} nm t
+
+	VP[$id]["bad"]=0
+	t := vp_tries "$id"
+	if [ "$n" -ge "$t" ]; then
+		nm := vp_name "$id"
+		VP[$id]["err"]="$nm's player keeps stopping on this title"
+		vp_stop "$id"
+		return 0
+	fi
+	VP[$id]["tries"]=$((n + 1))
+	m := vp_mmss "$pos"
+	printf 'video: the page stopped %s at %s; loading it again\n' "${VP[$id]["vid"]}" "$m" >&2
+	[ "$pos" -gt 0 ] && VP[$id]["resume"]=$pos
+	nm := vp_name "$id"
+	dt_notep low "%s stopped -- trying again" "$nm"
+	# looked up again from the start (a lookup's file expires), in the same part
+	VP[$id]["state"]=loading
+	vp_has_step "$id" && VP[$id]["state"]=resolving
+	VP[$id]["since"]=$EPOCHSECONDS
+	vp_stale "$id"
+	a := vp_first "$id" "${VP[$id]["vid"]}" "${VP[$id]["part"]:-1}"
+	web go "${VP[$id]["pt"]}" "$a" 2> /dev/null
+}
+
+# Whether the player holds enough of the video to be taken to a time: it knows its length and some of the video is buffered.
+fn vp_held(int id) {
+	[ "${VP[$id]["dur"]%.*}" -gt 0 ] && vp_page "$id" && [ "${VPP["rs"]:-0}" -ge 3 ]
+}
+
+# Pause or play, in the page's video.
+fn vp_toggle(int id) {
+	local p=${VP[$id]["p"]} t=${VP[$id]["pt"]} pz j
+
+	[ -n "$p" ] || return 0
+	# Nothing to pause or play until there is a video: a press while the title is still being found or loaded is not kept.
+	case ${VP[$id]["state"]-} in resolving | loading) return 0 ;; esac
+	vp_stale "$id"
+	vp_info "$id"
+	pz=${VPI["paused"]}
+	# No answer since the last command: this app's own last word decides, so a
+	# quick second press undoes the first.
+	if vp_has evask && ! vp_fresh "$id"; then
+		pz=0
+		[ -n "${VP[$id]["upause"]}" ] && pz=1
+	fi
+	if [ "$pz" = 1 ]; then
+		VP[$id]["upause"]=
+		j := vp_js "$id" play
+		vp_send "$t" "$j"
+	else
+		VP[$id]["upause"]=1
+		j := vp_js "$id" pause
+		vp_send "$t" "$j"
+		vp_histput "$id"
+	fi
+	vp_stale "$id"
+}
+
+# Go to a time: the page's video sent there.
+fn vp_seek(int id, to) {
+	local p=${VP[$id]["p"]} t=${VP[$id]["pt"]} d j
+
+	[ -n "$p" ] || return 0
+	case ${VP[$id]["state"]-} in resolving | loading) return 0 ;; esac
+	vp_stale "$id"
+	vp_info "$id"
+	case $to in
+	+* | -*) to=$(( ${VPI["pos"]%.*} + to )) ;;
+	esac
+	d=${VP[$id]["dur"]%.*}
+	[ "$to" -lt 0 ] && to=0
+	[ "$d" -gt 0 ] && [ "$to" -gt "$d" ] && to=$d
+	j := vp_js "$id" seek "$to"
+	vp_send "$t" "$j"
+	vp_stale "$id"
+}
+
+# The volume, 0 to 100, set in the page's video.
+fn vp_volume(int id, int v) {
+	local j
+
+	[ "$v" -gt 100 ] && v=100
+	[ "$v" -lt 0 ] && v=0
+	VP[$id]["vol"]=$v
+	j := vp_js "$id" volume "$v"
+	vp_send "${VP[$id]["pt"]}" "$j"
+	vp_stale "$id"
+}
+
+# Minutes and seconds, with hours in front of an hour or more.
+fn vp_mmss(t) {
+	local out
+
+	out := vc_mmss "$t"
+	ret "$out"
+}
+
+# --- the window -----------------------------------------------------------
+
+# The shared core (lib/videocore of the catalogue, API 1): the files and lines every video app keeps. Without it, or an older one, the window says
+# so and does nothing else, rather than half work.
+fn vp_core(int id) {
+	vc_ok 1 2> /dev/null && return 0
+	VP[$id]["nocore"]=1
+	VP[$id]["err"]="Video needs the Video Core (lib/videocore): update hibr (0.99.526 or later), run catalogue update and start the desktop again"
+	return 1
+}
+
+fn video_open(int id, arg = "") {
+	local site= a s k named
+
+	VP[$id]["view"]=list
+	VP[$id]["kind"]=
+	VP[$id]["arg"]=
+	VP[$id]["head"]=
+	VP[$id]["stack"]=
+	VP[$id]["q"]=
+	dt_searchclear "$id"
+	dt_searchopen "$id"
+	VP[$id]["n"]=0
+	VP[$id]["sel"]=0
+	VP[$id]["top"]=0
+	VP[$id]["vol"]=100
+	VP[$id]["st"]=
+	VP[$id]["pt"]=
+	VP[$id]["p"]=
+	VP[$id]["err"]=
+	vp_sites_check
+	VP[$id]["site"]=${VIDEO_ORDER[0]-}
+	vp_core "$id" || return 0
+	if [ -z "${VP[$id]["site"]}" ]; then
+		VP[$id]["err"]="Video has no sites: install one (catalogue install a lib/video-* entry)"
+		return 0
+	fi
+	[ -n "${VP_SITE-}" ] && [ -n "${VIDEO_SITES["$VP_SITE"]-}" ] && VP[$id]["site"]=$VP_SITE
+	vp_favload
+	vp_need "$id" || return 0
+	# `play:SITE:KEY`, from the Video Library: that title, with what its history knows of it
+	if [[ $arg == play:* ]]; then
+		a=${arg#play:}
+		s=${a%%:*}
+		k=${a#*:}
+		if [ -n "${VIDEO_SITES["$s"]-}" ] && [ "$s" != "$a" ]; then
+			VP[$id]["site"]=$s
+			vp_playkey "$id" "$k"
+		else
+			VP[$id]["err"]="That is not a site of this player"
+		fi
+		return 0
+	fi
+	# a site's id on its own starts there; SITE:WORDS searches there
+	named=
+	if [ -n "$arg" ] && [ -n "${VIDEO_SITES["$arg"]-}" ]; then
+		VP[$id]["site"]=$arg
+		arg=
+		named=1
+	elif [ -n "$arg" ] && [ "${arg#*:}" != "$arg" ] && [ -n "${VIDEO_SITES["${arg%%:*}"]-}" ]; then
+		VP[$id]["site"]=${arg%%:*}
+		arg=${arg#*:}
+		named=1
+	fi
+	if [ -n "$arg" ]; then
+		dt_searchset "$id" "$arg"
+		vp_search "$id" "$arg"
+	elif [ -n "$named" ]; then
+		vp_load "$id" home ""
+	else
+		vp_gohome "$id"
+	fi
+	return 0
+}
+
+# Play one title by its path, as if it had been chosen in a list of one.
+fn vp_playkey(int id, key) {
+	local kind=video title= sub=
+
+	if ! vp_validkey "$id" "$key"; then
+		VP[$id]["n"]=0
+		VP[$id]["err"]="That is not a video id of this site"
+		return 0
+	fi
+	if vp_histget "$id" "$key"; then
+		kind=${VPH[0]:-video}
+		title=${VPH[2]-}
+		sub=${VPH[3]-}
+	fi
+	VR[$id][0]["kind"]=$kind
+	VR[$id][0]["id"]=$key
+	VR[$id][0]["title"]=$title
+	VR[$id][0]["ch"]=$sub
+	VP[$id]["n"]=1
+	VP[$id]["sel"]=0
+	VP[$id]["top"]=0
+	vp_play "$id" 0
+}
+
+fn video_find(int id) {
+	dt_searchopen "$id"
+	return 0
+}
+
+fn video_close(int id) {
+	local t
+
+	vp_minikeep "$id"
+	vp_stop "$id"
+	for t in "${VP[$id]["st"]}" "${VP[$id]["pt"]}"; do
+		[ -n "$t" ] && web close "$t" 2> /dev/null
+	done
+	unset "VP[$id]"
+	unset "VR[$id]"
+	vp_webquit "$id"
+}
+
+# Stop the engine when no window that uses it is left -- the Browser's or ours.
+fn vp_webquit(int id) {
+	local o ids
+	local -a il
+
+	ids := dt_ids
+	read -ra il <<< "$ids"
+	for o in "${il[@]}"; do
+		[ "$o" = "$id" ] && continue
+		# LEGACY: the three old apps, while they are installed beside this one, use the engine too
+		case ${DT[$o]["app"]} in browser | video | youtube | tubi | bilibili) return 0 ;; esac
+	done
+	web quit 2> /dev/null
+	return 0
+}
+
+# After a restart the list is shown again; what was playing is noted in the
+# history first, so choosing it again takes it up there.
+fn video_stash(int id, dir) {
+	vp_histput "$id"
+	VP[$id]["st"]=
+	VP[$id]["pt"]=
+	VP[$id]["p"]=
+}
+
+fn video_resume(int id) {
+	local k=${VP[$id]["kind"]} a=${VP[$id]["arg"]} h=${VP[$id]["head"]}
+
+	[ "${VP[$id]["mini"]}" = 1 ] && vp_mini "$id"
+	[ "${DT[$id]["chrome"]}" = none ] && DT[$id]["chrome"]=
+
+	VP[$id]["view"]=list
+	VP[$id]["st"]=
+	VP[$id]["pt"]=
+	VP[$id]["p"]=
+	VP[$id]["state"]=
+	vp_favload
+	[ -n "$k" ] && vp_load "$id" "$k" "$a" "$h" 0
+	return 0
+}
+
+# Whether this window is keeping the screen awake: the picture is moving -- not
+# paused, and the frame on screen a later one than when the desktop last asked.
+fn video_awake(int id) {
+	local was
+
+	[ "${VP_SAVERHOLD:-1}" = 1 ] || return 1
+	dt_hidden "$id" && return 1
+	[ "${VP[$id]["state"]}" = loading ] && return 0
+	[ -n "${VP[$id]["p"]}" ] || return 1
+	vp_info "$id"
+	[ "${VPI["paused"]}" = 1 ] && return 1
+	was=${VP[$id]["awshown"]}
+	VP[$id]["awshown"]=${VPI["shown"]}
+	[ "${VPI["shown"]}" != "$was" ]
+}
+
+# Full screen is the picture alone: the picture is laid out again.
+fn video_fullscreen(int id, on) {
+	VP[$id]["fs"]=
+	[ "$on" = on ] && VP[$id]["fs"]=1
+	VP[$id]["sized"]=
+	VP[$id]["decl"]=
+	return 0
+}
+
+fn video_idle(int id) {
+	[ "${VP[$id]["view"]}" = play ] && vp_tick "$id"
+	web poll > /dev/null 2>&1
+	return 0
+}
+
+# --- the home: one search over every site (HUI Video Player) ---------------------------------------------------------------------------------------
+
+declare -gA VH VHR VPA
+VPA=([k]="#1b1b2f" [M]="#868e96" [m]="#ced4da" [d]="#343a40" [s]="#adb5bd" [w]="#f8f9fa" [r]="#e03131" [b]="#3b5bdb" [p]="#845ef7" [c]="#22b8cf" [y]="#fcc419" [g]="#40c057" [X]="#e03131")
+# a VCR, 32 by 12 pixels, one half block to a pixel
+VP_VCR=(
+	".kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk."
+	"kMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMk"
+	"kMssssssssssssssssssssssssssssMk"
+	"kMsddddddddddddddddddssccccccsMk"
+	"kMsdkkkkkkkkkkkkkkkkdssckkkkcsMk"
+	"kMsddddddddddddddddddssccccccsMk"
+	"kMssssssssssssssssssssssssssssMk"
+	"kMsrsysgssswwwswwwswwwssssssssMk"
+	"kMssssssssssssssssssssssssssssMk"
+	"kMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMk"
+	"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+	".kk..........................kk."
+)
+# a video tape, 14 by 10: X is the colour of its label
+VP_TAPE=("kkkkkkkkkkkkkk" "kddddddddddddk" "kdwwwwwwwwwwdk" "kdwXXXXXXXXwdk" "kdwwwwwwwwwwdk" "kddddddddddddk" "kdmmmddddmmmdk" "kdmkmddddmkmdk" "kdmmmddddmmmdk" "kkkkkkkkkkkkkk")
+
+# A picture of letters, one half block to a pixel, at row r0, column c0; a . is the window's face.
+fn vp_pix(int id, int r0, int c0, ...rows) {
+	local y x t b run glyph fg bg rs wd=${#rows[0]} ht=${#rows[@]}
+
+	for ((y = 0; y < ht; y += 2)); do
+		x=0
+		while [ "$x" -lt "$wd" ]; do
+			t=${rows[$y]:$x:1}
+			b=${rows[$((y + 1))]:$x:1}
+			run=1
+			while [ $((x + run)) -lt "$wd" ] && [ "${rows[$y]:$((x + run)):1}" = "$t" ] &&
+			      [ "${rows[$((y + 1))]:$((x + run)):1}" = "$b" ]; do
+				run=$((run + 1))
+			done
+			if [ "$t" != . ] || [ "$b" != . ]; then
+				if [ "$t" = . ]; then glyph="▄"; fg=${VPA[$b]}; bg=$DT_FACE
+				elif [ "$b" = . ]; then glyph="▀"; fg=${VPA[$t]}; bg=$DT_FACE
+				else glyph="▀"; fg=${VPA[$t]}; bg=${VPA[$b]}; fi
+				console pen "$fg" "$bg"
+				printf -v rs '%*s' "$run" ""
+				console put -p "w$id" $((r0 + y / 2)) $((c0 + x)) "${rs// /$glyph}"
+			fi
+			x=$((x + run))
+		done
+	done
+	return 0
+}
+
+# Go to the home: the search box with nothing in it (or what was last asked), what was watched under it.
+fn vp_gohome(int id, q = "") {
+	[ -n "${VP[$id]["p"]}" ] && vp_stop "$id"
+	VP[$id]["view"]=home
+	VP[$id]["hub"]=
+	VP[$id]["kind"]=
+	VP[$id]["arg"]=
+	VP[$id]["head"]=
+	VP[$id]["stack"]=
+	VP[$id]["err"]=
+	VP[$id]["searching"]=
+	VP[$id]["pend"]=
+	VP[$id]["hsel"]=-1
+	dt_searchclear "$id"
+	[ -n "$q" ] && dt_searchset "$id" "$q"
+	dt_searchopen "$id"
+	vp_hubsuggest "$id" "$q"
+	return 0
+}
+
+# Titles to offer under the box, from what every site's history and favourites hold (nothing is asked of any site): those matching what is typed,
+# or the latest of each when nothing is. One list, the sites taking turns.
+fn vp_hubsuggest(int id, q) {
+	local s f l i j k key kind title sub len lq=${q,,} m
+	local -a lines fl
+
+	for s in "${VIDEO_ORDER[@]}"; do
+		j=0
+		for f in history favourites; do
+			[ -r "$VP_DATA/$s/$f.tsv" ] || continue
+			lines=()
+			mapfile -t lines < "$VP_DATA/$s/$f.tsv"
+			i=${#lines[@]}
+			while [ "$i" -gt 0 ] && [ "$j" -lt 8 ]; do
+				i=$((i - 1))
+				IFS=$'\037' read -ra fl <<< "${lines[$i]//$'\t'/$'\037'}"
+				key=${fl[1]-}
+				[ -n "$key" ] || continue
+				title=${fl[2]-}
+				if [ -n "$lq" ]; then
+					m=${title,,}
+					[[ $m == *"$lq"* ]] || continue
+				fi
+				# one title once, whichever of the two files had it first
+				k=0
+				while [ "$k" -lt "$j" ]; do
+					[ "${VHR["$id|sug:$s|$k|id"]-}" = "$key" ] && continue 2
+					k=$((k + 1))
+				done
+				VHR["$id|sug:$s|$j|kind"]=${fl[0]-video}
+				VHR["$id|sug:$s|$j|id"]=$key
+				VHR["$id|sug:$s|$j|title"]=$title
+				VHR["$id|sug:$s|$j|ch"]=${fl[3]-}
+				VHR["$id|sug:$s|$j|len"]=${fl[4]-}
+				case ${fl[4]-} in *[!0-9]*) ;; *) VHR["$id|sug:$s|$j|len"]= ;; esac
+				j=$((j + 1))
+			done
+		done
+		VH[$id]["n:sug:$s"]=$j
+	done
+	vp_hubmix "$id" sug: 8
+	VP[$id]["sel"]=0
+	return 0
+}
+
+# The stores' rows into the window's list, the sites taking turns, at most cap. A store is `PREFIX` + a site's id: PREFIX `sug:` is the titles
+# offered under the box, none is what a search found.
+fn vp_hubmix(int id, pre, int cap) {
+	local s i=0 m=0 n k any=1
+
+	while [ "$any" = 1 ] && [ "$m" -lt "$cap" ]; do
+		any=0
+		for s in "${VIDEO_ORDER[@]}"; do
+			n=${VH[$id]["n:$pre$s"]:-0}
+			[ "$i" -lt "$n" ] || continue
+			any=1
+			for k in kind id title ch len; do
+				VR[$id][$m]["$k"]=${VHR["$id|$pre$s|$i|$k"]-}
+			done
+			VR[$id][$m]["site"]=$s
+			m=$((m + 1))
+			[ "$m" -lt "$cap" ] || break
+		done
+		i=$((i + 1))
+	done
+	VP[$id]["n"]=$m
+	return 0
+}
+
+# Search every site that has a search, one after another on the window's list tab, each one's titles shown as soon as it has answered.
+fn vp_hubstart(int id, q) {
+	local s p queue=
+
+	for s in "${VIDEO_ORDER[@]}"; do
+		case " ${VP_HUBOFF-} " in *" $s "*) continue ;; esac
+		p=${VIDEO_SITES[$s]}
+		dt_has "${p}url" || continue
+		queue+="${queue:+ }$s"
+		VH[$id]["st:$s"]=searching
+		VH[$id]["n:$s"]=0
+	done
+	VH[$id]["queue"]=$queue
+	VH[$id]["q"]=$q
+	VH[$id]["sig"]=0
+	VP[$id]["view"]=list
+	VP[$id]["hub"]=1
+	VP[$id]["kind"]=hub
+	VP[$id]["arg"]=$q
+	VP[$id]["head"]=
+	VP[$id]["n"]=0
+	VP[$id]["sel"]=0
+	VP[$id]["top"]=0
+	VP[$id]["err"]=
+	if [ -z "$queue" ]; then
+		VP[$id]["err"]="No site to search: none has a search, or the home is set not to ask them"
+		return 0
+	fi
+	dt_searchshut "$id"
+	vp_hubnext "$id"
+}
+
+fn vp_hubnext(int id) {
+	local queue=${VH[$id]["queue"]-} s q=${VH[$id]["q"]} sel=${VP[$id]["sel"]:-0} top=${VP[$id]["top"]:-0}
+
+	if [ -z "$queue" ]; then
+		VP[$id]["searching"]=
+		VP[$id]["kind"]=hub
+		vp_hubmix "$id" "" 200
+		[ "${VP[$id]["n"]}" = 0 ] && VP[$id]["err"]="Nothing found on any site"
+		VH[$id]["sig"]=$(( ${VH[$id]["sig"]:-0} + 1 ))
+		return 0
+	fi
+	s=${queue%% *}
+	[ "$s" = "$queue" ] && queue= || queue=${queue#* }
+	VH[$id]["queue"]=$queue
+	VP[$id]["site"]=$s
+	vp_load "$id" search "$q" "" 0
+	VP[$id]["kind"]=hub
+	VP[$id]["arg"]=$q
+	vp_hubmix "$id" "" 200
+	VP[$id]["sel"]=$sel
+	VP[$id]["top"]=$top
+	# a site that could not even start (no search address) is skipped now: nothing will come back from it
+	if [ -z "${VP[$id]["searching"]}" ]; then
+		VH[$id]["st:$s"]=${VP[$id]["err"]:-no search}
+		VP[$id]["err"]=
+		vp_hubnext "$id"
+	fi
+	return 0
+}
+
+# A site's list page has been read (or has not answered): keep what it gave, show every site's so far, and go on to the next.
+fn vp_hubgot(int id, int n) {
+	local s=${VP[$id]["site"]} i j k e=${VP[$id]["err"]-}
+
+	[ -n "${VP[$id]["hub"]-}" ] || return 0
+	# what a site gave is kept for the list of every site's: its titled rows only, and no more than 30, so one site's long page cannot crowd out the others
+	i=0
+	j=0
+	while [ "$i" -lt "$n" ] && [ "$j" -lt 30 ]; do
+		if [ -n "${VR[$id][$i]["title"]}" ]; then
+			for k in kind id title ch len; do
+				VHR["$id|$s|$j|$k"]=${VR[$id][$i]["$k"]}
+			done
+			j=$((j + 1))
+		fi
+		i=$((i + 1))
+	done
+	n=$j
+	VH[$id]["n:$s"]=$n
+	VH[$id]["st:$s"]=${e:-ok}
+	VH[$id]["sig"]=$(( ${VH[$id]["sig"]:-0} + 1 ))
+	VP[$id]["err"]=
+	VP[$id]["searching"]=
+	vp_hubnext "$id"
+	return 0
+}
+
+# What the heading of the search of every site says: what was asked, and how each site is doing.
+fn vp_hubhead(int id) {
+	local s st n out=
+
+	for s in "${VIDEO_ORDER[@]}"; do
+		st=${VH[$id]["st:$s"]-}
+		[ -n "$st" ] || continue
+		n=${VH[$id]["n:$s"]:-0}
+		case $st in
+		searching) out+="  ${VIDEO_NAMES[$s]}: looking${GL[ellipsis]}" ;;
+		ok) out+="  ${VIDEO_NAMES[$s]}: $n" ;;
+		*) out+="  ${VIDEO_NAMES[$s]}: ${st:0:28}" ;;
+		esac
+	done
+	ret "Results for ${VH[$id]["q"]}${out}"
+}
+
+# The home: the name, a VCR and tapes, the search box in the middle, the titles under it, a hint.
+fn vp_drawhome(int id, int h, int w) {
+	local q bw bc r c i n=${VP[$id]["n"]:-0} hs=${VP[$id]["hsel"]:--1} lab tail nm len rs mk vis head t artw=0 tc ti
+	local -a tc2=(r b p)
+	local title sub hint ph
+
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "HUI Video Player"
+	title := dt_tr "HUI Video Player"
+	sub := dt_tr "One search, every site"
+	ph := dt_tr "Search every site"
+	q := dt_searchq "$id"
+	r=2
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	console put -p "w$id" "$r" $(( (w - ${#title}) / 2 )) "$title"
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((r + 1)) $(( (w - ${#sub}) / 2 )) "$sub"
+	r=5
+	if [ "$h" -ge 24 ] && [ "$w" -ge 70 ]; then
+		# two tapes and the VCR, side by side
+		artw=$((14 + 2 + 14 + 3 + 32))
+		c=$(( (w - artw) / 2 + 1 ))
+		for ti in 0 1; do
+			VPA[X]=${VPA[${tc2[$ti]}]}
+			vp_pix "$id" $((r + 1)) $((c + ti * 16)) "${VP_TAPE[@]}"
+		done
+		vp_pix "$id" "$r" $((c + 33)) "${VP_VCR[@]}"
+		r=$((r + 7))
+	elif [ "$h" -ge 20 ] && [ "$w" -ge 40 ]; then
+		vp_pix "$id" "$r" $(( (w - 32) / 2 + 1 )) "${VP_VCR[@]}"
+		r=$((r + 7))
+	else
+		r=$((r - 1))
+	fi
+	# the box
+	bw=$((w - 8))
+	[ "$bw" -gt 64 ] && bw=64
+	[ "$bw" -lt 20 ] && bw=20
+	bc=$(( (w - bw) / 2 + 1 ))
+	console pen "$DT_ACTIVE" "$DT_FACE"
+	printf -v t '%*s' $((bw - 2)) ""
+	console put -p "w$id" "$r" "$bc" "┌${t// /─}┐"
+	console put -p "w$id" $((r + 1)) "$bc" "│"
+	console put -p "w$id" $((r + 1)) $((bc + bw - 1)) "│"
+	console put -p "w$id" $((r + 2)) "$bc" "└${t// /─}┘"
+	t=
+	console pen "$DT_INK" "$DT_WELL"
+	console fill -p "w$id" $((r + 1)) $((bc + 1)) 1 $((bw - 2)) " "
+	if [ -z "$q" ]; then
+		console pen "$DT_DIM" "$DT_WELL"
+		console put -p "w$id" $((r + 1)) $((bc + 3)) "$ph${GL[ellipsis]}"
+	else
+		console pen "$DT_INK" "$DT_WELL"
+		t=$q
+		[ "${#t}" -gt $((bw - 5)) ] && t=${t: -$((bw - 5))}
+		console put -p "w$id" $((r + 1)) $((bc + 2)) "$t"
+	fi
+	console pen "$DT_ACTIVE" "$DT_WELL" bold
+	console put -p "w$id" $((r + 1)) $((bc + 2 + ${#t})) "▏"
+	dt_wreg "$id" $((r + 1)) "$bc" "$bw" dtsearch
+	# what was watched, or what matches
+	r=$((r + 4))
+	console pen "$DT_DIM" "$DT_FACE"
+	if [ "$n" -gt 0 ]; then
+		if [ -z "$q" ]; then head := dt_tr "Recently watched"; else head := dt_tr "From what you watched"; fi
+	elif [ -n "$q" ]; then
+		head := dt_tr "Enter searches every site"
+	else
+		head := dt_tr "Nothing watched yet: type, and enter"
+	fi
+	console put -p "w$id" "$r" "$bc" "${head:0:$bw}"
+	r=$((r + 1))
+	vis=$((h - 2 - r))
+	i=0
+	while [ "$i" -lt "$n" ] && [ "$i" -lt "$vis" ]; do
+		rs=${VR[$id][$i]["site"]}
+		nm=${VIDEO_NAMES[$rs]-$rs}
+		len=${VR[$id][$i]["len"]}
+		tail="  ${nm:0:9}  $len"
+		lab=" ${VR[$id][$i]["title"]}"
+		[ $((${#lab} + ${#tail})) -gt "$bw" ] && lab="${lab:0:$((bw - ${#tail} - 1))}${GL[ellipsis]}"
+		lab := str pad "$lab" $((bw - ${#tail}))
+		if [ "$i" = "$hs" ]; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" "$r" "$bc" "$lab$tail"
+		dt_wreg "$id" "$r" "$bc" "$bw" "row:$i"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	hint := dt_tr "Enter plays or searches    Up, Down choose    Escape clears"
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((h - 1)) $(( (w - ${#hint}) / 2 + 1 )) "${hint:0:$((w - 2))}"
+	return 0
+}
+
+# Keys in the home: typed into the box, with the titles it matches following; enter plays the chosen one or searches every site.
+fn vp_homekey(int id, key) {
+	local q q0 n=${VP[$id]["n"]:-0} hs=${VP[$id]["hsel"]:--1}
+
+	case $key in
+	tab | $'\t') return 0 ;;
+	enter)
+		if [ "$hs" -ge 0 ] && [ "$hs" -lt "$n" ]; then
+			VP[$id]["backhome"]=1
+			vp_choose "$id" "$hs"
+			return 0
+		fi
+		q := dt_searchq "$id"
+		q=${q#"${q%%[! ]*}"}
+		q=${q%"${q##*[! ]}"}
+		[ -n "$q" ] && vp_hubstart "$id" "$q"
+		return 0
+		;;
+	down) [ "$hs" -lt $((n - 1)) ] && VP[$id]["hsel"]=$((hs + 1)); return 0 ;;
+	up) [ "$hs" -ge 0 ] && VP[$id]["hsel"]=$((hs - 1)); return 0 ;;
+	escape)
+		q := dt_searchq "$id"
+		[ -n "$q" ] || return 1
+		vp_gohome "$id"
+		return 0
+		;;
+	esac
+	dt_searchon "$id" || dt_searchopen "$id"
+	q0 := dt_searchq "$id"
+	dt_searchkey "$id" "$key" || return 1
+	q := dt_searchq "$id"
+	if [ "$q" != "$q0" ]; then
+		vp_hubsuggest "$id" "$q"
+		VP[$id]["hsel"]=-1
+	fi
+	return 0
+}
+
+fn video_draw(int id, int h, int w, int row, int col) {
+	dt_wclear "$id"
+	[ -n "${VP[$id]["searching"]}" ] && vp_results "$id"
+	VP[$id]["dkey"]=
+	# Full screen is the picture alone, edge to edge, as the mini player is
+	if [ "${VP[$id]["mini"]}" = 1 ] || { [ -n "${VP[$id]["fs"]-}" ] && [ "${VP[$id]["view"]}" = play ]; }; then
+		vp_drawmini "$id" "$h" "$w"
+	elif [ "${VP[$id]["view"]}" = play ]; then
+		vp_drawplay "$id" "$h" "$w"
+	elif [ "${VP[$id]["view"]}" = home ]; then
+		vp_drawhome "$id" "$h" "$w"
+		VP[$id]["dkey"]=home
+	else
+		vp_drawlist "$id" "$h" "$w"
+		VP[$id]["dkey"] := vp_listkey "$id"
+	fi
+	[ "${VP[$id]["view"]}" = play ] && [ -n "${VP[$id]["pt"]}" ] &&
+		web dirty "${VP[$id]["pt"]}" 2> /dev/null && dt_want 1
+}
+
+# What the list shows, in one line, to be compared with the line kept when it
+# was last drawn.
+fn vp_listkey(int id) {
+	local i n=${VP[$id]["n"]:-0} top=${VP[$id]["top"]:-0} vis=${VP[$id]["vis"]:-1} k mk x rs
+
+	x := dt_searchrows "$id"
+	k="$n|${VH[$id]["sig"]-}|${VP[$id]["sel"]}|$top|$vis|$x|${VP[$id]["kind"]}|${VP[$id]["head"]}|${VP[$id]["arg"]}|${VP[$id]["err"]}|${DT[$id]["h"]}x${DT[$id]["w"]}|$DT_FACE"
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$i" -lt $((top + vis + 1)) ]; do
+		mk=
+		rs := vp_rsite "$id" "$i"
+		[ -n "${VPF["$rs:${VR[$id][$i]["id"]}"]}" ] && mk=*
+		k+="|${VR[$id][$i]["id"]}$mk"
+		i=$((i + 1))
+	done
+	ret "$k"
+}
+
+# Whether the window has anything new to draw. Only the list can be left as it is.
+fn video_dirty(int id) {
+	local k
+
+	[ "${VP[$id]["view"]}" = play ] && return 0
+	[ -n "${VP[$id]["searching"]}" ] && return 0
+	[ "${VP[$id]["state"]}" = loading ] && return 0
+	[ -n "${VP[$id]["dkey"]}" ] || return 0
+	dt_searchon "$id" && return 0
+	k := vp_listkey "$id"
+	[ "$k" = "${VP[$id]["dkey"]}" ] || return 0
+	return 1
+}
+
+# The list: a heading, then an entry to a row -- a star for a favourite, the
+# title, the episode or the kind -- the chosen one lit.
+# The list: the search field, a heading, then an entry to a row -- a
+# star for a favourite, the title, the channel, the length or what kind
+# of list it opens -- the chosen one lit.
+fn vp_drawlist(int id, int h, int w) {
+	local n=${VP[$id]["n"]} sel=${VP[$id]["sel"]} top=${VP[$id]["top"]}
+	local r=2 i lab tail vis on=0 hd mk len star=${GL[star]} srows h2 rs
+
+	command -v dt_retitle > /dev/null && dt_retitle "$id" "Video"
+	# The ` Search:` row is gone: the search is the desktop's one
+	# search now (widgets/search.hibr), on this window's bottom row
+	# and drawn only once `/` has asked for it.
+	srows := dt_searchrows "$id"
+	vis=$((h - 1 - srows))
+	[ "$vis" -lt 1 ] && vis=1
+	console pen "$DT_INK" "$DT_FACE"
+	hd := vp_heading "$id"
+	console pen "$DT_ACTIVE" "$DT_FACE" bold
+	if [ "$DT_MIRRORON" = 1 ]; then
+		lab := dt_rpad "${hd:0:$((w - 3))}" $((w - 2))
+		console put -p "w$id" 1 1 "$lab"
+	else
+		console put -p "w$id" 1 2 "${hd:0:$((w - 3))}"
+	fi
+	if [ -n "${VP[$id]["searching"]}" ] && { [ -z "${VP[$id]["hub"]-}" ] || [ "$n" = 0 ]; }; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 2 2 "Looking${GL[ellipsis]}"
+		n=0
+	elif [ -n "${VP[$id]["err"]}" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" 2 2 "${VP[$id]["err"]:0:$((w - 3))}"
+	elif [ "$n" = 0 ]; then
+		console pen "$DT_DIM" "$DT_FACE"
+		h2 := vp_hint "$id"
+		dt_tput "$id" 2 2 "$h2"
+	fi
+	top := dt_scrollview "$top" "$n" "$vis" "$sel" "${VP[$id]["seen"]-}"
+	VP[$id]["seen"]=$sel
+	VP[$id]["top"]=$top
+	VP[$id]["vis"]=$vis
+	i=$top
+	while [ "$i" -lt "$n" ] && [ "$r" -lt "$h" ]; do
+		len=${VR[$id][$i]["len"]}
+		case ${VR[$id][$i]["kind"]} in
+		playlist) len="playlist${len:+, $len}" ;;
+		channel) len="channel" ;;
+		esac
+		tail="  ${VR[$id][$i]["ch"]:0:18}  $len"
+		mk=" "
+		rs := vp_rsite "$id" "$i"
+		# a list of every site's titles says whose each is, on the right
+		[ -n "${VP[$id]["hub"]-}" ] && tail="  ${VR[$id][$i]["ch"]:0:14}  ${VIDEO_NAMES[$rs]-$rs}  $len"
+		[ -n "${VPF["$rs:${VR[$id][$i]["id"]}"]}" ] && mk=$star
+		lab="$mk${VR[$id][$i]["title"]}"
+		[ $((${#lab} + ${#tail})) -gt "$w" ] && lab="${lab:0:$((w - ${#tail} - 1))}${GL[ellipsis]}"
+		if [ "$DT_MIRRORON" = 1 ]; then
+			lab="${lab#"$mk"}$mk"
+			lab := dt_rpad "$lab" $((w - ${#tail}))
+			tail="$len  ${VR[$id][$i]["ch"]:0:18}  "
+			lab="$tail$lab"
+			tail=
+		else
+			lab := str pad "$lab" $((w - ${#tail}))
+		fi
+		if [ "$i" = "$sel" ] && ! dt_searchon "$id"; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		elif [ "$i" = "$sel" ]; then
+			console pen "$DT_INK" "$DT_WELL"
+		else
+			console pen "$DT_INK" "$DT_FACE"
+		fi
+		console put -p "w$id" "$r" 1 "$lab$tail"
+		dt_wreg "$id" "$r" 1 "$w" "row:$i"
+		r=$((r + 1))
+		i=$((i + 1))
+	done
+	r=$w
+	[ "$DT_MIRRORON" = 1 ] && r=1
+	dt_scrollbar "$id" 2 "$r" "$vis" "$n" "$vis" "$top" list
+	dt_searchdraw "$id" "$h" "$w"
+}
+
+# Whether the page must not be shown yet: loading, or just now started (until
+# the start has cut it down to the video it is the real site, filling the window).
+fn vp_veiled(int id) {
+	local now
+
+	[ "${VP[$id]["state"]}" = loading ] && return 0
+	[ -n "${VP[$id]["sat"]}" ] || return 1
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	[ $((now - VP[$id]["sat"])) -lt 500 ]
+}
+
+# The page in the player's tab, drawn into the window from a row and column: laid
+# out at the window's size and drawn as pixels where the display takes them,
+# else as cells, or as characters for ascii and mono. A display that declines the
+# pixels is found out by the draw failing while the title plays; the picture then
+# goes on as cells. Fails until the page has made a frame.
+fn vp_picture(int id, w, h, row, col, md) {
+	local t=${VP[$id]["pt"]} m=cells
+
+	[ -n "$t" ] || return 1
+	# Not the page itself: until the start has cut it down to the video it is
+	# the real site, masthead and all, filling the window -- and for a moment
+	# after, while the engine paints what the cut left. Said Loading instead.
+	vp_veiled "$id" && return 1
+	case $md in
+	pixels | ascii | mono) m=$md ;;
+	esac
+	[ "$m" = pixels ] && [ "${VP[$id]["decl"]}" = "$w $h" ] && m=cells
+	if [ "${VP[$id]["sized"]}" != "$w $h $m" ]; then
+		# As pixels, the page no wider than the video itself (pixmax): a frame
+		# made at the window's own pixels is the video magnified before it is
+		# shown, and every frame is made, copied and handed on at that size --
+		# four times a 480p video's pixels at 3200x1800. The display scales it
+		# up to the window, which looks the same: the video has no more.
+		if vp_has pixmax; then
+			local pw
+			pw := vp_pixmax "$id" "$m"
+			web set "$t" pixmax "$pw" 2> /dev/null
+		fi
+		# And its picture asked for and not waited on: a busy engine (150% of
+		# a slow machine's processor) held the desktop for every frame.
+		vp_has renderasync && web set "$t" render async 2> /dev/null
+		web size "$t" "$h" "$w" 2> /dev/null
+		web mode "$t" "$m" 2> /dev/null
+		VP[$id]["sized"]="$w $h $m"
+		VP[$id]["md"]=$m
+		VP[$id]["pfail"]=0
+		VP[$id]["pfat"]=
+		VP[$id]["sizedat"]=${EPOCHREALTIME/./}
+	fi
+	web render "$t" 2> /dev/null || return 1
+	if web draw "$t" "$row" "$col" -p "w$id" 2> /dev/null; then
+		VP[$id]["pfail"]=0
+		VP[$id]["pfat"]=
+		return 0
+	fi
+	# A draw fails both when the display turns the picture down and when the
+	# engine has no frame at this size yet -- every start, every new size --
+	# and three failures in a row were taken for a refusal: the video went on
+	# in half blocks until the window was resized. Turned down is two seconds
+	# of failures, from two seconds after the picture was laid out.
+	if [ "$m" = pixels ] && [ "${VP[$id]["state"]}" = playing ]; then
+		local nu=${EPOCHREALTIME/./}
+		VP[$id]["pfail"]=$(( ${VP[$id]["pfail"]:-0} + 1 ))
+		[ -n "${VP[$id]["pfat"]-}" ] || VP[$id]["pfat"]=$nu
+		if [ $(( (nu - VP[$id]["pfat"]) / 1000 )) -ge 2000 ] &&
+		   [ $(( (nu - ${VP[$id]["sizedat"]:-0}) / 1000 )) -ge 4000 ]; then
+			VP[$id]["decl"]="$w $h"
+			VP[$id]["sized"]=
+		fi
+	fi
+	return 1
+}
+
+# The player: the title, the picture, the bar.
+fn vp_drawplay(int id, int h, int w) {
+	local p=${VP[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm l wt tt
+
+	# a step first, so the title and the clock drawn are this moment's
+	[ -n "$p" ] && vp_tick "$id"
+	p=${VP[$id]["p"]}
+	if command -v dt_retitle > /dev/null; then
+		tt=${VP[$id]["title"]:0:40}
+		[ "${VP[$id]["parts"]:-1}" -gt 1 ] && tt="${VP[$id]["title"]:0:34} [${VP[$id]["part"]}/${VP[$id]["parts"]}]"
+		wt := dt_wintitle Video "$tt"
+		dt_retitle "$id" "$wt"
+	fi
+	console pen "$DT_INK" "$DT_FACE" bold
+	[ -n "${VPF["${VP[$id]["site"]}:${VP[$id]["vid"]}"]}" ] && mk="${GL[star]} "
+	lab="$mk${VP[$id]["title"]}"
+	[ -n "${VP[$id]["sub"]}" ] && lab="$lab -- ${VP[$id]["sub"]}"
+	lab := str pad " ${lab:0:$((w - 2))}" "$w"
+	console put -p "w$id" 1 1 "$lab"
+	if [ -n "${VP[$id]["err"]}" ] || [ -z "$p" ]; then
+		console pen "$DT_BAD" "$DT_FACE"
+		console put -p "w$id" 3 2 "${VP[$id]["err"]:-Stopped.}"
+		return 0
+	fi
+	[ -n "$p" ] || return 0
+	md := vp_drawmode
+	if ! vp_picture "$id" "$w" "$ph" 2 1 "$md"; then
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 3 2 "Loading${GL[ellipsis]}"
+	fi
+	vp_info "$id"
+	vp_drawextra "$id" "$h" "$w"
+	pos=${VPI["pos"]}
+	dur=${VP[$id]["dur"]}
+	[ "${VP[$id]["state"]}" = ended ] && pos=$dur
+	[ "${dur%.*}" -gt 0 ] 2> /dev/null || dur=${VPI["dur"]}
+	a := vp_mmss "$pos"
+	b := vp_mmss "$dur"
+	st="playing"
+	[ "${VPI["paused"]}" = 1 ] && st="paused"
+	[ "${VPI["ended"]}" = 1 ] || [ "${VP[$id]["state"]}" = ended ] && st="ended"
+	[ "${VP[$id]["state"]}" = loading ] && st="starting"
+	[ -n "${VP[$id]["inad"]-}" ] && st="advert"
+	# What is drawn, and -- when it is following Control Panel > Pictures
+	# -- that it is following rather than set: a bar that said only "half"
+	# would not change when the key moved the setting from follow to half.
+	pm=$md
+	[ "$VP_MODE" = follow ] && pm="follow:$md"
+	# And when pixels were wanted and are not what is being drawn, why.
+	# `pixels` and `follow` both resolve through dt_imgpix -- can this
+	# display place a bitmap at all -- and when it cannot the player just
+	# drew blocks and said nothing, which reads as the player ignoring
+	# the setting rather than the terminal not offering one (Gitea #199).
+	[ "$md" != pixels ] && [ "$VP_MODE" = pixels -o "$VP_MODE" = follow ] &&
+		case $DT_IMGMODE in
+		half | ascii | mono) ;;
+		*) pm="$pm, no pixels here" ;;
+		esac
+	# `md` is what was *asked for*, and the pixel path falls through to
+	# cells on its own whenever the display declines -- it has no answer
+	# about pictures yet, the terminal draws none, or the frame does not
+	# fit the rectangle it is clipped to. The bar said `pixels` over a
+	# screen full of blocks, which is a report of an intention dressed
+	# as a fact, and it is why this has been unresolvable from outside:
+	# the one reading anybody could take could not tell the four layers
+	# apart. `media info`'s own `drawn` says what happened (#199).
+	[ "$md" = pixels ] && [ "${VPI["drawn"]}" = cells ] &&
+		pm="$pm (drawn as blocks: the display declined)"
+	l := vp_qbar "$id"
+	lab=" $a / $b  $st  vol ${VPI["volume"]}  $l  ${pm}"
+	fill=0
+	[ "${dur%.*}" -gt 0 ] 2> /dev/null && fill=$(( ${pos%.*} * w / ${dur%.*} ))
+	[ "$fill" -gt "$w" ] && fill=$w
+	lab := str pad "$lab" "$w"
+	console pen "$DT_SELINK" "$DT_ACTIVE"
+	[ "$fill" -gt 0 ] && console put -p "w$id" "$h" 1 "${lab:0:$fill}"
+	console pen "$DT_INK" "$DT_WELL"
+	console put -p "w$id" "$h" $((fill + 1)) "${lab:$fill}"
+	dt_wreg "$id" "$h" 1 "$w" bar
+}
+
+# Full screen: the picture alone, edge to edge.
+fn vp_drawfull(int id, int h, int w) {
+	local md
+
+	vp_tick "$id"
+	if [ -n "${VP[$id]["p"]}" ]; then
+		md := vp_drawmode
+		vp_picture "$id" "$w" "$h" 0 0 "$md" && return 0
+	fi
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" $((h / 2)) 1 "${VP[$id]["title"]:0:$((w - 2))}"
+}
+
+# What the engine is given: VP_MODE says outright unless it is `follow`, and then
+# it is Control Panel > Pictures; `auto` there means pixels where the terminal can
+# place them and blocks where it cannot.
+fn vp_drawmode() {
+	local m=$VP_MODE
+
+	[ "$m" = follow ] && m=${DT_IMGMODE:-auto}
+	case $m in
+	pixels | sixel) ret pixels ;;
+	half | mono | ascii) ret "$m" ;;
+	esac
+	command -v dt_imgpix > /dev/null && dt_imgpix && ret pixels
+	ret half
+}
+
+fn video_key(int id, key) {
+	[ -n "${VP[$id]["nocore"]-}" ] && return 1
+	local n=${VP[$id]["n"]} sel=${VP[$id]["sel"]} p=${VP[$id]["p"]} v q0
+
+	if [ "${VP[$id]["view"]}" = play ]; then
+		case $key in
+		" ") vp_toggle "$id"; return 0 ;;
+		left) vp_seek "$id" -5; return 0 ;;
+		right) vp_seek "$id" +5; return 0 ;;
+		shift-left) vp_seek "$id" -30; return 0 ;;
+		shift-right) vp_seek "$id" +30; return 0 ;;
+		up | down)
+			[ -n "$p" ] || return 0
+			vp_info "$id"
+			v=${VPI["volume"]}
+			[ "$key" = up ] && v=$((v + 10)) || v=$((v - 10))
+			vp_volume "$id" "$v"
+			return 0
+			;;
+		n) vp_next "$id" 1; return 0 ;;
+		p) vp_next "$id" -1; return 0 ;;
+		f) vp_fav "$id"; return 0 ;;
+		i) vp_mini "$id"; return 0 ;;
+		c | q | Q) vp_sitekey "$id" "$key"; return 0 ;;
+		m) vp_mode; return 0 ;;
+		h) vp_load "$id" history ""; return 0 ;;
+		v) vp_load "$id" favourites ""; return 0 ;;
+		t) vp_load "$id" home ""; return 0 ;;
+		escape | backspace)
+			if [ "${VP[$id]["mini"]}" = 1 ]; then
+				vp_mini "$id"
+				return 0
+			fi
+			vp_stop "$id"
+			if [ -n "${VP[$id]["backhome"]-}" ]; then
+				VP[$id]["backhome"]=
+				vp_gohome "$id" "${VH[$id]["q"]-}"
+			else
+				VP[$id]["view"]=list
+			fi
+			return 0
+			;;
+		esac
+		return 1
+	fi
+	if [ "${VP[$id]["view"]}" = home ]; then
+		vp_homekey "$id" "$key"
+		return $?
+	fi
+	# A site asks a server, so it acts when the search bar is left rather than on
+	# every keystroke: enter searches.
+	if dt_searchon "$id" && [ "$key" = enter ]; then
+		q0 := dt_searchq "$id"
+		dt_searchshut "$id"
+		vp_search "$id" "$q0"
+		return 0
+	fi
+	if dt_searchkey "$id" "$key"; then
+		return 0
+	fi
+	case $key in
+	up) [ "$sel" -gt 0 ] && VP[$id]["sel"]=$((sel - 1)) || dt_searchopen "$id" ;;
+	left | right) vp_listhook "$id" "$key" ;;
+	tab | $'\t') vp_sitestep "$id" 1 ;;
+	down) [ "$sel" -lt $((n - 1)) ] && VP[$id]["sel"]=$((sel + 1)) ;;
+	pageup) sel=$((sel - ${VP[$id]["vis"]:-10})); [ "$sel" -lt 0 ] && sel=0; VP[$id]["sel"]=$sel ;;
+	pagedown) sel=$((sel + ${VP[$id]["vis"]:-10})); [ "$sel" -ge "$n" ] && sel=$((n - 1)); VP[$id]["sel"]=$sel ;;
+	home) VP[$id]["sel"]=0 ;;
+	end) VP[$id]["sel"]=$((n > 0 ? n - 1 : 0)) ;;
+	enter) [ "$n" -gt 0 ] && vp_choose "$id" "$sel" ;;
+	f) [ "$n" -gt 0 ] && vp_fav "$id" ;;
+	h) vp_load "$id" history "" ;;
+	v) vp_load "$id" favourites "" ;;
+	t) vp_load "$id" home "" ;;
+	escape | backspace) vp_back "$id" ;;
+	tab) dt_searchopen "$id" ;;
+	*) return 1 ;;
+	esac
+	return 0
+}
+
+# The next way of drawing the picture, for every window.
+vp_mode() {
+	local i=0 n=${#VP_MODES[@]}
+
+	while [ "$i" -lt "$n" ]; do
+		if [ "${VP_MODES[$i]}" = "$VP_MODE" ]; then
+			VP_MODE=${VP_MODES[$(( (i + 1) % n ))]}
+			break
+		fi
+		i=$((i + 1))
+	done
+	[ "$i" -lt "$n" ] || VP_MODE=${VP_MODES[0]}
+	command -v dt_save > /dev/null && dt_save
+	return 0
+}
+
+fn video_click(int id, int r, int c, btn = "") {
+	local tag d
+
+	tag := dt_hit "$id" "$r" "$c"
+	if [ "${VP[$id]["mini"]}" = 1 ]; then
+		[ "$btn" = double ] && vp_mini "$id"
+		return 0
+	fi
+	if [ "${VP[$id]["view"]}" = play ] && [ -z "$tag" ] && dt_has dt_isdbl && dt_isdbl "$id"; then
+		vp_toggle "$id"
+		vp_mini "$id"
+		return 0
+	fi
+	case $tag in
+	dtsearch) dt_searchopen "$id" ;;
+	row:*)
+		if [ "${VP[$id]["view"]}" = home ]; then
+			if [ "${VP[$id]["hsel"]:--1}" = "${tag#row:}" ]; then vp_choose "$id" "${tag#row:}"; else VP[$id]["hsel"]=${tag#row:}; fi
+		elif [ "${VP[$id]["sel"]}" = "${tag#row:}" ] && ! dt_searchon "$id"; then
+			vp_choose "$id" "${tag#row:}"
+		else
+			VP[$id]["sel"]=${tag#row:}
+			dt_searchshut "$id"
+		fi
+		;;
+	bar)
+		d=${VP[$id]["dur"]%.*}
+		[ "$d" -gt 0 ] 2> /dev/null && vp_seek "$id" $(( (c - 1) * d / ${DT[$id]["w"]} ))
+		;;
+	*) [ "${VP[$id]["view"]}" = play ] && vp_toggle "$id" ;;
+	esac
+	return 0
+}
+
+fn video_wheel(int id, dir, int r = 0, int c = 0) {
+	local n=${VP[$id]["n"]:-0} top
+
+	if [ "${VP[$id]["view"]}" = play ]; then
+		[ "$dir" = up ] && vp_seek "$id" +5 || vp_seek "$id" -5
+		return 0
+	fi
+	top := dt_scrollmove "$dir" "${VP[$id]["top"]:-0}" "$n" \
+		"${VP[$id]["vis"]:-1}" "$DT_SCROLLWHEEL" || return 1
+	VP[$id]["top"]=$top
+	return 0
+}
+
+# The list's scrollbar held and dragged.
+fn video_scroll(int id, key, int top) { VP[$id]["top"]=$top; }
+
+# The address of what is chosen or playing, or the search being typed.
+fn video_copy(int id) {
+	local i=${VP[$id]["sel"]}
+
+	if dt_searchon "$id"; then
+		i := dt_searchq "$id"
+		ret "$i"
+		return 0
+	fi
+	if [ "${VP[$id]["view"]}" = play ] && [ -n "${VP[$id]["vid"]}" ]; then
+		i := vp_address "$id" "${VP[$id]["vid"]}"
+		ret "$i"
+		return 0
+	fi
+	[ -n "${VR[$id][$i]["id"]}" ] || return 1
+	i := vp_address "$id" "${VR[$id][$i]["id"]}"
+	ret "$i"
+}
+
+# The address of a title on its site, for Copy.
+fn vp_address(int id, key) {
+	local p fn a
+
+	p := vp_p "$id"
+	fn=${p}address
+	dt_has "$fn" || { ret "$key"; return 0; }
+	a := $fn "$key"
+	ret "$a"
+}
+
+fn video_paste(int id, text, op = "") {
+	local r q
+
+	dt_searchopen "$id"
+	q := dt_searchq "$id"
+	r := dt_textpaste "$q" "${#q}" "$text"
+	dt_searchset "$id" "${r% *}"
+}
+
+video_menus() {
+	local id=$DT_FOCUS v on k
+
+	dt_menu "File"
+	dt_item "New Window" n dt_launch video
+	dt_item "Search${GL[ellipsis]}" s video_key "$id" /
+	dt_rowaccel /
+	dt_item "Favourite" f vp_fav "$id"
+	dt_rowaccel f
+	dt_sep
+	dt_item "Close Window" w dt_close_focused
+	dt_editmenu
+	dt_menu "Go"
+	if [ "${VP[$id]["view"]}" != play ] && [ "${VP[$id]["n"]:-0}" -gt 0 ]; then
+		dt_item "Open" o video_key "$id" enter
+	else
+		dt_dim "Open"
+	fi
+	dt_rowaccel enter
+	dt_item "Search All Sites" a vp_gohome "$id"
+	dt_item "Back" b vp_back "$id"
+	dt_rowaccel escape
+	dt_item "Home Page" m vp_load "$id" home ""
+	dt_rowaccel t
+	dt_item "History" h vp_load "$id" history ""
+	dt_rowaccel h
+	dt_item "Favourites" v vp_load "$id" favourites ""
+	dt_rowaccel v
+	if [ "${VP[$id]["view"]}" = list ] && [ "${VP[$id]["seasons"]:-0}" -gt 1 ]; then
+		dt_item "Next Season" x vp_listhook "$id" right
+		dt_item "Previous Season" y vp_listhook "$id" left
+	fi
+	if [ "${#VIDEO_ORDER[@]}" -gt 1 ]; then
+		dt_sep
+		for k in "${VIDEO_ORDER[@]}"; do
+			dt_mark "${VIDEO_NAMES[$k]}" "${VIDEO_KEYS[$k]}" "$([ "${VP[$id]["site"]}" = "$k" ] && echo 1 || echo 0)" vp_setsite "$id" "$k"
+		done
+	fi
+	dt_menu "Play"
+	if [ -n "${VP[$id]["p"]}" ]; then
+		dt_item "Pause or Play" p vp_toggle "$id"
+		dt_rowaccel space
+		dt_item "Next" n vp_next "$id" 1
+		dt_rowaccel n
+		dt_item "Previous" r vp_next "$id" -1
+		dt_rowaccel p
+		dt_item "Back 5 Seconds" k vp_seek "$id" -5
+		dt_rowaccel left
+		dt_item "On 5 Seconds" l vp_seek "$id" +5
+		dt_rowaccel right
+		dt_item "Back 30 Seconds" b vp_seek "$id" -30
+		dt_rowaccel shift-left
+		dt_item "On 30 Seconds" o vp_seek "$id" +30
+		dt_rowaccel shift-right
+		dt_item "Volume Up" u video_key "$id" up
+		dt_rowaccel up
+		dt_item "Volume Down" d video_key "$id" down
+		dt_rowaccel down
+		dt_item "Stop" s video_key "$id" escape
+		dt_rowaccel escape
+	else
+		dt_dim "Pause or Play"
+		dt_dim "Next"
+		dt_dim "Previous"
+		dt_dim "Back 5 Seconds"
+		dt_dim "On 5 Seconds"
+		dt_dim "Back 30 Seconds"
+		dt_dim "On 30 Seconds"
+		dt_dim "Volume Up"
+		dt_dim "Volume Down"
+		dt_dim "Stop"
+	fi
+	dt_sep
+	on=0
+	[ "$VP_AUTONEXT" = 1 ] && on=1
+	dt_mark "Play Next Automatically" a "$on" vp_autonext
+	dt_menu "Picture"
+	for v in "${VP_MODES[@]}"; do
+		on=0
+		[ "$VP_MODE" = "$v" ] && on=1
+		dt_mark "${v^}" "${v:0:1}" "$on" vp_setmode "$v"
+	done
+	dt_sep
+	dt_item "Next Picture" x vp_mode
+	dt_rowaccel m
+	if [ "${VP[$id]["view"]}" = play ]; then
+		dt_mark "Mini Player" i "${VP[$id]["mini"]:-0}" vp_mini "$id"
+	else
+		dt_dim "Mini Player"
+	fi
+	dt_rowaccel i
+	vp_sitemenu "$id"
+}
+
+fn vp_setmode(v) {
+	VP_MODE=$v
+	command -v dt_save > /dev/null && dt_save
+}
+
+vp_autonext() {
+	if [ "$VP_AUTONEXT" = 1 ]; then VP_AUTONEXT=0; else VP_AUTONEXT=1; fi
+	command -v dt_save > /dev/null && dt_save
+}

@@ -1,0 +1,148 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# video-bilibili -- Bilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to
+# VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search),
+# which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is
+# looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small
+# page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after
+# thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.
+
+strict
+
+app video-bilibili "Video: Bilibili, a site for the Video player" 1.0
+
+VIDEO_BILIBILI_LIBDONE=1
+
+declare -gA VIDEO_SITES VIDEO_NAMES VIDEO_KEYS VIDEO_API
+declare -ga VIDEO_ORDER
+VIDEO_SITES["bilibili"]=vb_
+VIDEO_API["bilibili"]=1
+VIDEO_NAMES["bilibili"]="Bilibili"
+VIDEO_KEYS["bilibili"]=b
+VIDEO_ORDER+=(bilibili)
+
+# Where the site's pages are, and where the pages this lib writes for the player are kept.
+VB_BASE="${VB_BASE-https://www.bilibili.com}"
+VB_API="${VB_API-https://api.bilibili.com}"
+VB_PLAYDIR="${VB_PLAYDIR-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-bilibili-$UID}"
+
+# The titles a data page lists, as the rows the lists draw: kind id title channel length. The page is JSON text; "" until it is one (the page before is
+# still there for a moment after a go). A search's titles carry <em> markup and entities, its durations are 1:02 and the popular list's are seconds.
+VB_RJS='(function(){var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data)return JSON.stringify({list:[],err:String(j.message||j.code)});var l=j.data.list||j.data.result||[];function tx(s){return String(s||"").replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"\x27").replace(/\s+/g," ").trim()}function secs(d){if(typeof d==="number")return d;var s=0;String(d||"0").split(":").forEach(function(x){s=s*60+(Number(x)||0)});return s}function hms(n){var h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return h?h+":"+("0"+m).slice(-2)+":"+("0"+s).slice(-2):m+":"+("0"+s).slice(-2)}return JSON.stringify({list:l.filter(function(x){return x.bvid}).map(function(x){return {kind:"video",id:x.bvid,title:tx(x.title),ch:tx(x.author||(x.owner&&x.owner.name)),len:hms(secs(x.duration))}})})})()'
+
+# A video's part (the first, or the one asked for; how many there are, and its own name), and then its file's address: each from its own data page
+# (the page before is told by its address).
+VB_URLJS='(function(){if(location.href.indexOf("playurl")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data||!j.data.durl||!j.data.durl[0])return "err:"+(j.message||j.code);return j.data.durl[0].url})()'
+
+# The address of a list: the popular list, or a search (the engine percent-encodes what it must; the few characters that mean something in an address
+# are done here).
+fn vb_url(int id, kind, arg) {
+	local q
+
+	case $kind in
+	home) ret "$VB_API/x/web-interface/popular?ps=20&pn=1" ;;
+	search)
+		q=${arg//%/%25}
+		q=${q//&/%26}
+		q=${q//#/%23}
+		q=${q//+/%2B}
+		q=${q// /%20}
+		ret "$VB_API/x/web-interface/search/type?search_type=video&page=1&keyword=$q"
+		;;
+	*) ret "" ;;
+	esac
+}
+
+# A first visit to the site, for the cookies its data pages ask for.
+fn vb_warm_url(int id) {
+	ret "$VB_BASE/"
+}
+
+# The script that reads a loaded list page into rows.
+fn vb_rjs() {
+	ret "$VB_RJS"
+}
+
+# The address to load first for a title: its first lookup (the parts of the video); the lookups after it are vb_step's.
+fn vb_start(int id, key, part) {
+	VP[$id]["rstep"]=cid
+	ret "$VB_API/x/player/pagelist?bvid=$key"
+}
+
+# Its page on the site, for Copy.
+fn vb_address(key) {
+	ret "$VB_BASE/video/$key"
+}
+
+# The page written for the playing, with the file's signed address in it, taken away when the playing stops.
+fn vb_cleanup(int id) {
+	[ -n "${VP[$id]["vid"]-}" ] && command rm -f -- "$VB_PLAYDIR/${VP[$id]["vid"]}.html" 2> /dev/null
+	return 0
+}
+
+# Whether a key is what Bilibili's own ids look like: BV and letters and digits. It reaches a file name, an address and a script, so nothing else is let
+# through, whether it came from its list, the history file or a `play:` argument.
+fn vb_validkey(key) {
+	case $key in
+	BV* | bv*) ;;
+	*) return 1 ;;
+	esac
+	case $key in
+	*[!0-9A-Za-z]*) return 1 ;;
+	esac
+	return 0
+}
+
+fn vb_cidjs(p) {
+	ret "(function(){if(location.href.indexOf(\"pagelist\")<0)return \"\";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return \"\"}if(!j||typeof j.code!==\"number\")return \"\";if(j.code!==0||!j.data||!j.data[0])return \"err:\"+(j.message||j.code);var i=Math.min(Math.max($p,1),j.data.length)-1;return JSON.stringify({cid:String(j.data[i].cid),n:j.data.length,p:i+1,part:String(j.data[i].part||\"\")})})()"
+}
+
+# Start the player once the video holds data: the volume set and the video started. "ok" when it is going.
+fn vb_startjs(v, num) {
+	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";var v=document.querySelector(\"video\");if(!v||v.readyState<2)return \"\";v.muted=false;v.volume=$v/100;if(v.paused)v.play();return \"ok\"})()"
+}
+
+# Looking a video up, two data pages in the player tab: its first part, then the address of its file; then a small page of this app's own is written with
+# that one <video> in it and gone to, and the player starts from it as it would from any page. A step that says no (the page's own words), or does not
+# answer, ends in the window.
+fn vb_step(int id) {
+	local t=${VP[$id]["pt"]} js key=${VP[$id]["vid"]} f u q
+	local -A r
+
+	web loading "$t" 2> /dev/null && return 0
+	if [ "${VP[$id]["rstep"]}" = cid ]; then
+		q := vb_cidjs "${VP[$id]["part"]:-1}"
+		js := web eval "$t" "$q" 2> /dev/null
+		[ -n "$js" ] || return 0
+		case $js in
+		err:*) VP[$id]["err"]="Bilibili said: ${js#err:}"; vp_stop "$id"; return 0 ;;
+		esac
+		json parse r <<< "$js" 2> /dev/null || r=()
+		[ -n "${r["cid"]}" ] || return 0
+		VP[$id]["parts"]=${r["n"]:-1}
+		VP[$id]["part"]=${r["p"]:-1}
+		VP[$id]["ptitle"]=${r["part"]}
+		VP[$id]["rstep"]=url
+		web go "$t" "$VB_API/x/player/playurl?bvid=$key&cid=${r["cid"]}&qn=64&fnval=1&platform=html5" 2> /dev/null
+		return 0
+	fi
+	js := web eval "$t" "$VB_URLJS" 2> /dev/null
+	[ -n "$js" ] || return 0
+	case $js in
+	err:*) VP[$id]["err"]="Bilibili said: ${js#err:}"; vp_stop "$id"; return 0 ;;
+	esac
+	u=${js//&/&amp;}
+	u=${u//\"/&quot;}
+	f="$VB_PLAYDIR/$key.html"
+	command mkdir -p -- "$VB_PLAYDIR" 2> /dev/null
+	printf '<!doctype html><meta charset=utf-8><title>%s</title><style>%s</style><video src="%s" autoplay muted playsinline></video>\n' "$key" "$VP_CSS" "$u" > "$f" 2> /dev/null || {
+		VP[$id]["err"]="Cannot write the player's page"
+		vp_stop "$id"
+		return 0
+	}
+	VP[$id]["state"]=loading
+	VP[$id]["since"]=$EPOCHSECONDS
+	web go "$t" "file://$f" 2> /dev/null
+	return 0
+}

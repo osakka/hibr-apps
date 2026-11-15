@@ -345,6 +345,10 @@ ENTHIBR["apps/video-library"]=0.99.523   # the Video Library (docs/video-library
 ENTHIBR["apps/browser"]=0.99.523   # Browser 2.52 carries its Arabic as a part (lang/browser.ar.json, read with `lang add`); an older desktop would list browser.ar as a language
 ENTHIBR["apps/youtube"]=0.99.526   # YouTube 3.29 needs lib/videocore (hibr 0.99.526, kind lib); 3.28 carried its Arabic as a part (0.99.523) and wrote the shared video library
 ENTHIBR["apps/bilibili"]=0.99.526   # Bilibili 1.0 is built on lib/videocore (hibr 0.99.526, kind lib)
+ENTHIBR["apps/video"]=0.99.532   # Video: one player for every site, the providers its libs (kind lib, hibr 0.99.526); it replaces apps/youtube, apps/tubi and apps/bilibili (`# replaces:`, hibr 0.99.532: catalogue update installs it and removes them)
+ENTHIBR["lib/video-youtube"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526)
+ENTHIBR["lib/video-tubi"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526)
+ENTHIBR["lib/video-bilibili"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526)
 # Sheet 1.7 runs its formulas in the contain module, and its pane writes
 # SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
 # hibr would run every formula as a dry run and say "contained" nowhere.

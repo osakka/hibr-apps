@@ -1,0 +1,540 @@
+#!/usr/bin/env hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# video-youtube -- YouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to
+# VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data
+# (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the
+# player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a
+# page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the
+# qualities it offers and its captions.
+
+strict
+
+app video-youtube "Video: YouTube, a site for the Video player" 1.0
+
+VIDEO_YOUTUBE_LIBDONE=1
+
+declare -gA VIDEO_SITES VIDEO_NAMES VIDEO_KEYS VIDEO_API
+declare -ga VIDEO_ORDER
+VIDEO_SITES["youtube"]=vy_
+VIDEO_API["youtube"]=1
+VIDEO_NAMES["youtube"]="YouTube"
+VIDEO_KEYS["youtube"]=y
+VIDEO_ORDER+=(youtube)
+
+VY_BASE="${VY_BASE-https://www.youtube.com}"
+VY_CAPTIONS="${VY_CAPTIONS-0}"
+VY_QUALITY="${VY_QUALITY-auto}"
+# What YouTube's own app saved (YT_QUALITY, YT_CAPTIONS) carries over once: a name with no saved value of its own takes the old one, if it is a choice here.
+if command -v dt_keep > /dev/null; then
+	if [ -z "${DT_CONFJ["settings"]["VY_CAPTIONS"]+x}" ]; then
+		case ${DT_CONFJ["settings"]["YT_CAPTIONS"]-} in 0 | 1) VY_CAPTIONS=${DT_CONFJ["settings"]["YT_CAPTIONS"]} ;; esac
+	fi
+	if [ -z "${DT_CONFJ["settings"]["VY_QUALITY"]+x}" ]; then
+		VY_OLDQ=${DT_CONFJ["settings"]["YT_QUALITY"]-}
+		case $VY_OLDQ in
+		auto | 144p | 240p | 360p | 480p | 720p | 1080p | 1440p | 2160p | tiny | small | medium | large | hd720 | hd1080 | hd1440 | hd2160 | highres) VY_QUALITY=$VY_OLDQ ;;
+		esac
+	fi
+fi
+command -v dt_keep > /dev/null && dt_keep VY_CAPTIONS VY_QUALITY
+
+# A page's own data -- a search, a playlist, a channel's videos -- as a
+# list of what it shows: videos, playlists and channels, each kind as
+# YouTube draws it today (videoRenderer and its kin, lockupViewModel,
+# channelRenderer), with the page's own title. Empty until the page has
+# made it, a moment after it says it has loaded.
+VY_RJS='(function(){var d=window.ytInitialData;if(!d)return "";function t(x){return x?(x.content||x.simpleText||(x.runs||[]).map(function(r){return r.text}).join("")):""}var o=[],seen={};function push(e){if(!e.id||seen[e.kind+e.id])return;seen[e.kind+e.id]=1;o.push(e)}function vid(v){push({kind:"video",id:v.videoId,title:t(v.title),ch:t(v.ownerText||v.shortBylineText),len:t(v.lengthText),views:t(v.shortViewCountText||v.viewCountText),age:t(v.publishedTimeText)})}function badge(x,k){var r="";(function f(n,j){if(r||!n||typeof n!=="object"||j>20)return;if(n.thumbnailBadgeViewModel&&n.thumbnailBadgeViewModel.text){r=n.thumbnailBadgeViewModel.text;return}for(var y in n)f(n[y],j+1)})(x,0);return r}function lock(l){var m=(l.metadata||{}).lockupMetadataViewModel||{},parts=[];(((m.metadata||{}).contentMetadataViewModel||{}).metadataRows||[]).forEach(function(r){(r.metadataParts||[]).forEach(function(p){if(p.text)parts.push(t(p.text))})});var k=l.contentType==="LOCKUP_CONTENT_TYPE_PLAYLIST"?"playlist":l.contentType==="LOCKUP_CONTENT_TYPE_VIDEO"?"video":"";if(!k)return;push({kind:k,id:l.contentId,title:t(m.title),ch:parts[0]||"",len:badge(l.contentImage),views:k==="video"?(parts.filter(function(p){return /^[0-9.,]+[KMB]?( views)?$/.test(p)})[0]||""):"",age:k==="video"?(parts.filter(function(p){return /ago$/.test(p)})[0]||""):""})}function chan(c){var e=c.navigationEndpoint&&c.navigationEndpoint.browseEndpoint||{};push({kind:"channel",id:e.canonicalBaseUrl||("/channel/"+c.channelId),title:t(c.title),ch:"",len:"",views:t(c.videoCountText||c.subscriberCountText),age:""})}function w(n,k){if(!n||typeof n!=="object"||k>80)return;if(n.videoRenderer){vid(n.videoRenderer);return}if(n.playlistVideoRenderer){vid(n.playlistVideoRenderer);return}if(n.gridVideoRenderer){vid(n.gridVideoRenderer);return}if(n.lockupViewModel){lock(n.lockupViewModel);return}if(n.channelRenderer){chan(n.channelRenderer);return}for(var x in n)w(n[x],k+1)}w(d.contents||d,0);var md=d.metadata||{},h=(md.playlistMetadataRenderer||md.channelMetadataRenderer||{}).title||"";return JSON.stringify({head:h,list:o})})()'
+
+# Where YouTube's player is: its state, the time, the length, the title,
+# and whether it is showing its own error.
+VY_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,pq:(p.getPlaybackQuality?p.getPlaybackQuality():""),u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
+
+# Start YouTube's player once it is there: the quality asked for, the
+# volume, captions off, and the page cut down to the video. That is done by
+# structure, not by YouTube's names for things: every element that does not
+# hold the video is hidden (the masthead, the recommendations, the comments,
+# the player's own controls and overlays), and every one that does -- the
+# video's ancestors -- fills the window. A redesign of the page changes none
+# of it, since it names nothing; and covering the extras instead does not
+# work, as they sit outside the player's stacking context.
+VY_CSS='html,body{overflow:hidden!important;background:#000!important;margin:0!important}body *:not(:has(video)):not(video){display:none!important}body *:has(video){display:block!important;position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;min-width:0!important;min-height:0!important;max-width:none!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;transform:none!important;overflow:hidden!important;background:#000!important}video{display:block!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:contain!important;border-radius:0!important;background:#000!important}'
+
+# The address of a list: a search, a playlist or a channel's videos.
+fn vy_url(int id, kind, arg) {
+	case $kind in
+	search) ret "$VY_BASE/results?search_query=${arg// /+}" ;;
+	playlist) ret "$VY_BASE/playlist?list=$arg" ;;
+	channel) ret "$VY_BASE$arg/videos" ;;
+	home) ret "" ;;
+	*) ret "" ;;
+	esac
+}
+
+# What the list tab is told before a list is loaded in it: the last page's data is forgotten, so a list is read only once the new page has made its own.
+fn vy_prepare(int id, t) {
+	vp_send "$t" "window.ytInitialData=undefined"
+}
+
+# The script that reads a loaded list page into rows, and the one that reads the player.
+fn vy_rjs() {
+	ret "$VY_RJS"
+}
+fn vy_pjs() {
+	ret "$VY_PJS"
+}
+
+# What to load for a title: its watch page (and the follow-the-page and autoplay state is cleared).
+fn vy_start(int id, key, part) {
+	VP[$id]["inad"]=
+	VP[$id]["adat"]=
+	VP[$id]["ofid"]=
+	VP[$id]["noauto"]=
+	VP[$id]["nan"]=0
+	ret "$VY_BASE/watch?v=$key"
+}
+
+# Its page on the site, for Copy.
+fn vy_address(key) {
+	ret "$VY_BASE/watch?v=$key"
+}
+
+# A video of YouTube is 11 characters of letters, digits, - and _ ; it reaches an address and a script.
+fn vy_validkey(key) {
+	case $key in
+	*[!0-9A-Za-z_-]*) return 1 ;;
+	"") return 1 ;;
+	esac
+	return 0
+}
+
+# How many times a video that stopped is loaded again before the window says so.
+fn vy_tries() {
+	ret 3
+}
+
+# The commands to YouTube's player: its own calls.
+fn vy_js(what, to = "") {
+	case $what in
+	play) ret 'document.getElementById("movie_player").playVideo()' ;;
+	pause) ret 'document.getElementById("movie_player").pauseVideo()' ;;
+	seek) ret "document.getElementById(\"movie_player\").seekTo($to,true)" ;;
+	volume) ret "(function(){var p=document.getElementById(\"movie_player\");if(p&&p.setVolume)p.setVolume($to)})()" ;;
+	esac
+}
+
+# The script that starts the player, for this video and its volume: the quality asked for, the volume, captions as set, the page cut down to the video.
+fn vy_startjs(v, vid) {
+	local q cc j
+
+	q := vy_qeff
+	cc := vy_ccword
+	j := vy_startjs_raw "$q" "$v" "$vid" "$cc"
+	ret "$j"
+}
+
+fn vy_startjs_raw(q, v, vid, cc) {
+	ret "(function(){var p=document.getElementById(\"movie_player\");if(!p||!p.playVideo||location.href.indexOf(\"v=$vid\")<0)return \"\";if(!document.getElementById(\"hibr-yt\")){var c=document.createElement(\"style\");c.id=\"hibr-yt\";c.textContent='$VY_CSS';document.head.appendChild(c)}try{p.setPlaybackQualityRange(\"$q\",\"$q\")}catch(e){}try{p.${cc}Module(\"captions\")}catch(e){}if(p.unMute)p.unMute();if(p.setVolume)p.setVolume($v);p.playVideo();return \"ok\"})()"
+}
+
+# What to tell YouTube's player about captions, as the name of the call.
+fn vy_ccword() {
+	[ "$VY_CAPTIONS" = 1 ] && ret load || ret unload
+}
+
+fn vy_parse(q) {
+	local m
+
+	VPQ_KIND=search
+	VPQ_ARG=$q
+	if [[ $q =~ [?\&]list=([A-Za-z0-9_-]+) ]]; then
+		VPQ_KIND=playlist
+		VPQ_ARG=${M[1]}
+	elif [[ $q =~ (youtube\.com/watch\?.*v=|youtu\.be/|youtube\.com/shorts/)([A-Za-z0-9_-]{11}) ]]; then
+		VPQ_KIND=video
+		VPQ_ARG=${M[2]}
+	elif [[ $q =~ youtube\.com(/@[^/?]+|/channel/[A-Za-z0-9_-]+|/c/[^/?]+) ]]; then
+		VPQ_KIND=channel
+		VPQ_ARG=${M[1]}
+	elif [[ $q =~ ^@[A-Za-z0-9._-]+$ ]]; then
+		VPQ_KIND=channel
+		VPQ_ARG=/$q
+	fi
+}
+
+# A setting as one of VY_QUALITIES: the old names as the resolution they meant,
+# anything not known as auto.
+fn vy_qnorm(q) {
+	case $q in
+	auto | 144p | 240p | 360p | 480p | 720p | 1080p | 1440p | 2160p) ret "$q" ;;
+	tiny) ret 144p ;;
+	small) ret 240p ;;
+	medium) ret 360p ;;
+	large) ret 480p ;;
+	hd720) ret 720p ;;
+	hd1080) ret 1080p ;;
+	hd1440) ret 1440p ;;
+	hd2160 | highres) ret 2160p ;;
+	*) ret auto ;;
+	esac
+}
+
+# The level the player is asked for, as one of the list: the setting, or for auto
+# what the picture can show. An engine with a tap (Chromium) is not measured
+# here, so auto is the lowest for it, as it always was.
+fn vy_qeffp() {
+	local m q
+
+	q := vy_qnorm "$VY_QUALITY"
+	[ "$q" = auto ] || { ret "$q"; return 0; }
+	m := vp_drawmode
+	[ "$m" = pixels ] && ret 480p || ret 144p
+}
+
+# YouTube's name for a level, for its player (setPlaybackQualityRange): the only place they are.
+fn vy_qname(q) {
+	case $q in
+	144p) ret tiny ;;
+	240p) ret small ;;
+	360p) ret medium ;;
+	480p) ret large ;;
+	720p) ret hd720 ;;
+	1080p) ret hd1080 ;;
+	1440p) ret hd1440 ;;
+	2160p) ret hd2160 ;;
+	*) ret tiny ;;
+	esac
+}
+
+# The same, in YouTube's name for it.
+fn vy_qeff() {
+	local p n
+
+	p := vy_qeffp
+	n := vy_qname "$p"
+	ret "$n"
+}
+
+# An answer of the player, taken for this window: an advert is noted (its time and length are not the video's); an answer about another video than the one
+# playing is YouTube moving on by itself, noted for vy_tick to follow, and is not this video's.
+fn vy_take(int id) {
+	local nv
+
+	if [ "${VPP["ad"]-}" = 1 ]; then
+		VP[$id]["adat"]=$EPOCHSECONDS
+		VP[$id]["inad"]=1
+	elif [ -n "${VP[$id]["inad"]-}" ]; then
+		VP[$id]["inad"]=
+		VP[$id]["dur"]=0
+		VP[$id]["len"]=
+	fi
+	case ${VPP["u"]} in
+	*"v=${VP[$id]["vid"]}"*) VP[$id]["ofid"]= ;;
+	*)
+		nv=${VPP["u"]#*v=}
+		nv=${nv%%[&#]*}
+		if [ "$nv" != "${VPP["u"]}" ] && [ -n "$nv" ] && [ "$nv" != "${VP[$id]["ofid"]}" ] && ! vy_inad "$id"; then
+			VP[$id]["ofid"]=$nv
+			VP[$id]["ofat"]=$EPOCHSECONDS
+		fi
+		return 1 ;;
+	esac
+	return 0
+}
+
+# Whether an advert is on, or was a moment ago: the answer can be two seconds old
+# (asked without waiting), and the player goes through unstarted and buffering
+# on its way from the advert to the video. Nothing in it is the video's: not a
+# stop, not an end, not a length. (YouTube 3.25: the owner's pre-roll adverts
+# read as the video stopped at 0:07 and loaded it again, over and over.)
+fn vy_inad(int id) {
+	[ -n "${VP[$id]["inad"]-}" ] && return 0
+	[ $((EPOCHSECONDS - ${VP[$id]["adat"]:-0})) -lt 5 ]
+}
+
+# A step of its own each tick: an ended video's address is looked at every few seconds (the page leaving it would go unseen); a page that went on to
+# another video by itself, and stayed, is followed; and YouTube's own autoplay is turned off while playing. Status 1 ends the tick (a page followed).
+fn vy_tick(int id) {
+	if [ "${VP[$id]["state"]}" = ended ] && [ $((EPOCHSECONDS - ${VP[$id]["chk"]:-0})) -ge 3 ]; then
+		VP[$id]["chk"]=$EPOCHSECONDS
+		vp_page "$id" > /dev/null
+	fi
+	if [ -n "${VP[$id]["ofid"]}" ] && [ $((EPOCHSECONDS - VP[$id]["ofat"])) -ge 3 ] &&
+	   [ $((EPOCHSECONDS - VP[$id]["since"])) -ge 8 ]; then
+		vy_adopt "$id" "${VP[$id]["ofid"]}"
+		return 1
+	fi
+	[ "${VP[$id]["state"]}" = playing ] && vy_noauto "$id"
+	return 0
+}
+
+# YouTube's own autoplay is the app's to do (Play Next Automatically): left on, the
+# page goes to its choice of next video by itself, whatever the setting says, and
+# with the setting on as well the two would both move. Its switch is turned off
+# once the player's controls are there, asked each second until they are.
+#
+# This one names YouTube's own class for the switch: there is no way to find it
+# by structure, as the rest of the page is cut. If the name changes the switch
+# is never found, so the asking stops after thirty tries, and vy_adopt follows
+# the page when it moves on anyway.
+fn vy_noauto(int id) {
+	local s
+
+	[ -n "${VP[$id]["noauto"]}" ] && return 0
+	[ "${VP[$id]["nat"]:-0}" = "$EPOCHSECONDS" ] && return 0
+	VP[$id]["nat"]=$EPOCHSECONDS
+	VP[$id]["nan"]=$(( ${VP[$id]["nan"]:-0} + 1 ))
+	[ "${VP[$id]["nan"]}" -gt 30 ] && { VP[$id]["noauto"]=1; return 0; }
+	s := web eval "${VP[$id]["pt"]}" '(function(){var a=document.querySelector(".ytp-autonav-toggle-button");if(!a)return "none";if(a.getAttribute("aria-checked")==="true"){a.click();return "clicked"}return "off"})()' 2> /dev/null
+	[ "$s" = off ] && VP[$id]["noauto"]=1
+	return 0
+}
+
+# Follow the page to a video it went to by itself: the title, the length and the
+# clock are asked of it again, and the player is started the way it is for any.
+fn vy_adopt(int id, vid) {
+	printf 'youtube: the page moved on by itself to %s; following it\n' "$vid" >&2
+	VP[$id]["vid"]=$vid
+	VP[$id]["num"]=$vid
+	VP[$id]["inad"]=
+	VP[$id]["adat"]=
+	VP[$id]["title"]=
+	VP[$id]["sub"]=
+	VP[$id]["len"]=
+	VP[$id]["dur"]=0
+	VP[$id]["lpos"]=0
+	VP[$id]["tries"]=0
+	VP[$id]["bad"]=0
+	VP[$id]["resume"]=
+	VP[$id]["upause"]=
+	VP[$id]["efr"]=
+	vp_stale "$id"
+	VP[$id]["sat"]=
+	VP[$id]["ofid"]=
+	VP[$id]["noauto"]=
+	VP[$id]["nan"]=0
+	VP[$id]["fed"]=
+	VP[$id]["sized"]=
+	VP[$id]["err"]=
+	VP[$id]["state"]=loading
+	VP[$id]["since"]=$EPOCHSECONDS
+}
+
+VY_QUALITIES=(auto 144p 240p 360p 480p 720p 1080p 1440p 2160p)
+
+# The rows this site adds to Control Panel > Video (contract: `<site>_settings`, `<site>_setget KEY`, `<site>_setset KEY VALUE`): one line each,
+# KEY|TYPE|LABEL|CHOICES, TYPE `bool` (on or off) or `choice` (CHOICES are its words). The pane knows none of this site's variables.
+fn vy_settings() {
+	ret "quality|choice|Quality Fetched|${VY_QUALITIES[*]}"$'\n'"captions|bool|Show Captions|"
+}
+fn vy_setget(key) {
+	local q
+
+	case $key in
+	quality) q := vy_qnorm "$VY_QUALITY"; ret "$q" ;;
+	captions) [ "$VY_CAPTIONS" = 1 ] && ret on || ret off ;;
+	esac
+	return 0
+}
+fn vy_setset(key, value) {
+	case $key in
+	quality) VY_QUALITY=$value ;;
+	captions) [ "$value" = on ] && VY_CAPTIONS=1 || VY_CAPTIONS=0 ;;
+	esac
+	return 0
+}
+
+# What a level is called on screen: the words of the list, with 4K said for the top.
+fn vy_qlab(q) {
+	local n
+
+	n := vy_qnorm "$q"
+	case $n in
+	2160p) ret "2160p 4K" ;;
+	*) ret "$n" ;;
+	esac
+}
+
+# A level as YouTube's player names the one it is playing now (getPlaybackQuality), as one of the list;
+# nothing for a name that is not one (small, or "unknown" before it has started).
+fn vy_qfromname(n) {
+	case $n in
+	tiny) ret 144p ;;
+	small) ret 240p ;;
+	medium) ret 360p ;;
+	large) ret 480p ;;
+	hd720) ret 720p ;;
+	hd1080) ret 1080p ;;
+	hd1440) ret 1440p ;;
+	hd2160 | highres) ret 2160p ;;
+	*) ret "" ;;
+	esac
+}
+
+# What the bar says of the quality: what was asked for, and -- from the player -- what it plays, when
+# they differ or the setting is auto: "720p", "auto (480p)", "1440p (now 1080p)".
+fn vy_qbar(int id) {
+	local want have= n
+
+	want := vy_qnorm "$VY_QUALITY"
+	if vp_known "$id"; then
+		have := vy_qfromname "${VPP["pq"]-}"
+	fi
+	if [ "$want" = auto ]; then
+		[ -n "$have" ] && { ret "auto ($have)"; return 0; }
+		ret auto
+		return 0
+	fi
+	n := vy_qlab "$want"
+	if [ -n "$have" ] && [ "$have" != "$want" ]; then
+		ret "$n (now $have)"
+		return 0
+	fi
+	ret "$n"
+}
+
+# How many pixels wide a level's picture is (16:9), which is as wide as the video
+# has: a frame made wider is the video magnified before it is shown.
+fn vy_qwidth(q) {
+	case $q in
+	144p) ret 256 ;;
+	240p) ret 426 ;;
+	360p) ret 640 ;;
+	480p) ret 854 ;;
+	720p) ret 1280 ;;
+	1080p) ret 1920 ;;
+	1440p) ret 2560 ;;
+	2160p) ret 3840 ;;
+	*) ret 0 ;;
+	esac
+}
+
+# Tell every player playing now what it is asked for: it takes it at once, not
+# at the next video.
+fn vy_qapply() {
+	local id q
+
+	q := vy_qeff
+	for id in "${!VP[@]}"; do
+		[ -n "${VP[$id]["p"]}" ] && [ -n "${VP[$id]["pt"]}" ] || continue
+		VP[$id]["sized"]=		# laid out again: how wide its picture is made goes with the quality
+		vp_send "${VP[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.setPlaybackQualityRange(\"$q\",\"$q\")}catch(e){}})()"
+	done
+}
+
+# Set the quality and tell every player playing now. Kept for next time as well.
+fn vy_setquality(q) {
+	VY_QUALITY=$q
+	command -v dt_save > /dev/null && dt_save
+	vy_qapply
+	dt_want 10
+}
+
+# The next level up, and round to the lowest after the highest.
+fn vy_quality(int id = 0, int dir = 1) {
+	local i q l
+
+	local qc
+	qc := vy_qnorm "$VY_QUALITY"
+	for i in "${!VY_QUALITIES[@]}"; do
+		[ "${VY_QUALITIES[$i]}" = "$qc" ] && break
+	done
+	q=${VY_QUALITIES[$(( (i + dir + ${#VY_QUALITIES[@]}) % ${#VY_QUALITIES[@]} ))]}
+	vy_setquality "$q"
+	l := vy_qlab "$q"
+	dt_notep low "Quality %s" "$l"
+}
+
+# Captions on or off: kept for next time, and told to the player playing now.
+fn vy_captions(int id = 0) {
+	if [ "$VY_CAPTIONS" = 1 ]; then VY_CAPTIONS=0; else VY_CAPTIONS=1; fi
+	command -v dt_save > /dev/null && dt_save
+	local w
+	w := vy_ccword
+	[ -n "${VP[$id]["pt"]}" ] && [ -n "${VP[$id]["p"]}" ] &&
+		vp_send "${VP[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.${w}Module(\"captions\")}catch(e){}})()"
+	vp_pagestale "$id"
+	dt_want 10
+}
+
+# The player: the title, the picture, the bar, the keys.
+# The captions as text over the picture's bottom rows, at most two lines of
+# what the player is showing now, wrapped to the window and centred.
+fn vy_drawcc(int id, int h, int w) {
+	local t=${VPP["cc"]} n=$((w - 6)) r=$((h - 1)) l1 l2=""
+
+	[ "$YTPID" = "$id" ] || return 0
+	[ -n "$t" ] || return 0
+	[ "$n" -ge 10 ] || return 0
+	if [ "${#t}" -le "$n" ]; then
+		l1=$t
+	elif [ "${#t}" -le $((n * 2)) ]; then
+		l1=${t:0:$n}
+		l2=${t:$n}
+	else
+		# more than two lines: the end is what is being said now
+		l1=${t: -$((n * 2)):$n}
+		l2=${t: -$n}
+	fi
+	console pen "$DT_INK" "$DT_WELL" bold
+	if [ -n "$l2" ]; then
+		console put -p "w$id" $((r - 1)) $(( (w - ${#l1}) / 2 )) " $l1 "
+		console put -p "w$id" "$r" $(( (w - ${#l2}) / 2 )) " $l2 "
+	else
+		console put -p "w$id" "$r" $(( (w - ${#l1}) / 2 )) " $l1 "
+	fi
+}
+
+
+# The keys of YouTube's player: c turns captions on or off, q goes to the next quality, Q to the one before.
+fn vy_key(int id, key) {
+	case $key in
+	c) vy_captions "$id"; return 0 ;;
+	q) vy_quality "$id"; return 0 ;;
+	Q) vy_quality "$id" -1; return 0 ;;
+	esac
+	return 1
+}
+
+# Its menu items: captions, and the qualities, at the end of the Picture menu.
+fn vy_menus(int id) {
+	local q on=0 qc l x
+
+	[ "$VY_CAPTIONS" = 1 ] && on=1
+	dt_mark "Captions" c "$on" vy_captions "$id"
+	dt_sep
+	for q in "${VY_QUALITIES[@]}"; do
+		on=0
+		qc := vy_qnorm "$VY_QUALITY"
+		[ "$qc" = "$q" ] && on=1
+		l := vy_qlab "$q"
+		x := dt_tr "Quality %s" "$l"
+		dt_mark "$x" "" "$on" vy_setquality "$q"
+	done
+	return 0
+}
+
+# What its empty list says.
+fn vy_hint() {
+	ret "Type what to look for, or a playlist's or a channel's address, and enter."
+}
+
+# What the heading of a list says: a playlist's and a channel's, with their own names.
+fn vy_heading(int id, kind) {
+	local h=${VP[$id]["head"]}
+
+	case $kind in
+	playlist) ret "Playlist${h:+: $h}" ;;
+	channel) ret "Channel${h:+: $h}" ;;
+	*) ret "$h" ;;
+	esac
+}
+
+# How wide a picture as pixels need be: the width of the quality asked for (a frame made at the window's own pixels is the video magnified).
+fn vy_pixmax(m) {
+	local pq pw=0
+
+	pq := vy_qeffp
+	[ "$m" = pixels ] && pw := vy_qwidth "$pq"
+	ret "$pw"
+}

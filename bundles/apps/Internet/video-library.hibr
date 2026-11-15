@@ -3,16 +3,16 @@
 #
 # video-library -- everything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared
 # file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left,
-# and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.
+# and opens a title in the Video player on the site it came from (`play:SITE:KEY` as its argument), or in the site's own app where the player is not installed. It plays nothing itself and never writes but to take a title out.
 #
 # It was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and
 # `catalogue install video-library` brings this one.
 #
-#   up down pageup pagedown  choose      enter  open it in its app      a  all      y  YouTube      t  Tubi      b  Bilibili      x  take it out of the library
+#   up down pageup pagedown  choose      enter  open it in its app      a  all      f  next site      1-9  a site      x  take it out of the library
 
 strict
 
-app vlib "Video Library: what you watched, in every video app" 1.4
+app vlib "Video Library: what you watched, in every video app" 1.5
 # part: lang/video-library.ar.json
 if command -v dt_app > /dev/null; then
 	dt_app vlib "Video Library" 22 80 once "V"
@@ -20,6 +20,8 @@ fi
 
 VL_FILE="${VL_FILE-${XDG_DATA_HOME:-$HOME/.local/share}/hibr/library/watched.tsv}"
 declare -gA VL
+# The sites' own names and filter letters, set by the provider libs the desktop loads before any app (lib/video-<site>); none installed: the old names below.
+declare -gA VIDEO_NAMES VIDEO_KEYS
 declare -ga VLR
 # Fields are split on the unit separator, not on the tab: `read` takes a run of tabs for one, so an empty field (a title with no channel) would
 # vanish and shift the rest.
@@ -27,20 +29,27 @@ VL_US=$'\037'
 
 # The name an app is known by, and its tile.
 fn vl_name(p) {
+	if [ -n "${VIDEO_NAMES[$p]-}" ]; then
+		ret "${VIDEO_NAMES[$p]}"
+		return 0
+	fi
+	# LEGACY-BEGIN the three first-party names, for a library file read where their provider libs are not installed
 	case $p in
 	youtube) ret YouTube ;;
 	tubi) ret Tubi ;;
 	bilibili) ret Bilibili ;;
 	*) ret "${p^}" ;;
 	esac
+	# LEGACY-END
 }
 
 # The file read into VLR, newest first, only the provider asked for (empty: all): a row is "provider<TAB>kind<TAB>key<TAB>title<TAB>sub<TAB>pos<TAB>dur".
 fn vl_load(int id) {
 	local -a lines f
-	local l i n=0 want=${VL[$id]["only"]-}
+	local l i n=0 want=${VL[$id]["only"]-} provs
 
 	VLR=()
+	provs=
 	[ -r "$VL_FILE" ] && mapfile -t lines < "$VL_FILE"
 	i=${#lines[@]}
 	while [ "$i" -gt 0 ]; do
@@ -49,11 +58,13 @@ fn vl_load(int id) {
 		l=${l//$'\t'/$VL_US}
 		IFS=$VL_US read -ra f <<< "$l"
 		[ "${#f[@]}" -ge 8 ] || continue
+		case " $provs " in *" ${f[1]} "*) ;; *) provs+="${provs:+ }${f[1]}" ;; esac
 		[ -n "$want" ] && [ "${f[1]}" != "$want" ] && continue
 		VLR+=("${f[1]}$VL_US${f[2]}$VL_US${f[3]}$VL_US${f[4]}$VL_US${f[5]}$VL_US${f[6]}$VL_US${f[7]}")
 		n=$((n + 1))
 	done
 	VL[$id]["n"]=$n
+	VL[$id]["provs"]=$provs
 	[ "${VL[$id]["sel"]:-0}" -ge "$n" ] && VL[$id]["sel"]=$((n > 0 ? n - 1 : 0))
 	return 0
 }
@@ -86,6 +97,7 @@ fn vl_left(pos, dur) {
 	fi
 }
 
+# LEGACY-BEGIN
 # Once, the first time the library is opened with no shared file yet: what YouTube and Tubi had kept in their own histories, so a person's past
 # is in the list too. Those histories have no times, only an order, so each line is given the time of its file less one second for each line after it
 # (the newest of a file is its file's time); the two apps' titles are interleaved by those times, which is as good as it can be. A marker beside the
@@ -126,6 +138,7 @@ fn vl_seed() {
 	: > "$mk" 2> /dev/null
 	return 0
 }
+# LEGACY-END
 
 fn vlib_open(int id, ...rest) {
 	VL[$id]["only"]=
@@ -158,10 +171,10 @@ fn vlib_draw(int id, int h, int w, int row, int col) {
 	n=${VL[$id]["n"]}
 	p=${VL[$id]["only"]-}
 	if [ -n "$p" ]; then head := vl_name "$p"; else head=All; fi
-	x := str pad " Library: $head, $n watched   (a all, y YouTube, t Tubi, b Bilibili)" "$w"
+	x := str pad " Library: $head, $n watched   (a all, f next site, 1-9 a site)" "$w"
 	vl_put "$id" 1 1 "$x"
 	if [ "$n" = 0 ]; then
-		vl_put "$id" 3 2 "Nothing watched yet. What you watch in YouTube, Tubi and the other video apps is listed here."
+		vl_put "$id" 3 2 "Nothing watched yet. What you watch in the Video player is listed here."
 		return 0
 	fi
 	r=2
@@ -198,7 +211,12 @@ fn vl_play(int id) {
 
 	[ "${VL[$id]["n"]:-0}" -gt 0 ] || return 0
 	IFS=$VL_US read -ra f <<< "${VLR[$sel]}"
-	dt_launch "${f[0]}" "play:${f[2]}"
+	# The Video player, when it is installed; else the app of the site it came from, as before the player (its argument `play:KEY`)
+	if dt_has video_draw; then
+		dt_launch video "play:${f[0]}:${f[2]}"
+	else
+		dt_launch "${f[0]}" "play:${f[2]}"
+	fi
 	return 0
 }
 
@@ -223,7 +241,7 @@ fn vl_remove(int id) {
 }
 
 fn vlib_key(int id, key) {
-	local n=${VL[$id]["n"]:-0} sel=${VL[$id]["sel"]:-0} vis=${VL[$id]["vis"]:-10}
+	local n=${VL[$id]["n"]:-0} sel=${VL[$id]["sel"]:-0} vis=${VL[$id]["vis"]:-10} s
 
 	case $key in
 	up) [ "$sel" -gt 0 ] && VL[$id]["sel"]=$((sel - 1)) ;;
@@ -234,12 +252,39 @@ fn vlib_key(int id, key) {
 	end) VL[$id]["sel"]=$((n > 0 ? n - 1 : 0)) ;;
 	enter | return | $'\r') vl_play "$id" ;;
 	a) VL[$id]["only"]=; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
-	y) VL[$id]["only"]=youtube; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
-	t) VL[$id]["only"]=tubi; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
-	b) VL[$id]["only"]=bilibili; VL[$id]["sel"]=0; VL[$id]["top"]=0 ;;
+	f) vl_only "$id" next ;;
+	[1-9]) vl_only "$id" "$key" ;;
 	x | delete) vl_remove "$id" ;;
-	*) return 1 ;;
+	*)
+		# a site's own letter, when its provider has one and it is none of the keys above
+		for s in ${VL[$id]["provs"]-}; do
+			[ -n "${VIDEO_KEYS[$s]-}" ] && [ "${VIDEO_KEYS[$s]}" = "$key" ] && { vl_only "$id" "$s"; return 0; }
+		done
+		return 1
+		;;
 	esac
+	return 0
+}
+
+# Show one site's titles: a site's id, its number in the list of those present (1 to 9), or `next` (all, then each in turn, then all again).
+fn vl_only(int id, what) {
+	local -a ps
+	local cur=${VL[$id]["only"]-} i
+
+	read -ra ps <<< "${VL[$id]["provs"]-}"
+	case $what in
+	next)
+		what=${ps[0]-}
+		for i in "${!ps[@]}"; do
+			if [ "${ps[$i]}" = "$cur" ]; then what=${ps[$((i + 1))]-}; break; fi
+		done
+		[ -z "$cur" ] && what=${ps[0]-}
+		;;
+	[1-9]) what=${ps[$((what - 1))]-} ;;
+	esac
+	VL[$id]["only"]=$what
+	VL[$id]["sel"]=0
+	VL[$id]["top"]=0
 	return 0
 }
 
@@ -262,7 +307,7 @@ fn vlib_wheel(int id, dir, int r = 0, int c = 0) {
 }
 
 vlib_menus() {
-	local id=$DT_FOCUS only=${VL[$id]["only"]-}
+	local id=$DT_FOCUS only=${VL[$id]["only"]-} n s nm
 
 	dt_menu "File"
 	dt_item "Close Window" w dt_close_focused
@@ -271,7 +316,12 @@ vlib_menus() {
 	dt_item "Take Out of the Library" x vlib_key "$id" x
 	dt_sep
 	dt_mark "All" a "$([ -z "$only" ] && echo 1 || echo 0)" vlib_key "$id" a
-	dt_mark "YouTube" y "$([ "$only" = youtube ] && echo 1 || echo 0)" vlib_key "$id" y
-	dt_mark "Tubi" t "$([ "$only" = tubi ] && echo 1 || echo 0)" vlib_key "$id" t
-	dt_mark "Bilibili" b "$([ "$only" = bilibili ] && echo 1 || echo 0)" vlib_key "$id" b
+	dt_item "Next Site" f vlib_key "$id" f
+	n=0
+	for s in ${VL[$id]["provs"]-}; do
+		n=$((n + 1))
+		[ "$n" -le 9 ] || break
+		nm := vl_name "$s"
+		dt_mark "$nm" "$n" "$([ "$only" = "$s" ] && echo 1 || echo 0)" vlib_key "$id" "$n"
+	done
 }

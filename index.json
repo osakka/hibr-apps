@@ -328,11 +328,11 @@
     },
     "apps/video-library": {
       "title": "Video Library",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/video-library.hibr",
-      "sha256": "70d6d4cfc9a84b0be1c084390aec9b9c87c833c337f199712cd3569c424620db",
-      "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
+      "sha256": "b74dbf994eec9f2b2c4b06862128809aff069c8035d415cdb4bde1b54670cb95",
+      "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the Video player on the site it came from (`play:SITE:KEY` as its argument), or in the site's own app where the player is not installed. It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "video-library",
@@ -344,6 +344,36 @@
           "as": "video-library.ar.json",
           "path": "bundles/lang/video-library.ar.json",
           "sha256": "179b7b976efd8ec9ba277b416cb569b6b6b1c9d1136b842a08182bbb8a649ce0"
+        }
+      ]
+    },
+    "apps/video": {
+      "title": "Video",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Internet/video.hibr",
+      "sha256": "e8d9d6209e1c639516fc4917e26a09c42316e26fec5d0a8e0a8d253d5995291b",
+      "about": "Video, every site in one player\n\nevery video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.\n\nNothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video",
+      "hibr": "0.99.532",
+      "modules": "web",
+      "needs": "lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube",
+      "replaces": "apps/youtube apps/tubi apps/bilibili",
+      "dir": "Internet",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "videoset.hibr",
+          "path": "bundles/control-panel/videoset.hibr",
+          "sha256": "f018992792fc357788c3a6ae86e147ece802fff2599a846c357ec8700e508637"
+        },
+        {
+          "kind": "lang",
+          "as": "video.ar.json",
+          "path": "bundles/lang/video.ar.json",
+          "sha256": "e327e1c1da1dddb327f721b2b9d0bae8956ea690b2d6fc92dc588ddbeb9da466"
         }
       ]
     },
@@ -1675,6 +1705,42 @@
       "name": "wiretap",
       "modules": "wiretap"
     },
+    "lib/video-bilibili": {
+      "title": "video-bilibili",
+      "version": "1.0",
+      "kind": "lib",
+      "bundle": "bundles/lib/video-bilibili.hibr",
+      "sha256": "7adcd16efa306090154ffd9abffcd9ff7d616b35701ffeebb4e84c736d29802b",
+      "about": "Video: Bilibili, a site for the Video player\n\nBilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search), which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video-bilibili",
+      "hibr": "0.99.526"
+    },
+    "lib/video-tubi": {
+      "title": "video-tubi",
+      "version": "1.0",
+      "kind": "lib",
+      "bundle": "bundles/lib/video-tubi.hibr",
+      "sha256": "843cf73bbc81acec9ce184ec49d6d7f8384463b2a65ae8a3e692a4669ca85ca3",
+      "about": "Video: Tubi, a site for the Video player\n\nTubi (tubitv.com) for the Video player (apps/video): what only Tubi knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vt_. Tubi's lists (the home page, a search, a series and its seasons) are read from the page's own links; a title is Tubi's page for it, cut down to its one <video> once that holds data. A title that Tubi protects with DRM cannot be played by this engine, and the player says so rather than waiting.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video-tubi",
+      "hibr": "0.99.526"
+    },
+    "lib/video-youtube": {
+      "title": "video-youtube",
+      "version": "1.0",
+      "kind": "lib",
+      "bundle": "bundles/lib/video-youtube.hibr",
+      "sha256": "3f019a785f186575bf0ab80792d51d7c19adab0a43c68bcb5aeff1669e7d7bcd",
+      "about": "Video: YouTube, a site for the Video player\n\nYouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the qualities it offers and its captions.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video-youtube",
+      "hibr": "0.99.526"
+    },
     "lib/videocore": {
       "title": "videocore",
       "version": "1.0",
@@ -1963,15 +2029,31 @@
     },
     "video-library": {
       "title": "Video Library",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/video-library.hibr",
-      "sha256": "70d6d4cfc9a84b0be1c084390aec9b9c87c833c337f199712cd3569c424620db",
-      "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the app it came from (`play:KEY` as that app's argument). It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
+      "sha256": "b74dbf994eec9f2b2c4b06862128809aff069c8035d415cdb4bde1b54670cb95",
+      "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the Video player on the site it came from (`play:SITE:KEY` as its argument), or in the site's own app where the player is not installed. It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "video-library",
       "hibr": "0.99.523",
+      "dir": "Internet"
+    },
+    "video": {
+      "title": "Video",
+      "version": "1.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Internet/video.hibr",
+      "sha256": "e8d9d6209e1c639516fc4917e26a09c42316e26fec5d0a8e0a8d253d5995291b",
+      "about": "Video, every site in one player\n\nevery video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.\n\nNothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video",
+      "hibr": "0.99.532",
+      "modules": "web",
+      "needs": "lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube",
+      "replaces": "apps/youtube apps/tubi apps/bilibili",
       "dir": "Internet"
     },
     "youtube": {
@@ -2619,6 +2701,42 @@
       "author": "Omar Sakka",
       "name": "longwire-switchboard",
       "modules": "longwire"
+    },
+    "video-bilibili": {
+      "title": "video-bilibili",
+      "version": "1.0",
+      "kind": "lib",
+      "bundle": "bundles/lib/video-bilibili.hibr",
+      "sha256": "7adcd16efa306090154ffd9abffcd9ff7d616b35701ffeebb4e84c736d29802b",
+      "about": "Video: Bilibili, a site for the Video player\n\nBilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search), which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video-bilibili",
+      "hibr": "0.99.526"
+    },
+    "video-tubi": {
+      "title": "video-tubi",
+      "version": "1.0",
+      "kind": "lib",
+      "bundle": "bundles/lib/video-tubi.hibr",
+      "sha256": "843cf73bbc81acec9ce184ec49d6d7f8384463b2a65ae8a3e692a4669ca85ca3",
+      "about": "Video: Tubi, a site for the Video player\n\nTubi (tubitv.com) for the Video player (apps/video): what only Tubi knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vt_. Tubi's lists (the home page, a search, a series and its seasons) are read from the page's own links; a title is Tubi's page for it, cut down to its one <video> once that holds data. A title that Tubi protects with DRM cannot be played by this engine, and the player says so rather than waiting.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video-tubi",
+      "hibr": "0.99.526"
+    },
+    "video-youtube": {
+      "title": "video-youtube",
+      "version": "1.0",
+      "kind": "lib",
+      "bundle": "bundles/lib/video-youtube.hibr",
+      "sha256": "3f019a785f186575bf0ab80792d51d7c19adab0a43c68bcb5aeff1669e7d7bcd",
+      "about": "Video: YouTube, a site for the Video player\n\nYouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the qualities it offers and its captions.",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "video-youtube",
+      "hibr": "0.99.526"
     },
     "videocore": {
       "title": "videocore",

@@ -1,0 +1,158 @@
+#!/usr/bin/env hibr
+#
+# videoset -- the Control Panel pane for the Video player: how the picture is drawn, the quality YouTube's player is asked to fetch and whether its captions
+# are on, whether the next title plays by itself, whether a playing title keeps the screen saver away, the mini player's shadow and whether it follows
+# you to every workspace, and forgetting what was watched on each site. One pane for the one player (it was one for YouTube and one for Tubi); the
+# rows of a site are there when its provider is. Named videoset, not video, because the app owns the video_ prefix; its helpers
+# are vs_.
+
+strict
+
+app videoset "The Control Panel pane for the Video player" 1.0
+command -v cp_pane > /dev/null && cp_pane videoset "Video" "▶" app
+
+# follow is Control Panel > Pictures, which is the one setting meant to reach every picture the desktop draws; the rest say outright.
+VS_MODES=(follow half ascii mono pixels)
+
+fn cp_set_vpmode(int? id = "", value = "") { VP_MODE=$value; cp_save; }
+
+# One of a site's own rows, by its key: its type, its choices and its value now, into VS_T, VS_CH and VS_V (the site says all three).
+declare -g VS_T= VS_CH= VS_V= VS_PS=
+fn vs_spec(site, key) {
+	local p=${VIDEO_SITES["$site"]-} spec l kk t lab ch v
+
+	VS_T=; VS_CH=; VS_V=
+	dt_has "${p}settings" || return 1
+	spec := ${p}settings
+	while IFS='|' read -r kk t lab ch; do
+		[ "$kk" = "$key" ] || continue
+		VS_T=$t; VS_CH=$ch
+		v := ${p}setget "$key"
+		VS_V=$v
+		return 0
+	done <<< "$spec"
+	return 1
+}
+fn cp_set_vpsite(int? id = "", value = "") {
+	local p=${VIDEO_SITES["${VS_PS%%:*}"]-}
+
+	${p}setset "${VS_PS#*:}" "$value"
+	cp_save
+	return 0
+}
+
+fn videoset_rows(int w) {
+	local n=0 md k x nset spec kk t lab ch
+
+	dt_has video_draw || { cp_absent "$w" Video; ret 1; }
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Picture"
+	CP[$w][$n]["val"]="$VP_MODE"; CP[$w][$n]["key"]=mode
+	n=$((n + 1))
+	if [ "$VP_MODE" = follow ]; then
+		md := vp_drawmode
+		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Drawn Now"
+		CP[$w][$n]["val"]=$md; n=$((n + 1))
+	fi
+	# the rows each site adds (its `<site>_settings`); the site's name leads each when more than one site has any
+	nset=0
+	for k in "${VIDEO_ORDER[@]}"; do
+		dt_has "${VIDEO_SITES["$k"]}settings" && nset=$((nset + 1))
+	done
+	for k in "${VIDEO_ORDER[@]}"; do
+		dt_has "${VIDEO_SITES["$k"]}settings" || continue
+		spec := ${VIDEO_SITES["$k"]}settings
+		while IFS='|' read -r kk t lab ch; do
+			[ -n "$kk" ] || continue
+			vs_spec "$k" "$kk"
+			[ "$nset" -gt 1 ] && lab="${VIDEO_NAMES["$k"]}: $lab"
+			CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="$lab"
+			CP[$w][$n]["val"]="$VS_V"; CP[$w][$n]["key"]="ps:$k:$kk"
+			[ "$t" = bool ] && CP[$w][$n]["wtype"]=bool
+			n=$((n + 1))
+		done <<< "$spec"
+	done
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Play Next Automatically"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$VP_AUTONEXT" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=VP_AUTONEXT; n=$((n + 1))
+	CP[$w][$n]["kind"]=set
+	CP[$w][$n]["text"]="Keep the Screen Saver Away While Playing"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "${VP_SAVERHOLD:-1}" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=VP_SAVERHOLD; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Mini Player Shadow"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "${VP_MINISHADOW:-1}" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=VP_MINISHADOW; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Mini Player Sticky"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "${VP_MINISTICKY:-1}" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=VP_MINISTICKY; n=$((n + 1))
+	for k in "${VIDEO_ORDER[@]}"; do
+		x := dt_tr "Clear %s History" "${VIDEO_NAMES["$k"]}"
+		CP[$w][$n]["kind"]=action; CP[$w][$n]["text"]="$x"
+		CP[$w][$n]["val"]=""; CP[$w][$n]["key"]="histclear:$k"
+		n=$((n + 1))
+	done
+	# which sites the home's search asks
+	for k in "${VIDEO_ORDER[@]}"; do
+		dt_has "${VIDEO_SITES["$k"]}url" || continue
+		CP[$w][$n]["kind"]=set
+		x := dt_tr "Search %s From the Home" "${VIDEO_NAMES["$k"]}"
+		CP[$w][$n]["text"]="$x"
+		CP[$w][$n]["wtype"]=bool
+		CP[$w][$n]["val"]=on; case " ${VP_HUBOFF-} " in *" $k "*) CP[$w][$n]["val"]=off ;; esac
+		CP[$w][$n]["key"]="hubsite:$k"
+		n=$((n + 1))
+	done
+	ret "$n"
+}
+
+fn videoset_do(int? w = "", k = "", int? dir = "") {
+	local v
+	local -a ch
+
+	case $k in
+	mode) v := cp_next "$VP_MODE" "$dir" "${VS_MODES[@]}"; VP_MODE=$v ;;
+	ps:*)
+		VS_PS=${k#ps:}
+		vs_spec "${VS_PS%%:*}" "${VS_PS#*:}" || return 0
+		if [ "$VS_T" = bool ]; then
+			[ "$VS_V" = on ] && v=off || v=on
+		else
+			read -ra ch <<< "$VS_CH"
+			v := cp_next "$VS_V" "$dir" "${ch[@]}"
+		fi
+		cp_set_vpsite "" "$v"
+		;;
+	VP_AUTONEXT | VP_SAVERHOLD) cp_toggle "$k" ;;
+	VP_MINISHADOW | VP_MINISTICKY)
+		cp_toggle "$k"
+		dt_needs video vp_miniapply && vp_miniapply
+		;;
+	hubsite:*)
+		v=${k#hubsite:}
+		case " ${VP_HUBOFF-} " in
+		*" $v "*) VP_HUBOFF=" ${VP_HUBOFF-} "; VP_HUBOFF=${VP_HUBOFF// $v / }; VP_HUBOFF=${VP_HUBOFF# }; VP_HUBOFF=${VP_HUBOFF% }; VP_HUBOFF=${VP_HUBOFF//  / } ;;
+		*) VP_HUBOFF="${VP_HUBOFF:+$VP_HUBOFF }$v" ;;
+		esac
+		;;
+	histclear:*) dt_needs video vp_histclear_site && vp_histclear_site "${k#histclear:}" ;;
+	esac
+	cp_save
+}
+
+fn videoset_drop(int? w = "", int? r = "", int? c = "", k = "") {
+	local -a ch
+
+	case $k in
+	mode) dt_droplist "$w" "$r" "$c" cp_set_vpmode "${VS_MODES[@]}" ;;
+	ps:*)
+		VS_PS=${k#ps:}
+		vs_spec "${VS_PS%%:*}" "${VS_PS#*:}" || return 0
+		[ "$VS_T" = choice ] || return 0
+		read -ra ch <<< "$VS_CH"
+		dt_droplist "$w" "$r" "$c" cp_set_vpsite "${ch[@]}"
+		;;
+	esac
+}
