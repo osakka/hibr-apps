@@ -218,29 +218,6 @@
       "name": "snake",
       "dir": "Games"
     },
-    "apps/bilibili": {
-      "title": "Bilibili",
-      "version": "1.1",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/bilibili.hibr",
-      "sha256": "c177eb3724f4ea778ca7893c493d251f679d02c0bce0c6583b0b20d10762f48e",
-      "about": "Bilibili, in a window\n\nBilibili (bilibili.com) in a window: what is popular, a search, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites. Built on the same shape as the Tubi app and on the video core (lib/videocore), which the video apps share.\n\nNothing here is a Bilibili client of its own. The lists come from Bilibili's own public pages of data (the popular list and the search), which the web module's WebKit engine loads like any page and this app reads, after the window has visited the site once (without that the search says no). A video is looked up in two steps (its part, then its file: an MP4, 720p or 360p, which expires, so it is asked for each time one starts) and played in a small page of this app's own with one <video> in it, which the engine plays itself; the page is drawn here and this app drives the element: play and pause, a time, the volume. A file the engine cannot reach or play never says so (it stalls), so a video that has not started in thirty seconds is given up.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "bilibili",
-      "hibr": "0.99.526",
-      "modules": "web",
-      "needs": "lib/videocore",
-      "dir": "Internet",
-      "parts": [
-        {
-          "kind": "lang",
-          "as": "bilibili.ar.json",
-          "path": "bundles/lang/bilibili.ar.json",
-          "sha256": "3f6ac72a84322b56beca35ec1f9adc77d7352479a21ca3c4dc060cc83bfec0d0"
-        }
-      ]
-    },
     "apps/browser": {
       "title": "Browser",
       "version": "2.53",
@@ -297,112 +274,33 @@
         }
       ]
     },
-    "apps/tubi": {
-      "title": "Tubi",
-      "version": "1.4",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/tubi.hibr",
-      "sha256": "d584ae6766b9b66a33ad41be96bc1dd7ba8bbc64a09ee0c31754646baa6096bd",
-      "about": "Tubi, in a window\n\nTubi (tubitv.com) in a window: its free films and series, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a title up where it was left, and favourites. Built on the same shape as the YouTube app.\n\nNothing here is a Tubi client of its own. Tubi's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself, picture and sound; the page is cut down to its one <video> and drawn here, and this app drives that element: play and pause, a time, the volume. The titles a page lists (the home page, a search, a series and its seasons) are read from the page's own links. A title that Tubi protects with DRM cannot be played by this engine, and the window says so rather than waiting.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "tubi",
-      "hibr": "0.99.526",
-      "modules": "web",
-      "needs": "lib/videocore",
-      "dir": "Internet",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "tubiset.hibr",
-          "path": "bundles/control-panel/tubiset.hibr",
-          "sha256": "991095c2fc06a15f653577e0ede22962cda9cd13e0eeaee076abb6757a9df72c"
-        },
-        {
-          "kind": "lang",
-          "as": "tubi.ar.json",
-          "path": "bundles/lang/tubi.ar.json",
-          "sha256": "e853d5df4fcaa4990325df8914d980176a2183f7f4d15644ee1153a032780841"
-        }
-      ]
-    },
-    "apps/video-library": {
-      "title": "Video Library",
-      "version": "1.5",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/video-library.hibr",
-      "sha256": "b74dbf994eec9f2b2c4b06862128809aff069c8035d415cdb4bde1b54670cb95",
-      "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the Video player on the site it came from (`play:SITE:KEY` as its argument), or in the site's own app where the player is not installed. It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
-      "licence": "GPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "video-library",
-      "hibr": "0.99.523",
-      "dir": "Internet",
-      "parts": [
-        {
-          "kind": "lang",
-          "as": "video-library.ar.json",
-          "path": "bundles/lang/video-library.ar.json",
-          "sha256": "179b7b976efd8ec9ba277b416cb569b6b6b1c9d1136b842a08182bbb8a649ce0"
-        }
-      ]
-    },
     "apps/video": {
       "title": "Video",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/video.hibr",
-      "sha256": "e8d9d6209e1c639516fc4917e26a09c42316e26fec5d0a8e0a8d253d5995291b",
+      "sha256": "be0f3b70c48db8b09ae86681d07c69cbbf34c291d05f6040b4a9331862045427",
       "about": "Video, every site in one player\n\nevery video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.\n\nNothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "video",
-      "hibr": "0.99.532",
+      "hibr": "0.99.534",
       "modules": "web",
       "needs": "lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube",
-      "replaces": "apps/youtube apps/tubi apps/bilibili",
+      "replaces": "apps/youtube apps/tubi apps/bilibili apps/video-library",
       "dir": "Internet",
       "parts": [
         {
           "kind": "control-panel",
           "as": "videoset.hibr",
           "path": "bundles/control-panel/videoset.hibr",
-          "sha256": "f018992792fc357788c3a6ae86e147ece802fff2599a846c357ec8700e508637"
+          "sha256": "67f7e9127ab576086e2d06f83bfeee516916dbef5a55d537e328feea20533082"
         },
         {
           "kind": "lang",
           "as": "video.ar.json",
           "path": "bundles/lang/video.ar.json",
-          "sha256": "e327e1c1da1dddb327f721b2b9d0bae8956ea690b2d6fc92dc588ddbeb9da466"
-        }
-      ]
-    },
-    "apps/youtube": {
-      "title": "YouTube",
-      "version": "3.29",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "c5134baac9573863507ded24d68d2a2f461314b87ba64f97a2d53bf321e270b5",
-      "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "youtube",
-      "hibr": "0.99.526",
-      "modules": "media web",
-      "needs": "lib/videocore",
-      "dir": "Internet",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "tube.hibr",
-          "path": "bundles/control-panel/tube.hibr",
-          "sha256": "a88f3a526efc08d0d7b3a3898a66f3248710acce5eb28222c7e4e3dc07815942"
-        },
-        {
-          "kind": "lang",
-          "as": "youtube.ar.json",
-          "path": "bundles/lang/youtube.ar.json",
-          "sha256": "c0784fcfa8007b16e2a5f41a68571e18c2465585fbe41a0b7bf81aae349a7815"
+          "sha256": "bcd474971be696554710e8b27fa164d686fbb19e6df6b04babe4e15d731caedd"
         }
       ]
     },
@@ -1707,10 +1605,10 @@
     },
     "lib/video-bilibili": {
       "title": "video-bilibili",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "lib",
       "bundle": "bundles/lib/video-bilibili.hibr",
-      "sha256": "7adcd16efa306090154ffd9abffcd9ff7d616b35701ffeebb4e84c736d29802b",
+      "sha256": "6be09a2979b0d971c080bc55fd79fc80b48209d4915d675ffb784ee2c6769b71",
       "about": "Video: Bilibili, a site for the Video player\n\nBilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search), which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1731,10 +1629,10 @@
     },
     "lib/video-youtube": {
       "title": "video-youtube",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "lib",
       "bundle": "bundles/lib/video-youtube.hibr",
-      "sha256": "3f019a785f186575bf0ab80792d51d7c19adab0a43c68bcb5aeff1669e7d7bcd",
+      "sha256": "fa340635b328effce787f44856b8b16927d31d43131ea91ec100367eb33b9d46",
       "about": "Video: YouTube, a site for the Video player\n\nYouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the qualities it offers and its captions.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1969,21 +1867,6 @@
       "name": "snake",
       "dir": "Games"
     },
-    "bilibili": {
-      "title": "Bilibili",
-      "version": "1.1",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/bilibili.hibr",
-      "sha256": "c177eb3724f4ea778ca7893c493d251f679d02c0bce0c6583b0b20d10762f48e",
-      "about": "Bilibili, in a window\n\nBilibili (bilibili.com) in a window: what is popular, a search, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites. Built on the same shape as the Tubi app and on the video core (lib/videocore), which the video apps share.\n\nNothing here is a Bilibili client of its own. The lists come from Bilibili's own public pages of data (the popular list and the search), which the web module's WebKit engine loads like any page and this app reads, after the window has visited the site once (without that the search says no). A video is looked up in two steps (its part, then its file: an MP4, 720p or 360p, which expires, so it is asked for each time one starts) and played in a small page of this app's own with one <video> in it, which the engine plays itself; the page is drawn here and this app drives the element: play and pause, a time, the volume. A file the engine cannot reach or play never says so (it stalls), so a video that has not started in thirty seconds is given up.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "bilibili",
-      "hibr": "0.99.526",
-      "modules": "web",
-      "needs": "lib/videocore",
-      "dir": "Internet"
-    },
     "browser": {
       "title": "Browser",
       "version": "2.53",
@@ -2012,63 +1895,20 @@
       "modules": "db email html img",
       "dir": "Internet"
     },
-    "tubi": {
-      "title": "Tubi",
-      "version": "1.4",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/tubi.hibr",
-      "sha256": "d584ae6766b9b66a33ad41be96bc1dd7ba8bbc64a09ee0c31754646baa6096bd",
-      "about": "Tubi, in a window\n\nTubi (tubitv.com) in a window: its free films and series, the picture drawn as cells or pixels and the sound through the machine's own device, with a history that takes a title up where it was left, and favourites. Built on the same shape as the YouTube app.\n\nNothing here is a Tubi client of its own. Tubi's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself, picture and sound; the page is cut down to its one <video> and drawn here, and this app drives that element: play and pause, a time, the volume. The titles a page lists (the home page, a search, a series and its seasons) are read from the page's own links. A title that Tubi protects with DRM cannot be played by this engine, and the window says so rather than waiting.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "tubi",
-      "hibr": "0.99.526",
-      "modules": "web",
-      "needs": "lib/videocore",
-      "dir": "Internet"
-    },
-    "video-library": {
-      "title": "Video Library",
-      "version": "1.5",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/video-library.hibr",
-      "sha256": "b74dbf994eec9f2b2c4b06862128809aff069c8035d415cdb4bde1b54670cb95",
-      "about": "Video Library: what you watched, in every video app\n\neverything watched, in every video app, in one list: YouTube, Tubi, and each one that comes after. The video apps write the shared file (docs/video-library.md of the catalogue: ~/.local/share/hibr/library/watched.tsv); this reads it, newest first, with where each was left, and opens a title in the Video player on the site it came from (`play:SITE:KEY` as its argument), or in the site's own app where the player is not installed. It plays nothing itself and never writes but to take a title out.\n\nIt was published as `library` (1.0, 1.0.1); that entry is gone. If you installed it, `catalogue remove library` takes the old copy away, and `catalogue install video-library` brings this one.",
-      "licence": "GPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "video-library",
-      "hibr": "0.99.523",
-      "dir": "Internet"
-    },
     "video": {
       "title": "Video",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/video.hibr",
-      "sha256": "e8d9d6209e1c639516fc4917e26a09c42316e26fec5d0a8e0a8d253d5995291b",
+      "sha256": "be0f3b70c48db8b09ae86681d07c69cbbf34c291d05f6040b4a9331862045427",
       "about": "Video, every site in one player\n\nevery video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.\n\nNothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "video",
-      "hibr": "0.99.532",
+      "hibr": "0.99.534",
       "modules": "web",
       "needs": "lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube",
-      "replaces": "apps/youtube apps/tubi apps/bilibili",
-      "dir": "Internet"
-    },
-    "youtube": {
-      "title": "YouTube",
-      "version": "3.29",
-      "kind": "apps",
-      "bundle": "bundles/apps/Internet/youtube.hibr",
-      "sha256": "c5134baac9573863507ded24d68d2a2f461314b87ba64f97a2d53bf321e270b5",
-      "about": "YouTube, in a window\n\nYouTube in a window: search, playlists and channels, the picture drawn as cells and the sound through the machine's own device, with a history that takes a video up where it was left, and favourites.\n\nNothing here is a YouTube client of its own. YouTube's own page runs in the web module's engine, and what the engine can do is its `web caps`. With WebKit (hibr-browser) the engine fetches, decodes and plays the video itself, picture and sound, as it does any page's; the page is drawn here as cells or pixels with YouTube's own controls set aside. With Chromium the page's player fetches the video at the lowest quality, muted, and the web module's tap copies every chunk it hands the browser's media source down two pipes into a media player, which decodes them with FFmpeg's libraries and plays them here. Either way this app drives YouTube's player: play and pause, a time, the volume. A search, a playlist or a channel is read from the page's own data.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "youtube",
-      "hibr": "0.99.526",
-      "modules": "media web",
-      "needs": "lib/videocore",
+      "replaces": "apps/youtube apps/tubi apps/bilibili apps/video-library",
       "dir": "Internet"
     },
     "dbase": {
@@ -2704,10 +2544,10 @@
     },
     "video-bilibili": {
       "title": "video-bilibili",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "lib",
       "bundle": "bundles/lib/video-bilibili.hibr",
-      "sha256": "7adcd16efa306090154ffd9abffcd9ff7d616b35701ffeebb4e84c736d29802b",
+      "sha256": "6be09a2979b0d971c080bc55fd79fc80b48209d4915d675ffb784ee2c6769b71",
       "about": "Video: Bilibili, a site for the Video player\n\nBilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search), which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2728,10 +2568,10 @@
     },
     "video-youtube": {
       "title": "video-youtube",
-      "version": "1.0",
+      "version": "1.1",
       "kind": "lib",
       "bundle": "bundles/lib/video-youtube.hibr",
-      "sha256": "3f019a785f186575bf0ab80792d51d7c19adab0a43c68bcb5aeff1669e7d7bcd",
+      "sha256": "fa340635b328effce787f44856b8b16927d31d43131ea91ec100367eb33b9d46",
       "about": "Video: YouTube, a site for the Video player\n\nYouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the qualities it offers and its captions.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",

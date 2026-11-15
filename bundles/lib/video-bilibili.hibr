@@ -10,7 +10,7 @@
 
 strict
 
-app video-bilibili "Video: Bilibili, a site for the Video player" 1.0
+app video-bilibili "Video: Bilibili, a site for the Video player" 1.1
 
 VIDEO_BILIBILI_LIBDONE=1
 
@@ -23,13 +23,18 @@ VIDEO_KEYS["bilibili"]=b
 VIDEO_ORDER+=(bilibili)
 
 # Where the site's pages are, and where the pages this lib writes for the player are kept.
+# The resolution asked for (Bilibili's anonymous links have 720p and 360p, and 480p between on some): kept for next time, applied to the next title opened.
+VB_QUALITIES=(720p 480p 360p)
+VB_QUALITY="${VB_QUALITY-720p}"
+command -v dt_keep > /dev/null && dt_keep VB_QUALITY
+
 VB_BASE="${VB_BASE-https://www.bilibili.com}"
 VB_API="${VB_API-https://api.bilibili.com}"
 VB_PLAYDIR="${VB_PLAYDIR-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-bilibili-$UID}"
 
 # The titles a data page lists, as the rows the lists draw: kind id title channel length. The page is JSON text; "" until it is one (the page before is
 # still there for a moment after a go). A search's titles carry <em> markup and entities, its durations are 1:02 and the popular list's are seconds.
-VB_RJS='(function(){var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data)return JSON.stringify({list:[],err:String(j.message||j.code)});var l=j.data.list||j.data.result||[];function tx(s){return String(s||"").replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"\x27").replace(/\s+/g," ").trim()}function secs(d){if(typeof d==="number")return d;var s=0;String(d||"0").split(":").forEach(function(x){s=s*60+(Number(x)||0)});return s}function hms(n){var h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return h?h+":"+("0"+m).slice(-2)+":"+("0"+s).slice(-2):m+":"+("0"+s).slice(-2)}return JSON.stringify({list:l.filter(function(x){return x.bvid}).map(function(x){return {kind:"video",id:x.bvid,title:tx(x.title),ch:tx(x.author||(x.owner&&x.owner.name)),len:hms(secs(x.duration))}})})})()'
+VB_RJS='(function(){var j;try{j=JSON.parse(document.body.innerText)}catch(e){var q=document.body?document.body.innerText:"";if(/412/.test(q)&&q.length<600)return JSON.stringify({list:[],err:"the site refused the request (412)"});return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data)return JSON.stringify({list:[],err:String(j.message||j.code)});var l=j.data.list||j.data.result||[];function tx(s){return String(s||"").replace(/<[^>]*>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&#39;/g,"\x27").replace(/\s+/g," ").trim()}function secs(d){if(typeof d==="number")return d;var s=0;String(d||"0").split(":").forEach(function(x){s=s*60+(Number(x)||0)});return s}function hms(n){var h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return h?h+":"+("0"+m).slice(-2)+":"+("0"+s).slice(-2):m+":"+("0"+s).slice(-2)}return JSON.stringify({list:l.filter(function(x){return x.bvid}).map(function(x){return {kind:"video",id:x.bvid,title:tx(x.title),ch:tx(x.author||(x.owner&&x.owner.name)),len:hms(secs(x.duration))}})})})()'
 
 # A video's part (the first, or the one asked for; how many there are, and its own name), and then its file's address: each from its own data page
 # (the page before is told by its address).
@@ -107,7 +112,7 @@ fn vb_startjs(v, num) {
 # that one <video> in it and gone to, and the player starts from it as it would from any page. A step that says no (the page's own words), or does not
 # answer, ends in the window.
 fn vb_step(int id) {
-	local t=${VP[$id]["pt"]} js key=${VP[$id]["vid"]} f u q
+	local t=${VP[$id]["pt"]} js key=${VP[$id]["vid"]} f u q qn
 	local -A r
 
 	web loading "$t" 2> /dev/null && return 0
@@ -124,7 +129,8 @@ fn vb_step(int id) {
 		VP[$id]["part"]=${r["p"]:-1}
 		VP[$id]["ptitle"]=${r["part"]}
 		VP[$id]["rstep"]=url
-		web go "$t" "$VB_API/x/player/playurl?bvid=$key&cid=${r["cid"]}&qn=64&fnval=1&platform=html5" 2> /dev/null
+		qn := vb_qn
+		web go "$t" "$VB_API/x/player/playurl?bvid=$key&cid=${r["cid"]}&qn=$qn&fnval=1&platform=html5" 2> /dev/null
 		return 0
 	fi
 	js := web eval "$t" "$VB_URLJS" 2> /dev/null
@@ -145,4 +151,60 @@ fn vb_step(int id) {
 	VP[$id]["since"]=$EPOCHSECONDS
 	web go "$t" "file://$f" 2> /dev/null
 	return 0
+}
+
+# The number the playurl API takes for the resolution asked for.
+fn vb_qn() {
+	case $VB_QUALITY in
+	480p) ret 32 ;;
+	360p) ret 16 ;;
+	*) ret 64 ;;
+	esac
+}
+
+# Step the resolution on or back, and say so: it is the next title that has it, since a link is fetched for one resolution.
+fn vb_quality(int id = 0, int dir = 1) {
+	local i=0 q
+
+	for i in "${!VB_QUALITIES[@]}"; do
+		[ "${VB_QUALITIES[$i]}" = "$VB_QUALITY" ] && break
+	done
+	q=${VB_QUALITIES[$(( (i + dir + ${#VB_QUALITIES[@]}) % ${#VB_QUALITIES[@]} ))]}
+	vb_setquality "$q"
+	dt_notep low "Quality %s, from the next video" "$q"
+	return 0
+}
+fn vb_setquality(q) {
+	VB_QUALITY=$q
+	command -v dt_save > /dev/null && dt_save
+	return 0
+}
+fn vb_key(int id, key) {
+	case $key in
+	q) vb_quality "$id"; return 0 ;;
+	Q) vb_quality "$id" -1; return 0 ;;
+	esac
+	return 1
+}
+# Its menu items, at the end of the Picture menu and in the player's right-click menu.
+fn vb_menus(int id) {
+	local q on x
+
+	for q in "${VB_QUALITIES[@]}"; do
+		on=0
+		[ "$VB_QUALITY" = "$q" ] && on=1
+		x := dt_tr "Quality %s" "$q"
+		dt_mark "$x" "" "$on" vb_setquality "$q"
+	done
+	return 0
+}
+# Its rows in Control Panel > Video.
+fn vb_settings() {
+	ret "quality|choice|Quality Fetched|${VB_QUALITIES[*]}"
+}
+fn vb_setget(key) {
+	ret "$VB_QUALITY"
+}
+fn vb_setset(key, value) {
+	vb_setquality "$value"
 }

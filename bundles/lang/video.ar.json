@@ -2,6 +2,7 @@
  "language": "ar",
  "strings": {
   "%s stopped -- trying again": "توقف %s -- تجري المحاولة مرة أخرى",
+  "All History": "كل السجل",
   "Back": "رجوع",
   "Back 10 Seconds": "رجوع 10 ثوانٍ",
   "Back 30 Seconds": "رجوع 30 ثانية",
@@ -58,6 +59,9 @@
   "Search…": "بحث…",
   "Shadow": "الظل",
   "Show Captions": "إظهار الترجمة النصية",
+  "Skip Advert": "تخطي الإعلان",
+  "Skip Adverts When YouTube Allows It": "تخطي الإعلانات عندما يسمح يوتيوب",
+  "Skip advert": "تخطي الإعلان",
   "Sticky": "ثابت",
   "Stop": "إيقاف",
   "Taken out of the favourites: %s": "أُزيل من المفضلة: %s",

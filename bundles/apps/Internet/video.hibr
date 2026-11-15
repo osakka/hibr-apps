@@ -21,8 +21,8 @@
 strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-tubi, lib/video-youtube
-# replaces: apps/youtube apps/tubi apps/bilibili
-app video "Video, every site in one player" 1.0
+# replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
+app video "Video, every site in one player" 1.1
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web
@@ -45,6 +45,15 @@ VP_MINISTICKY="${VP_MINISTICKY-1}"
 VP_MINIGEO="${VP_MINIGEO-}"
 # The sites the home does not search (ids, spaces between): Control Panel > Video says which.
 VP_HUBOFF="${VP_HUBOFF-}"
+# How many sites the home asks at once, and how long it waits for one (Control Panel > Video > Search).
+VP_HUBPAR="${VP_HUBPAR-3}"
+VP_HUBSECS="${VP_HUBSECS-45}"
+# The order of the sites (the first is where a window starts, the Tab order, the first asked), the ones turned off, how many titles each history keeps,
+# and whether a title is taken up where it was left.
+VP_SITEORDER="${VP_SITEORDER-}"
+VP_SITEOFF="${VP_SITEOFF-}"
+VP_KEEP="${VP_KEEP-500}"
+VP_RESUMEON="${VP_RESUMEON-1}"
 # LEGACY-BEGIN
 # Settings carried over from the three apps this one replaced (YouTube's YT_*, Tubi's TU_*, Bilibili's BL_*): a name with no saved value of its own takes the
 # old one, once -- it is saved under the new name from then on. Each value is checked as a choice of this player's: an old one may not be one.
@@ -82,7 +91,7 @@ vp_carry VP_SAVERHOLD "0 1"
 vp_carry VP_MINISHADOW "0 1"
 vp_carry VP_MINISTICKY "0 1"
 vp_carrygeo
-command -v dt_keep > /dev/null && dt_keep VP_MODE VP_AUTONEXT VP_SAVERHOLD VP_MINISHADOW VP_MINISTICKY VP_MINIGEO VP_HUBOFF
+command -v dt_keep > /dev/null && dt_keep VP_MODE VP_AUTONEXT VP_SAVERHOLD VP_MINISHADOW VP_MINISTICKY VP_MINIGEO VP_HUBOFF VP_HUBPAR VP_HUBSECS VP_SITEORDER VP_SITEOFF VP_KEEP VP_RESUMEON
 VP_DATA="${VP_DATA-${XDG_DATA_HOME:-$HOME/.local/share}/hibr}"
 # The sites: what each provider lib adds (VIDEO_SITES: the id and the prefix of its functions; VIDEO_NAMES: how it is called; VIDEO_KEYS: its letter in the
 # menus; VIDEO_ORDER: the order tab goes in). A provider is sourced before this app, and never calls it.
@@ -92,13 +101,13 @@ declare -ga VIDEO_ORDER
 # number, or a second one for an id or a function prefix already taken, is left out, and VIDEO_REFUSED[site] says why, so a stranger's lib that does not
 # fit costs its own site and no other.
 VIDEO_API_NOW=1
+declare -ga VIDEO_ALL
 fn vp_sites_check() {
-	local -a all=("${VIDEO_ORDER[@]-}")
+	local -a cand=("${VIDEO_ALL[@]-}" "${VIDEO_ORDER[@]-}") valid=() pri=() ordered=()
 	local k q
-	local -A seen pre
+	local -A seen pre ok taken
 
-	VIDEO_ORDER=()
-	for k in "${all[@]}"; do
+	for k in "${cand[@]}"; do
 		[ -n "$k" ] || continue
 		[ -z "${seen[$k]-}" ] || continue
 		seen[$k]=1
@@ -117,6 +126,26 @@ fn vp_sites_check() {
 		fi
 		pre[$q]=$k
 		unset "VIDEO_REFUSED[$k]"
+		valid+=("$k")
+		ok[$k]=1
+	done
+	# the person's order first (Control Panel > Video), then the others as they were found
+	read -ra pri <<< "${VP_SITEORDER-}"
+	for k in "${pri[@]}"; do
+		[ -n "${ok[$k]-}" ] && [ -z "${taken[$k]-}" ] || continue
+		taken[$k]=1
+		ordered+=("$k")
+	done
+	for k in "${valid[@]}"; do
+		[ -z "${taken[$k]-}" ] || continue
+		taken[$k]=1
+		ordered+=("$k")
+	done
+	# VIDEO_ALL is every site that fits, in order; VIDEO_ORDER is those not turned off, which is what the player uses
+	VIDEO_ALL=("${ordered[@]}")
+	VIDEO_ORDER=()
+	for k in "${ordered[@]}"; do
+		case " ${VP_SITEOFF-} " in *" $k "*) continue ;; esac
 		VIDEO_ORDER+=("$k")
 	done
 	return 0
@@ -148,7 +177,6 @@ fn vp_p(int id) {
 fn vp_name(int id) {
 	ret "${VIDEO_NAMES[${VP[$id]["site"]}]}"
 }
-VP_KEEP=500
 # A title is taken up where it was left once more than VP_RESUME seconds in;
 # within VP_ENDED seconds of its end it counts as watched to the end.
 VP_RESUME="${VP_RESUME-30}"
@@ -230,8 +258,9 @@ fn vp_load(int id, kind, arg, head = "", push = 1) {
 	VP[$id]["arg"]=$arg
 	VP[$id]["head"]=$head
 	VP[$id]["err"]=
-	# a search of every site goes on through vp_load for each site (hub is kept then); any other list ends it
-	[ "$kind" = search ] && [ "$push" = 0 ] && [ -n "${VH[$id]["queue"]+x}" ] && [ -n "${VP[$id]["hub"]-}" ] || VP[$id]["hub"]=
+	# any list asked for leaves a search of every site (its tabs closed); `hub` below asks for it again
+	vp_hubstop "$id"
+	VP[$id]["hub"]=
 	# a list asked for while another was still being looked for replaces it (the history shown over a slow home is not hidden by its "Looking")
 	VP[$id]["searching"]=
 	VP[$id]["pend"]=
@@ -243,9 +272,10 @@ fn vp_load(int id, kind, arg, head = "", push = 1) {
 	VP[$id]["top"]=0
 	vp_files "$id"
 	case $kind in
+	library) vp_libload "$id"; return 0 ;;
 	hub)
 		# back to a search of every site that was finished: its titles are kept, so no site is asked again
-		if [ "${VH[$id]["q"]-}" = "$arg" ] && [ -z "${VH[$id]["queue"]-}" ] && [ -n "${VH[$id]["sig"]-}" ]; then
+		if [ "${VH[$id]["q"]-}" = "$arg" ] && [ -n "${VH[$id]["done"]-}" ]; then
 			VP[$id]["hub"]=1
 			vp_hubmix "$id" "" 200
 			return 0
@@ -354,7 +384,6 @@ fn vp_results(int id) {
 			VP[$id]["pend"]=
 			n := vp_name "$id"
 			VP[$id]["err"]="$n did not answer"
-			[ -n "${VP[$id]["hub"]-}" ] && vp_hubgot "$id" 0
 		fi
 		dt_want 300
 		return 0
@@ -382,7 +411,6 @@ fn vp_results(int id) {
 			VP[$id]["searching"]=
 			n := vp_name "$id"
 			VP[$id]["err"]="$n did not answer"
-			[ -n "${VP[$id]["hub"]-}" ] && vp_hubgot "$id" 0
 		fi
 		dt_want 300
 		return 0
@@ -405,7 +433,6 @@ fn vp_results(int id) {
 		n := vp_name "$id"
 		[ -n "${r["err"]}" ] && VP[$id]["err"]="$n said: ${r["err"]}"
 	fi
-	[ -n "${VP[$id]["hub"]-}" ] && vp_hubgot "$id" "$i"
 	return 0
 }
 
@@ -443,6 +470,7 @@ fn vp_heading(int id) {
 	local n p fn
 	case ${VP[$id]["kind"]} in
 	hub) n := vp_hubhead "$id"; ret "$n" ;;
+	library) ret "All history, every site: enter plays, x takes one out" ;;
 	home) n := vp_name "$id"; ret "$n" ;;
 	search) ret "Results for ${VP[$id]["arg"]}" ;;
 	history) ret "History" ;;
@@ -578,8 +606,100 @@ vp_histclear() {
 
 # Forget everything watched on one site -- Control Panel's Clear History for it.
 fn vp_histclear_site(site) {
+	local f=$VC_LIB l keep=
+	local -a lines kept=()
+
 	: > "$VP_DATA/$site/history.tsv" 2> /dev/null
+	# and the site's titles in the shared library the Video Library lists, where this player wrote them (field 2 is the site)
+	if [ -r "$f" ]; then
+		mapfile -t lines < "$f"
+		for l in "${lines[@]}"; do
+			case $l in *$'\t'"$site"$'\t'*) continue ;; esac
+			kept+=("$l")
+		done
+		printf '%s\n' "${kept[@]}" > "$f" 2> /dev/null
+		[ "${#kept[@]}" = 0 ] && : > "$f" 2> /dev/null
+	fi
 	dt_notep low "The %s history is empty" "${VIDEO_NAMES["$site"]}"
+}
+# All history, every site (it was the Video Library's list): what the shared file holds, newest first, with the site on the right and where each was left.
+fn vp_libload(int id) {
+	local -a lines f
+	local l i n=0 s left pos dur
+
+	[ -r "$VC_LIB" ] && mapfile -t lines < "$VC_LIB"
+	i=${#lines[@]}
+	while [ "$i" -gt 0 ] && [ "$n" -lt 500 ]; do
+		i=$((i - 1))
+		IFS=$'\037' read -ra f <<< "${lines[$i]//$'\t'/$'\037'}"
+		[ "${#f[@]}" -ge 8 ] || continue
+		s=${f[1]}
+		[ -n "${VIDEO_SITES[$s]-}" ] || continue
+		case " ${VIDEO_ORDER[*]} " in *" $s "*) ;; *) continue ;; esac
+		pos=${f[6]:-0}
+		dur=${f[7]:-0}
+		if [ "$pos" -le 0 ] 2> /dev/null; then
+			left="watched"
+		else
+			left := vc_mmss "$pos"
+			[ "$dur" -gt 0 ] 2> /dev/null && { dur := vc_mmss "$dur"; left="$left / $dur"; }
+		fi
+		VR[$id][$n]["kind"]=${f[2]:-video}
+		VR[$id][$n]["id"]=${f[3]}
+		VR[$id][$n]["title"]=${f[4]:-${f[3]}}
+		VR[$id][$n]["ch"]=${f[5]}
+		VR[$id][$n]["len"]=$left
+		VR[$id][$n]["site"]=$s
+		n=$((n + 1))
+	done
+	VP[$id]["n"]=$n
+	[ "$n" = 0 ] && VP[$id]["err"]="Nothing watched yet"
+	return 0
+}
+
+# Take the chosen title out of the shared file (each site's own history is not touched).
+fn vp_libremove(int id) {
+	local -a lines f out
+	local sel=${VP[$id]["sel"]:-0} l s k
+
+	[ "${VP[$id]["n"]:-0}" -gt 0 ] || return 0
+	s=${VR[$id][$sel]["site"]}
+	k=${VR[$id][$sel]["id"]}
+	[ -r "$VC_LIB" ] && mapfile -t lines < "$VC_LIB"
+	out=()
+	for l in "${lines[@]}"; do
+		[[ $l == *$'\t'"$s"$'\t'*$'\t'"$k"$'\t'* ]] && continue
+		out+=("$l")
+	done
+	if [ "${#out[@]}" -gt 0 ]; then printf '%s\n' "${out[@]}" > "$VC_LIB" 2> /dev/null; else : > "$VC_LIB" 2> /dev/null; fi
+	vp_libload "$id"
+	[ "${VP[$id]["sel"]:-0}" -ge "${VP[$id]["n"]}" ] && VP[$id]["sel"]=$(( ${VP[$id]["n"]} > 0 ? ${VP[$id]["n"]} - 1 : 0 ))
+	return 0
+}
+
+# The favourites of one site, and of every site.
+fn vp_favclear_site(site) {
+	local k
+
+	: > "$VP_DATA/$site/favourites.tsv" 2> /dev/null
+	for k in "${!VPF[@]}"; do
+		case $k in "$site":*) unset "VPF[$k]" ;; esac
+	done
+	dt_notep low "The %s favourites are empty" "${VIDEO_NAMES["$site"]}"
+}
+fn vp_histclear_all() {
+	local s
+
+	for s in "${VIDEO_ALL[@]}"; do
+		vp_histclear_site "$s"
+	done
+}
+fn vp_favclear_all() {
+	local s
+
+	for s in "${VIDEO_ALL[@]}"; do
+		vp_favclear_site "$s"
+	done
 }
 
 # --- playing ------------------------------------------------------------
@@ -684,6 +804,28 @@ fn vp_tries(int id) {
 	else
 		ret 2
 	fi
+}
+
+# Whether the site's advert playing can be skipped now, and skipping it: its provider's (`canskip ID`, `skip ID`), for a site that has adverts it lets be skipped.
+fn vp_canskip(int id) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}canskip
+	dt_has "$fn" || return 1
+	$fn "$id"
+}
+fn vp_skipad(int id) {
+	local p fn
+
+	p := vp_p "$id"
+	fn=${p}skip
+	if dt_has "$fn"; then
+		$fn "$id"
+	else
+		dt_notep low "Nothing to skip"
+	fi
+	return 0
 }
 
 # The shortest title whose end is believed: a site whose adverts are short clips (Tubi) says how long, else 0.
@@ -894,10 +1036,10 @@ fn video_context(int? id = "") {
 			dt_item "Louder" l video_key "$id" up
 			dt_item "Quieter" q video_key "$id" down
 			dt_sep
-			dt_mark "Captions" c "${VP_CAPTIONS:-0}" vp_captions "$id"
 			dt_item "Next Picture" x vp_mode
-			dt_item "Next Quality" y vp_quality "$id"
-			dt_item "Previous Quality" z vp_quality "$id" -1
+			dt_sep
+			# what the site's own player has: YouTube's captions and qualities, Bilibili's resolutions, whatever a provider adds
+			vp_sitemenu "$id"
 			dt_sep
 			dt_item "Mini Player" i vp_mini "$id"
 		else
@@ -991,7 +1133,7 @@ fn vp_start(int id, int i, part = 1) {
 	VP[$id]["efr"]=
 	VP[$id]["sat"]=
 	vp_stale "$id"
-	if vp_histget "$id" "$key" && [ "$VP_HPOS" -gt "$VP_RESUME" ] && [ "$VP_HPART" = "$part" ]; then
+	if [ "${VP_RESUMEON:-1}" = 1 ] && vp_histget "$id" "$key" && [ "$VP_HPOS" -gt "$VP_RESUME" ] && [ "$VP_HPART" = "$part" ]; then
 		VP[$id]["resume"]=$VP_HPOS
 	fi
 	a := vp_first "$id" "$key" "$part"
@@ -1044,7 +1186,7 @@ fn vp_play(int id, int i) {
 	rs := vp_rsite "$id" "$i"
 	VP[$id]["site"]=$rs
 
-	if vp_validkey "$id" "$key" && vp_histget "$id" "$key" && [ "$VP_HPOS" -gt "$VP_RESUME" ]; then
+	if [ "${VP_RESUMEON:-1}" = 1 ] && vp_validkey "$id" "$key" && vp_histget "$id" "$key" && [ "$VP_HPOS" -gt "$VP_RESUME" ]; then
 		part=$VP_HPART
 	fi
 	vp_start "$id" "$i" "$part"
@@ -1534,7 +1676,11 @@ fn video_open(int id, arg = "") {
 	VP[$id]["site"]=${VIDEO_ORDER[0]-}
 	vp_core "$id" || return 0
 	if [ -z "${VP[$id]["site"]}" ]; then
-		VP[$id]["err"]="Video has no sites: install one (catalogue install a lib/video-* entry)"
+		if [ "${#VIDEO_ALL[@]}" -gt 0 ]; then
+			VP[$id]["err"]="Every site is turned off: Control Panel > Video turns them on"
+		else
+			VP[$id]["err"]="Video has no sites: install one (catalogue install a lib/video-* entry)"
+		fi
 		return 0
 	fi
 	[ -n "${VP_SITE-}" ] && [ -n "${VIDEO_SITES["$VP_SITE"]-}" ] && VP[$id]["site"]=$VP_SITE
@@ -1609,6 +1755,7 @@ fn video_close(int id) {
 
 	vp_minikeep "$id"
 	vp_stop "$id"
+	vp_hubstop "$id"
 	for t in "${VP[$id]["st"]}" "${VP[$id]["pt"]}"; do
 		[ -n "$t" ] && web close "$t" 2> /dev/null
 	done
@@ -1828,21 +1975,29 @@ fn vp_hubmix(int id, pre, int cap) {
 	return 0
 }
 
-# Search every site that has a search, one after another on the window's list tab, each one's titles shown as soon as it has answered.
+# Search every site that has a search, up to VP_HUBPAR at a time, each in a tab of its own: a site's titles are shown as soon as it has answered, and one
+# that has not after VP_HUBSECS seconds (45 by default: the real sites take that long on a slow machine) is said not to have. The cost of the search is the slowest site's, not the sum of them.
+
 fn vp_hubstart(int id, q) {
 	local s p queue=
 
+	vp_hubstop "$id"
 	for s in "${VIDEO_ORDER[@]}"; do
+		VH[$id]["st:$s"]=
+		VH[$id]["n:$s"]=0
 		case " ${VP_HUBOFF-} " in *" $s "*) continue ;; esac
 		p=${VIDEO_SITES[$s]}
 		dt_has "${p}url" || continue
 		queue+="${queue:+ }$s"
-		VH[$id]["st:$s"]=searching
-		VH[$id]["n:$s"]=0
+		VH[$id]["st:$s"]=waiting
 	done
 	VH[$id]["queue"]=$queue
 	VH[$id]["q"]=$q
 	VH[$id]["sig"]=0
+	for s in "${VIDEO_ORDER[@]}"; do
+		VH[$id]["retry:$s"]=
+	done
+	VH[$id]["done"]=
 	VP[$id]["view"]=list
 	VP[$id]["hub"]=1
 	VP[$id]["kind"]=hub
@@ -1852,68 +2007,171 @@ fn vp_hubstart(int id, q) {
 	VP[$id]["sel"]=0
 	VP[$id]["top"]=0
 	VP[$id]["err"]=
+	VP[$id]["backhome"]=
 	if [ -z "$queue" ]; then
 		VP[$id]["err"]="No site to search: none has a search, or the home is set not to ask them"
 		return 0
 	fi
 	dt_searchshut "$id"
-	vp_hubnext "$id"
+	VP[$id]["searching"]=$EPOCHSECONDS
+	vp_hubfill "$id"
+	return 0
 }
 
-fn vp_hubnext(int id) {
-	local queue=${VH[$id]["queue"]-} s q=${VH[$id]["q"]} sel=${VP[$id]["sel"]:-0} top=${VP[$id]["top"]:-0}
+# Start waiting sites while fewer than VP_HUBPAR are being asked; when none is being asked and none waits, the search is over.
+fn vp_hubfill(int id) {
+	local queue=${VH[$id]["queue"]-} act=0 s
 
-	if [ -z "$queue" ]; then
+	for s in "${VIDEO_ORDER[@]}"; do
+		[ "${VH[$id]["st:$s"]-}" = searching ] && act=$((act + 1))
+	done
+	while [ -n "$queue" ] && [ "$act" -lt "$VP_HUBPAR" ]; do
+		s=${queue%% *}
+		[ "$s" = "$queue" ] && queue= || queue=${queue#* }
+		VH[$id]["queue"]=$queue
+		vp_hubgo "$id" "$s"
+		[ "${VH[$id]["st:$s"]}" = searching ] && act=$((act + 1))
+	done
+	VH[$id]["queue"]=$queue
+	if [ "$act" = 0 ] && [ -z "$queue" ]; then
 		VP[$id]["searching"]=
 		VP[$id]["kind"]=hub
 		vp_hubmix "$id" "" 200
 		[ "${VP[$id]["n"]}" = 0 ] && VP[$id]["err"]="Nothing found on any site"
+		VH[$id]["done"]=1
 		VH[$id]["sig"]=$(( ${VH[$id]["sig"]:-0} + 1 ))
-		return 0
-	fi
-	s=${queue%% *}
-	[ "$s" = "$queue" ] && queue= || queue=${queue#* }
-	VH[$id]["queue"]=$queue
-	VP[$id]["site"]=$s
-	vp_load "$id" search "$q" "" 0
-	VP[$id]["kind"]=hub
-	VP[$id]["arg"]=$q
-	vp_hubmix "$id" "" 200
-	VP[$id]["sel"]=$sel
-	VP[$id]["top"]=$top
-	# a site that could not even start (no search address) is skipped now: nothing will come back from it
-	if [ -z "${VP[$id]["searching"]}" ]; then
-		VH[$id]["st:$s"]=${VP[$id]["err"]:-no search}
-		VP[$id]["err"]=
-		vp_hubnext "$id"
 	fi
 	return 0
 }
 
-# A site's list page has been read (or has not answered): keep what it gave, show every site's so far, and go on to the next.
-fn vp_hubgot(int id, int n) {
-	local s=${VP[$id]["site"]} i j k e=${VP[$id]["err"]-}
+# Ask one site: its search address loaded in a tab of its own (after the first visit its data pages want, where the site has one).
+fn vp_hubgo(int id, s) {
+	local p=${VIDEO_SITES[$s]} q=${VH[$id]["q"]} u t w fn
 
-	[ -n "${VP[$id]["hub"]-}" ] || return 0
-	# what a site gave is kept for the list of every site's: its titled rows only, and no more than 30, so one site's long page cannot crowd out the others
-	i=0
-	j=0
-	while [ "$i" -lt "$n" ] && [ "$j" -lt 30 ]; do
-		if [ -n "${VR[$id][$i]["title"]}" ]; then
-			for k in kind id title ch len; do
-				VHR["$id|$s|$j|$k"]=${VR[$id][$i]["$k"]}
-			done
-			j=$((j + 1))
+	fn=${p}url
+	u := $fn "$id" search "$q"
+	if [ -z "$u" ]; then
+		VH[$id]["st:$s"]="no search"
+		return 0
+	fi
+	t := vp_tab "$id" "ht:$s" || {
+		VH[$id]["st:$s"]=${VP[$id]["err"]:-no engine}
+		VP[$id]["err"]=
+		return 0
+	}
+	fn=${p}prepare
+	dt_has "$fn" && $fn "$id" "$t"
+	w=
+	fn=${p}warm_url
+	dt_has "$fn" && w := $fn "$id"
+	VH[$id]["st:$s"]=searching
+	VH[$id]["t:$s"]=$EPOCHSECONDS
+	if [ -n "$w" ] && [ -z "${VP[$id]["warm_$s"]-}" ]; then
+		VH[$id]["pend:$s"]=$u
+		web go "$t" "$w" 2> /dev/null
+	else
+		VH[$id]["pend:$s"]=
+		web go "$t" "$u" 2> /dev/null
+	fi
+	return 0
+}
+
+# Each tick of the draw while a search of every site is on: read the sites that have answered, give up on those that have not in time.
+fn vp_hubpoll(int id) {
+	local s p fn t js q u i j k n e el nm
+	local -A r
+
+	for s in "${VIDEO_ORDER[@]}"; do
+		[ "${VH[$id]["st:$s"]-}" = searching ] || continue
+		t=${VP[$id]["ht:$s"]-}
+		nm=${VIDEO_NAMES[$s]}
+		el=$((EPOCHSECONDS - ${VH[$id]["t:$s"]:-$EPOCHSECONDS}))
+		if [ -z "$t" ]; then
+			vp_hubdone "$id" "$s" "no engine" 0
+			continue
 		fi
-		i=$((i + 1))
+		if web loading "$t" 2> /dev/null; then
+			[ "$el" -gt "$VP_HUBSECS" ] && vp_hubdone "$id" "$s" "$nm did not answer" 0
+			continue
+		fi
+		u=${VH[$id]["pend:$s"]-}
+		if [ -n "$u" ]; then
+			VH[$id]["pend:$s"]=
+			VP[$id]["warm_$s"]=1
+			web go "$t" "$u" 2> /dev/null
+			continue
+		fi
+		p=${VIDEO_SITES[$s]}
+		fn=${p}rjs
+		if ! dt_has "$fn"; then
+			vp_hubdone "$id" "$s" "no list" 0
+			continue
+		fi
+		q := $fn
+		js := web eval "$t" "$q" 2> /dev/null
+		if [ -z "$js" ]; then
+			[ "$el" -gt "$VP_HUBSECS" ] && vp_hubdone "$id" "$s" "$nm did not answer" 0
+			continue
+		fi
+		json parse r <<< "$js" 2> /dev/null || r=()
+		# what a site gave is kept for the list of every site's: its titled rows only, and no more than 30, so one site's long page cannot crowd out the others
+		i=0
+		j=0
+		while [ -n "${r["list"][$i]["id"]}" ] && [ "$j" -lt 30 ]; do
+			if [ -n "${r["list"][$i]["title"]}" ]; then
+				for k in kind id title ch len; do
+					VHR["$id|$s|$j|$k"]=${r["list"][$i]["$k"]}
+				done
+				j=$((j + 1))
+			fi
+			i=$((i + 1))
+		done
+		e=ok
+		if [ "$j" = 0 ]; then
+			e="Nothing found"
+			if [ -n "${r["err"]}" ]; then
+				# the site said no (a refusal that a second visit often answers): asked once more, from its first visit, before it is given up on
+				if [ -z "${VH[$id]["retry:$s"]-}" ]; then
+					VH[$id]["retry:$s"]=1
+					[ -n "$t" ] && web close "$t" 2> /dev/null
+					VP[$id]["ht:$s"]=
+					VP[$id]["warm_$s"]=
+					vp_hubgo "$id" "$s"
+					continue
+				fi
+				e="said: ${r["err"]}"
+			fi
+		fi
+		vp_hubdone "$id" "$s" "$e" "$j"
 	done
-	n=$j
+	vp_hubfill "$id"
+	return 0
+}
+
+# A site's part of the search is over, well or not: say how it went, show every site's titles so far, free its tab.
+fn vp_hubdone(int id, s, st, int n) {
+	local t=${VP[$id]["ht:$s"]-}
+
 	VH[$id]["n:$s"]=$n
-	VH[$id]["st:$s"]=${e:-ok}
+	VH[$id]["st:$s"]=$st
 	VH[$id]["sig"]=$(( ${VH[$id]["sig"]:-0} + 1 ))
-	VP[$id]["err"]=
-	VP[$id]["searching"]=
-	vp_hubnext "$id"
+	[ -n "$t" ] && web close "$t" 2> /dev/null
+	VP[$id]["ht:$s"]=
+	vp_hubmix "$id" "" 200
+	return 0
+}
+
+# Leave the search of every site: the tabs it has open are closed, and nothing is waited for any more.
+fn vp_hubstop(int id) {
+	local s t
+
+	for s in "${VIDEO_ORDER[@]}"; do
+		t=${VP[$id]["ht:$s"]-}
+		[ -n "$t" ] && web close "$t" 2> /dev/null
+		VP[$id]["ht:$s"]=
+		case ${VH[$id]["st:$s"]-} in waiting | searching) VH[$id]["st:$s"]= ;; esac
+	done
+	VH[$id]["queue"]=
 	return 0
 }
 
@@ -1926,7 +2184,7 @@ fn vp_hubhead(int id) {
 		[ -n "$st" ] || continue
 		n=${VH[$id]["n:$s"]:-0}
 		case $st in
-		searching) out+="  ${VIDEO_NAMES[$s]}: looking${GL[ellipsis]}" ;;
+		searching | waiting) out+="  ${VIDEO_NAMES[$s]}: looking${GL[ellipsis]}" ;;
 		ok) out+="  ${VIDEO_NAMES[$s]}: $n" ;;
 		*) out+="  ${VIDEO_NAMES[$s]}: ${st:0:28}" ;;
 		esac
@@ -2052,9 +2310,9 @@ fn vp_homekey(int id, key) {
 	down) [ "$hs" -lt $((n - 1)) ] && VP[$id]["hsel"]=$((hs + 1)); return 0 ;;
 	up) [ "$hs" -ge 0 ] && VP[$id]["hsel"]=$((hs - 1)); return 0 ;;
 	escape)
+		# the box cleared; with nothing in it, nothing to do (the key is the home's, not the desktop's: the next key typed must not be lost)
 		q := dt_searchq "$id"
-		[ -n "$q" ] || return 1
-		vp_gohome "$id"
+		[ -n "$q" ] && vp_gohome "$id"
 		return 0
 		;;
 	esac
@@ -2071,7 +2329,9 @@ fn vp_homekey(int id, key) {
 
 fn video_draw(int id, int h, int w, int row, int col) {
 	dt_wclear "$id"
-	[ -n "${VP[$id]["searching"]}" ] && vp_results "$id"
+	if [ -n "${VP[$id]["searching"]}" ]; then
+		if [ -n "${VP[$id]["hub"]-}" ]; then vp_hubpoll "$id"; else vp_results "$id"; fi
+	fi
 	VP[$id]["dkey"]=
 	# Full screen is the picture alone, edge to edge, as the mini player is
 	if [ "${VP[$id]["mini"]}" = 1 ] || { [ -n "${VP[$id]["fs"]-}" ] && [ "${VP[$id]["view"]}" = play ]; }; then
@@ -2173,7 +2433,7 @@ fn vp_drawlist(int id, int h, int w) {
 		mk=" "
 		rs := vp_rsite "$id" "$i"
 		# a list of every site's titles says whose each is, on the right
-		[ -n "${VP[$id]["hub"]-}" ] && tail="  ${VR[$id][$i]["ch"]:0:14}  ${VIDEO_NAMES[$rs]-$rs}  $len"
+		[ -n "${VR[$id][$i]["site"]-}" ] && tail="  ${VR[$id][$i]["ch"]:0:14}  ${VIDEO_NAMES[$rs]-$rs}  $len"
 		[ -n "${VPF["$rs:${VR[$id][$i]["id"]}"]}" ] && mk=$star
 		lab="$mk${VR[$id][$i]["title"]}"
 		[ $((${#lab} + ${#tail})) -gt "$w" ] && lab="${lab:0:$((w - ${#tail} - 1))}${GL[ellipsis]}"
@@ -2281,7 +2541,7 @@ fn vp_picture(int id, w, h, row, col, md) {
 
 # The player: the title, the picture, the bar.
 fn vp_drawplay(int id, int h, int w) {
-	local p=${VP[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm l wt tt
+	local p=${VP[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm l wt tt btn
 
 	# a step first, so the title and the clock drawn are this moment's
 	[ -n "$p" ] && vp_tick "$id"
@@ -2322,6 +2582,15 @@ fn vp_drawplay(int id, int h, int w) {
 	[ "${VPI["ended"]}" = 1 ] || [ "${VP[$id]["state"]}" = ended ] && st="ended"
 	[ "${VP[$id]["state"]}" = loading ] && st="starting"
 	[ -n "${VP[$id]["inad"]-}" ] && st="advert"
+	# an advert that can be skipped says how, and shows a button on the picture that does it (a click or the s key)
+	if [ -n "${VP[$id]["inad"]-}" ] && vp_canskip "$id"; then
+		st="advert, s skips"
+		btn := dt_tr "Skip advert"
+		btn=" $btn  s "
+		console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		console put -p "w$id" 2 $((w - ${#btn} - 1)) "$btn"
+		dt_wreg "$id" 2 $((w - ${#btn} - 1)) "${#btn}" skipad
+	fi
 	# What is drawn, and -- when it is following Control Panel > Pictures
 	# -- that it is following rather than set: a bar that said only "half"
 	# would not change when the key moved the setting from follow to half.
@@ -2409,6 +2678,7 @@ fn video_key(int id, key) {
 			;;
 		n) vp_next "$id" 1; return 0 ;;
 		p) vp_next "$id" -1; return 0 ;;
+		s) vp_skipad "$id"; return 0 ;;
 		f) vp_fav "$id"; return 0 ;;
 		i) vp_mini "$id"; return 0 ;;
 		c | q | Q) vp_sitekey "$id" "$key"; return 0 ;;
@@ -2461,6 +2731,8 @@ fn video_key(int id, key) {
 	f) [ "$n" -gt 0 ] && vp_fav "$id" ;;
 	h) vp_load "$id" history "" ;;
 	v) vp_load "$id" favourites "" ;;
+	l) vp_load "$id" library "" ;;
+	x) [ "${VP[$id]["kind"]}" = library ] && vp_libremove "$id" ;;
 	t) vp_load "$id" home "" ;;
 	escape | backspace) vp_back "$id" ;;
 	tab) dt_searchopen "$id" ;;
@@ -2510,6 +2782,7 @@ fn video_click(int id, int r, int c, btn = "") {
 			dt_searchshut "$id"
 		fi
 		;;
+	skipad) vp_skipad "$id" ;;
 	bar)
 		d=${VP[$id]["dur"]%.*}
 		[ "$d" -gt 0 ] 2> /dev/null && vp_seek "$id" $(( (c - 1) * d / ${DT[$id]["w"]} ))
@@ -2600,6 +2873,8 @@ video_menus() {
 	dt_rowaccel t
 	dt_item "History" h vp_load "$id" history ""
 	dt_rowaccel h
+	dt_item "All History" l vp_load "$id" library ""
+	dt_rowaccel l
 	dt_item "Favourites" v vp_load "$id" favourites ""
 	dt_rowaccel v
 	if [ "${VP[$id]["view"]}" = list ] && [ "${VP[$id]["seasons"]:-0}" -gt 1 ]; then

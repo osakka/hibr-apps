@@ -10,7 +10,7 @@
 
 strict
 
-app video-youtube "Video: YouTube, a site for the Video player" 1.0
+app video-youtube "Video: YouTube, a site for the Video player" 1.1
 
 VIDEO_YOUTUBE_LIBDONE=1
 
@@ -25,6 +25,8 @@ VIDEO_ORDER+=(youtube)
 VY_BASE="${VY_BASE-https://www.youtube.com}"
 VY_CAPTIONS="${VY_CAPTIONS-0}"
 VY_QUALITY="${VY_QUALITY-auto}"
+# Skip an advert the moment YouTube lets it be skipped (its own skip button, pressed for you): off unless asked for, in Control Panel > Video.
+VY_AUTOSKIP="${VY_AUTOSKIP-0}"
 # What YouTube's own app saved (YT_QUALITY, YT_CAPTIONS) carries over once: a name with no saved value of its own takes the old one, if it is a choice here.
 if command -v dt_keep > /dev/null; then
 	if [ -z "${DT_CONFJ["settings"]["VY_CAPTIONS"]+x}" ]; then
@@ -37,7 +39,7 @@ if command -v dt_keep > /dev/null; then
 		esac
 	fi
 fi
-command -v dt_keep > /dev/null && dt_keep VY_CAPTIONS VY_QUALITY
+command -v dt_keep > /dev/null && dt_keep VY_CAPTIONS VY_QUALITY VY_AUTOSKIP
 
 # A page's own data -- a search, a playlist, a channel's videos -- as a
 # list of what it shows: videos, playlists and channels, each kind as
@@ -48,7 +50,7 @@ VY_RJS='(function(){var d=window.ytInitialData;if(!d)return "";function t(x){ret
 
 # Where YouTube's player is: its state, the time, the length, the title,
 # and whether it is showing its own error.
-VY_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,pq:(p.getPlaybackQuality?p.getPlaybackQuality():""),u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
+VY_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,sk:(function(){var b=document.querySelector(".ytp-skip-ad-button,.ytp-ad-skip-button,.ytp-ad-skip-button-modern");return b?1:0})(),pq:(p.getPlaybackQuality?p.getPlaybackQuality():""),u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
 
 # Start YouTube's player once it is there: the quality asked for, the
 # volume, captions off, and the page cut down to the video. That is done by
@@ -223,8 +225,15 @@ fn vy_take(int id) {
 	if [ "${VPP["ad"]-}" = 1 ]; then
 		VP[$id]["adat"]=$EPOCHSECONDS
 		VP[$id]["inad"]=1
+		VP[$id]["adskip"]=${VPP["sk"]:-0}
+		# the skip button is there: pressed for the viewer when that is asked for (once a second at most)
+		if [ "${VPP["sk"]:-0}" = 1 ] && [ "${VY_AUTOSKIP:-0}" = 1 ] && [ "${VP[$id]["adsk"]-}" != "$EPOCHSECONDS" ]; then
+			VP[$id]["adsk"]=$EPOCHSECONDS
+			vy_skip "$id" auto
+		fi
 	elif [ -n "${VP[$id]["inad"]-}" ]; then
 		VP[$id]["inad"]=
+		VP[$id]["adskip"]=
 		VP[$id]["dur"]=0
 		VP[$id]["len"]=
 	fi
@@ -239,6 +248,23 @@ fn vy_take(int id) {
 		fi
 		return 1 ;;
 	esac
+	return 0
+}
+
+# Whether the advert on can be skipped now (its own button is showing), and skipping it: the button pressed in the page. `auto` is the viewer's switch doing it.
+fn vy_canskip(int id) {
+	[ -n "${VP[$id]["inad"]-}" ] && [ "${VP[$id]["adskip"]-0}" = 1 ]
+}
+fn vy_skip(int id, how = "") {
+	[ -n "${VP[$id]["pt"]-}" ] || return 0
+	if ! vy_canskip "$id"; then
+		[ "$how" = auto ] || dt_notep low "Nothing to skip: no advert, or YouTube has not offered to skip it yet"
+		return 0
+	fi
+	vp_send "${VP[$id]["pt"]}" '(function(){var b=document.querySelector(".ytp-skip-ad-button,.ytp-ad-skip-button,.ytp-ad-skip-button-modern");if(b)b.click()})()'
+	VP[$id]["adskip"]=0
+	vp_stale "$id"
+	dt_want 10
 	return 0
 }
 
@@ -325,7 +351,7 @@ VY_QUALITIES=(auto 144p 240p 360p 480p 720p 1080p 1440p 2160p)
 # The rows this site adds to Control Panel > Video (contract: `<site>_settings`, `<site>_setget KEY`, `<site>_setset KEY VALUE`): one line each,
 # KEY|TYPE|LABEL|CHOICES, TYPE `bool` (on or off) or `choice` (CHOICES are its words). The pane knows none of this site's variables.
 fn vy_settings() {
-	ret "quality|choice|Quality Fetched|${VY_QUALITIES[*]}"$'\n'"captions|bool|Show Captions|"
+	ret "quality|choice|Quality Fetched|${VY_QUALITIES[*]}"$'\n'"captions|bool|Show Captions|"$'\n'"autoskip|bool|Skip Adverts When YouTube Allows It|"
 }
 fn vy_setget(key) {
 	local q
@@ -333,6 +359,7 @@ fn vy_setget(key) {
 	case $key in
 	quality) q := vy_qnorm "$VY_QUALITY"; ret "$q" ;;
 	captions) [ "$VY_CAPTIONS" = 1 ] && ret on || ret off ;;
+	autoskip) [ "${VY_AUTOSKIP:-0}" = 1 ] && ret on || ret off ;;
 	esac
 	return 0
 }
@@ -340,6 +367,7 @@ fn vy_setset(key, value) {
 	case $key in
 	quality) VY_QUALITY=$value ;;
 	captions) [ "$value" = on ] && VY_CAPTIONS=1 || VY_CAPTIONS=0 ;;
+	autoskip) [ "$value" = on ] && VY_AUTOSKIP=1 || VY_AUTOSKIP=0 ;;
 	esac
 	return 0
 }
@@ -457,6 +485,12 @@ fn vy_captions(int id = 0) {
 	dt_want 10
 }
 
+fn vy_setautoskip() {
+	if [ "${VY_AUTOSKIP:-0}" = 1 ]; then VY_AUTOSKIP=0; else VY_AUTOSKIP=1; fi
+	command -v dt_save > /dev/null && dt_save
+	return 0
+}
+
 # The player: the title, the picture, the bar, the keys.
 # The captions as text over the picture's bottom rows, at most two lines of
 # what the player is showing now, wrapped to the window and centred.
@@ -502,6 +536,8 @@ fn vy_menus(int id) {
 
 	[ "$VY_CAPTIONS" = 1 ] && on=1
 	dt_mark "Captions" c "$on" vy_captions "$id"
+	dt_item "Skip Advert" s vy_skip "$id"
+	dt_mark "Skip Adverts When YouTube Allows It" "" "${VY_AUTOSKIP:-0}" vy_setautoskip
 	dt_sep
 	for q in "${VY_QUALITIES[@]}"; do
 		on=0
