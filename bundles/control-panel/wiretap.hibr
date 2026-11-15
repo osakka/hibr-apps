@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.3
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.4
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -519,6 +519,7 @@ declare -gi WTP_FWON=0 WTP_SEEN=0 WTP_T=-1 WTP_UP=0 WTP_MOD=1 WTP_BUSY=0	# last 
 fn wtp_read() {
 	local st ap se
 
+	WTP_WHY=""
 	WTP_FWON=0
 	if command -v systemctl > /dev/null 2>&1 && systemctl is-active --quiet wiretap-rules.service 2> /dev/null; then WTP_FWON=1; fi
 	WT_SOCK := wtp_sock		# looked for every poll: a service started after the desktop is found without a restart
@@ -530,16 +531,39 @@ fn wtp_read() {
 	WTP_MOD=1
 	if st := wt status 2> /dev/null && json parse WTP_S "$st" 2> /dev/null; then
 		WTP_UP=1
-		if ap := wt apps 2> /dev/null; then json parse WTP_A "$ap" 2> /dev/null || WTP_A=""; fi
-		if se := wt series 1 60 2> /dev/null; then json parse WTP_SER "$se" 2> /dev/null || WTP_SER=""; fi
+		if ap := wt apps 2> /dev/null; then json parse WTP_A "$ap" 2> /dev/null || { WTP_A=""; WTP_WHY+="apps: parse failed (${#ap} bytes) "; }; else WTP_WHY+="apps: wt failed "; fi
+		if se := wt series 1 60 2> /dev/null; then json parse WTP_SER "$se" 2> /dev/null || { WTP_SER=""; WTP_WHY+="series: parse failed (${#se} bytes) "; }; else WTP_WHY+="series: wt failed "; fi
 		return 0
 	fi
 	WTP_UP=0
 }
 
+# What a reading that came back holds, in desktop.log, for the day a window shows zeros while the node is fine (the drop-down and the
+# CLI work, the window does not, and nothing says where the answer went). One line a minute says what the desktop now holds; one line
+# every 30 s says so at once when the node answered but the series or the apps did not arrive, with the reason the job found and
+# how much the job printed. Not a fork: the numbers are already here.
+fn wtp_evidence(int n, int st) {
+	command -v dt_log > /dev/null || return 0
+	local f="" nl=0 l
+	if [ "$WTP_UP" = 1 ] && [ "${#WTP_SER[@]}" -lt 2 ] && [ $((SECONDS - WTP_THINAT)) -ge 30 ]; then
+		WTP_THINAT=$SECONDS
+		f := dt_jobfile "$n" out 2> /dev/null
+		if [ -r "$f" ]; then while IFS= read -r l; do nl=$((nl + 1)); done < "$f"; fi
+		dt_log "wiretap: the node answered but the series did not arrive: job $n status $st printed $nl lines, series keys ${#WTP_SER[@]}, apps keys ${#WTP_A[@]}, why: ${WTP_WHY:-none}"
+	fi
+	if [ $((SECONDS - WTP_BEATAT)) -ge 60 ]; then
+		WTP_BEATAT=$SECONDS
+		dt_log "wiretap: reading up=$WTP_UP seen=$WTP_SEEN series keys ${#WTP_SER[@]} apps keys ${#WTP_A[@]} graph columns ${#WTP_RI[@]} hosts ${MHOSTS:-0} programs ${WTP_ASCNT:-0} busy r=$WTP_RBUSY h=$WTP_HBUSY why: ${WTP_WHY:-none}"
+	fi
+	return 0
+}
+
 # The job came back: its variables are set. WTP_T moves now, so the tickers that act on a new reading see exactly one.
+declare -g WTP_WHY=""
+declare -gi WTP_BEATAT=-1000 WTP_THINAT=-1000
 fn wtp_polled(int n, int st) {
 	WTP_T=$SECONDS
+	wtp_evidence "$n" "$st"
 	WTP_BUSY=0
 	WTP_SEEN=1
 	command -v dt_want > /dev/null && dt_want 0		# draw the new reading now, not at the next wake
@@ -555,7 +579,7 @@ fn wtp_poll() {
 		if [ "$WTP_BUSY" = 1 ] && [ $((SECONDS - WTP_BUSYAT)) -gt 20 ]; then wtp_lost "reading"; WTP_BUSY=0; fi
 		[ "$WTP_BUSY" = 0 ] || return 0
 		WTP_BUSY=1; WTP_BUSYAT=$SECONDS
-		dt_jobvars wtp "" wtp_polled wtp_read WTP_S WTP_A WTP_SER WTP_UP WTP_MOD WT_SOCK WTP_FWON > /dev/null || { WTP_BUSY=0; WTP_T=$SECONDS; wtp_read; WTP_SEEN=1; }
+		dt_jobvars wtp "" wtp_polled wtp_read WTP_S WTP_A WTP_SER WTP_UP WTP_MOD WT_SOCK WTP_FWON WTP_WHY > /dev/null || { WTP_BUSY=0; WTP_T=$SECONDS; wtp_read; WTP_SEEN=1; }
 		return 0
 	fi
 	WTP_T=$SECONDS
