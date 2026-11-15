@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.4
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.5
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -553,13 +553,14 @@ fn wtp_evidence(int n, int st) {
 	fi
 	if [ $((SECONDS - WTP_BEATAT)) -ge 60 ]; then
 		WTP_BEATAT=$SECONDS
-		dt_log "wiretap: reading up=$WTP_UP seen=$WTP_SEEN series keys ${#WTP_SER[@]} apps keys ${#WTP_A[@]} graph columns ${#WTP_RI[@]} hosts ${MHOSTS:-0} programs ${WTP_ASCNT:-0} busy r=$WTP_RBUSY h=$WTP_HBUSY why: ${WTP_WHY:-none}"
+		dt_log "wiretap: reading up=$WTP_UP seen=$WTP_SEEN series keys ${#WTP_SER[@]} apps keys ${#WTP_A[@]} graph columns ${#WTP_RI[@]} hosts ${MHOSTS:-0} programs ${WTP_ASCNT:-0} busy r=$WTP_RBUSY h=$WTP_HBUSY graph calls $WTP_RCALL started $WTP_RSTARTN landed $WTP_RLAND key [$WTP_RKEY] request [$WTP_RQ] why: ${WTP_WHY:-none}"
 	fi
 	return 0
 }
 
 # The job came back: its variables are set. WTP_T moves now, so the tickers that act on a new reading see exactly one.
-declare -g WTP_WHY=""
+declare -g WTP_WHY="" WTP_RWHY=""
+declare -gi WTP_RCALL=0 WTP_RSTARTN=0 WTP_RLAND=0 WTP_RLOGAT=-1000
 declare -gi WTP_BEATAT=-1000 WTP_THINAT=-1000
 fn wtp_polled(int n, int st) {
 	WTP_T=$SECONDS
@@ -612,16 +613,17 @@ fn wtp_range(sc, int cols) {
 	secs=${sp% *}; cnt=${sp#* }
 	[ "$sc" = 1m ] && every=1
 	local key="$sc/$cols"
+	WTP_RCALL=$((WTP_RCALL + 1))
 	if [ "$key" = "$WTP_RKEY" ] && [ $((SECONDS - WTP_RSEEN)) -lt "$every" ]; then return 0; fi
 	if [ "$WTP_UP" != 1 ]; then WTP_RKEY=$key; WTP_RSEEN=$SECONDS; WTP_RI=(); WTP_RO=(); return 0; fi
 	if [ -z "${WTP_SYNC:-}" ] && command -v dt_jobvars > /dev/null; then
 		# on a desktop: read in a job and draw what is there; the columns follow when it is back (never wait on the node in a frame)
 		if [ "$WTP_RBUSY" = 1 ] && [ $((SECONDS - WTP_RBUSYAT)) -gt 20 ]; then wtp_lost "graph"; WTP_RBUSY=0; fi
 		[ "$WTP_RBUSY" = 0 ] || return 0
-		WTP_RBUSY=1; WTP_RSEEN=$SECONDS; WTP_RBUSYAT=$SECONDS
+		WTP_RBUSY=1; WTP_RSEEN=$SECONDS; WTP_RBUSYAT=$SECONDS; WTP_RSTARTN=$((WTP_RSTARTN + 1))
 		WTP_RQ="$secs $cnt"; WTP_RCOLS=$cols; WTP_RSECS=$secs; WTP_RJOB=$key
 		if [ "$key" != "$WTP_RKEY" ]; then WTP_RI=(); WTP_RO=(); fi
-		dt_jobvars wtp range wtp_ranged wtp_rfetch WTP_RNG > /dev/null || { WTP_RBUSY=0; WTP_RKEY=$key; wtp_rfetch; wtp_rbuild; }
+		dt_jobvars wtp range wtp_ranged wtp_rfetch WTP_RNG WTP_RWHY > /dev/null || { WTP_RBUSY=0; WTP_RKEY=$key; wtp_rfetch; wtp_rbuild; }
 		return 0
 	fi
 	WTP_RKEY=$key; WTP_RSEEN=$SECONDS
@@ -635,16 +637,24 @@ fn wtp_range(sc, int cols) {
 fn wtp_rfetch() {
 	local body
 
-	WTP_RNG=""
-	body := wt series "${WTP_RQ% *}" "${WTP_RQ#* }" 2> /dev/null || return 0
-	json parse WTP_RNG "$body" 2> /dev/null || WTP_RNG=""
+	WTP_RNG=""; WTP_RWHY=""
+	body := wt series "${WTP_RQ% *}" "${WTP_RQ#* }" 2> /dev/null || { WTP_RWHY="wt series [$WTP_RQ] failed"; return 0; }
+	json parse WTP_RNG "$body" 2> /dev/null || { WTP_RNG=""; WTP_RWHY="parse failed (${#body} bytes)"; }
 	return 0
 }
 
 fn wtp_ranged(int n, int st) {
 	WTP_RBUSY=0
 	WTP_RKEY=$WTP_RJOB
+	WTP_RLAND=$((WTP_RLAND + 1))
 	wtp_rbuild
+	if [ "${#WTP_RI[@]}" = 0 ] && [ $((SECONDS - WTP_RLOGAT)) -ge 30 ] && command -v dt_log > /dev/null; then
+		WTP_RLOGAT=$SECONDS
+		local f="" nl=0 l
+		f := dt_jobfile "$n" out 2> /dev/null
+		if [ -r "$f" ]; then while IFS= read -r l; do nl=$((nl + 1)); done < "$f"; fi
+		dt_log "wiretap: the graph job came back with no columns: job $n status $st printed $nl lines, RNG keys ${#WTP_RNG[@]}, request [$WTP_RQ] columns $WTP_RCOLS, why: ${WTP_RWHY:-none}"
+	fi
 	command -v dt_want > /dev/null && dt_want 0
 	return 0
 }
