@@ -462,6 +462,52 @@ ENTHIBR["menubar/keyboard"]=0.99.531
 ENTHIBR["menubar/tray"]=0.99.531
 ENTHIBR["control-panel/pnotes"]=0.99.531
 ENTHIBR["control-panel/language"]=0.99.531
+# Every Control Panel dropdown is one list declared in its row (0.99.534,
+# Gitea #558): a pane built on `cp_choice` needs the panel that reads it,
+# and an app whose pane is one of its parts needs it with the pane --
+# Calendar's and Mail's lists through `dt_wwhere`, the strip's modules
+# ticking what is chosen through `dt_dropat`, the Catalogue window's
+# `replaces` of 0.99.532 published with them.
+ENTHIBR["apps/archives"]=0.99.534
+ENTHIBR["apps/calendar"]=0.99.534
+ENTHIBR["apps/camera"]=0.99.534
+ENTHIBR["apps/files"]=0.99.534
+ENTHIBR["apps/mail"]=0.99.534
+ENTHIBR["apps/prayer"]=0.99.534
+ENTHIBR["apps/sheet"]=0.99.534
+ENTHIBR["apps/stickies"]=0.99.534
+ENTHIBR["apps/term"]=0.99.534
+ENTHIBR["apps/vault"]=0.99.534
+ENTHIBR["control-panel/aboutme"]=0.99.534
+ENTHIBR["control-panel/appearance"]=0.99.534
+ENTHIBR["control-panel/bluetooth"]=0.99.534
+ENTHIBR["control-panel/control-strip"]=0.99.534
+ENTHIBR["control-panel/datetime"]=0.99.534
+ENTHIBR["control-panel/desktop"]=0.99.534
+ENTHIBR["control-panel/displays"]=0.99.534
+ENTHIBR["control-panel/language"]=0.99.534
+ENTHIBR["control-panel/loginmgr"]=0.99.534
+ENTHIBR["control-panel/menubar"]=0.99.534
+ENTHIBR["control-panel/menuedit"]=0.99.534
+ENTHIBR["control-panel/mouse"]=0.99.534
+ENTHIBR["control-panel/network"]=0.99.534
+ENTHIBR["control-panel/networks"]=0.99.534
+ENTHIBR["control-panel/pictures"]=0.99.534
+ENTHIBR["control-panel/power"]=0.99.534
+ENTHIBR["control-panel/screensaver"]=0.99.534
+ENTHIBR["control-panel/sound"]=0.99.534
+ENTHIBR["control-panel/wallset"]=0.99.534
+ENTHIBR["control-panel/windows"]=0.99.534
+ENTHIBR["control-strip/cursor"]=0.99.534
+ENTHIBR["control-strip/theme"]=0.99.534
+ENTHIBR["control-strip/wallpaper"]=0.99.534
+ENTHIBR["menubar/tray"]=0.99.534
+ENTHIBR["system/about"]=0.99.534
+ENTHIBR["system/catalogue"]=0.99.534
+ENTHIBR["system/clipboard"]=0.99.534
+ENTHIBR["system/notifications"]=0.99.534
+ENTHIBR["system/tasks"]=0.99.534
+ENTHIBR["control-panel/arabizi"]=0.99.534
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

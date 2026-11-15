@@ -20,7 +20,7 @@
 
 strict
 
-app catalogue "The application catalogue: browse, install, update and remove" 2.9
+app catalogue "The application catalogue: browse, install, update and remove" 2.9.1
 
 # Not called "Applications": the hibr menu already has a submenu of that
 # name -- every app you can open -- and two rows called the same thing on
@@ -241,6 +241,7 @@ fn cat_kindname(k) {
 	lang) ret "Languages" ;;
 	mods) ret "Modules" ;;
 	cli) ret "Commands" ;;
+	lib) ret "Libraries" ;;
 	*) ret "$k" ;;
 	esac
 }
@@ -367,6 +368,7 @@ fn cat_kindone(k) {
 	lang) t := dt_tr "a language" ;;
 	mods) t := dt_tr "a module" ;;
 	cli) t := dt_tr "a command" ;;
+	lib) t := dt_tr "a library" ;;
 	*) t=$k ;;
 	esac
 	ret "$t"

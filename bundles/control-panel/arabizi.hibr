@@ -11,7 +11,7 @@
 #
 # edit: fields
 
-app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.5
+app arabizi "The Control Panel pane for Arabizi, from hibr-ime" 0.1.6
 command -v cp_pane > /dev/null && cp_pane arabizi "Arabizi" "⌨"
 
 strict
@@ -26,9 +26,7 @@ declare -gA AZP AZPU
 declare -ga AZP_ROWS=() AZP_WORDS=() AZP_KEEP=() AZP_CHOICE=() AZP_OPTKEEP=()
 AZP_TASHKEEL=
 AZP_PLAIN=
-# Which reading row a dropdown is open for, and which word is being edited
-# (-1 for a new one).
-AZP_DROPI=
+# Which word is being edited (-1 for a new one).
 AZP_EDIT=-1
 AZP_HEAD="# Written by the Control Panel's Arabizi pane, over the shipped rules."
 
@@ -191,9 +189,10 @@ fn azp_choose(int i, v) {
 }
 
 # A dropdown's choice for the row it was opened on.
-fn cp_set_azpread(int? id = "", value = "") {
+# A reading chosen for a row, the row saying which.
+fn cp_set_azpread(int? id = "", value = "", int i = 0) {
 	azp_load || return 0
-	azp_choose "$AZP_DROPI" "$value"
+	azp_choose "$i" "$value"
 }
 
 fn arabizi_rows(int w) {
@@ -224,7 +223,10 @@ fn arabizi_rows(int w) {
 		v := azp_show "${v%%,*}"
 		t := azp_where "${k% *}" "${k#* }"
 		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]=$t; CP[$w][$n]["wtype"]=
-		CP[$w][$n]["val"]=$v; CP[$w][$n]["key"]="rd:$i"; n=$((n + 1))
+		CP[$w][$n]["key"]="rd:$i"
+		azp_choices "$i"
+		cp_choice "$w" "$n" "$v" cp_set_azpread "${AZP_CHOICE[@]}"
+		CP[$w][$n]["sarg"]=$i; n=$((n + 1))
 	done
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="My Words"; n=$((n + 1))
 	for ((i = 0; i < ${#AZP_WORDS[@]}; i++)); do
@@ -242,7 +244,7 @@ fn arabizi_rows(int w) {
 }
 
 fn arabizi_do(int? w = "", k = "", int? dir = "") {
-	local i v cur
+	local v
 
 	azp_load || return 0
 	case $k in
@@ -253,14 +255,6 @@ fn arabizi_do(int? w = "", k = "", int? dir = "") {
 	plainalef)
 		if [ -n "$AZP_PLAIN" ]; then AZP_PLAIN=; else AZP_PLAIN=1; fi
 		azp_store
-		;;
-	rd:*)
-		i=${k#rd:}
-		azp_choices "$i"
-		cur=${AZPU["${AZP_ROWS[$i]}"]-${AZP["${AZP_ROWS[$i]}"]}}
-		cur := azp_show "${cur%%,*}"
-		v := cp_next "$cur" "${dir:-1}" "${AZP_CHOICE[@]}"
-		azp_choose "$i" "$v"
 		;;
 	w:*)
 		AZP_EDIT=${k#w:}
@@ -279,16 +273,6 @@ fn arabizi_do(int? w = "", k = "", int? dir = "") {
 	esac
 }
 
-fn arabizi_drop(int? w = "", int? r = "", int? c = "", k = "") {
-	case $k in
-	rd:*)
-		azp_load || return 0
-		AZP_DROPI=${k#rd:}
-		azp_choices "$AZP_DROPI"
-		dt_droplist "$w" "$r" "$c" cp_set_azpread "${AZP_CHOICE[@]}"
-		;;
-	esac
-}
 
 # The word dialog's answer: "latin = arabic" sets it, nothing removes the
 # word being edited, and anything else is said and left alone.
