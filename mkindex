@@ -522,6 +522,8 @@ ENTHIBR["control-panel/pnotes"]=0.99.536
 ENTHIBR["apps/boxer"]=0.99.534
 ENTHIBR["menubar/keyboard"]=0.99.538
 ENTHIBR["menubar/tray"]=0.99.539
+# longwire's pane declares every dropdown with cp_choice, with no list of its own (longwire 0.5.58, ADR 0072).
+ENTHIBR["control-panel/longwire"]=0.99.534
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
