@@ -388,6 +388,11 @@ Once Every** (400–3000 ms, default 1000) is how fast it goes round (also
 for programs that ask for the busy pointer themselves). Offered when Blit
 reports the setting.
 
+**Busy Pointer Style** (0.1.37, Blit 0.3.113): how the busy pointer looks.
+**Colour wheel** (the default) is a bright disc whose colours turn;
+**Spokes** is the ring of spokes that dim in turn. Offered when Blit
+reports the setting.
+
 A touchpad has three more rows, shown only when the device offers them
 (Blit 0.2.34, ADR 0193):
 - **Tap to Click,** off by default.

@@ -192,6 +192,19 @@ Dir.mktmpdir('blit-mouse') do |root|
       blit_mouse_do 45 save 1; finish
       blit_cp_start refresh; finish
       [ "${BCP_SNAPSHOT[settings][effective][pointer][busy_pointer]}" = false ] || exit 68
+      # Its look (Blit 0.3.113): a colour wheel by default, the spokes a step
+      # away on the declared list, said in words, saved.
+      n := blit_mouse_rows 45
+      hasrow 45 "$n" "Busy Pointer Style" || { echo 'no busy pointer style row'; exit 69; }
+      for ((i = 0; i < n; i++)); do [ "${CP[45][$i][key]}" = busystyle ] && break; done
+      [ "${CP[45][$i][val]}" = wheel ] || { echo "style default: ${CP[45][$i][val]}"; exit 70; }
+      word := blit_cp_busyname wheel
+      [ "${CP[45][$i][vname]}" = blit_cp_busyname ] && [ "$word" = "Colour wheel" ] || exit 71
+      step 45 blit_mouse_rows busystyle 1
+      [ "${BCP_DRAFT[pointer][busy_style]}" = spokes ] || { echo "style did not step: ${BCP_DRAFT[pointer][busy_style]}"; exit 72; }
+      blit_mouse_do 45 save 1; finish
+      blit_cp_start refresh; finish
+      [ "${BCP_SNAPSHOT[settings][effective][pointer][busy_style]}" = spokes ] || exit 73
       echo BLIT_MOUSE_CALLBACK_PASS
     HIBR
     out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},'/usr/bin/hibr',script)
