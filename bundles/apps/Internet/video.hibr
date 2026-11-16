@@ -22,7 +22,7 @@ strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-bilibilitv, lib/video-tubi, lib/video-youtube
 # replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
-app video "Video Player, every site in one player" 1.3
+app video "Video Player, every site in one player" 1.4
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web
@@ -185,7 +185,7 @@ VP_ENDED="${VP_ENDED-20}"
 
 # Where Bilibili's player is: the one <video>, its time, length and state, and the
 # path of the page it is on. Empty until there is one.
-VP_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
+VP_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({no:performance.timeOrigin,t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
 
 # The page set aside and the video laid over it, edge to edge. Not the cut the
 # YouTube app makes (everything that does not hold the video hidden): Bilibili takes
@@ -1321,6 +1321,16 @@ fn vp_take(int id, js, at) {
 	[ -n "$js" ] || return 1
 	VPP=()
 	json parse VPP <<< "$js" 2> /dev/null || return 1
+	# After a reload, an answer from the page that was there before (a page's identity is the time it was loaded) is not about the new one: the question
+	# can reach the old page until the new one has taken its place, and its "plenty of data" would send a resume into a stream that has none yet.
+	if [ -n "${VP[$id]["no0"]-}" ]; then
+		if [ "${VPP["no"]-}" = "${VP[$id]["no0"]}" ]; then
+			VPP=()
+			[ "$VPPID" = "$id" ] && VPPID=
+			return 1
+		fi
+		VP[$id]["no0"]=
+	fi
 	p := vp_p "$id"
 	fn=${p}take
 	if dt_has "$fn"; then
@@ -1572,6 +1582,9 @@ fn vp_recover(int id, int pos) {
 	vp_has_step "$id" && VP[$id]["state"]=resolving
 	VP[$id]["since"]=$EPOCHSECONDS
 	vp_stale "$id"
+	# which page is there now: an answer from it, after this, is the old page's
+	VP[$id]["no0"]=
+	[ "$VPPID" = "$id" ] && VP[$id]["no0"]=${VPP["no"]-}
 	a := vp_first "$id" "${VP[$id]["vid"]}" "${VP[$id]["part"]:-1}"
 	web go "${VP[$id]["pt"]}" "$a" 2> /dev/null
 }
@@ -2027,10 +2040,13 @@ fn vp_hubstart(int id, q) {
 
 # Start waiting sites while fewer than VP_HUBPAR are being asked; when none is being asked and none waits, the search is over.
 fn vp_hubfill(int id) {
-	local queue=${VH[$id]["queue"]-} act=0 s
+	local queue=${VH[$id]["queue"]-} act=0 slow=0 s
 
 	for s in "${VIDEO_ORDER[@]}"; do
-		[ "${VH[$id]["st:$s"]-}" = searching ] && act=$((act + 1))
+		case ${VH[$id]["st:$s"]-} in
+		searching) act=$((act + 1)) ;;
+		slow) slow=$((slow + 1)) ;;
+		esac
 	done
 	while [ -n "$queue" ] && [ "$act" -lt "$VP_HUBPAR" ]; do
 		s=${queue%% *}
@@ -2040,7 +2056,7 @@ fn vp_hubfill(int id) {
 		[ "${VH[$id]["st:$s"]}" = searching ] && act=$((act + 1))
 	done
 	VH[$id]["queue"]=$queue
-	if [ "$act" = 0 ] && [ -z "$queue" ]; then
+	if [ "$act" = 0 ] && [ "$slow" = 0 ] && [ -z "$queue" ]; then
 		VP[$id]["searching"]=
 		VP[$id]["kind"]=hub
 		vp_hubmix "$id" "" 200
@@ -2089,7 +2105,7 @@ fn vp_hubpoll(int id) {
 	local -A r
 
 	for s in "${VIDEO_ORDER[@]}"; do
-		[ "${VH[$id]["st:$s"]-}" = searching ] || continue
+		case ${VH[$id]["st:$s"]-} in searching | slow) ;; *) continue ;; esac
 		t=${VP[$id]["ht:$s"]-}
 		nm=${VIDEO_NAMES[$s]}
 		el=$((EPOCHSECONDS - ${VH[$id]["t:$s"]:-$EPOCHSECONDS}))
@@ -2097,11 +2113,17 @@ fn vp_hubpoll(int id) {
 			vp_hubdone "$id" "$s" "no engine" 0
 			continue
 		fi
+		# a site that has not answered in VP_HUBSECS is slow, not lost: it goes on being listened to, and its titles join the list when they come, until
+		# twice that
+		if [ "$el" -gt $((VP_HUBSECS * 2)) ]; then
+			vp_hubdone "$id" "$s" "$nm did not answer" 0
+			continue
+		fi
+		if [ "$el" -gt "$VP_HUBSECS" ] && [ "${VH[$id]["st:$s"]}" = searching ]; then
+			VH[$id]["st:$s"]=slow
+			VH[$id]["sig"]=$(( ${VH[$id]["sig"]:-0} + 1 ))
+		fi
 		if web loading "$t" 2> /dev/null; then
-			if [ "$el" -gt "$VP_HUBSECS" ]; then
-				vp_hubdone "$id" "$s" "$nm did not answer" 0
-				continue
-			fi
 			# a page slow to say it has loaded (some never do, their list long on the screen) is tried for its list after a few seconds
 			if [ -n "${VH[$id]["pend:$s"]-}" ] || [ "$el" -le 6 ]; then
 				continue
@@ -2122,10 +2144,7 @@ fn vp_hubpoll(int id) {
 		fi
 		q := $fn
 		js := web eval "$t" "$q" 2> /dev/null
-		if [ -z "$js" ]; then
-			[ "$el" -gt "$VP_HUBSECS" ] && vp_hubdone "$id" "$s" "$nm did not answer" 0
-			continue
-		fi
+		[ -n "$js" ] || continue
 		json parse r <<< "$js" 2> /dev/null || r=()
 		# what a site gave is kept for the list of every site's: its titled rows only, and no more than 30, so one site's long page cannot crowd out the others
 		i=0
@@ -2182,7 +2201,7 @@ fn vp_hubstop(int id) {
 		t=${VP[$id]["ht:$s"]-}
 		[ -n "$t" ] && web close "$t" 2> /dev/null
 		VP[$id]["ht:$s"]=
-		case ${VH[$id]["st:$s"]-} in waiting | searching) VH[$id]["st:$s"]= ;; esac
+		case ${VH[$id]["st:$s"]-} in waiting | searching | slow) VH[$id]["st:$s"]= ;; esac
 	done
 	VH[$id]["queue"]=
 	return 0
@@ -2198,6 +2217,7 @@ fn vp_hubhead(int id) {
 		n=${VH[$id]["n:$s"]:-0}
 		case $st in
 		searching | waiting) out+="  ${VIDEO_NAMES[$s]}: looking${GL[ellipsis]}" ;;
+		slow) out+="  ${VIDEO_NAMES[$s]}: slow, still looking${GL[ellipsis]}" ;;
 		ok) out+="  ${VIDEO_NAMES[$s]}: $n" ;;
 		*) out+="  ${VIDEO_NAMES[$s]}: ${st:0:28}" ;;
 		esac
