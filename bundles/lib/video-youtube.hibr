@@ -10,7 +10,7 @@
 
 strict
 
-app video-youtube "Video: YouTube, a site for the Video player" 1.2
+app video-youtube "Video: YouTube, a site for the Video player" 1.3
 
 VIDEO_YOUTUBE_LIBDONE=1
 
@@ -50,7 +50,12 @@ VY_RJS='(function(){var d=window.ytInitialData;if(!d)return "";function t(x){ret
 
 # Where YouTube's player is: its state, the time, the length, the title,
 # and whether it is showing its own error.
-VY_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({no:performance.timeOrigin,st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,sk:(function(){var b=document.querySelector(".ytp-skip-ad-button,.ytp-ad-skip-button,.ytp-ad-skip-button-modern");return b?1:0})(),pq:(p.getPlaybackQuality?p.getPlaybackQuality():""),u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
+# Finding YouTube's skip button, inside its player (the class names it has gone by are listed, and any button of the player whose class or label says skip is
+# the way out when the names change again; a button that skips about in the video, or the page's own "skip navigation", is not one). Defined once in the page,
+# for the state read below and for pressing it.
+VY_SKIPJS='(function(){if(window.__hibrSkip)return;window.__hibrSkip=function(){var p=document.getElementById("movie_player");if(!p)return null;var b=p.querySelector(".ytp-skip-ad-button,.ytp-ad-skip-button,.ytp-ad-skip-button-modern,.videoAdUiSkipButton");if(b)return b;return Array.from(p.querySelectorAll("button")).find(function(x){var t=(x.className||"")+" "+(x.getAttribute("aria-label")||"")+" "+(x.textContent||"");return /skip/i.test(t)&&/ad/i.test(t)&&!/skip.?(back|forward|prev|next)/i.test(t)})||null}})()'
+
+VY_PJS='(function(){var p=document.getElementById("movie_player"),v=document.querySelector("video");if(!p||!p.getPlayerState)return "";var d=p.getVideoData?p.getVideoData():{};return JSON.stringify({no:performance.timeOrigin,st:p.getPlayerState(),t:v?v.currentTime:0,d:p.getDuration?p.getDuration():0,title:d.title||"",author:d.author||"",e:document.querySelector(".ytp-error")?1:0,pa:v&&v.paused?1:0,en:v&&v.ended?1:0,rs:v?v.readyState:0,ad:p.classList&&p.classList.contains("ad-showing")?1:0,sk:(function(){return window.__hibrSkip&&window.__hibrSkip()?1:0})(),adt:(function(){if(!p.classList.contains("ad-showing"))return "";var e=p.querySelector(".ytp-ad-preview-text,.ytp-preview-ad__text,.ytp-ad-text,.ytp-ad-skip-button-slot");return e?(e.textContent||"").replace(/\s+/g," ").trim().slice(0,40):""})(),adb:(function(){if(!p.classList.contains("ad-showing"))return "";return Array.from(p.querySelectorAll("button")).slice(0,8).map(function(b){return (b.className||"").toString().replace(/\s+/g,".").slice(0,48)+"="+(b.getAttribute("aria-label")||(b.textContent||"").replace(/\s+/g," ").trim()).slice(0,24)}).join(";")})(),pq:(p.getPlaybackQuality?p.getPlaybackQuality():""),u:location.href,cc:(function(){var l=[].slice.call(document.querySelectorAll(".ytp-caption-segment")).map(function(e){return e.textContent});return l.some(function(t){return /Click\s+for settings/.test(t)})?"":l.join(" ")})(),vol:v?Math.round(v.volume*100):100,fr:v&&v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0})})()'
 
 # Start YouTube's player once it is there: the quality asked for, the
 # volume, captions off, and the page cut down to the video. That is done by
@@ -83,7 +88,7 @@ fn vy_rjs() {
 	ret "$VY_RJS"
 }
 fn vy_pjs() {
-	ret "$VY_PJS"
+	ret "$VY_SKIPJS;$VY_PJS"
 }
 
 # What to load for a title: its watch page (and the follow-the-page and autoplay state is cleared).
@@ -226,6 +231,13 @@ fn vy_take(int id) {
 		VP[$id]["adat"]=$EPOCHSECONDS
 		VP[$id]["inad"]=1
 		VP[$id]["adskip"]=${VPP["sk"]:-0}
+		VP[$id]["adtext"]=${VPP["adt"]-}
+		# what the player's buttons are while an advert plays, in the desktop's log, once each time that changes: if YouTube has a skip button this lib does not
+		# know, its name is there
+		if [ "${VPP["adb"]-}" != "${VP[$id]["adblog"]-}" ]; then
+			VP[$id]["adblog"]=${VPP["adb"]-}
+			printf 'video: advert on (skip button seen: %s; its words: "%s"; the player'"'"'s buttons: %s)\n' "${VPP["sk"]:-0}" "${VPP["adt"]-}" "${VPP["adb"]-}" >&2
+		fi
 		# the skip button is there: pressed for the viewer when that is asked for (once a second at most)
 		if [ "${VPP["sk"]:-0}" = 1 ] && [ "${VY_AUTOSKIP:-0}" = 1 ] && [ "${VP[$id]["adsk"]-}" != "$EPOCHSECONDS" ]; then
 			VP[$id]["adsk"]=$EPOCHSECONDS
@@ -234,6 +246,8 @@ fn vy_take(int id) {
 	elif [ -n "${VP[$id]["inad"]-}" ]; then
 		VP[$id]["inad"]=
 		VP[$id]["adskip"]=
+		VP[$id]["adtext"]=
+		VP[$id]["adblog"]=
 		VP[$id]["dur"]=0
 		VP[$id]["len"]=
 	fi
@@ -251,6 +265,20 @@ fn vy_take(int id) {
 	return 0
 }
 
+# What the bar says of an advert playing, beyond "advert": how long it has left (its length less its clock, as the player gives them) and YouTube's own words for it
+# ("Skip in 5"), so it is plain whether it is about to be skippable.
+fn vy_adnote(int id) {
+	local left=0 note=
+
+	if [ "${VPP["d"]%.*}" -gt 0 ] 2> /dev/null; then
+		left=$(( ${VPP["d"]%.*} - ${VPP["t"]%.*} ))
+		[ "$left" -lt 0 ] && left=0
+		[ "$left" -le 3600 ] && note="${left}s left"
+	fi
+	[ -n "${VP[$id]["adtext"]-}" ] && note="${note:+$note, }${VP[$id]["adtext"]}"
+	ret "$note"
+}
+
 # Whether the advert on can be skipped now (its own button is showing), and skipping it: the button pressed in the page. `auto` is the viewer's switch doing it.
 fn vy_canskip(int id) {
 	[ -n "${VP[$id]["inad"]-}" ] && [ "${VP[$id]["adskip"]-0}" = 1 ]
@@ -261,7 +289,7 @@ fn vy_skip(int id, how = "") {
 		[ "$how" = auto ] || dt_notep low "Nothing to skip: no advert, or YouTube has not offered to skip it yet"
 		return 0
 	fi
-	vp_send "${VP[$id]["pt"]}" '(function(){var b=document.querySelector(".ytp-skip-ad-button,.ytp-ad-skip-button,.ytp-ad-skip-button-modern");if(b)b.click()})()'
+	vp_send "${VP[$id]["pt"]}" "$VY_SKIPJS;(function(){var b=window.__hibrSkip&&window.__hibrSkip();if(b)b.click()})()"
 	VP[$id]["adskip"]=0
 	vp_stale "$id"
 	dt_want 10

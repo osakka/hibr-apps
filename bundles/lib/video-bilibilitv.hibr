@@ -10,7 +10,7 @@
 
 strict
 
-app video-bilibilitv "Video: Bilibili TV, a site for the Video player" 1.0
+app video-bilibilitv "Video: Bilibili TV, a site for the Video player" 1.1
 
 VIDEO_BILIBILITV_LIBDONE=1
 
@@ -22,10 +22,9 @@ VIDEO_NAMES["bilibilitv"]="Bilibili TV"
 VIDEO_KEYS["bilibilitv"]=v
 VIDEO_ORDER+=(bilibilitv)
 
-# Where the site's pages are, and where the pages this lib writes for the player are kept.
+# Where the site's pages are.
 VQ_BASE="${VQ_BASE-https://www.bilibili.tv}"
 VQ_API="${VQ_API-https://api.bilibili.tv}"
-VQ_PLAYDIR="${VQ_PLAYDIR-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-bilibilitv-$UID}"
 
 # The titles a loaded page lists, as the rows the lists draw: kind id title channel length. Each is a link to /video/NUMBER; its words are its picture's text (or
 # its own title or words). "" until the page has made some.
@@ -33,7 +32,7 @@ VQ_RJS='(function(){var seen={},out=[];Array.from(document.querySelectorAll("a[h
 
 # What the site's data service answered, read from its page: the address of the MP4 file, or `err:` and its words. "" until the page is its answer (the page
 # before is still there for a moment after a go).
-VQ_URLJS='(function(){if(location.href.indexOf("playurl")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0)return "err:"+(j.message||j.code);var p=j.data&&j.data.playurl,v=p&&p.video&&p.video[0]&&p.video[0].video_resource;return v&&v.url?v.url:"err:no file for this video"})()'
+VQ_URLJS='(function(){if(location.href.indexOf("playurl")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0)return "err:"+(j.message||j.code);var p=j.data&&j.data.playurl,v=p&&p.video&&p.video[0]&&p.video[0].video_resource;return v&&v.url?[v.url].concat(v.backup_url||[]).join("|"):"err:no file for this video"})()'
 
 # The address of a list: the home page, or a search (what means something in an address is done here).
 fn vq_url(int id, kind, arg) {
@@ -68,12 +67,6 @@ fn vq_address(key) {
 	ret "$VQ_BASE/en/video/$key"
 }
 
-# The page written for the playing, with the file's signed address in it, taken away when the playing stops.
-fn vq_cleanup(int id) {
-	[ -n "${VP[$id]["vid"]-}" ] && command rm -f -- "$VQ_PLAYDIR/${VP[$id]["vid"]}.html" 2> /dev/null
-	return 0
-}
-
 # Whether a key is what the site's own ids look like: a number. It reaches a file name, an address and a script, so nothing else is let through, whether it
 # came from its list, the history file or a `play:` argument.
 fn vq_validkey(key) {
@@ -88,10 +81,11 @@ fn vq_startjs(v, num) {
 	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";var v=document.querySelector(\"video\");if(!v||v.readyState<2)return \"\";v.muted=false;v.volume=$v/100;if(v.paused)v.play();return \"ok\"})()"
 }
 
-# Looking a video up: the data service's answer is in the player tab; its file's address is read out, a small page with that one <video> in it is written and
-# gone to, and the player starts from it as it would from any page. An answer that says no (the site's own words) ends in the window.
+# Looking a video up: the data service's answer is in the player tab; its file's address (and the site's other servers for it) is read out and the player is given
+# them (vp_playlinks: a small page of the app's own with that one <video> in it, the next address if one is refused, the first from a page of the site itself as a
+# last try). An answer that says no (the site's own words) ends in the window.
 fn vq_step(int id) {
-	local t=${VP[$id]["pt"]} key=${VP[$id]["vid"]} js u f
+	local t=${VP[$id]["pt"]} js
 
 	web loading "$t" 2> /dev/null && return 0
 	js := web eval "$t" "$VQ_URLJS" 2> /dev/null
@@ -99,17 +93,11 @@ fn vq_step(int id) {
 	case $js in
 	err:*) VP[$id]["err"]="Bilibili TV said: ${js#err:}"; vp_stop "$id"; return 0 ;;
 	esac
-	u=${js//&/&amp;}
-	u=${u//\"/&quot;}
-	f="$VQ_PLAYDIR/$key.html"
-	command mkdir -p -- "$VQ_PLAYDIR" 2> /dev/null
-	printf '<!doctype html><meta charset=utf-8><title>%s</title><style>%s</style><video src="%s" autoplay muted playsinline></video>\n' "$key" "$VP_CSS" "$u" > "$f" 2> /dev/null || {
-		VP[$id]["err"]="Cannot write the player's page"
-		vp_stop "$id"
-		return 0
-	}
-	VP[$id]["state"]=loading
-	VP[$id]["since"]=$EPOCHSECONDS
-	web go "$t" "file://$f" 2> /dev/null
+	vp_playlinks "$id" "$js"
 	return 0
+}
+
+# A page of the site itself, for the last try at a file.
+fn vq_origin(int id) {
+	ret "$VQ_BASE/robots.txt"
 }

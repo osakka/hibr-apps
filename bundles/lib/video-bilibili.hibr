@@ -10,7 +10,7 @@
 
 strict
 
-app video-bilibili "Video: Bilibili, a site for the Video player" 1.1
+app video-bilibili "Video: Bilibili, a site for the Video player" 1.2
 
 VIDEO_BILIBILI_LIBDONE=1
 
@@ -22,7 +22,7 @@ VIDEO_NAMES["bilibili"]="Bilibili"
 VIDEO_KEYS["bilibili"]=b
 VIDEO_ORDER+=(bilibili)
 
-# Where the site's pages are, and where the pages this lib writes for the player are kept.
+# Where the site's pages are.
 # The resolution asked for (Bilibili's anonymous links have 720p and 360p, and 480p between on some): kept for next time, applied to the next title opened.
 VB_QUALITIES=(720p 480p 360p)
 VB_QUALITY="${VB_QUALITY-720p}"
@@ -30,7 +30,6 @@ command -v dt_keep > /dev/null && dt_keep VB_QUALITY
 
 VB_BASE="${VB_BASE-https://www.bilibili.com}"
 VB_API="${VB_API-https://api.bilibili.com}"
-VB_PLAYDIR="${VB_PLAYDIR-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-bilibili-$UID}"
 
 # The titles a data page lists, as the rows the lists draw: kind id title channel length. The page is JSON text; "" until it is one (the page before is
 # still there for a moment after a go). A search's titles carry <em> markup and entities, its durations are 1:02 and the popular list's are seconds.
@@ -38,7 +37,7 @@ VB_RJS='(function(){var j;try{j=JSON.parse(document.body.innerText)}catch(e){var
 
 # A video's part (the first, or the one asked for; how many there are, and its own name), and then its file's address: each from its own data page
 # (the page before is told by its address).
-VB_URLJS='(function(){if(location.href.indexOf("playurl")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data||!j.data.durl||!j.data.durl[0])return "err:"+(j.message||j.code);return j.data.durl[0].url})()'
+VB_URLJS='(function(){if(location.href.indexOf("playurl")<0)return "";var j;try{j=JSON.parse(document.body.innerText)}catch(e){return ""}if(!j||typeof j.code!=="number")return "";if(j.code!==0||!j.data||!j.data.durl||!j.data.durl[0])return "err:"+(j.message||j.code);var d=j.data.durl[0];return [d.url].concat(d.backup_url||[]).join("|")})()'
 
 # The address of a list: the popular list, or a search (the engine percent-encodes what it must; the few characters that mean something in an address
 # are done here).
@@ -80,12 +79,6 @@ fn vb_address(key) {
 	ret "$VB_BASE/video/$key"
 }
 
-# The page written for the playing, with the file's signed address in it, taken away when the playing stops.
-fn vb_cleanup(int id) {
-	[ -n "${VP[$id]["vid"]-}" ] && command rm -f -- "$VB_PLAYDIR/${VP[$id]["vid"]}.html" 2> /dev/null
-	return 0
-}
-
 # Whether a key is what Bilibili's own ids look like: BV and letters and digits. It reaches a file name, an address and a script, so nothing else is let
 # through, whether it came from its list, the history file or a `play:` argument.
 fn vb_validkey(key) {
@@ -108,11 +101,11 @@ fn vb_startjs(v, num) {
 	ret "(function(){if(location.pathname.indexOf(\"$num\")<0)return \"\";var v=document.querySelector(\"video\");if(!v||v.readyState<2)return \"\";v.muted=false;v.volume=$v/100;if(v.paused)v.play();return \"ok\"})()"
 }
 
-# Looking a video up, two data pages in the player tab: its first part, then the address of its file; then a small page of this app's own is written with
-# that one <video> in it and gone to, and the player starts from it as it would from any page. A step that says no (the page's own words), or does not
-# answer, ends in the window.
+# Looking a video up, two data pages in the player tab: its first part, then the address of its file (and of the site's other servers for it); then the player
+# is given them (vp_playlinks: a small page of the app's own with that one <video> in it, the next address if one is refused, the first from a page of the site
+# itself as a last try) and starts from it as it would from any page. A step that says no (the page's own words), or does not answer, ends in the window.
 fn vb_step(int id) {
-	local t=${VP[$id]["pt"]} js key=${VP[$id]["vid"]} f u q qn
+	local t=${VP[$id]["pt"]} js key=${VP[$id]["vid"]} q qn
 	local -A r
 
 	web loading "$t" 2> /dev/null && return 0
@@ -138,19 +131,13 @@ fn vb_step(int id) {
 	case $js in
 	err:*) VP[$id]["err"]="Bilibili said: ${js#err:}"; vp_stop "$id"; return 0 ;;
 	esac
-	u=${js//&/&amp;}
-	u=${u//\"/&quot;}
-	f="$VB_PLAYDIR/$key.html"
-	command mkdir -p -- "$VB_PLAYDIR" 2> /dev/null
-	printf '<!doctype html><meta charset=utf-8><title>%s</title><style>%s</style><video src="%s" autoplay muted playsinline></video>\n' "$key" "$VP_CSS" "$u" > "$f" 2> /dev/null || {
-		VP[$id]["err"]="Cannot write the player's page"
-		vp_stop "$id"
-		return 0
-	}
-	VP[$id]["state"]=loading
-	VP[$id]["since"]=$EPOCHSECONDS
-	web go "$t" "file://$f" 2> /dev/null
+	vp_playlinks "$id" "$js"
 	return 0
+}
+
+# A page of the site itself, for the last try at a file (a file server may want the Referer the site's own player sends).
+fn vb_origin(int id) {
+	ret "$VB_BASE/robots.txt"
 }
 
 # The number the playurl API takes for the resolution asked for.

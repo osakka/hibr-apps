@@ -22,7 +22,7 @@ strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-bilibilitv, lib/video-tubi, lib/video-youtube
 # replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
-app video "Video Player, every site in one player" 1.4
+app video "Video Player, every site in one player" 1.5
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web
@@ -814,6 +814,15 @@ fn vp_tries(int id) {
 }
 
 # Whether the site's advert playing can be skipped now, and skipping it: its provider's (`canskip ID`, `skip ID`), for a site that has adverts it lets be skipped.
+fn vp_adnote(int id) {
+	local p fn n
+
+	p := vp_p "$id"
+	fn=${p}adnote
+	dt_has "$fn" || { ret ""; return 0; }
+	n := $fn "$id"
+	ret "$n"
+}
 fn vp_canskip(int id) {
 	local p fn
 
@@ -1180,10 +1189,98 @@ fn vp_validkey(int id, key) {
 fn vp_resolve(int id) {
 	local p fn
 
+	# the file has been tried from a page of the site's own: that page is loading, and the file is put in it
+	if [ "${VP[$id]["lorigin"]-}" = 1 ]; then
+		vp_originstep "$id"
+		return 0
+	fi
 	p := vp_p "$id"
 	fn=${p}step
 	dt_has "$fn" || return 0
 	$fn "$id"
+}
+
+# --- a title that is a file, played in a page of this app's own ------------------------------------------------------------------------------------
+# A provider that finds a file's address (a site's own player does not always start here) gives all it has, separated by | (the site's alternative servers
+# among them), to vp_playlinks.  The first is played in a small page with one <video> in it; if the engine says it cannot (the server refused it, or it is not
+# a file it can play: the video's error is read at once, not after thirty seconds), the next; when none is left, the first once more from a page on the site's
+# own origin (the provider's `origin`, a page of the site), where the file server sees the Referer the site's own player sends and a page of ours has none.
+VP_PLAYDIR="${VP_PLAYDIR-${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-video-$UID}"
+VP_ERRJS='(function(){var v=document.querySelector("video");return v&&v.error?"1":""})()'
+
+fn vp_playlinks(int id, links) {
+	VP[$id]["links"]=$links
+	VP[$id]["ltry"]=0
+	VP[$id]["lorigin"]=
+	vp_linknext "$id"
+	return 0
+}
+
+# One address in a page written for it, and gone to.
+fn vp_linkpage(int id, url) {
+	local key=${VP[$id]["vid"]} f u
+
+	u=${url//&/&amp;}
+	u=${u//\"/&quot;}
+	f="$VP_PLAYDIR/$key.html"
+	command mkdir -p -- "$VP_PLAYDIR" 2> /dev/null
+	printf '<!doctype html><meta charset=utf-8><title>%s</title><style>%s</style><video src="%s" autoplay muted playsinline></video>\n' "$key" "$VP_CSS" "$u" > "$f" 2> /dev/null || {
+		VP[$id]["err"]="Cannot write the player's page"
+		vp_stop "$id"
+		return 1
+	}
+	VP[$id]["state"]=loading
+	VP[$id]["since"]=$EPOCHSECONDS
+	web go "${VP[$id]["pt"]}" "file://$f" 2> /dev/null
+	return 0
+}
+
+# The next way to play it: the next address, then the first from the site's own origin; status 1 when there is none left.
+fn vp_linknext(int id) {
+	local -a l
+	local n=${VP[$id]["ltry"]:-0} p fn o
+
+	IFS='|' read -ra l <<< "${VP[$id]["links"]-}"
+	if [ "$n" -lt "${#l[@]}" ]; then
+		VP[$id]["ltry"]=$((n + 1))
+		[ "$n" -gt 0 ] && printf 'video: %s: that file address was refused or cannot be played here; trying another (%d of %d)\n' "${VP[$id]["vid"]}" $((n + 1)) "${#l[@]}" >&2
+		vp_linkpage "$id" "${l[$n]}"
+		return 0
+	fi
+	p := vp_p "$id"
+	fn=${p}origin
+	if [ -z "${VP[$id]["lorigin"]-}" ] && [ "${#l[@]}" -gt 0 ] && dt_has "$fn"; then
+		o := $fn "$id"
+		if [ -n "$o" ]; then
+			VP[$id]["lorigin"]=1
+			VP[$id]["state"]=resolving
+			VP[$id]["since"]=$EPOCHSECONDS
+			printf 'video: %s: trying the file from a page of the site itself (the server may want to see where the request comes from)\n' "${VP[$id]["vid"]}" >&2
+			web go "${VP[$id]["pt"]}" "$o" 2> /dev/null
+			return 0
+		fi
+	fi
+	return 1
+}
+
+# The site's own page has loaded: the video is put in it (its address in the page's, so the server is asked as the site's player would), the page's address made
+# the title's, which is what the player looks for.
+fn vp_originstep(int id) {
+	local t=${VP[$id]["pt"]} key=${VP[$id]["vid"]} u js r
+	local -a l
+
+	web loading "$t" 2> /dev/null && return 0
+	IFS='|' read -ra l <<< "${VP[$id]["links"]-}"
+	u=${l[0]-}
+	u=${u//\\/\\\\}
+	u=${u//\"/\\\"}
+	js="(function(){try{history.replaceState(null,\"\",\"/$key\")}catch(e){}document.head.innerHTML=\"<style>$VP_CSS</style>\";document.body.innerHTML=\"<video autoplay muted playsinline></video>\";var v=document.querySelector(\"video\");v.src=\"$u\";v.play().catch(function(){});return \"ok\"})()"
+	r := web eval "$t" "$js" 2> /dev/null
+	[ "$r" = ok ] || return 0
+	VP[$id]["lorigin"]=done
+	VP[$id]["state"]=loading
+	VP[$id]["since"]=$EPOCHSECONDS
+	return 0
 }
 
 # Play a list's video: from the part the history left it at, when it was left part way.
@@ -1210,6 +1307,10 @@ fn vp_cleanup(int id) {
 	p := vp_p "$id"
 	fn=${p}cleanup
 	dt_has "$fn" && $fn "$id"
+	# the page this app wrote for a file's address (it holds a signed address), taken away with the playing
+	[ -n "${VP[$id]["vid"]-}" ] && command rm -f -- "$VP_PLAYDIR/${VP[$id]["vid"]}.html" 2> /dev/null
+	VP[$id]["links"]=
+	VP[$id]["lorigin"]=
 	return 0
 }
 
@@ -1437,11 +1538,27 @@ fn vp_tick(int id) {
 			VP[$id]["sat"]=${EPOCHREALTIME/./}
 			VP[$id]["sat"]=${VP[$id]["sat"]:0:-3}
 		fi
+		# a file the engine says it cannot play (the server refused it, or it is not a format it knows) is known at once: the next way to play it, if there is one
+		if [ "${VP[$id]["state"]}" = loading ] && [ -n "${VP[$id]["links"]-}" ]; then
+			e := web eval "$t" "$VP_ERRJS" 2> /dev/null
+			if [ -n "$e" ] && vp_linknext "$id"; then
+				dt_want 300
+				return 0
+			fi
+			[ -n "$e" ] && VP[$id]["since"]=$((EPOCHSECONDS - 31))
+		fi
 		if [ "${VP[$id]["state"]}" = loading ] &&
 		   [ $((EPOCHSECONDS - VP[$id]["since"])) -gt 30 ]; then
 			why := web eval "$t" "$VP_WHYJS" 2> /dev/null
 			printf 'video: %s did not start (%s)\n' "${VP[$id]["vid"]}" "$why" >&2
-			VP[$id]["err"]="The video would not start (${why:-no page answer}) -- its link may have expired or be refused"
+			# a page that did not answer at all, or never got as far as having a video, is hung, not refused: it is loaded again (as a player that stops is) before the title is given up on
+			case $why in
+			"" | "no video")
+				vp_recover "$id" 0
+				return 0
+				;;
+			esac
+			VP[$id]["err"]="The video would not start (${why:-no page answer}) -- the file's server refused it, it has expired, or it cannot be played here"
 			vp_stop "$id"
 			return 0
 		fi
@@ -2574,7 +2691,7 @@ fn vp_picture(int id, w, h, row, col, md) {
 
 # The player: the title, the picture, the bar.
 fn vp_drawplay(int id, int h, int w) {
-	local p=${VP[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm l wt tt btn
+	local p=${VP[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm l wt tt btn an
 
 	# a step first, so the title and the clock drawn are this moment's
 	[ -n "$p" ] && vp_tick "$id"
@@ -2614,7 +2731,12 @@ fn vp_drawplay(int id, int h, int w) {
 	[ "${VPI["paused"]}" = 1 ] && st="paused"
 	[ "${VPI["ended"]}" = 1 ] || [ "${VP[$id]["state"]}" = ended ] && st="ended"
 	[ "${VP[$id]["state"]}" = loading ] && st="starting"
-	[ -n "${VP[$id]["inad"]-}" ] && st="advert"
+	if [ -n "${VP[$id]["inad"]-}" ]; then
+		st="advert"
+		# and what the site's provider says of it: how long it has left, its own countdown
+		an := vp_adnote "$id"
+		[ -n "$an" ] && st="advert, $an"
+	fi
 	# an advert that can be skipped says how, and shows a button on the picture that does it (a click or the s key)
 	if [ -n "${VP[$id]["inad"]-}" ] && vp_canskip "$id"; then
 		st="advert, s skips"
