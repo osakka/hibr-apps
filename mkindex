@@ -350,6 +350,7 @@ ENTHIBR["apps/video"]=0.99.534   # Video 1.1: its Control Panel pane declares it
 ENTHIBR["lib/video-youtube"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526)
 ENTHIBR["lib/video-tubi"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526)
 ENTHIBR["lib/video-bilibili"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526)
+ENTHIBR["lib/video-bilibilitv"]=0.99.526   # a provider of the Video player (kind lib, hibr 0.99.526): Bilibili TV, bilibili.tv
 # Sheet 1.7 runs its formulas in the contain module, and its pane writes
 # SS_NEWTRUST, both new in 0.99.427 (Gitea #432, ADR 0052); an older
 # hibr would run every formula as a dry run and say "contained" nowhere.
