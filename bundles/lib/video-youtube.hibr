@@ -10,7 +10,7 @@
 
 strict
 
-app video-youtube "Video: YouTube, a site for the Video player" 1.3
+app video-youtube "Video: YouTube, a site for the Video player" 1.4
 
 VIDEO_YOUTUBE_LIBDONE=1
 
@@ -292,6 +292,7 @@ fn vy_skip(int id, how = "") {
 	vp_send "${VP[$id]["pt"]}" "$VY_SKIPJS;(function(){var b=window.__hibrSkip&&window.__hibrSkip();if(b)b.click()})()"
 	VP[$id]["adskip"]=0
 	vp_stale "$id"
+	vp_flash "$id" "Skipping the advert"
 	dt_want 10
 	return 0
 }
@@ -499,6 +500,7 @@ fn vy_quality(int id = 0, int dir = 1) {
 	vy_setquality "$q"
 	l := vy_qlab "$q"
 	dt_notep low "Quality %s" "$l"
+	[ "$id" != 0 ] && vp_flash "$id" "Quality $l"
 }
 
 # Captions on or off: kept for next time, and told to the player playing now.
@@ -506,6 +508,7 @@ fn vy_captions(int id = 0) {
 	if [ "$VY_CAPTIONS" = 1 ]; then VY_CAPTIONS=0; else VY_CAPTIONS=1; fi
 	command -v dt_save > /dev/null && dt_save
 	local w
+	[ "$id" != 0 ] && { [ "$VY_CAPTIONS" = 1 ] && vp_flash "$id" "Captions on" || vp_flash "$id" "Captions off"; }
 	w := vy_ccword
 	[ -n "${VP[$id]["pt"]}" ] && [ -n "${VP[$id]["p"]}" ] &&
 		vp_send "${VP[$id]["pt"]}" "(function(){var p=document.getElementById(\"movie_player\");try{p.${w}Module(\"captions\")}catch(e){}})()"

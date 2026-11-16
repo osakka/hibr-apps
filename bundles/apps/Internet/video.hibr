@@ -22,7 +22,7 @@ strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-bilibilitv, lib/video-tubi, lib/video-youtube
 # replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
-app video "Video Player, every site in one player" 1.5
+app video "Video Player, every site in one player" 1.7
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web
@@ -185,7 +185,7 @@ VP_ENDED="${VP_ENDED-20}"
 
 # Where Bilibili's player is: the one <video>, its time, length and state, and the
 # path of the page it is on. Empty until there is one.
-VP_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({no:performance.timeOrigin,t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
+VP_PJS='(function(){var v=document.querySelector("video");if(!v)return "";return JSON.stringify({no:performance.timeOrigin,h:v.videoHeight||0,t:v.currentTime,d:isFinite(v.duration)?v.duration:0,pa:v.paused?1:0,en:v.ended?1:0,rs:v.readyState,e:v.error?1:0,u:location.pathname,w:v.videoWidth,vol:Math.round(v.volume*100),fr:v.getVideoPlaybackQuality?v.getVideoPlaybackQuality().totalVideoFrames:0,ad:0})})()'
 
 # The page set aside and the video laid over it, edge to edge. Not the cut the
 # YouTube app makes (everything that does not hold the video hidden): Bilibili takes
@@ -553,7 +553,7 @@ fn vp_histput(int id, pos = "") {
 # Keep an entry as a favourite, or take it out: the chosen one in a list, the
 # one playing in the player.
 fn vp_fav(int id) {
-	local i=${VP[$id]["sel"]} kind key title sub rs
+	local i=${VP[$id]["sel"]} kind key title sub rs x
 
 	if [ "${VP[$id]["view"]}" = play ]; then
 		kind=${VP[$id]["kind0"]:-video}
@@ -574,10 +574,12 @@ fn vp_fav(int id) {
 		unset VPF["${VP[$id]["site"]}:$key"]
 		vp_fileput "$VP_FAVS" "$key"
 		dt_notep low "Taken out of the favourites: %s" "$title"
+		[ "${VP[$id]["view"]}" = play ] && { x := dt_tr "Taken out of the favourites"; vp_flash "$id" "$x"; }
 	else
 		VPF["${VP[$id]["site"]}:$key"]=1
 		vp_fileput "$VP_FAVS" "$key" "$kind"$'\t'"$key"$'\t'"$title"$'\t'"$sub"$'\t'
 		dt_notep low "Kept as a favourite: %s" "$title"
+		[ "${VP[$id]["view"]}" = play ] && { x := dt_tr "Kept as a favourite"; vp_flash "$id" "${GL[star]} $x"; }
 	fi
 	[ "${VP[$id]["kind"]}" = favourites ] && [ "${VP[$id]["view"]}" = list ] &&
 		vp_load "$id" favourites "" "" 0
@@ -1424,6 +1426,10 @@ fn vp_take(int id, js, at) {
 	json parse VPP <<< "$js" 2> /dev/null || return 1
 	# After a reload, an answer from the page that was there before (a page's identity is the time it was loaded) is not about the new one: the question
 	# can reach the old page until the new one has taken its place, and its "plenty of data" would send a resume into a stream that has none yet.
+	if [ -n "${VP[$id]["no0"]-}" ] && [ $((EPOCHSECONDS - ${VP[$id]["no0at"]:-0})) -gt 30 ]; then
+		# the old page has stayed for thirty seconds: it is the page, whatever it was (an answer that is never taken is a clock that never moves)
+		VP[$id]["no0"]=
+	fi
 	if [ -n "${VP[$id]["no0"]-}" ]; then
 		if [ "${VPP["no"]-}" = "${VP[$id]["no0"]}" ]; then
 			VPP=()
@@ -1501,7 +1507,7 @@ fn vp_info(int id) {
 # One step of playing: start the page's player once it is there, take a title up
 # where it was left, and at the end go on to the next.
 fn vp_tick(int id) {
-	local t=${VP[$id]["pt"]} p=${VP[$id]["p"]} s js m i e wf why nm pf mn
+	local t=${VP[$id]["pt"]} p=${VP[$id]["p"]} s js m i e wf why nm pf mn x
 
 	if dt_has dt_live; then
 		if [ "${VP[$id]["state"]}" = playing ]; then
@@ -1580,6 +1586,8 @@ fn vp_tick(int id) {
 		vp_seek "$id" "${VP[$id]["resume"]}"
 		VP[$id]["resume"]=
 		dt_notep low "Taken up at %s, where it was left" "$m"
+		x := dt_tr "Taken up at"
+		vp_flash "$id" "$x $m"
 	fi
 	[ "${VP[$id]["state"]}" = playing ] && vp_has evask && vp_page "$id" > /dev/null
 	if [ "${VP[$id]["state"]}" = playing ] &&
@@ -1678,7 +1686,7 @@ fn vp_watch(int id) {
 
 # Load the title again and take it up at a time, after the player failed.
 fn vp_recover(int id, int pos) {
-	local m a n=${VP[$id]["tries"]:-0} nm t
+	local m a n=${VP[$id]["tries"]:-0} nm t x
 
 	VP[$id]["bad"]=0
 	t := vp_tries "$id"
@@ -1694,6 +1702,8 @@ fn vp_recover(int id, int pos) {
 	[ "$pos" -gt 0 ] && VP[$id]["resume"]=$pos
 	nm := vp_name "$id"
 	dt_notep low "%s stopped -- trying again" "$nm"
+	x := dt_tr "Stopped: loading it again"
+	vp_flash "$id" "$x"
 	# looked up again from the start (a lookup's file expires), in the same part
 	VP[$id]["state"]=loading
 	vp_has_step "$id" && VP[$id]["state"]=resolving
@@ -1701,6 +1711,7 @@ fn vp_recover(int id, int pos) {
 	vp_stale "$id"
 	# which page is there now: an answer from it, after this, is the old page's
 	VP[$id]["no0"]=
+	VP[$id]["no0at"]=$EPOCHSECONDS
 	[ "$VPPID" = "$id" ] && VP[$id]["no0"]=${VPP["no"]-}
 	a := vp_first "$id" "${VP[$id]["vid"]}" "${VP[$id]["part"]:-1}"
 	web go "${VP[$id]["pt"]}" "$a" 2> /dev/null
@@ -2023,6 +2034,25 @@ fn vp_pix(int id, int r0, int c0, ...rows) {
 	return 0
 }
 
+# Which sites the home's search asks: all of them, or only one (the chips under the box, Tab, and the Go menu's sites). Choosing leaves the screen as it is; away
+# from the home it goes back to it, the query kept.  With nothing typed, enter on a single site opens that site's own list.
+fn vp_setscope(int id, site = "") {
+	[ -z "$site" ] || [ -n "${VIDEO_SITES["$site"]-}" ] || return 0
+	VP[$id]["scope"]=$site
+	[ "${VP[$id]["view"]}" = home ] || vp_gohome "$id" "${VH[$id]["q"]-}"
+	dt_want 10
+	return 0
+}
+fn vp_scopestep(int id, int dir) {
+	local -a all=("" "${VIDEO_ORDER[@]}")
+	local i cur=0 n=${#all[@]}
+
+	for i in "${!all[@]}"; do
+		[ "${all[$i]}" = "${VP[$id]["scope"]-}" ] && cur=$i
+	done
+	vp_setscope "$id" "${all[$(( (cur + dir + n) % n ))]}"
+}
+
 # Go to the home: the search box with nothing in it (or what was last asked), what was watched under it.
 fn vp_gohome(int id, q = "") {
 	[ -n "${VP[$id]["p"]}" ] && vp_stop "$id"
@@ -2122,7 +2152,8 @@ fn vp_hubstart(int id, q) {
 	for s in "${VIDEO_ORDER[@]}"; do
 		VH[$id]["st:$s"]=
 		VH[$id]["n:$s"]=0
-		case " ${VP_HUBOFF-} " in *" $s "*) continue ;; esac
+		[ -z "${VP[$id]["scope"]-}" ] || [ "$s" = "${VP[$id]["scope"]}" ] || continue
+		case " ${VP_HUBOFF-} " in *" $s "*) [ -n "${VP[$id]["scope"]-}" ] || continue ;; esac
 		p=${VIDEO_SITES[$s]}
 		dt_has "${p}url" || continue
 		queue+="${queue:+ }$s"
@@ -2344,7 +2375,7 @@ fn vp_hubhead(int id) {
 
 # The home: the name, a VCR and tapes, the search box in the middle, the titles under it, a hint.
 fn vp_drawhome(int id, int h, int w) {
-	local q bw bc r c i n=${VP[$id]["n"]:-0} hs=${VP[$id]["hsel"]:--1} lab tail nm len rs mk vis head t artw=0 tc ti
+	local q bw bc r c i n=${VP[$id]["n"]:-0} hs=${VP[$id]["hsel"]:--1} lab tail nm len rs mk vis head t artw=0 tc ti cc chip k all
 	local -a tc2=(r b p)
 	local title sub hint ph
 
@@ -2401,8 +2432,29 @@ fn vp_drawhome(int id, int h, int w) {
 	console pen "$DT_ACTIVE" "$DT_WELL" bold
 	console put -p "w$id" $((r + 1)) $((bc + 2 + ${#t})) "▏"
 	dt_wreg "$id" $((r + 1)) "$bc" "$bw" dtsearch
+	# which sites it asks: "All sites" or one, the one chosen lit; a click or Tab chooses
+	cc=$bc
+	# a scope whose site is gone (turned off in the Control Panel) is All sites again
+	if [ -n "${VP[$id]["scope"]-}" ]; then
+		case " ${VIDEO_ORDER[*]} " in *" ${VP[$id]["scope"]} "*) ;; *) VP[$id]["scope"]= ;; esac
+	fi
+	all := dt_tr "All sites"
+	for k in "" "${VIDEO_ORDER[@]}"; do
+		chip=$all
+		[ -n "$k" ] && chip=${VIDEO_NAMES[$k]}
+		chip=" $chip "
+		[ $((cc + ${#chip} - bc)) -le "$bw" ] || break
+		if [ "${VP[$id]["scope"]-}" = "$k" ]; then
+			console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		else
+			console pen "$DT_DIM" "$DT_FACE"
+		fi
+		console put -p "w$id" $((r + 3)) "$cc" "$chip"
+		dt_wreg "$id" $((r + 3)) "$cc" "${#chip}" "scope:$k"
+		cc=$((cc + ${#chip} + 1))
+	done
 	# what was watched, or what matches
-	r=$((r + 4))
+	r=$((r + 5))
 	console pen "$DT_DIM" "$DT_FACE"
 	if [ "$n" -gt 0 ]; then
 		if [ -z "$q" ]; then head := dt_tr "Recently watched"; else head := dt_tr "From what you watched"; fi
@@ -2433,7 +2485,7 @@ fn vp_drawhome(int id, int h, int w) {
 		r=$((r + 1))
 		i=$((i + 1))
 	done
-	hint := dt_tr "Enter plays or searches    Up, Down choose    Escape clears"
+	hint := dt_tr "Enter plays or searches    Tab chooses the sites    Up, Down choose    Escape clears"
 	console pen "$DT_DIM" "$DT_FACE"
 	console put -p "w$id" $((h - 1)) $(( (w - ${#hint}) / 2 + 1 )) "${hint:0:$((w - 2))}"
 	return 0
@@ -2444,7 +2496,8 @@ fn vp_homekey(int id, key) {
 	local q q0 n=${VP[$id]["n"]:-0} hs=${VP[$id]["hsel"]:--1}
 
 	case $key in
-	tab | $'\t') return 0 ;;
+	tab | $'\t') vp_scopestep "$id" 1; return 0 ;;
+	shift-tab | shift-\t) vp_scopestep "$id" -1; return 0 ;;
 	enter)
 		if [ "$hs" -ge 0 ] && [ "$hs" -lt "$n" ]; then
 			VP[$id]["backhome"]=1
@@ -2454,7 +2507,12 @@ fn vp_homekey(int id, key) {
 		q := dt_searchq "$id"
 		q=${q#"${q%%[! ]*}"}
 		q=${q%"${q##*[! ]}"}
-		[ -n "$q" ] && vp_hubstart "$id" "$q"
+		if [ -n "$q" ]; then
+			vp_hubstart "$id" "$q"
+		elif [ -n "${VP[$id]["scope"]-}" ]; then
+			# nothing typed, one site chosen: that site's own list
+			vp_setsite "$id" "${VP[$id]["scope"]}"
+		fi
 		return 0
 		;;
 	down) [ "$hs" -lt $((n - 1)) ] && VP[$id]["hsel"]=$((hs + 1)); return 0 ;;
@@ -2691,7 +2749,7 @@ fn vp_picture(int id, w, h, row, col, md) {
 
 # The player: the title, the picture, the bar.
 fn vp_drawplay(int id, int h, int w) {
-	local p=${VP[$id]["p"]} ph=$((h - 2)) pos dur lab fill st a b mk="" md pm l wt tt btn an
+	local p=${VP[$id]["p"]} ph=$((h - 1)) pos dur lab fill st a b mk="" md pm l wt tt btn an prov res ch fl
 
 	# a step first, so the title and the clock drawn are this moment's
 	[ -n "$p" ] && vp_tick "$id"
@@ -2702,22 +2760,21 @@ fn vp_drawplay(int id, int h, int w) {
 		wt := dt_wintitle "Video Player" "$tt"
 		dt_retitle "$id" "$wt"
 	fi
-	console pen "$DT_INK" "$DT_FACE" bold
+	# the title is the window's own (its frame, set above): the row that said it again, with the channel and the favourite's star, is gone, and the picture has it;
+	# the star, the site, the channel and the picture's size are in the bar
 	[ -n "${VPF["${VP[$id]["site"]}:${VP[$id]["vid"]}"]}" ] && mk="${GL[star]} "
-	lab="$mk${VP[$id]["title"]}"
-	[ -n "${VP[$id]["sub"]}" ] && lab="$lab -- ${VP[$id]["sub"]}"
-	lab := str pad " ${lab:0:$((w - 2))}" "$w"
-	console put -p "w$id" 1 1 "$lab"
 	if [ -n "${VP[$id]["err"]}" ] || [ -z "$p" ]; then
+		console pen "$DT_INK" "$DT_FACE" bold
+		console put -p "w$id" 1 2 "${VP[$id]["title"]:0:$((w - 4))}"
 		console pen "$DT_BAD" "$DT_FACE"
 		console put -p "w$id" 3 2 "${VP[$id]["err"]:-Stopped.}"
 		return 0
 	fi
 	[ -n "$p" ] || return 0
 	md := vp_drawmode
-	if ! vp_picture "$id" "$w" "$ph" 2 1 "$md"; then
+	if ! vp_picture "$id" "$w" "$ph" 1 1 "$md"; then
 		console pen "$DT_DIM" "$DT_FACE"
-		console put -p "w$id" 3 2 "Loading${GL[ellipsis]}"
+		console put -p "w$id" 2 2 "Loading${GL[ellipsis]}"
 	fi
 	vp_info "$id"
 	vp_drawextra "$id" "$h" "$w"
@@ -2743,8 +2800,8 @@ fn vp_drawplay(int id, int h, int w) {
 		btn := dt_tr "Skip advert"
 		btn=" $btn  s "
 		console pen "$DT_SELINK" "$DT_ACTIVE" bold
-		console put -p "w$id" 2 $((w - ${#btn} - 1)) "$btn"
-		dt_wreg "$id" 2 $((w - ${#btn} - 1)) "${#btn}" skipad
+		console put -p "w$id" 1 $((w - ${#btn} - 1)) "$btn"
+		dt_wreg "$id" 1 $((w - ${#btn} - 1)) "${#btn}" skipad
 	fi
 	# What is drawn, and -- when it is following Control Panel > Pictures
 	# -- that it is following rather than set: a bar that said only "half"
@@ -2772,7 +2829,17 @@ fn vp_drawplay(int id, int h, int w) {
 	[ "$md" = pixels ] && [ "${VPI["drawn"]}" = cells ] &&
 		pm="$pm (drawn as blocks: the display declined)"
 	l := vp_qbar "$id"
-	lab=" $a / $b  $st  vol ${VPI["volume"]}  $l  ${pm}"
+	# whose it is, how big the picture is (where the site's own words for its quality, in `l`, are not there), and by whom
+	prov := vp_name "$id"
+	res=
+	if [ -z "$l" ] && [ "$VPPID" = "$id" ] && [ "${VPP["h"]:-0}" -gt 0 ] 2> /dev/null; then
+		res=" ${VPP["h"]}p"
+	fi
+	ch=${VP[$id]["sub"]}
+	[ -n "$ch" ] && ch=", ${ch:0:20}"
+	# most important first, since a narrow window loses the end: the clock and the state, whose it is and how big, the volume, the site's own words on quality, how the
+	# picture is drawn, and last by whom (the title is in the window's frame)
+	lab=" $mk$a / $b  $st  $prov$res  vol ${VPI["volume"]}  $l  ${pm}$ch"
 	fill=0
 	[ "${dur%.*}" -gt 0 ] 2> /dev/null && fill=$(( ${pos%.*} * w / ${dur%.*} ))
 	[ "$fill" -gt "$w" ] && fill=$w
@@ -2781,7 +2848,25 @@ fn vp_drawplay(int id, int h, int w) {
 	[ "$fill" -gt 0 ] && console put -p "w$id" "$h" 1 "${lab:0:$fill}"
 	console pen "$DT_INK" "$DT_WELL"
 	console put -p "w$id" "$h" $((fill + 1)) "${lab:$fill}"
+	# a word to the viewer for a few seconds (a favourite kept, where it was taken up, a quality, a title loaded again), over the end of the bar
+	fl=${VP[$id]["flash"]-}
+	if [ -n "$fl" ] && [ "$EPOCHSECONDS" -lt "${VP[$id]["fexp"]:-0}" ]; then
+		fl=" $fl "
+		console pen "$DT_SELINK" "$DT_ACTIVE" bold
+		console put -p "w$id" "$h" $((w - ${#fl} > 1 ? w - ${#fl} : 1)) "${fl:0:$((w - 1))}"
+		dt_want 700
+	else
+		VP[$id]["flash"]=
+	fi
 	dt_wreg "$id" "$h" 1 "$w" bar
+}
+
+# A word in the bar for four seconds.
+fn vp_flash(int id, text) {
+	VP[$id]["flash"]=$text
+	VP[$id]["fexp"]=$((EPOCHSECONDS + 4))
+	dt_want 10
+	return 0
 }
 
 # Full screen: the picture alone, edge to edge.
@@ -2938,6 +3023,7 @@ fn video_click(int id, int r, int c, btn = "") {
 		fi
 		;;
 	skipad) vp_skipad "$id" ;;
+	scope:*) vp_setscope "$id" "${tag#scope:}" ;;
 	bar)
 		d=${VP[$id]["dur"]%.*}
 		[ "$d" -gt 0 ] 2> /dev/null && vp_seek "$id" $(( (c - 1) * d / ${DT[$id]["w"]} ))
@@ -3003,7 +3089,7 @@ fn video_paste(int id, text, op = "") {
 }
 
 video_menus() {
-	local id=$DT_FOCUS v on k
+	local id=$DT_FOCUS v on k x
 
 	dt_menu "File"
 	dt_item "New Window" n dt_launch video
@@ -3038,8 +3124,11 @@ video_menus() {
 	fi
 	if [ "${#VIDEO_ORDER[@]}" -gt 1 ]; then
 		dt_sep
+		# which sites the search asks (the chips under the box): all, or one
+		dt_mark "All Sites" "" "$([ -z "${VP[$id]["scope"]-}" ] && echo 1 || echo 0)" vp_setscope "$id" ""
 		for k in "${VIDEO_ORDER[@]}"; do
-			dt_mark "${VIDEO_NAMES[$k]}" "${VIDEO_KEYS[$k]}" "$([ "${VP[$id]["site"]}" = "$k" ] && echo 1 || echo 0)" vp_setsite "$id" "$k"
+			x := dt_tr "Only %s" "${VIDEO_NAMES[$k]}"
+			dt_mark "$x" "" "$([ "${VP[$id]["scope"]-}" = "$k" ] && echo 1 || echo 0)" vp_setscope "$id" "$k"
 		done
 	fi
 	dt_menu "Play"

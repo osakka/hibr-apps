@@ -10,7 +10,7 @@
 
 strict
 
-app video-bilibili "Video: Bilibili, a site for the Video player" 1.2
+app video-bilibili "Video: Bilibili, a site for the Video player" 1.3
 
 VIDEO_BILIBILI_LIBDONE=1
 
@@ -159,6 +159,7 @@ fn vb_quality(int id = 0, int dir = 1) {
 	q=${VB_QUALITIES[$(( (i + dir + ${#VB_QUALITIES[@]}) % ${#VB_QUALITIES[@]} ))]}
 	vb_setquality "$q"
 	dt_notep low "Quality %s, from the next video" "$q"
+	[ "$id" != 0 ] && vp_flash "$id" "Quality $q, from the next video"
 	return 0
 }
 fn vb_setquality(q) {
