@@ -10,7 +10,7 @@
 
 strict
 
-app video-bilibili "Video: Bilibili, a site for the Video player" 1.3
+app video-bilibili "Video: Bilibili, a site for the Video player" 1.4
 
 VIDEO_BILIBILI_LIBDONE=1
 
@@ -111,7 +111,8 @@ fn vb_step(int id) {
 	web loading "$t" 2> /dev/null && return 0
 	if [ "${VP[$id]["rstep"]}" = cid ]; then
 		q := vb_cidjs "${VP[$id]["part"]:-1}"
-		js := web eval "$t" "$q" 2> /dev/null
+		vp_ask "$id" cid "$t" "$q"
+		js=$VPA
 		[ -n "$js" ] || return 0
 		case $js in
 		err:*) VP[$id]["err"]="Bilibili said: ${js#err:}"; vp_stop "$id"; return 0 ;;
@@ -123,10 +124,11 @@ fn vb_step(int id) {
 		VP[$id]["ptitle"]=${r["part"]}
 		VP[$id]["rstep"]=url
 		qn := vb_qn
-		web go "$t" "$VB_API/x/player/playurl?bvid=$key&cid=${r["cid"]}&qn=$qn&fnval=1&platform=html5" 2> /dev/null
+		vp_go "$t" "$VB_API/x/player/playurl?bvid=$key&cid=${r["cid"]}&qn=$qn&fnval=1&platform=html5"
 		return 0
 	fi
-	js := web eval "$t" "$VB_URLJS" 2> /dev/null
+	vp_ask "$id" url "$t" "$VB_URLJS"
+	js=$VPA
 	[ -n "$js" ] || return 0
 	case $js in
 	err:*) VP[$id]["err"]="Bilibili said: ${js#err:}"; vp_stop "$id"; return 0 ;;

@@ -10,7 +10,7 @@
 
 strict
 
-app video-youtube "Video: YouTube, a site for the Video player" 1.4
+app video-youtube "Video: YouTube, a site for the Video player" 1.5
 
 VIDEO_YOUTUBE_LIBDONE=1
 
@@ -340,7 +340,8 @@ fn vy_noauto(int id) {
 	VP[$id]["nat"]=$EPOCHSECONDS
 	VP[$id]["nan"]=$(( ${VP[$id]["nan"]:-0} + 1 ))
 	[ "${VP[$id]["nan"]}" -gt 30 ] && { VP[$id]["noauto"]=1; return 0; }
-	s := web eval "${VP[$id]["pt"]}" '(function(){var a=document.querySelector(".ytp-autonav-toggle-button");if(!a)return "none";if(a.getAttribute("aria-checked")==="true"){a.click();return "clicked"}return "off"})()' 2> /dev/null
+	vp_ask "$id" na "${VP[$id]["pt"]}" '(function(){var a=document.querySelector(".ytp-autonav-toggle-button");if(!a)return "none";if(a.getAttribute("aria-checked")==="true"){a.click();return "clicked"}return "off"})()'
+	s=$VPA
 	[ "$s" = off ] && VP[$id]["noauto"]=1
 	return 0
 }

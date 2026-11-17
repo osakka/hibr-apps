@@ -22,7 +22,7 @@ strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-bilibilitv, lib/video-tubi, lib/video-youtube
 # replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
-app video "Video Player, every site in one player" 1.7
+app video "Video Player, every site in one player" 1.8
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web
@@ -320,9 +320,9 @@ fn vp_load(int id, kind, arg, head = "", push = 1) {
 	dt_has "$fn" && w := $fn "$id"
 	if [ -n "$w" ] && [ -z "${VP[$id]["warm_${VP[$id]["site"]}"]-}" ]; then
 		VP[$id]["pend"]=$u
-		web go "$t" "$w" 2> /dev/null
+		vp_go "$t" "$w" 2> /dev/null
 	else
-		web go "$t" "$u" 2> /dev/null
+		vp_go "$t" "$u" 2> /dev/null
 	fi
 }
 
@@ -381,7 +381,7 @@ fn vp_results(int id) {
 	if web loading "$t" 2> /dev/null; then
 		# a site that never answers at all is given up on too, not only one whose page came without its list
 		if [ $((EPOCHSECONDS - VP[$id]["searching"])) -gt 25 ]; then
-			web go "$t" about:blank 2> /dev/null
+			vp_go "$t" about:blank 2> /dev/null
 			VP[$id]["searching"]=
 			VP[$id]["pend"]=
 			n := vp_name "$id"
@@ -399,12 +399,13 @@ fn vp_results(int id) {
 		u=${VP[$id]["pend"]}
 		VP[$id]["pend"]=
 		VP[$id]["warm_${VP[$id]["site"]}"]=1
-		web go "$t" "$u" 2> /dev/null
+		vp_go "$t" "$u" 2> /dev/null
 		dt_want 300
 		return 0
 	fi
 	q := vp_rjs "$id"
-	js := web eval "$t" "$q" 2> /dev/null
+	vp_ask "$id" res "$t" "$q"
+	js=$VPA
 	# A season just chosen shows the old season's titles for a moment.
 	if [ -n "${VP[$id]["settle"]-}" ]; then
 		if [ $((EPOCHSECONDS - VP[$id]["settle"])) -lt 2 ]; then
@@ -1156,7 +1157,7 @@ fn vp_start(int id, int i, part = 1) {
 	fi
 	a := vp_first "$id" "$key" "$part"
 	web size "$t" 40 120 2> /dev/null
-	web go "$t" "$a" 2> /dev/null
+	vp_go "$t" "$a" 2> /dev/null
 }
 
 # Whether the window's site looks a title up in steps (state resolving, the provider's step function) before there is a page with the video.
@@ -1233,7 +1234,7 @@ fn vp_linkpage(int id, url) {
 	}
 	VP[$id]["state"]=loading
 	VP[$id]["since"]=$EPOCHSECONDS
-	web go "${VP[$id]["pt"]}" "file://$f" 2> /dev/null
+	vp_go "${VP[$id]["pt"]}" "file://$f" 2> /dev/null
 	return 0
 }
 
@@ -1258,7 +1259,7 @@ fn vp_linknext(int id) {
 			VP[$id]["state"]=resolving
 			VP[$id]["since"]=$EPOCHSECONDS
 			printf 'video: %s: trying the file from a page of the site itself (the server may want to see where the request comes from)\n' "${VP[$id]["vid"]}" >&2
-			web go "${VP[$id]["pt"]}" "$o" 2> /dev/null
+			vp_go "${VP[$id]["pt"]}" "$o" 2> /dev/null
 			return 0
 		fi
 	fi
@@ -1277,7 +1278,8 @@ fn vp_originstep(int id) {
 	u=${u//\\/\\\\}
 	u=${u//\"/\\\"}
 	js="(function(){try{history.replaceState(null,\"\",\"/$key\")}catch(e){}document.head.innerHTML=\"<style>$VP_CSS</style>\";document.body.innerHTML=\"<video autoplay muted playsinline></video>\";var v=document.querySelector(\"video\");v.src=\"$u\";v.play().catch(function(){});return \"ok\"})()"
-	r := web eval "$t" "$js" 2> /dev/null
+	vp_ask "$id" orig "$t" "$js"
+	r=$VPA
 	[ "$r" = ok ] || return 0
 	VP[$id]["lorigin"]=done
 	VP[$id]["state"]=loading
@@ -1323,7 +1325,7 @@ fn vp_stop(int id) {
 	[ -n "$p" ] && vp_cleanup "$id"
 
 	[ -n "$p" ] && [ "${VP[$id]["state"]}" = playing ] && vp_histput "$id"
-	[ -n "$t" ] && web go "$t" about:blank 2> /dev/null
+	[ -n "$t" ] && vp_go "$t" about:blank 2> /dev/null
 	VP[$id]["p"]=
 	VP[$id]["state"]=
 }
@@ -1364,6 +1366,81 @@ VPPID=
 fn vp_stale(int id) {
 	VP[$id]["pat"]=
 	VP[$id]["gen"]=$(( ${VP[$id]["gen"]:-0} + 1 ))
+	return 0
+}
+
+# Go to an address in a tab, counting it: an answer asked of the page before is about the page that was there (vp_ask).
+declare -gA VPNAV
+fn vp_go(t, u) {
+	VPNAV[$t]=$(( ${VPNAV[$t]:-0} + 1 ))
+	web go "$t" "$u" 2> /dev/null
+}
+
+# A script's answer from a tab, without waiting for it: where the engine can (`web evask`) it is asked in one call and read in a later one, so a busy page never
+# holds the desktop; where it cannot, asked and read now. 0 with the answer in VPA; 1 when it is not in (yet). One question at a time per SLOT of a window (a
+# name for what is asked), kept for ten seconds; an answer is dropped when the tab went to another address or the title changed since it was asked.
+declare -g VPA=
+fn vp_ask(int id, slot, t, js) {
+	local k="a:$slot" r rc=0 now
+
+	VPA=
+	if ! vp_has evask; then
+		r := web eval "$t" "$js" 2> /dev/null || return 1
+		VPA=$r
+		return 0
+	fi
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	# a question asked before the tab went on, or the title changed, is about what was there: dropped, and asked again now
+	[ -n "${VP[$id]["$k"]-}" ] && [ "${VP[$id]["$k:v"]-}" != "$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}" ] && VP[$id]["$k"]=
+	if [ -n "${VP[$id]["$k"]-}" ]; then
+		r := web evget "$t" "${VP[$id]["$k"]}" 2> /dev/null || rc=$?
+		[ "$rc" = 1 ] && [ $((now - ${VP[$id]["$k:at"]:-0})) -lt 10000 ] && return 1
+		VP[$id]["$k"]=
+		[ "$rc" = 0 ] && [ "${VP[$id]["$k:v"]}" = "$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}" ] || return 1
+		VPA=$r
+		return 0
+	fi
+	VP[$id]["$k"] := web evask "$t" "$js" 2> /dev/null || return 1
+	VP[$id]["$k:at"]=$now
+	VP[$id]["$k:v"]="$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}"
+	return 1
+}
+
+# What a page says while a title starts, into VPL (s: the provider's start script's answer, e: the file's error, w: why it has not started): the three in one script,
+# asked in one call and read in a later one where the engine can (`web evask`), so a loading page that is busy never holds the desktop; 0 when VPL has an answer
+# about this title now, 1 when there is none (yet).
+declare -gA VPL
+fn vp_loadread(int id) {
+	local t=${VP[$id]["pt"]} js q r rc=0 now
+
+	VPL=()
+	js := vp_startjs_now "$id"
+	q="JSON.stringify({s:(function(){try{return ($js)}catch(x){return \"\"}})(),e:(function(){try{return ($VP_ERRJS)}catch(x){return \"\"}})(),w:(function(){try{return ($VP_WHYJS)}catch(x){return \"\"}})()})"
+	now=${EPOCHREALTIME/./}
+	now=${now:0:-3}
+	if vp_has evask; then
+		[ -n "${VP[$id]["lq"]-}" ] && [ "${VP[$id]["lqv"]-}" != "$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}" ] && VP[$id]["lq"]=
+		if [ -n "${VP[$id]["lq"]-}" ]; then
+			r := web evget "$t" "${VP[$id]["lq"]}" 2> /dev/null || rc=$?
+			# still on its way (for ten seconds at most)
+			[ "$rc" = 1 ] && [ $((now - ${VP[$id]["lqat"]:-0})) -lt 10000 ] && return 1
+			VP[$id]["lq"]=
+			[ "$rc" = 0 ] && [ "${VP[$id]["lqv"]}" = "$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}" ] || return 1
+		else
+			# not in the first seconds while the tab is on its way to a page: the question would be about the one before
+			[ $((EPOCHSECONDS - ${VP[$id]["since"]:-0})) -lt 3 ] && web loading "$t" 2> /dev/null && return 1
+			VP[$id]["lq"] := web evask "$t" "$q" 2> /dev/null || return 1
+			VP[$id]["lqat"]=$now
+			VP[$id]["lqv"]="$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}"
+			return 1
+		fi
+	else
+		r := web eval "$t" "$q" 2> /dev/null || return 1
+	fi
+	json parse VPL <<< "$r" 2> /dev/null || { VPL=(); return 1; }
+	VP[$id]["lwhy"]=${VPL["w"]-}
+	VP[$id]["lwhyv"]="$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}"
 	return 0
 }
 
@@ -1537,8 +1614,10 @@ fn vp_tick(int id) {
 		dt_want 300
 	fi
 	if [ "${VP[$id]["state"]}" = loading ]; then
-		js := vp_startjs_now "$id"
-		s := web eval "$t" "$js" 2> /dev/null
+		# what the page says while it starts -- begun, a file error, why not -- is asked in one call and read in a later one: a page that is still loading, and busy, must not hold the desktop
+		vp_loadread "$id"
+		s=${VPL["s"]-}
+		e=${VPL["e"]-}
 		if [ "$s" = ok ]; then
 			VP[$id]["state"]=playing
 			VP[$id]["sat"]=${EPOCHREALTIME/./}
@@ -1546,7 +1625,6 @@ fn vp_tick(int id) {
 		fi
 		# a file the engine says it cannot play (the server refused it, or it is not a format it knows) is known at once: the next way to play it, if there is one
 		if [ "${VP[$id]["state"]}" = loading ] && [ -n "${VP[$id]["links"]-}" ]; then
-			e := web eval "$t" "$VP_ERRJS" 2> /dev/null
 			if [ -n "$e" ] && vp_linknext "$id"; then
 				dt_want 300
 				return 0
@@ -1555,7 +1633,8 @@ fn vp_tick(int id) {
 		fi
 		if [ "${VP[$id]["state"]}" = loading ] &&
 		   [ $((EPOCHSECONDS - VP[$id]["since"])) -gt 30 ]; then
-			why := web eval "$t" "$VP_WHYJS" 2> /dev/null
+			why=
+			[ "${VP[$id]["lwhyv"]-}" = "$t ${VPNAV[$t]:-0} ${VP[$id]["gen"]:-0}" ] && why=${VP[$id]["lwhy"]-}
 			printf 'video: %s did not start (%s)\n' "${VP[$id]["vid"]}" "$why" >&2
 			# a page that did not answer at all, or never got as far as having a video, is hung, not refused: it is loaded again (as a player that stops is) before the title is given up on
 			case $why in
@@ -1714,7 +1793,7 @@ fn vp_recover(int id, int pos) {
 	VP[$id]["no0at"]=$EPOCHSECONDS
 	[ "$VPPID" = "$id" ] && VP[$id]["no0"]=${VPP["no"]-}
 	a := vp_first "$id" "${VP[$id]["vid"]}" "${VP[$id]["part"]:-1}"
-	web go "${VP[$id]["pt"]}" "$a" 2> /dev/null
+	vp_go "${VP[$id]["pt"]}" "$a" 2> /dev/null
 }
 
 # Whether the player holds enough of the video to be taken to a time: it knows its length and some of the video is buffered.
@@ -2239,10 +2318,10 @@ fn vp_hubgo(int id, s) {
 	VH[$id]["t:$s"]=$EPOCHSECONDS
 	if [ -n "$w" ] && [ -z "${VP[$id]["warm_$s"]-}" ]; then
 		VH[$id]["pend:$s"]=$u
-		web go "$t" "$w" 2> /dev/null
+		vp_go "$t" "$w" 2> /dev/null
 	else
 		VH[$id]["pend:$s"]=
-		web go "$t" "$u" 2> /dev/null
+		vp_go "$t" "$u" 2> /dev/null
 	fi
 	return 0
 }
@@ -2281,7 +2360,7 @@ fn vp_hubpoll(int id) {
 		if [ -n "$u" ]; then
 			VH[$id]["pend:$s"]=
 			VP[$id]["warm_$s"]=1
-			web go "$t" "$u" 2> /dev/null
+			vp_go "$t" "$u" 2> /dev/null
 			continue
 		fi
 		p=${VIDEO_SITES[$s]}
@@ -2291,7 +2370,8 @@ fn vp_hubpoll(int id) {
 			continue
 		fi
 		q := $fn
-		js := web eval "$t" "$q" 2> /dev/null
+		vp_ask "$id" "hub:$s" "$t" "$q"
+		js=$VPA
 		[ -n "$js" ] || continue
 		json parse r <<< "$js" 2> /dev/null || r=()
 		# what a site gave is kept for the list of every site's: its titled rows only, and no more than 30, so one site's long page cannot crowd out the others

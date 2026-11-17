@@ -10,7 +10,7 @@
 
 strict
 
-app video-bilibilitv "Video: Bilibili TV, a site for the Video player" 1.1
+app video-bilibilitv "Video: Bilibili TV, a site for the Video player" 1.2
 
 VIDEO_BILIBILITV_LIBDONE=1
 
@@ -88,7 +88,8 @@ fn vq_step(int id) {
 	local t=${VP[$id]["pt"]} js
 
 	web loading "$t" 2> /dev/null && return 0
-	js := web eval "$t" "$VQ_URLJS" 2> /dev/null
+	vp_ask "$id" url "$t" "$VQ_URLJS"
+	js=$VPA
 	[ -n "$js" ] || return 0
 	case $js in
 	err:*) VP[$id]["err"]="Bilibili TV said: ${js#err:}"; vp_stop "$id"; return 0 ;;
