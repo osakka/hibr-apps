@@ -4,7 +4,7 @@
 # from the theme and colour scheme, speaks the desktop's language and keeps its
 # settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more
 # through the media module, with a playlist (.m3u), a seek bar, volume,
-# shuffle, repeat and a ten-band equalizer window.
+# shuffle, repeat, a spectrum and a ten-band equalizer window.
 #
 # Licence: LGPL-3.0-or-later, as hibr's own apps are.
 #
@@ -14,11 +14,12 @@
 #
 # A callback never waits: a frame asks the player how it is doing, which is a
 # read, and asks for another frame.  The equalizer keeps its numbers and hands
-# them to `media eq` when the media module has it (hibr 0.99.547).
+# them to `media eq`, and the spectrum is `media spectrum`, when the media
+# module has them (hibr 0.99.547).
 
 strict
 
-app huiamp "A music player" 0.4
+app huiamp "A music player" 0.4.1
 # part: control-panel/huiampset.hibr
 
 command -v dt_app > /dev/null && dt_app huiamp "Huiamp" 18 56 once "♫"
@@ -29,8 +30,9 @@ HUIAMP_SHUFFLE="${HUIAMP_SHUFFLE-0}"
 HUIAMP_REPEAT="${HUIAMP_REPEAT-0}"
 HUIAMP_AUTOPLAY="${HUIAMP_AUTOPLAY-1}"
 HUIAMP_EQPRESET="${HUIAMP_EQPRESET-Flat}"
+HUIAMP_SPECTRUM="${HUIAMP_SPECTRUM-1}"
 command -v dt_keep > /dev/null &&
-	dt_keep HUIAMP_VOLUME HUIAMP_SHUFFLE HUIAMP_REPEAT HUIAMP_AUTOPLAY HUIAMP_EQPRESET
+	dt_keep HUIAMP_VOLUME HUIAMP_SHUFFLE HUIAMP_REPEAT HUIAMP_AUTOPLAY HUIAMP_EQPRESET HUIAMP_SPECTRUM
 
 declare -gA HA
 command -v dt_keepstate > /dev/null && dt_keepstate huiamp HA
@@ -102,7 +104,11 @@ fn huiamp_close(int id) {
 fn ha_add(int id, path) {
 	local n=${HA[$id]["n"]}
 
-	[ -f "$path" ] || return 0
+	path=${path#file://}
+	case $path in
+	*"://"*) ;;
+	*) [ -f "$path" ] || return 0 ;;
+	esac
 	HA[$id]["p$n"]=$path
 	HA[$id]["n"]=$((n + 1))
 	ha_bump "$id"
@@ -196,18 +202,19 @@ fn ha_stop(int id) {
 
 # Start the one at a place in the list.
 fn ha_play(int id, int i) {
-	local path p
+	local path p addr
 
 	[ "$i" -ge 0 ] && [ "$i" -lt "${HA[$id]["n"]}" ] || return 1
 	ha_stop "$id"
 	path=${HA[$id]["p$i"]}
 	case $path in
-	/*) ;;
-	*) path="$PWD/$path" ;;
+	*"://"*) addr=$path ;;
+	/*) addr="file://$path" ;;
+	*) addr="file://$PWD/$path" ;;
 	esac
 	# An address is opened in the player's own thread, so this returns at once;
 	# a path would be opened and probed here, in the frame.
-	p := media open "file://$path"
+	p := media open "$addr"
 	if [ -z "$p" ]; then
 		HA[$id]["err"]="Cannot play ${path##*/}"
 		return 1
@@ -315,10 +322,64 @@ fn ha_seekfrac(int id, int frac) {
 
 # ---- drawing -----------------------------------------------------------------
 
+# The spectrum: `media spectrum` bands the newest sound; bars rise at once and
+# fall a step a frame, four rows high at eight steps a row, in the colours the
+# theme gives good, warn and bad.  It sits to the right of the buttons, and is
+# left out where the media module has no spectrum or the window is too narrow.
+HA_VISCOL=43
+
+fn ha_visdraw(int id, int w) {
+	local p=${HA[$id]["player"]} n=$((w - HA_VISCOL)) i k v old s line lvl cells any=0 pen
+	local -a nv=()
+
+	HA[$id]["visany"]=0
+	[ "$HUIAMP_SPECTRUM" = 1 ] || return 0
+	ha_eqprobe
+	[ "$HAEQ_SPEC" = 1 ] || return 0
+	[ "$n" -ge 6 ] || return 0
+	[ "$n" -le 32 ] || n=32
+	if [ "${HA[$id]["state"]}" = playing ] && [ -n "$p" ]; then
+		s := media spectrum "$p" "$n"
+		read -r -a nv <<< "$s"
+	fi
+	for ((i = 0; i < n; i++)); do
+		v=${nv[$i]:-0}
+		old=${HA[$id]["v$i"]:-0}
+		[ "$v" -ge $((old - 12)) ] || v=$((old - 12))
+		[ "$v" -ge 0 ] || v=0
+		HA[$id]["v$i"]=$v
+		[ "$v" -le 0 ] || any=1
+	done
+	HA[$id]["visany"]=$any
+	for ((k = 3; k >= 0; k--)); do
+		line=
+		for ((i = 0; i < n; i++)); do
+			lvl=$((${HA[$id]["v$i"]} * 32 / 255))
+			cells=$((lvl - k * 8))
+			if [ "$cells" -ge 8 ]; then
+				line+=${GL[block]}
+			elif [ "$cells" -gt 0 ]; then
+				line+=${GL["spark$cells"]}
+			else
+				line+=" "
+			fi
+		done
+		case $k in
+		3) pen=$DT_BAD ;;
+		2) pen=$DT_WARN ;;
+		*) pen=$DT_GOOD ;;
+		esac
+		console pen "$pen" "$DT_FACE"
+		console put -p "w$id" $((7 - k)) "$HA_VISCOL" "$line"
+	done
+}
+
+
 fn huiamp_dirty(int id) {
 	case ${HA[$id]["state"]} in
 	playing | loading) return 0 ;;
 	esac
+	[ "${HA[$id]["visany"]:-0}" = 0 ] || return 0
 	[ "${HA[$id]["gen"]}" != "${HA[$id]["drawn"]:-x}" ]
 }
 
@@ -329,7 +390,7 @@ fn huiamp_draw(int id, int h, int w, int row, int col) {
 	ha_poll "$id"
 	HA[$id]["drawn"]=${HA[$id]["gen"]}
 	case ${HA[$id]["state"]} in
-	playing) dt_want 250 ;;
+	playing) if [ "$HUIAMP_SPECTRUM" = 1 ] && [ "$HAEQ_SPEC" = 1 ]; then dt_want 80; else dt_want 250; fi ;;
 	loading) dt_want 50 ;;
 	esac
 	n=${HA[$id]["n"]}
@@ -377,6 +438,10 @@ fn huiamp_draw(int id, int h, int w, int row, int col) {
 
 	# the transport
 	dt_buttons "$id" 5 2 "" prev "Prev" play "Play" pause "Pause" stop "Stop" next "Next"
+
+	# the spectrum, right of the buttons
+	ha_visdraw "$id" "$w"
+	[ "${HA[$id]["visany"]}" = 0 ] || [ "${HA[$id]["state"]}" = playing ] || dt_want 60
 
 	# volume: a label, a slider, a number
 	vl := dt_tr "Volume"
@@ -542,6 +607,42 @@ fn huiamp_scroll(int id, key, int top) {
 
 # ---- menus -------------------------------------------------------------------
 
+# ---- Edit: copy, cut and paste work on paths -------------------------------
+
+# Copy: the chosen track's path (or address); fails when there is none.
+fn huiamp_copy(int id) {
+	local sel=${HA[$id]["sel"]}
+
+	[ "${HA[$id]["n"]}" -gt 0 ] || return 1
+	ret "${HA[$id]["p$sel"]}"
+}
+
+# Cut: copy it, then take it out of the list.
+fn huiamp_cut(int id) {
+	local t
+
+	t := huiamp_copy "$id" || return 1
+	ha_remove "$id"
+	ret "$t"
+}
+
+# Paste: each line is a file, a file:// address or an http(s) address, added to
+# the list; with nothing playing and autoplay on, the first of them plays.
+fn huiamp_paste(int id, text, op) {
+	local line n=${HA[$id]["n"]}
+
+	while IFS= read -r line || [ -n "$line" ]; do
+		line=${line%$'\r'}
+		[ -n "$line" ] || continue
+		ha_addany "$id" "$line"
+	done <<< "$text"
+	if [ -z "${HA[$id]["player"]}" ] && [ "$HUIAMP_AUTOPLAY" = 1 ] && [ "${HA[$id]["n"]}" -gt "$n" ]; then
+		ha_play "$id" "$n"
+	fi
+	ha_bump "$id"
+}
+
+
 # One thing from a menu, for the window that had focus when it opened.
 fn ha_menu(int id, what) {
 	case $what in
@@ -555,6 +656,7 @@ fn ha_menu(int id, what) {
 	remove) ha_remove "$id" ;;
 	open) ha_openbox "$id" ;;
 	eq) ha_eqtoggle "$id" ;;
+	spectrum) HUIAMP_SPECTRUM=$((1 - HUIAMP_SPECTRUM)); ha_keep; ha_bump "$id" ;;
 	louder) ha_vol "$id" $((HUIAMP_VOLUME + 10)) ;;
 	quieter) ha_vol "$id" $((HUIAMP_VOLUME - 10)) ;;
 	esac
@@ -584,6 +686,7 @@ huiamp_menus() {
 	dt_item "Quieter" q ha_menu "$id" quieter
 	dt_menu "View"
 	dt_mark "Equalizer" e "$eqon" ha_menu "$id" eq
+	dt_mark "Spectrum" "" "$HUIAMP_SPECTRUM" ha_menu "$id" spectrum
 }
 
 # ============================================================================
@@ -599,6 +702,7 @@ command -v dt_app > /dev/null && dt_app huiampeq "Huiamp Equalizer" 16 54 once "
 declare -gA HAEQ
 HAEQ_FREQ=("60" "170" "310" "600" "1K" "3K" "6K" "12K" "14K" "16K")
 HAEQ_CAN=
+HAEQ_SPEC=
 HAEQ_TOP=3
 HAEQ_ROWS=9
 
@@ -623,6 +727,10 @@ fn ha_eqprobe() {
 	case $u in
 	*" eq "* | *"|eq|"* | *"eq id"*) HAEQ_CAN=1 ;;
 	*) HAEQ_CAN=0 ;;
+	esac
+	case $u in
+	*spectrum*) HAEQ_SPEC=1 ;;
+	*) HAEQ_SPEC=0 ;;
 	esac
 }
 

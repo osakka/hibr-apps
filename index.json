@@ -48,11 +48,11 @@
     },
     "apps/huiamp": {
       "title": "Huiamp",
-      "version": "0.4",
+      "version": "0.4.1",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/huiamp.hibr",
-      "sha256": "f9d16cab5d6d53fbb9b6e696db2f3f64d375da597fa16c02efbc3c028b5ae29f",
-      "about": "A music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
+      "sha256": "bf6023dda60cc41b24ebc9312d605e1363e7dce78c1ba7d0c07e94622327d24b",
+      "about": "A music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "huiamp",
@@ -63,7 +63,7 @@
           "kind": "control-panel",
           "as": "huiampset.hibr",
           "path": "bundles/control-panel/huiampset.hibr",
-          "sha256": "f012ae5d9fab89ccda2bd438f79f13594e7801db2a871cf5c92a69db43b07ac8"
+          "sha256": "f76ba4eaf902329f4ef9ae35afb14339ec451c47d82f0cae2dc605a362318847"
         }
       ]
     },
@@ -1765,11 +1765,11 @@
     },
     "huiamp": {
       "title": "Huiamp",
-      "version": "0.4",
+      "version": "0.4.1",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/huiamp.hibr",
-      "sha256": "f9d16cab5d6d53fbb9b6e696db2f3f64d375da597fa16c02efbc3c028b5ae29f",
-      "about": "A music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
+      "sha256": "bf6023dda60cc41b24ebc9312d605e1363e7dce78c1ba7d0c07e94622327d24b",
+      "about": "A music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "huiamp",
