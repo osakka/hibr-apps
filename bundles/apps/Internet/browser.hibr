@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.55
+app browser "The web, in a window" 2.56
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -666,8 +666,12 @@ declare -g BW_UPDIR=
 fn browser_drop(int id, int r, int c, op, ...paths) {
 	local t=${BW[$id]["cur"]-} pt=${BW[$id]["pt"]:-3}
 
-	[ -n "$t" ] && [ "$r" -ge "$pt" ] || return 0
+	[ -n "$t" ] || return 0
 	# said, not silent: a drop that goes nowhere looks like the desktop ignoring the file
+	if [ "$r" -lt "$pt" ]; then
+		dt_notep low "Let go of the file over the page, not over the address or the tabs"
+		return 0
+	fi
 	if ! bw_tabhas "$t" filedrop; then
 		dt_notep low "This page's engine cannot take files let go on it"
 		return 0
@@ -677,7 +681,9 @@ fn browser_drop(int id, int r, int c, op, ...paths) {
 		dt_notep low "A page drawn as text cannot take files let go on it"
 		return 0
 	fi
-	web drop "$t" $((r - pt)) $((c - 1)) "${paths[@]}" 2> /dev/null
+	if ! web drop "$t" $((r - pt)) $((c - 1)) "${paths[@]}" 2> /dev/null; then
+		dt_notep low "The page's engine did not take the file"
+	fi
 	return 0
 }
 
