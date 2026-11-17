@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.54
+app browser "The web, in a window" 2.55
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -666,9 +666,17 @@ declare -g BW_UPDIR=
 fn browser_drop(int id, int r, int c, op, ...paths) {
 	local t=${BW[$id]["cur"]-} pt=${BW[$id]["pt"]:-3}
 
-	[ -n "$t" ] && [ "$r" -ge "$pt" ] && bw_tabhas "$t" filedrop || return 0
+	[ -n "$t" ] && [ "$r" -ge "$pt" ] || return 0
+	# said, not silent: a drop that goes nowhere looks like the desktop ignoring the file
+	if ! bw_tabhas "$t" filedrop; then
+		dt_notep low "This page's engine cannot take files let go on it"
+		return 0
+	fi
 	bw_drawmode
-	[ "$BW_DRAWN" = text ] && return 0
+	if [ "$BW_DRAWN" = text ]; then
+		dt_notep low "A page drawn as text cannot take files let go on it"
+		return 0
+	fi
 	web drop "$t" $((r - pt)) $((c - 1)) "${paths[@]}" 2> /dev/null
 	return 0
 }
@@ -3541,14 +3549,39 @@ fn bw_openhosts() {
 # Said in the record (about:diagnostics), so that "the browser ate my memory" and "this site is slow" leave the page that did it: when the engine
 # holds more than 1.5 GB (how much, which sites are open) -- once, and again only after it has grown by a quarter; and when it has used more than a
 # core and a fifth for forty seconds running (how much, which sites), not more than every two minutes.  Looked at every 20 seconds.
-declare -g BW_MEMAT=0 BW_MEMLAST=0 BW_CPUAT=0 BW_CPUWAS=0 BW_CPUBUSY=0 BW_CPUNOTE=0
+declare -g BW_MEMAT=0 BW_MEMLAST=0 BW_CPUAT=0 BW_CPUWAS=0 BW_CPUBUSY=0 BW_CPUNOTE=0 BW_ENGCPU=0 BW_ENGMB=0 BW_MEMJOB= BW_MEMJOBAT=0
+# The reading is a job (two `ps` and an `awk` forked inside a callback held the desktop; hibr 0.99.543's `held:` lines): bw_memwatch starts it, and bw_memdone
+# looks at what it found when it ends.  The job's side sets the two numbers.
+fn bw_engineread() {
+	BW_ENGCPU=$(ps -U "$(id -u)" -o cputimes=,comm= 2> /dev/null | awk '/hibr-wpe|WPEWebProcess|WPENetworkProcess/ { s += $1 } END { printf "%d", s }')
+	BW_ENGMB=$(ps -U "$(id -u)" -o rss=,comm= 2> /dev/null | awk '/hibr-wpe|WPEWebProcess|WPENetworkProcess/ { s += $1 } END { printf "%d", s / 1024 }')
+}
 fn bw_memwatch() {
-	local mb cpu pct dt hosts
-
 	[ $((EPOCHSECONDS - BW_MEMAT)) -ge 20 ] || return 0
-	cpu := bw_enginecpu
-	if [ "$BW_MEMAT" -gt 0 ] && [ "$cpu" -ge "$BW_CPUWAS" ]; then
-		dt=$((EPOCHSECONDS - BW_MEMAT))
+	# a reading that has not come back in two minutes is given up on (the job died), so the watch goes on
+	[ -n "$BW_MEMJOB" ] && [ $((EPOCHSECONDS - BW_MEMJOBAT)) -lt 120 ] && return 0
+	BW_MEMJOB=
+	BW_MEMAT=$EPOCHSECONDS
+	BW_MEMJOBAT=$EPOCHSECONDS
+	if dt_has dt_jobvars; then
+		BW_MEMJOB := dt_jobvars browser engine bw_memdone bw_engineread BW_ENGCPU BW_ENGMB || BW_MEMJOB=
+		[ -n "$BW_MEMJOB" ] && return 0
+	fi
+	# no jobs here (an older hibr): read it now
+	bw_engineread
+	bw_memdone 0 0
+}
+
+# What the job found: the processor used since the last look, and the memory held.
+fn bw_memdone(int? n = 0, int? st = 0) {
+	local mb=${BW_ENGMB:-0} cpu=${BW_ENGCPU:-0} pct dt hosts
+
+	BW_MEMJOB=
+	# (a test reads what the job found from here)
+	[ -n "${BW_MEMTRACE-}" ] && printf '%s %s\n' "$cpu" "$mb" >> "$BW_MEMTRACE"
+	if [ "$BW_CPUAT" -gt 0 ] && [ "$cpu" -ge "$BW_CPUWAS" ]; then
+		dt=$((EPOCHSECONDS - BW_CPUAT))
+		[ "$dt" -gt 0 ] || dt=1
 		pct=$(((cpu - BW_CPUWAS) * 100 / dt))
 		if [ "$pct" -ge 120 ]; then
 			BW_CPUBUSY=$((BW_CPUBUSY + 1))
@@ -3562,8 +3595,7 @@ fn bw_memwatch() {
 		fi
 	fi
 	BW_CPUWAS=$cpu
-	BW_MEMAT=$EPOCHSECONDS
-	mb := bw_enginemb
+	BW_CPUAT=$EPOCHSECONDS
 	if [ "$mb" -lt 1500 ]; then
 		BW_MEMLAST=0
 		return 0
