@@ -691,6 +691,32 @@ fn isdata(kind) {
 	return 1
 }
 
+# A bundle's path as the address part of a URL: every byte that is not a
+# letter, a digit or one of `/-._~` percent-encoded. The client hands the
+# index's `bundle` and part `path` straight to `dav get`, which sends them
+# as they are, and a folder with a space in it -- `Sound & Video` -- was a
+# 400 from the server (2026-11-17). Encoding here reaches every client
+# already installed; `dir`, which says where the file lands, stays plain.
+fn urlpath(p) {
+	local o="" c i
+
+	for ((i = 0; i < ${#p}; i++)); do
+		c=${p:i:1}
+		case $c in
+		[A-Za-z0-9/._~-]) o+=$c ;;
+		[[:ascii:]]) o+=$(printf '%%%02X' "'$c") ;;
+		*)
+			# A character past ASCII is its UTF-8 bytes, each encoded.
+			local b
+			for b in $(printf '%s' "$c" | od -An -tx1); do
+				o+=%${b^^}
+			done
+			;;
+		esac
+	done
+	ret "$o"
+}
+
 fn shaof(path) {
 	local line
 
@@ -1263,7 +1289,7 @@ builds for several machines has mkindex run on each of them."
 			title) v=$title ;;
 			version) v=$ver ;;
 			kind) v=$kind ;;
-			bundle) v="bundles/$kind${dr0:+/$dr0}/${bundle##*/}" ;;
+			bundle) v := urlpath "bundles/$kind${dr0:+/$dr0}/${bundle##*/}" ;;
 			sha256) v=$sha ;;
 			about) v=$about ;;
 			licence) v=$lic ;;
@@ -1354,7 +1380,7 @@ builds for several machines has mkindex run on each of them."
 				psha := shaof "$HERE/$pp"
 				IX["entries"]["$id"]["parts"]["$pn"]["kind"]=$pk
 				IX["entries"]["$id"]["parts"]["$pn"]["as"]=$pf
-				IX["entries"]["$id"]["parts"]["$pn"]["path"]=$pp
+				IX["entries"]["$id"]["parts"]["$pn"]["path"] := urlpath "$pp"
 				IX["entries"]["$id"]["parts"]["$pn"]["sha256"]=$psha
 				pn=$((pn + 1))
 			done
