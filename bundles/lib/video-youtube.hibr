@@ -10,7 +10,7 @@
 
 strict
 
-app video-youtube "Video: YouTube, a site for the Video player" 1.5
+app video-youtube "Video: YouTube, a site for the Video player" 1.6
 
 VIDEO_YOUTUBE_LIBDONE=1
 
@@ -88,7 +88,8 @@ fn vy_rjs() {
 	ret "$VY_RJS"
 }
 fn vy_pjs() {
-	ret "$VY_SKIPJS;$VY_PJS"
+	# one expression, not two statements: on the real page (Trusted Types) a script of two statements is refused outright, and the page was never read -- the clock stayed at 0:00
+	ret "($VY_SKIPJS,$VY_PJS)"
 }
 
 # What to load for a title: its watch page (and the follow-the-page and autoplay state is cleared).
@@ -289,7 +290,7 @@ fn vy_skip(int id, how = "") {
 		[ "$how" = auto ] || dt_notep low "Nothing to skip: no advert, or YouTube has not offered to skip it yet"
 		return 0
 	fi
-	vp_send "${VP[$id]["pt"]}" "$VY_SKIPJS;(function(){var b=window.__hibrSkip&&window.__hibrSkip();if(b)b.click()})()"
+	vp_send "${VP[$id]["pt"]}" "($VY_SKIPJS,(function(){var b=window.__hibrSkip&&window.__hibrSkip();if(b)b.click()})())"
 	VP[$id]["adskip"]=0
 	vp_stale "$id"
 	vp_flash "$id" "Skipping the advert"
