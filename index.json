@@ -46,27 +46,6 @@
       "name": "clock",
       "dir": "Accessories"
     },
-    "apps/huiamp": {
-      "title": "Huiamp",
-      "version": "0.4.1",
-      "kind": "apps",
-      "bundle": "bundles/apps/Accessories/huiamp.hibr",
-      "sha256": "bf6023dda60cc41b24ebc9312d605e1363e7dce78c1ba7d0c07e94622327d24b",
-      "about": "A music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "huiamp",
-      "hibr": "0.99.534",
-      "dir": "Accessories",
-      "parts": [
-        {
-          "kind": "control-panel",
-          "as": "huiampset.hibr",
-          "path": "bundles/control-panel/huiampset.hibr",
-          "sha256": "f76ba4eaf902329f4ef9ae35afb14339ec451c47d82f0cae2dc605a362318847"
-        }
-      ]
-    },
     "apps/imgview": {
       "title": "Image Viewer",
       "version": "1.2",
@@ -372,6 +351,40 @@
       "hibr": "0.99.517",
       "modules": "md mermaid",
       "dir": "Office"
+    },
+    "apps/audio": {
+      "title": "Audio Player",
+      "version": "0.7.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Sound%20%26%20Video/audio.hibr",
+      "sha256": "50f0b936ba36e347be9c95195ef68a499bd1c3eb73cd79f93bf69edf7d3f1408",
+      "about": "An audio player\n\na music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum, left and right level meters and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "audio",
+      "hibr": "0.99.548",
+      "replaces": "apps/huiamp",
+      "dir": "Sound & Video",
+      "parts": [
+        {
+          "kind": "control-panel",
+          "as": "audioset.hibr",
+          "path": "bundles/control-panel/audioset.hibr",
+          "sha256": "983dc022473c646f027d23d9f8f3549dee85c288cad80e294c22a8acff17879c"
+        },
+        {
+          "kind": "menubar",
+          "as": "audiobar.hibr",
+          "path": "bundles/menubar/audiobar.hibr",
+          "sha256": "46307af7ef434014bd79625918e480e813404323cf82eeefcc523ea4c0e7ea07"
+        },
+        {
+          "kind": "lang",
+          "as": "audio.ar.json",
+          "path": "bundles/lang/audio.ar.json",
+          "sha256": "7ba738569764021aa6eda95a92ea2dff66e2f6b0a5abd5444507999b73e6aa16"
+        }
+      ]
     },
     "apps/video": {
       "title": "Video Player",
@@ -1763,19 +1776,6 @@
       "modules": "media pty",
       "dir": "Accessories"
     },
-    "huiamp": {
-      "title": "Huiamp",
-      "version": "0.4.1",
-      "kind": "apps",
-      "bundle": "bundles/apps/Accessories/huiamp.hibr",
-      "sha256": "bf6023dda60cc41b24ebc9312d605e1363e7dce78c1ba7d0c07e94622327d24b",
-      "about": "A music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
-      "licence": "LGPL-3.0-or-later",
-      "author": "Omar Sakka",
-      "name": "huiamp",
-      "hibr": "0.99.534",
-      "dir": "Accessories"
-    },
     "imgview": {
       "title": "Image Viewer",
       "version": "1.2",
@@ -2003,6 +2003,20 @@
       "hibr": "0.99.517",
       "modules": "md mermaid",
       "dir": "Office"
+    },
+    "audio": {
+      "title": "Audio Player",
+      "version": "0.7.0",
+      "kind": "apps",
+      "bundle": "bundles/apps/Sound%20%26%20Video/audio.hibr",
+      "sha256": "50f0b936ba36e347be9c95195ef68a499bd1c3eb73cd79f93bf69edf7d3f1408",
+      "about": "An audio player\n\na music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum, left and right level meters and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "audio",
+      "hibr": "0.99.548",
+      "replaces": "apps/huiamp",
+      "dir": "Sound & Video"
     },
     "video": {
       "title": "Video Player",

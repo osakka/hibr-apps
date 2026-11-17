@@ -1,0 +1,85 @@
+#!/usr/bin/env hibr
+#
+# audioset -- the Control Panel pane for Audio Player: the volume it starts at,
+# shuffle and repeat, whether opening a file plays it, and the equalizer
+# preset a new equalizer window starts from.  Named audioset, not audio,
+# which is the app's own prefix.
+#
+# Licence: LGPL-3.0-or-later, as hibr's own apps are.
+
+strict
+
+app audioset "The Control Panel pane for the Audio Player" 1.0
+command -v cp_pane > /dev/null && cp_pane audioset "Audio Player" "♫" app
+
+# What the pane changes, declared here so it loads on its own under strict.
+declare -g AUDIO_VOLUME="${AUDIO_VOLUME-80}" AUDIO_SHUFFLE="${AUDIO_SHUFFLE-0}"
+declare -g AUDIO_REPEAT="${AUDIO_REPEAT-0}" AUDIO_AUTOPLAY="${AUDIO_AUTOPLAY-1}"
+declare -g AUDIO_EQPRESET="${AUDIO_EQPRESET-Flat}" AUDIO_SPECTRUM="${AUDIO_SPECTRUM-1}" AUDIO_LEVELS="${AUDIO_LEVELS-1}" AUDIO_BAR="${AUDIO_BAR-on}" AUDIO_REMEMBER="${AUDIO_REMEMBER-1}"
+
+AUDIOSET_VOLUMES=(0 10 20 30 40 50 60 70 80 90 100)
+
+fn cp_set_hvol(int? id = "", value = "") {
+	AUDIO_VOLUME=$value
+	cp_save
+}
+
+fn cp_set_hpreset(int? id = "", value = "") {
+	AUDIO_EQPRESET=$value
+	cp_save
+}
+
+# A volume in words.
+fn audioset_vol(v) {
+	ret "$v%"
+}
+
+fn audioset_rows(int w) {
+	local n=0
+
+	dt_has ap_play || { cp_absent "$w" Audio Player; ret 1; }
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Volume"; CP[$w][$n]["key"]=hvol
+	cp_choice "$w" "$n" "${AUDIO_VOLUME:-80}" cp_set_hvol "${AUDIOSET_VOLUMES[@]}"
+	CP[$w][$n]["vname"]=audioset_vol
+	n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Shuffle"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_SHUFFLE" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_SHUFFLE; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Repeat"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_REPEAT" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_REPEAT; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Play a File When It Is Opened"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_AUTOPLAY" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_AUTOPLAY; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Show the Spectrum"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_SPECTRUM" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_SPECTRUM; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Show the Level Meters"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_LEVELS" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_LEVELS; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Remember the Playlist"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_REMEMBER" = 1 ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_REMEMBER; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Show on the Menu Bar"
+	CP[$w][$n]["wtype"]=bool
+	CP[$w][$n]["val"]=off; [ "$AUDIO_BAR" = on ] && CP[$w][$n]["val"]=on
+	CP[$w][$n]["key"]=AUDIO_BAR; n=$((n + 1))
+	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Equalizer Preset"; CP[$w][$n]["key"]=hpreset
+	cp_choice "$w" "$n" "${AUDIO_EQPRESET:-Flat}" cp_set_hpreset "${APEQ_NAMES[@]}"
+	n=$((n + 1))
+	ret "$n"
+}
+
+fn audioset_do(int w, k, int dir) {
+	case $k in
+	AUDIO_SHUFFLE | AUDIO_REPEAT | AUDIO_AUTOPLAY | AUDIO_SPECTRUM | AUDIO_LEVELS | AUDIO_REMEMBER) cp_toggle "$k" ;;
+	AUDIO_BAR) cp_toggle "$k"; dt_has audiobar_switch && audiobar_switch ;;
+	esac
+	cp_save
+}

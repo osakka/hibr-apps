@@ -1,0 +1,127 @@
+#!/usr/bin/env hibr
+#
+# audiobar -- what Audio Player is playing, on the menu bar: a symbol for the state
+# and the track, "▶ Title".  A press plays or pauses, the wheel over it is the
+# volume, a right click opens its menu (play, pause, next, previous, stop, show
+# Audio Player).  It follows Audio Player, so with Audio Player not loaded it shows nothing.
+#
+# Part of the Audio Player.  Its one switch is the pane's Show on the Menu Bar
+# (AUDIO_BAR), which Menu Bar Items shows and turns too (dt_bariswitch).
+#
+# Licence: LGPL-3.0-or-later, as hibr's own apps are.
+
+strict
+
+app audiobar "What Audio Player is playing, on the menu bar" 1.0
+
+AUDIO_BAR="${AUDIO_BAR-on}"
+command -v dt_keep > /dev/null && dt_keep AUDIO_BAR
+
+# What the text was last made from, so the bar is told only when it changes.
+AUDIOBAR_KEY=
+
+dt_baritem audiobar ""
+dt_barilabel audiobar "Audio Player"
+dt_bariswitch audiobar AUDIO_BAR audiobar_switch
+dt_baripress audiobar audiobar_press
+dt_bariwheel audiobar audiobar_wheel
+dt_barhook audiobar_hook
+
+# The window Audio Player has open, the first of them: it is a one-window app.
+fn audiobar_win() {
+	local w
+
+	dt_has ap_toggle || return 1
+	for w in "${AP_WINS[@]}"; do
+		ret "$w"
+		return 0
+	done
+	return 1
+}
+
+# The text: a state symbol and the track, cut to what a bar can spare.
+fn audiobar_text() {
+	local w t s title
+
+	w := audiobar_win || { ret ""; return 0; }
+	case ${AP[$w]["state"]} in
+	playing) s=${GL[right]} ;;
+	paused) s=${GL[dvline]} ;;
+	loading) s=${GL[ellipsis]} ;;
+	*) s=${GL[square]} ;;
+	esac
+	title=${AP[$w]["title"]}
+	[ "${AP[$w]["state"]}" != stopped ] || title=
+	[ "${#title}" -le 26 ] || title="${title:0:25}${GL[ellipsis]}"
+	t="${GL[sound]} $s"
+	[ -z "$title" ] || t+=" $title"
+	ret "$t"
+}
+
+# Each frame, before the bar's gate: call dt_baritem only when it changed.
+audiobar_hook() {
+	local t k
+
+	if [ "${AUDIO_BAR-on}" != on ] && [ "${AUDIO_BAR-}" != 1 ]; then
+		k=off
+		t=
+	else
+		t := audiobar_text
+		k=$t
+	fi
+	[ "$k" = "$AUDIOBAR_KEY" ] && return 0
+	AUDIOBAR_KEY=$k
+	dt_baritem audiobar "$t"
+	return 0
+}
+
+# After the switch is turned, from the list or the pane: at once.
+audiobar_switch() {
+	AUDIOBAR_KEY=x
+	audiobar_hook
+}
+
+# A press: play or pause; with Audio Player not open, open it.
+fn audiobar_press(btn, int r, int c) {
+	local w
+
+	# a right click opens the item's own menu (with a press handler, the bar
+	# does not run dt_bariright's words, so it is done here)
+	if [ "$btn" = right ]; then
+		dt_mclose
+		dt_barmenu audiobar audiobar
+		return 0
+	fi
+	dt_mclose
+	if w := audiobar_win; then
+		ap_toggle "$w"
+	else
+		dt_has ap_toggle && dt_launch audio
+	fi
+	return 0
+}
+
+# The wheel over it is the volume.
+fn audiobar_wheel(dir) {
+	local w
+
+	w := audiobar_win || return 0
+	if [ "$dir" = up ]; then ap_vol "$w" $((AUDIO_VOLUME + 5)); else ap_vol "$w" $((AUDIO_VOLUME - 5)); fi
+}
+
+# Its menu.
+fn audiobar_context(id = "") {
+	local w
+
+	dt_menu "Audio Player"
+	if w := audiobar_win; then
+		dt_item "Play/Pause" p ap_menu "$w" toggle
+		dt_item "Next" n ap_menu "$w" next
+		dt_item "Previous" v ap_menu "$w" prev
+		dt_item "Stop" t ap_menu "$w" stop
+		dt_sep
+		dt_item "Show Audio Player" s dt_launch audio
+	else
+		dt_item "Open Audio Player" o dt_launch audio
+	fi
+}
