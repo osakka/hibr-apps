@@ -526,6 +526,9 @@ ENTHIBR["menubar/tray"]=0.99.539
 ENTHIBR["control-panel/longwire"]=0.99.534
 # huiamp's pane declares its dropdowns with cp_choice (0.99.534); its equaliser asks media for `eq`, which 0.99.547 has, and says it waits on an older one.
 ENTHIBR["apps/huiamp"]=0.99.534
+# In the Sound & Video folder, which a client before 0.99.548 could not place (cat_dirok refused the ampersand and put the app at the top of Applications): an older desktop keeps the version it has, in Internet or as Huiamp.
+ENTHIBR["apps/video"]=0.99.548
+ENTHIBR["apps/audio"]=0.99.548
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
