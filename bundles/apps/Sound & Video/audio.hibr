@@ -20,7 +20,7 @@
 
 strict
 
-app audio "An audio player" 0.7.0
+app audio "An audio player" 0.7.1
 # replaces: apps/huiamp
 # part: control-panel/audioset.hibr
 # part: menubar/audiobar.hibr
@@ -557,24 +557,24 @@ command -v dt_ticker > /dev/null && dt_ticker audio_tick
 
 # ---- the faceplate ---------------------------------------------------------
 #
-# Rows of the window, from the top:
-#   1     the top of the display (a recessed panel on the theme's well colour)
-#   2-4   the time in big pixel digits, the track, the spectrum
-#   5-6   the left and right level meters
-#   7     the seek bar
-#   8     the foot of the display
-#   9-11  the keys: previous, play, pause, stop, next, open
-#   12    the volume
-#   13    a rule, then the playlist, then a line of keys
+# Rows of the window, from the top, on one grid: everything starts at column
+# 3 and ends two short of the right edge.
+#   1-6   the display, on the theme's well colour from edge to edge:
+#         1    what it is doing, and the lit words (shuffle, repeat, EQ, sleep)
+#         2-4  the time in big pixel digits, and the spectrum beside it
+#         5    the track's title
+#         6    its format and place in the list, and the stereo level meter
+#   7     the time gone, the seek bar, the length
+#   9-11  the keys (previous, play or pause, stop, next, open) and the volume
+#   13    the playlist's heading, then its tracks, then a line of keys
 # Everything is drawn with the desktop's theme roles and named glyphs; the
-# pictures (the digits and the keys) are half blocks, two pixels to a cell, as
-# the Video Player's are.  A glyph set with no half blocks (ASCII) gets the
-# same player in words.
+# pictures (the digits, the keys' caps, the meter) are half blocks, two pixels
+# to a cell, as the Video Player's are.  A glyph set with no half blocks
+# (ASCII) gets the same player in plain characters.
 
 AP_LISTROW=14
 AP_TIMEW=21
-AP_INFOC=26
-AP_VISN=16
+AP_VISC=27
 AP_BG=
 
 # Do the glyphs here have half blocks to draw pictures with?
@@ -661,55 +661,41 @@ fn ap_lcdbuild(text) {
 	done
 }
 
-# The time as an LCD: the lit digits over every segment's ghost, as the real
-# ones show their unlit parts.  Row r, column c.
-fn ap_lcd(int id, int r, int c, text) {
-	local k x l g line
-	local -a lit ghost mix
-
-	ap_lcdbuild "-88:88"
-	ghost=("${AP_LCDROWS[@]}")
+# The time as big digits at row r, column c, lit on the display's own colour.
+fn ap_lcd(int id, int r, int c, text, pen) {
 	ap_lcdbuild "$text"
-	lit=("${AP_LCDROWS[@]}")
-	for ((k = 0; k < 5; k++)); do
-		line=
-		for ((x = 0; x < ${#ghost[$k]}; x++)); do
-			l=${lit[$k]:$x:1}
-			g=${ghost[$k]:$x:1}
-			if [ "$l" = "#" ]; then line+="#"; elif [ "$g" = "#" ]; then line+=o; else line+=.; fi
-		done
-		mix[$k]=$line
-	done
-	ap_pix "$id" "$r" "$c" "$DT_GOOD" "$DT_DIM" "$AP_BG" "${mix[@]}"
+	ap_pix "$id" "$r" "$c" "$pen" "$pen" "$AP_BG" "${AP_LCDROWS[@]}"
 }
 
-# The keys' pictures, each in a key nine pixels wide and six high: three cell
-# rows, two pixels to a row.
-AP_ICON_PLAY=("..#......" "..###...." "..#####.." "..#####.." "..###...." "..#......")
-AP_ICON_PAUSE=("..##.##.." "..##.##.." "..##.##.." "..##.##.." "..##.##.." "..##.##..")
-AP_ICON_STOP=("..#####.." "..#####.." "..#####.." "..#####.." "..#####.." "..#####..")
-AP_ICON_PREV=(".#.....#." ".#...###." ".#.#####." ".#.#####." ".#...###." ".#.....#.")
-AP_ICON_NEXT=(".#.....#." ".###...#." ".#####.#." ".#####.#." ".###...#." ".#.....#.")
-AP_ICON_OPEN=("....#...." "...###..." "..#####.." "........." "..#####.." "..#####..")
-
-# One key: nine columns and three rows at row r, column c.  It is lit under the
-# pointer, and the symbol takes the colour of what it is doing: green while it
-# plays, the warning colour while it is paused.
-fn ap_key(int id, int r, int c, tag, icon, int on) {
-	local bg=$DT_IDLE fg=$DT_INK hot name
-	local -n pic="AP_ICON_$icon"
+# One key: a cap of width cells over rows r to r+2 at column c, the glyph in
+# the middle row.  The caps' top and bottom are half cells, so the key stands
+# two cells high with its glyph in the middle.  The main key (play or pause)
+# is drawn in the theme's active colour; any key is lit under the pointer.
+fn ap_key(int id, int r, int c, int width, tag, glyph, int main, pix) {
+	local bg=$DT_IDLE fg=$DT_INK hot line="" i pad name
 
 	if dt_hot "$id" "$tag"; then
 		hot := dt_hotcolour
 		bg=$hot
 		fg=$DT_FACE
-	elif [ "$on" = 1 ]; then
-		fg=$DT_GOOD
-	elif [ "$on" = 2 ]; then
-		fg=$DT_WARN
+	elif [ "$main" = 1 ]; then
+		bg=$DT_ACTIVE
+		fg=$DT_SELINK
 	fi
-	ap_pix "$id" "$r" "$c" "$fg" "$fg" "$bg" "${pic[@]}"
-	dt_wreg "$id" "$r" "$c" 9 "$tag" 3
+	if [ "$pix" = 1 ]; then
+		for ((i = 0; i < width; i++)); do line+=${GL[lower]}; done
+		console pen "$bg" "$DT_FACE"
+		console put -p "w$id" "$r" "$c" "$line"
+		line=
+		for ((i = 0; i < width; i++)); do line+=${GL[upper]}; done
+		console put -p "w$id" $((r + 2)) "$c" "$line"
+	fi
+	pad=$(((width - ${#glyph}) / 2))
+	[ "$pad" -ge 0 ] || pad=0
+	printf -v line "%*s%s%*s" "$pad" "" "$glyph" $((width - pad - ${#glyph})) ""
+	console pen "$fg" "$bg" bold
+	console put -p "w$id" $((r + 1)) "$c" "${line:0:$width}"
+	dt_wreg "$id" "$r" "$c" "$width" "$tag" 3
 	case $tag in
 	prev) name := dt_tr "Previous" ;;
 	play) name := dt_tr "Play" ;;
@@ -721,14 +707,14 @@ fn ap_key(int id, int r, int c, tag, icon, int on) {
 	dt_tip "$id" "$tag" "$name"
 }
 
-# The level meters: `media wave` gives the newest sound's peaks, 0-255 and
+# The level meter: `media wave` gives the newest sound's peaks, 0-255 and
 # linear, so a quiet passage would barely show.  A table made once turns a peak
-# into where it sits on a -48..0 dB scale (0-1000), and each channel is a bar
-# along a row of the display: it rises at once and falls 80 a frame, and a hold
-# mark stays at the highest and falls slowly.
+# into where it sits on a -48..0 dB scale (0-1000).  The meter is one row of
+# segments, the left channel the top half of each and the right the bottom
+# half; a level rises at once and falls 80 a frame, and a hold segment stays at
+# the highest and falls slowly.  Without half blocks it is one row of bars for
+# the louder channel.
 declare -ga AP_DB=()
-AP_LVLCOL=5
-AP_LVLMAX=62
 
 fn ap_dbtable() {
 	local t
@@ -738,26 +724,28 @@ fn ap_dbtable() {
 	read -r -a AP_DB <<< "$t"
 }
 
-fn ap_lvldraw(int id, int w) {
-	local p=${AP[$id]["player"]} n=$((w - AP_LVLCOL - 3)) ch x l1 v old h cells hc z1 z2 g wn b row track
-	local -a pk=(0 0)
+# The colour of segment s of n lit: good, then warn, then bad near the top.
+fn ap_segpen(int s, int n) {
+	if [ $((s * 10)) -lt $((n * 7)) ]; then ret "$DT_GOOD"
+	elif [ $((s * 10)) -lt $((n * 9)) ]; then ret "$DT_WARN"
+	else ret "$DT_BAD"; fi
+}
+
+fn ap_lvldraw(int id, int r, int c, int n, pix) {
+	local p=${AP[$id]["player"]} ch x l1 v old h s fg bg pen t
+	local -a pk=(0 0) lit=(0 0) hold=(0 0)
 
 	AP[$id]["lvlany"]=0
 	[ "$AUDIO_LEVELS" = 1 ] || return 0
 	ap_eqprobe
 	[ "$APEQ_WAVE" = 1 ] || return 0
-	[ "$n" -ge 8 ] || return 0
-	[ "$n" -le "$AP_LVLMAX" ] || n=$AP_LVLMAX
+	[ "$n" -ge 4 ] || return 0
 	ap_dbtable
 	if [ "${AP[$id]["state"]}" = playing ] && [ -n "$p" ]; then
 		x := media wave "$p" 1
 		read -r l1 <<< "$x"
 		read -r -a pk <<< "$l1"
 	fi
-	z1=$((n * 70 / 100))
-	z2=$((n * 90 / 100))
-	track=
-	for ((l1 = 0; l1 < n; l1++)); do track+=${GL[lower]}; done
 	for ch in 0 1; do
 		v=${AP_DB[${pk[$ch]:-0}]:-0}
 		old=${AP[$id]["lv$ch"]:-0}
@@ -768,79 +756,94 @@ fn ap_lvldraw(int id, int w) {
 		AP[$id]["lv$ch"]=$v
 		AP[$id]["lh$ch"]=$h
 		[ "$h" -le 0 ] || AP[$id]["lvlany"]=1
-		cells=$((v * n / 1000))
-		hc=$((h * n / 1000))
-		if [ "$ch" = 0 ]; then row=5; x=L; else row=6; x=R; fi
-		console pen "$DT_DIM" "$AP_BG"
-		console put -p "w$id" "$row" 3 "$x"
-		console pen "$DT_IDLE" "$AP_BG"
-		console put -p "w$id" "$row" "$AP_LVLCOL" "$track"
-		g=
-		wn=
-		b=
-		for ((l1 = 0; l1 < cells; l1++)); do
-			if [ "$l1" -lt "$z1" ]; then g+=${GL[lower]}; elif [ "$l1" -lt "$z2" ]; then wn+=${GL[lower]}; else b+=${GL[lower]}; fi
-		done
-		console pen "$DT_GOOD" "$AP_BG"
-		[ -z "$g" ] || console put -p "w$id" "$row" "$AP_LVLCOL" "$g"
-		console pen "$DT_WARN" "$AP_BG"
-		[ -z "$wn" ] || console put -p "w$id" "$row" $((AP_LVLCOL + z1)) "$wn"
-		console pen "$DT_BAD" "$AP_BG"
-		[ -z "$b" ] || console put -p "w$id" "$row" $((AP_LVLCOL + z2)) "$b"
-		if [ "$hc" -gt "$cells" ] && [ "$hc" -le "$n" ]; then
-			console pen "$DT_ACTIVE" "$AP_BG" bold
-			console put -p "w$id" "$row" $((AP_LVLCOL + hc - 1)) "${GL[lower]}"
+		lit[$ch]=$(((v * n + 999) / 1000))
+		[ "$v" -gt 0 ] || lit[$ch]=0
+		hold[$ch]=$((h * n / 1000))
+	done
+	for ((s = 0; s < n; s++)); do
+		pen := ap_segpen "$s" "$n"
+		x=$((c + s * 2))
+		if [ "$pix" = 1 ]; then
+			fg=$DT_IDLE
+			bg=$DT_IDLE
+			if [ "$s" -lt "${lit[0]}" ]; then fg=$pen; elif [ "$s" = $((hold[0] - 1)) ]; then fg=$DT_INK; fi
+			if [ "$s" -lt "${lit[1]}" ]; then bg=$pen; elif [ "$s" = $((hold[1] - 1)) ]; then bg=$DT_INK; fi
+			console pen "$fg" "$bg"
+			console put -p "w$id" "$r" "$x" "${GL[upper]}"
+		else
+			if [ "$s" -lt "${lit[0]}" ] || [ "$s" -lt "${lit[1]}" ]; then console pen "$pen" "$AP_BG" bold; else console pen "$DT_IDLE" "$AP_BG"; fi
+			console put -p "w$id" "$r" "$x" "${GL[bar4]}"
 		fi
 	done
+	dt_wreg "$id" "$r" "$c" $((n * 2 - 1)) levels
+	t := dt_tr "Levels: left above, right below"
+	dt_tip "$id" levels "$t"
 }
 
-# The spectrum: `media spectrum` bands the newest sound; bars rise at once and
-# fall a step a frame, three rows high at eight steps a row, in the colours the
-# theme gives good, warn and bad, at the right of the display.  Left out where
-# the media module has no spectrum or the window is too narrow.
-fn ap_visdraw(int id, int w) {
-	local p=${AP[$id]["player"]} n=$AP_VISN c0=$((w - AP_VISN - 2)) i k v old s line lvl cells any=0 pen
+# The spectrum: `media spectrum` bands the newest sound; a bar rises at once
+# and falls a step a frame, three rows high at eight steps a row, in the
+# colours the theme gives good, warn and bad, a column apart, over a floor so
+# a quiet band still shows where it is.  A cap marks each band's highest and
+# drifts down after it.
+fn ap_visdraw(int id, int c0, int n) {
+	local p=${AP[$id]["player"]} i k v old s line lvl cells any=0 pen cap g
 	local -a nv=()
 
 	AP[$id]["visany"]=0
 	[ "$AUDIO_SPECTRUM" = 1 ] || return 0
 	ap_eqprobe
 	[ "$APEQ_SPEC" = 1 ] || return 0
-	[ "$c0" -ge $((AP_INFOC + 14)) ] || return 0
+	[ "$n" -ge 4 ] || return 0
 	if [ "${AP[$id]["state"]}" = playing ] && [ -n "$p" ]; then
 		s := media spectrum "$p" "$n"
 		read -r -a nv <<< "$s"
 	fi
 	for ((i = 0; i < n; i++)); do
-		v=${nv[$i]:-0}
+		v=$((${nv[$i]:-0} * 24 / 255))
 		old=${AP[$id]["v$i"]:-0}
-		[ "$v" -ge $((old - 12)) ] || v=$((old - 12))
+		[ "$v" -ge $((old - 2)) ] || v=$((old - 2))
 		[ "$v" -ge 0 ] || v=0
 		AP[$id]["v$i"]=$v
-		[ "$v" -le 0 ] || any=1
+		cap=${AP[$id]["cap$i"]:-0}
+		if [ "$v" -ge "$cap" ]; then cap=$v; AP[$id]["capt$i"]=6
+		elif [ "${AP[$id]["capt$i"]:-0}" -gt 0 ]; then AP[$id]["capt$i"]=$((AP[$id]["capt$i"] - 1))
+		else cap=$((cap - 1)); fi
+		[ "$cap" -ge 0 ] || cap=0
+		AP[$id]["cap$i"]=$cap
+		{ [ "$v" -le 0 ] && [ "$cap" -le 0 ]; } || any=1
 	done
 	AP[$id]["visany"]=$any
 	for ((k = 2; k >= 0; k--)); do
-		line=
-		for ((i = 0; i < n; i++)); do
-			lvl=$((${AP[$id]["v$i"]} * 24 / 255))
-			cells=$((lvl - k * 8))
-			if [ "$cells" -ge 8 ]; then
-				line+=${GL[block]}
-			elif [ "$cells" -gt 0 ]; then
-				line+=${GL["spark$cells"]}
-			else
-				line+=" "
-			fi
-		done
 		case $k in
 		2) pen=$DT_BAD ;;
 		1) pen=$DT_WARN ;;
 		*) pen=$DT_GOOD ;;
 		esac
-		console pen "$pen" "$AP_BG"
-		console put -p "w$id" $((4 - k)) "$c0" "$line"
+		for ((i = 0; i < n; i++)); do
+			lvl=${AP[$id]["v$i"]}
+			cap=${AP[$id]["cap$i"]}
+			cells=$((lvl - k * 8))
+			if [ "$cells" -ge 8 ]; then
+				g=${GL[block]}
+				console pen "$pen" "$AP_BG"
+			elif [ "$cells" -gt 0 ]; then
+				g=${GL["spark$cells"]}
+				console pen "$pen" "$AP_BG"
+			elif [ "$cap" -gt "$lvl" ] && [ "$cap" -gt 2 ] && [ $(((cap - 1) / 8)) = "$k" ]; then
+				g=${GL["spark1"]}
+				console pen "$DT_INK" "$AP_BG"
+			elif [ "$k" = 0 ]; then
+				g=${GL["spark1"]}
+				console pen "$DT_IDLE" "$AP_BG"
+			else
+				continue
+			fi
+			console put -p "w$id" $((4 - k)) $((c0 + i * 2)) "$g"
+		done
 	done
+	dt_wreg "$id" 2 "$c0" $((n * 2 - 1)) spectrum 3
+	line := dt_tr "Spectrum"
+	dt_tip "$id" spectrum "$line"
 }
 
 fn audio_dirty(int id) {
@@ -853,8 +856,9 @@ fn audio_dirty(int id) {
 	[ "${AP[$id]["gen"]}" != "${AP[$id]["drawn"]:-x}" ]
 }
 
-# One of the little lit words on the display: SHUF, REP, EQ.  Lit when on,
-# dim when off, brighter under the pointer; a click on it is its key.
+# One of the lit words on the display: SHUF, REP, EQ, SLP, with a glyph before
+# it when it has one.  Lit when on, dim when off, brighter under the pointer; a
+# click on it is its key.  Answers how many columns it took.
 fn ap_led(int id, int r, int c, text, int on, tag) {
 	if dt_hot "$id" "$tag"; then
 		console pen "$DT_ACTIVE" "$AP_BG" bold
@@ -867,8 +871,25 @@ fn ap_led(int id, int r, int c, text, int on, tag) {
 	dt_wreg "$id" "$r" "$c" "${#text}" "$tag"
 }
 
+# What the codec is, in words a person knows.
+fn ap_format(codec) {
+	case $codec in
+	"") ret "" ;;
+	pcm_*) ret "WAV" ;;
+	mp3*) ret "MP3" ;;
+	flac) ret "FLAC" ;;
+	vorbis) ret "Ogg Vorbis" ;;
+	opus) ret "Opus" ;;
+	aac*) ret "AAC" ;;
+	alac) ret "ALAC" ;;
+	wma*) ret "WMA" ;;
+	*) ret "$codec" ;;
+	esac
+}
+
 fn audio_draw(int id, int h, int w, int row, int col) {
-	local t u line i vis top idx n sel cur frac off title iw secs rem text eqon=0 vl pix=0 x pl pa slp
+	local t u line i vis top idx n sel cur frac off title iw secs rem text eqon=0 pix=0 x pl slp
+	local r c st glyph pen right lc vc vw sc sw nb dur sep
 
 	dt_wclear "$id"
 	ap_poll "$id"
@@ -882,87 +903,47 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	n=${AP[$id]["n"]}
 	sel=${AP[$id]["sel"]}
 	cur=${AP[$id]["cur"]}
+	st=${AP[$id]["state"]}
+	right=$((w - 2))
 	[ -z "${AP[$id]["eqwin"]}" ] || eqon=1
-	case ${AP[$id]["state"]} in
+	case $st in
 	playing) if { [ "$AUDIO_SPECTRUM" = 1 ] && [ "$APEQ_SPEC" = 1 ]; } || { [ "$AUDIO_LEVELS" = 1 ] && [ "$APEQ_WAVE" = 1 ]; }; then dt_want 80; else dt_want 250; fi ;;
 	loading) dt_want 50 ;;
 	esac
+	sep=" ${GL[dot]} "
 
-	# the display: a recessed panel from row 1 to row 8
-	console pen "$DT_DIM" "$DT_FACE"
-	line=
-	for ((i = 0; i < w - 2; i++)); do line+=${GL[hline]}; done
-	console put -p "w$id" 1 1 "${GL[tl]}$line${GL[tr]}"
-	console put -p "w$id" 8 1 "${GL[bl]}$line${GL[br]}"
-	printf -v line "%*s" $((w - 2)) ""
-	for ((i = 2; i <= 7; i++)); do
-		console pen "$DT_DIM" "$DT_FACE"
-		console put -p "w$id" "$i" 1 "${GL[vline]}"
-		console put -p "w$id" "$i" "$w" "${GL[vline]}"
-		console pen "$DT_INK" "$AP_BG"
-		console put -p "w$id" "$i" 2 "$line"
-	done
+	# the display: the well colour from edge to edge, rows 1 to 6
+	printf -v line "%*s" "$w" ""
+	console pen "$DT_INK" "$AP_BG"
+	for ((r = 1; r <= 6; r++)); do console put -p "w$id" "$r" 1 "$line"; done
 
-	# the time, in big digits when the glyphs can draw them; a click on it
-	# switches between the time gone and the time left
-	secs=${AP[$id]["pos"]%.*}
-	rem=" "
-	if [ "${AP[$id]["remain"]:-0}" = 1 ]; then
-		secs=$((${AP[$id]["dur"]%.*} - secs))
-		[ "$secs" -ge 0 ] || secs=0
-		rem="-"
-	fi
-	[ "$secs" -le 5999 ] || secs=5999
-	printf -v text "%s%02d:%02d" "$rem" $((secs / 60)) $((secs % 60))
-	if [ "$pix" = 1 ]; then
-		ap_lcd "$id" 2 3 "$text"
-	else
-		console pen "$DT_GOOD" "$AP_BG" bold
-		console put -p "w$id" 3 3 "$text"
-	fi
-	dt_wreg "$id" 2 3 "$AP_TIMEW" time 3
-	t := dt_tr "Time gone or time left"
-	dt_tip "$id" time "$t"
-
-	# the track, what it is, and the lit words
-	x=$AP_INFOC
-	iw=$((w - AP_VISN - 4 - x))
-	[ "$iw" -ge 10 ] || iw=$((w - x - 2))
-	title=${AP[$id]["title"]}
-	[ -n "$title" ] || title := dt_tr "Audio Player"
-	title="${GL[sound]} $title ${GL[sound]}  "
-	if [ "${#title}" -gt "$iw" ]; then
-		off=$(( (${EPOCHREALTIME/./} / 250000) % ${#title} ))
-		title="${title:$off}${title:0:$off}"
-	fi
-	console pen "$DT_GOOD" "$AP_BG" bold
-	console put -p "w$id" 2 "$x" "${title:0:$iw}"
-	if [ "$cur" -ge 0 ]; then
-		printf -v line "%02d/%02d  %s" $((cur + 1)) "$n" "${AP[$id]["codec"]:-}"
-	else
-		line=
-	fi
-	console pen "$DT_ACTIVE" "$AP_BG"
-	console put -p "w$id" 3 "$x" "${line:0:16}"
-	case ${AP[$id]["state"]} in
-	playing) line := dt_tr "Playing" ;;
-	paused) line := dt_tr "Paused" ;;
-	loading) line := dt_tr "Loading" ;;
-	*) line := dt_tr "Stopped" ;;
+	# row 1: what it is doing, and the lit words at the right
+	case $st in
+	playing) glyph=${GL[play]}; pen=$DT_GOOD; text := dt_tr "Playing" ;;
+	paused) glyph=${GL[pause]}; pen=$DT_WARN; text := dt_tr "Paused" ;;
+	loading) glyph=${GL[ellipsis]}; pen=$DT_DIM; text := dt_tr "Loading" ;;
+	*) glyph=${GL[stop]}; pen=$DT_DIM; text := dt_tr "Stopped" ;;
 	esac
+	console pen "$pen" "$AP_BG" bold
+	console put -p "w$id" 1 3 "$glyph"
 	console pen "$DT_DIM" "$AP_BG"
-	console put -p "w$id" 3 $((x + 17)) "${line:0:$((iw - 17))}"
-	ap_led "$id" 4 "$x" "SHUF" "$AUDIO_SHUFFLE" shuffle
-	ap_led "$id" 4 $((x + 5)) "REP" "$AUDIO_REPEAT" repeat
-	ap_led "$id" 4 $((x + 9)) "EQ" "$eqon" eq
+	console put -p "w$id" 1 $((4 + ${#glyph})) "$text"
 	slp=0
 	[ "${AP[$id]["sleep"]:-0}" = 0 ] || slp=1
-	ap_led "$id" 4 $((x + 12)) "SLP" "$slp" sleep
-	if [ "$slp" = 1 ]; then
-		t := ap_sleeptext "$id"
+	t=
+	[ "$slp" = 0 ] || t := ap_sleeptext "$id"
+	c=$((right + 1 - ${#t}))
+	if [ -n "$t" ]; then
 		console pen "$DT_GOOD" "$AP_BG"
-		console put -p "w$id" 4 $((x + 16)) "$t"
+		console put -p "w$id" 1 "$c" "$t"
+		c=$((c - 1))
 	fi
+	c=$((c - 3)); ap_led "$id" 1 "$c" "SLP" "$slp" sleep
+	c=$((c - 3)); ap_led "$id" 1 "$c" "EQ" "$eqon" eq
+	text="${GL[repeat]} REP"
+	c=$((c - 2 - ${#text})); ap_led "$id" 1 "$c" "$text" "$AUDIO_REPEAT" repeat
+	text="${GL[shuffle]} SHUF"
+	c=$((c - 2 - ${#text})); ap_led "$id" 1 "$c" "$text" "$AUDIO_SHUFFLE" shuffle
 	t := dt_tr "Shuffle"
 	dt_tip "$id" shuffle "$t"
 	t := dt_tr "Repeat"
@@ -972,59 +953,156 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	t := dt_tr "Sleep Timer"
 	dt_tip "$id" sleep "$t"
 
-	# the spectrum and the two meters, inside the display
-	ap_visdraw "$id" "$w"
-	ap_lvldraw "$id" "$w"
-	if [ "${AP[$id]["state"]}" != playing ]; then
+	# rows 2-4: the time in big digits when the glyphs can draw them; a click
+	# on it switches between the time gone and the time left
+	secs=${AP[$id]["pos"]%.*}
+	rem=" "
+	if [ "${AP[$id]["remain"]:-0}" = 1 ]; then
+		secs=$((${AP[$id]["dur"]%.*} - secs))
+		[ "$secs" -ge 0 ] || secs=0
+		rem="-"
+	fi
+	[ "$secs" -le 5999 ] || secs=5999
+	printf -v text "%s%02d:%02d" "$rem" $((secs / 60)) $((secs % 60))
+	pen=$DT_GOOD
+	[ "$st" != paused ] || pen=$DT_WARN
+	[ "$cur" -ge 0 ] || pen=$DT_IDLE
+	if [ "$pix" = 1 ]; then
+		ap_lcd "$id" 2 3 "$text" "$pen"
+	else
+		t := dt_lcd "$text"
+		console pen "$pen" "$AP_BG" bold
+		console put -p "w$id" 3 3 "$t"
+	fi
+	dt_wreg "$id" 2 3 "$AP_TIMEW" time 3
+	t := dt_tr "Time gone or time left"
+	dt_tip "$id" time "$t"
+
+	# rows 2-4 beside it: the spectrum, a band every other column
+	nb=$(((right - AP_VISC + 2) / 2))
+	[ "$nb" -le 32 ] || nb=32
+	ap_visdraw "$id" "$AP_VISC" "$nb"
+
+	# row 5: the title, scrolled round when it is too long
+	iw=$((right - 2))
+	title=${AP[$id]["title"]}
+	if [ -z "$title" ]; then
+		title := dt_tr "Audio Player"
+		console pen "$DT_DIM" "$AP_BG" bold
+	else
+		console pen "$DT_INK" "$AP_BG" bold
+	fi
+	if [ "${#title}" -gt "$iw" ]; then
+		title="$title     "
+		off=$(( (${EPOCHREALTIME/./} / 250000) % ${#title} ))
+		title="${title:$off}${title:0:$off}"
+	fi
+	console put -p "w$id" 5 3 "${title:0:$iw}"
+
+	# row 6: what it is and where in the list, and the meter at the right
+	line=
+	if [ "$cur" -ge 0 ]; then
+		t := ap_format "${AP[$id]["codec"]:-}"
+		u := dt_tr "%s of %s" $((cur + 1)) "$n"
+		line=$u
+		[ -z "$t" ] || line="$t$sep$line"
+		dur=${AP[$id]["dur"]%.*}
+		if [ "${dur:-0}" -gt 0 ]; then u := ap_clock "$dur"; line+="$sep$u"; fi
+	fi
+	lc=$((right / 2 + 4))
+	console pen "$DT_DIM" "$AP_BG"
+	console put -p "w$id" 6 3 "${line:0:$((lc - 5))}"
+	ap_lvldraw "$id" 6 "$lc" $(((right - lc + 2) / 2)) "$pix"
+	if [ "$st" != playing ]; then
 		{ [ "${AP[$id]["visany"]}" = 0 ] && [ "${AP[$id]["lvlany"]}" = 0 ]; } || dt_want 60
 	fi
 
-	# the seek bar: where the track is, or where the pointer has dragged it
+	# row 7: the time gone, the seek bar, the length
+	secs=${AP[$id]["pos"]%.*}
+	dur=${AP[$id]["dur"]%.*}
 	frac=0
 	if [ "${AP[$id]["drag"]}" = seek ]; then
 		frac=${AP[$id]["dragval"]}
-	elif [ "${AP[$id]["dur"]%.*}" -gt 0 ]; then
-		frac=$((${AP[$id]["pos"]%.*} * 1000 / ${AP[$id]["dur"]%.*}))
+		secs=$((${dur:-0} * frac / 1000))
+	elif [ "${dur:-0}" -gt 0 ]; then
+		frac=$((secs * 1000 / dur))
 	fi
-	console pen "$DT_ACTIVE" "$AP_BG"
-	dt_slider "$id" 7 3 $((w - 4)) "$frac" 0 1000 seek
+	t := ap_clock "${secs:-0}"
+	u := ap_clock "${dur:-0}"
+	sc=9
+	sw=$((right - sc - 6))
+	AP[$id]["seekc"]=$sc
+	AP[$id]["seekw"]=$sw
+	console pen "$DT_DIM" "$DT_FACE"
+	printf -v line "%5s" "$t"
+	console put -p "w$id" 7 3 "$line"
+	console put -p "w$id" 7 $((right - 4)) "$u"
+	console pen "$DT_ACTIVE" "$DT_FACE"
+	dt_slider "$id" 7 "$sc" "$sw" "$frac" 0 1000 seek
 	t := dt_tr "Seek"
 	dt_tip "$id" seek "$t"
 
-	# the keys
-	pl=0
-	pa=0
-	[ "${AP[$id]["state"]}" != playing ] || pl=1
-	[ "${AP[$id]["state"]}" != paused ] || pa=2
-	if [ "$pix" = 1 ]; then
-		ap_key "$id" 9 3 prev PREV 0
-		ap_key "$id" 9 13 play PLAY "$pl"
-		ap_key "$id" 9 23 pause PAUSE "$pa"
-		ap_key "$id" 9 33 stop STOP 0
-		ap_key "$id" 9 43 next NEXT 0
-		ap_key "$id" 9 53 open OPEN 0
-	else
-		dt_buttons "$id" 9 3 "" prev "Prev" play "Play" pause "Pause" stop "Stop" next "Next" open "Open"
+	# rows 9-11: the keys; one key plays and pauses, as its glyph says
+	pl=play
+	glyph=${GL[play]}
+	if [ "$st" = playing ]; then pl=pause; glyph=${GL[pause]}; fi
+	ap_key "$id" 9 3 5 prev "${GL[prev]}" 0 "$pix"
+	ap_key "$id" 9 9 7 "$pl" "$glyph" 1 "$pix"
+	ap_key "$id" 9 17 5 stop "${GL[stop]}" 0 "$pix"
+	ap_key "$id" 9 23 5 next "${GL[next]}" 0 "$pix"
+	ap_key "$id" 9 30 5 open "${GL[eject]}" 0 "$pix"
+
+	# the volume beside them: the speaker, a slider, a number
+	glyph=${GL[sound]}
+	[ "$AUDIO_VOLUME" -gt 0 ] || glyph=${GL[soundoff]}
+	vc=38
+	console pen "$DT_DIM" "$DT_FACE"
+	console put -p "w$id" 10 "$vc" "$glyph"
+	dt_wreg "$id" 10 "$vc" "${#glyph}" mute
+	vc=$((vc + ${#glyph} + 1))
+	vw=$((right - 4 - vc))
+	[ "$vw" -ge 6 ] || vw=6
+	AP[$id]["volc"]=$vc
+	AP[$id]["volw"]=$vw
+	AP[$id]["volr"]=10
+	console pen "$DT_GOOD" "$DT_FACE"
+	dt_slider "$id" 10 "$vc" "$vw" "$AUDIO_VOLUME" 0 100 vol
+	console pen "$DT_DIM" "$DT_FACE"
+	printf -v line "%4s" "$AUDIO_VOLUME%"
+	console put -p "w$id" 10 $((vc + vw + 1)) "$line"
+	t := dt_tr "Volume"
+	dt_tip "$id" vol "$t"
+	t := dt_tr "Mute"
+	dt_tip "$id" mute "$t"
+
+	# row 13: the playlist's heading on a rule
+	console pen "$DT_IDLE" "$DT_FACE"
+	line=
+	for ((i = 0; i < w; i++)); do line+=${GL[hline]}; done
+	console put -p "w$id" 13 1 "$line"
+	t := dt_tr "Playlist"
+	console pen "$DT_INK" "$DT_FACE" bold
+	console put -p "w$id" 13 3 " $t "
+	if [ "$n" -gt 0 ]; then
+		if [ "$n" = 1 ]; then u := dt_tr "1 track"; else u := dt_tr "%s tracks" "$n"; fi
+		console pen "$DT_DIM" "$DT_FACE"
+		console put -p "w$id" 13 $((right - ${#u} - 1)) " $u "
 	fi
 
-	# volume: a label, a slider, a number
-	vl := dt_tr "Volume"
-	console pen "$DT_INK" "$DT_FACE"
-	console put -p "w$id" 12 3 "$vl"
-	AP[$id]["volc"]=$((${#vl} + 5))
-	console pen "$DT_GOOD" "$DT_FACE"
-	dt_slider "$id" 12 "${AP[$id]["volc"]}" 24 "$AUDIO_VOLUME" 0 100 vol
-	console pen "$DT_DIM" "$DT_FACE"
-	console put -p "w$id" 12 $((${AP[$id]["volc"]} + 25)) "$AUDIO_VOLUME%"
-	dt_tip "$id" vol "$vl"
-
-	# the playlist, with a rule above it
-	console pen "$DT_DIM" "$DT_FACE"
-	line=
-	for ((i = 0; i < w - 2; i++)); do line+=${GL[hline]}; done
-	console put -p "w$id" 13 1 "$line"
+	# the tracks; the one playing has the play glyph and its length
 	vis=$((h - AP_LISTROW))
 	[ "$vis" -ge 1 ] || return 0
+	if [ "$n" = 0 ]; then
+		r=$((AP_LISTROW + (vis - 2) / 2))
+		t := dt_tr "No tracks yet"
+		u := dt_tr "Drop audio files here, or press o to open some"
+		console pen "$DT_INK" "$DT_FACE" bold
+		console put -p "w$id" "$r" $(( (w - ${#t}) / 2 + 1)) "$t"
+		if [ "$vis" -ge 3 ]; then
+			console pen "$DT_DIM" "$DT_FACE"
+			console put -p "w$id" $((r + 1)) $(( (w - ${#u}) / 2 + 1)) "${u:0:$w}"
+		fi
+	fi
 	top := dt_scrollview "${AP[$id]["top"]}" "$n" "$vis" "$sel" "${AP[$id]["seen"]}"
 	AP[$id]["top"]=$top
 	AP[$id]["seen"]=$sel
@@ -1032,9 +1110,19 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 		idx=$((top + i))
 		[ "$idx" -lt "$n" ] || break
 		line := ap_name "${AP[$id]["p$idx"]}"
-		if [ "$idx" = "$cur" ]; then printf -v line "%3d ${GL[right]} %s" $((idx + 1)) "$line"; else printf -v line "%3d   %s" $((idx + 1)) "$line"; fi
-		printf -v line "%-*s" $((w - 3)) "${line:0:$((w - 3))}"
-		dt_hotreg "$id" $((AP_LISTROW + i)) 1 $((w - 3)) "row:$idx"
+		u=
+		if [ "$idx" = "$cur" ]; then
+			glyph=${GL[play]}
+			[ "$st" != paused ] || glyph=${GL[pause]}
+			dur=${AP[$id]["dur"]%.*}
+			[ "${dur:-0}" -le 0 ] || u := ap_clock "$dur"
+		else
+			glyph=" "
+		fi
+		iw=$((w - 10 - ${#u}))
+		[ "${#line}" -le "$iw" ] || line="${line:0:$((iw - 1))}${GL[ellipsis]}"
+		printf -v line "  %3d %s %-*s %s " $((idx + 1)) "$glyph" "$iw" "$line" "$u"
+		dt_hotreg "$id" $((AP_LISTROW + i)) 1 $((w - 1)) "row:$idx"
 		if [ "$idx" = "$sel" ]; then
 			console pen "$DT_SELINK" "$DT_ACTIVE" bold
 		elif [ "$idx" = "$cur" ]; then
@@ -1042,7 +1130,7 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 		else
 			dt_hotpen "$id" "row:$idx" "$DT_INK" "$DT_FACE"
 		fi
-		console put -p "w$id" $((AP_LISTROW + i)) 1 "$line"
+		console put -p "w$id" $((AP_LISTROW + i)) 1 "${line:0:$((w - 1))}"
 	done
 	dt_scrollbar "$id" "$AP_LISTROW" "$w" "$vis" "$n" "$vis" "$top" list
 
@@ -1054,10 +1142,10 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 		media) line := dt_tr "The media module is not available" ;;
 		*) line=${AP[$id]["err"]} ;;
 		esac
-		console put -p "w$id" "$h" 1 "${line:0:$((w - 2))}"
+		console put -p "w$id" "$h" 3 "${line:0:$((w - 4))}"
 	else
 		console pen "$DT_DIM" "$DT_FACE"
-		dt_khint "$id" "$h" 1 "Open o  Remove d  Move [ ]  Sleep l  Time t" Open o Remove d Sleep l Time t
+		dt_khint "$id" "$h" 3 "Open o  Remove d  Move [ ]  Sleep l  Time t" Open o Remove d Sleep l Time t
 	fi
 }
 
@@ -1085,7 +1173,7 @@ fn ap_compact(int id) {
 	else
 		AP[$id]["mini"]=1
 		AP[$id]["fullh"]=$h
-		dt_resize "$id" 14 "$w"
+		dt_resize "$id" 13 "$w"
 	fi
 	ap_bump "$id"
 }
@@ -1137,8 +1225,8 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 	fi
 	if [ "$act" = drag ]; then
 		case ${AP[$id]["drag"]} in
-		seek) v := dt_slidepos "$c" 3 $((${AP[$id]["w"]:-72} - 4)) 0 1000; AP[$id]["dragval"]=$v ;;
-		vol) v := dt_slidepos "$c" "${AP[$id]["volc"]}" 24 0 100; ap_vol "$id" $((v / 5 * 5)) ;;
+		seek) v := dt_slidepos "$c" "${AP[$id]["seekc"]:-9}" "${AP[$id]["seekw"]:-57}" 0 1000; AP[$id]["dragval"]=$v ;;
+		vol) v := dt_slidepos "$c" "${AP[$id]["volc"]}" "${AP[$id]["volw"]:-24}" 0 100; ap_vol "$id" $((v / 5 * 5)) ;;
 		row)
 			# a track dragged: it goes where the pointer is, and the list
 			# scrolls when the pointer leaves it above or below
@@ -1168,16 +1256,17 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 	case $tag in
 	seek)
 		AP[$id]["drag"]=seek
-		v := dt_slidepos "$c" 3 $((${AP[$id]["w"]:-72} - 4)) 0 1000
+		v := dt_slidepos "$c" "${AP[$id]["seekc"]:-9}" "${AP[$id]["seekw"]:-57}" 0 1000
 		AP[$id]["dragval"]=$v
 		;;
 	vol)
 		AP[$id]["drag"]=vol
-		v := dt_slidepos "$c" "${AP[$id]["volc"]}" 24 0 100
+		v := dt_slidepos "$c" "${AP[$id]["volc"]}" "${AP[$id]["volw"]:-24}" 0 100
 		ap_vol "$id" $((v / 5 * 5))
 		;;
+	mute) ap_mute "$id" ;;
 	prev) ap_step "$id" -1 ;;
-	play) ap_play "$id" "$((AP[$id]["sel"]))" ;;
+	play) if [ "${AP[$id]["state"]}" = paused ]; then ap_toggle "$id"; else ap_play "$id" "$((AP[$id]["sel"]))"; fi ;;
 	pause) ap_pause "$id" ;;
 	stop) ap_halt "$id" ;;
 	next) ap_step "$id" 1 ;;
@@ -1208,7 +1297,7 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 fn audio_wheel(int id, dir, int r, int c) {
 	local top=${AP[$id]["top"]} n=${AP[$id]["n"]}
 
-	if [ "$r" = 12 ]; then
+	if [ "$r" = "${AP[$id]["volr"]:-10}" ] && [ "$c" -ge 38 ]; then
 		if [ "$dir" = up ]; then ap_vol "$id" $((AUDIO_VOLUME + 5)); else ap_vol "$id" $((AUDIO_VOLUME - 5)); fi
 		return 0
 	fi
@@ -1353,14 +1442,14 @@ audio_menus() {
 # simply kept until then.
 # ============================================================================
 
-command -v dt_app > /dev/null && dt_app audioeq "Audio Player Equalizer" 18 54 once "≋" fixed hidden
+command -v dt_app > /dev/null && dt_app audioeq "Audio Player Equalizer" 17 74 once "≋" fixed hidden
 
 declare -gA APEQ
 APEQ_FREQ=("60" "170" "310" "600" "1K" "3K" "6K" "12K" "14K" "16K")
 APEQ_CAN=
 APEQ_SPEC=
 APEQ_WAVE=
-APEQ_TOP=4
+APEQ_TOP=3
 APEQ_ROWS=9
 
 # The presets, in the order the list shows them: the preamp, then ten bands.
@@ -1481,7 +1570,7 @@ fn ap_eqset(int id, int b, int v) {
 
 # A band's column in the window.
 fn ap_eqcol(int b) {
-	if [ "$b" = -1 ]; then ret 5; else ret $((9 + b * 4)); fi
+	if [ "$b" = -1 ]; then ret 8; else ret $((14 + b * 6)); fi
 }
 
 fn audioeq_dirty(int id) {
@@ -1489,42 +1578,43 @@ fn audioeq_dirty(int id) {
 }
 
 fn audioeq_draw(int id, int h, int w, int row, int col) {
-	local pid=${APEQ[$id]["parent"]} b r c v line lab name zero p kr half fg k
-	local -a cap
+	local pid=${APEQ[$id]["parent"]} b r c v line lab name zero p kr half fg
+	local bot=$((APEQ_TOP + APEQ_ROWS))
 
 	dt_wclear "$id"
 	APEQ[$id]["drawn"]=${APEQ[$id]["gen"]}
 	zero=$((APEQ_TOP + 4))
 	AP_BG=$DT_WELL
 
-	# the display: the same recessed panel as the player's
-	console pen "$DT_DIM" "$DT_FACE"
-	line=
-	for ((r = 0; r < w - 2; r++)); do line+=${GL[hline]}; done
-	console put -p "w$id" 1 1 "${GL[tl]}$line${GL[tr]}"
-	console put -p "w$id" 15 1 "${GL[bl]}$line${GL[br]}"
-	printf -v line "%*s" $((w - 2)) ""
-	for ((r = 2; r <= 14; r++)); do
-		console pen "$DT_DIM" "$DT_FACE"
-		console put -p "w$id" "$r" 1 "${GL[vline]}"
-		console put -p "w$id" "$r" "$w" "${GL[vline]}"
-		console pen "$DT_INK" "$AP_BG"
-		console put -p "w$id" "$r" 2 "$line"
-	done
-
-	# on or off, the preset in a dropdown, and where the engine stands
+	# the display: the player's well colour from edge to edge, over all but
+	# the line of keys
+	printf -v line "%*s" "$w" ""
 	console pen "$DT_INK" "$AP_BG"
-	dt_check "$id" 2 3 "${APEQ[$id]["on"]}" "On" on
+	for ((r = 1; r < h; r++)); do console put -p "w$id" "$r" 1 "$line"; done
+
+	# on or off, the preset in a dropdown, and a word when the engine has none
+	console pen "$DT_INK" "$AP_BG"
+	dt_check "$id" 1 3 "${APEQ[$id]["on"]}" "On" on
 	name=${APEQ[$id]["preset"]}
 	[ "$name" != Custom ] || name := dt_tr "Custom"
-	dt_wdrop "$id" 2 13 18 "$name" preset
+	dt_wdrop "$id" 1 13 18 "$name" preset
+	if [ "$APEQ_CAN" != 1 ]; then
+		line := dt_tr "The media module here has no equalizer"
+		console pen "$DT_WARN" "$AP_BG"
+		console put -p "w$id" 1 34 "${line:0:$((w - 35))}"
+	fi
+
+	# the scale at the left, and a rule between the preamp and the bands
 	console pen "$DT_DIM" "$AP_BG"
-	if [ "$APEQ_CAN" = 1 ]; then line := dt_tr "Playing through the equalizer"; else line := dt_tr "The media module here has no equalizer"; fi
-	console put -p "w$id" 3 3 "$line"
+	console put -p "w$id" "$APEQ_TOP" 3 "+12"
+	console put -p "w$id" "$zero" 3 "  0"
+	console put -p "w$id" $((bot - 1)) 3 "-12"
+	console pen "$DT_IDLE" "$AP_BG"
+	for ((r = APEQ_TOP; r <= bot + 1; r++)); do console put -p "w$id" "$r" 11 "${GL[vline]}"; done
 
 	# the faders: a track, the part of it from zero to the knob lit, a zero
 	# mark, and a three-cell knob that moves by half a row, so every step of
-	# the value shows
+	# the value shows; the one the arrows move has its value and name lit
 	for ((b = -1; b < 10; b++)); do
 		v := ap_eqvalue "$id" "$b"
 		c := ap_eqcol "$b"
@@ -1532,8 +1622,8 @@ fn audioeq_draw(int id, int h, int w, int row, int col) {
 		kr=$((APEQ_TOP + p / 2))
 		half=$((p % 2))
 		fg=$DT_ACTIVE
-		[ "$b" != "${APEQ[$id]["focus"]}" ] || fg=$DT_GOOD
-		for ((r = APEQ_TOP; r < APEQ_TOP + APEQ_ROWS; r++)); do
+		[ "${APEQ[$id]["on"]}" = 1 ] || fg=$DT_DIM
+		for ((r = APEQ_TOP; r < bot; r++)); do
 			if { [ "$v" -gt 0 ] && [ "$r" -gt "$kr" ] && [ "$r" -lt "$zero" ]; } ||
 				{ [ "$v" -lt 0 ] && [ "$r" -lt "$kr" ] && [ "$r" -gt "$zero" ]; }; then
 				console pen "$fg" "$AP_BG"
@@ -1551,23 +1641,19 @@ fn audioeq_draw(int id, int h, int w, int row, int col) {
 			console put -p "w$id" "$kr" $((c - 1)) "${GL[lower]}${GL[lower]}${GL[lower]}"
 		fi
 		# the value under it and the frequency under that
-		if [ "$b" = "${APEQ[$id]["focus"]}" ]; then console pen "$DT_GOOD" "$AP_BG" bold; else console pen "$DT_DIM" "$AP_BG"; fi
+		if [ "$b" = "${APEQ[$id]["focus"]}" ]; then console pen "$DT_ACTIVE" "$AP_BG" bold; else console pen "$DT_DIM" "$AP_BG"; fi
 		line := ap_db "$v"
 		printf -v line "%3s" "$line"
-		console put -p "w$id" $((APEQ_TOP + APEQ_ROWS)) $((c - 1)) "$line"
+		console put -p "w$id" "$bot" $((c - 1)) "$line"
 		if [ "$b" = -1 ]; then lab := dt_tr "Pre"; else lab=${APEQ_FREQ[$b]}; fi
-		printf -v lab "%-3s" "$lab"
-		console put -p "w$id" $((APEQ_TOP + APEQ_ROWS + 1)) $((c - 1)) "$lab"
+		printf -v lab "%3s" "$lab"
+		console put -p "w$id" $((bot + 1)) $((c - 1)) "$lab"
 		dt_wreg "$id" "$APEQ_TOP" $((c - 1)) 3 "band:$b" "$APEQ_ROWS"
 		if [ "$b" = -1 ]; then lab := dt_tr "Preamp"; else lab="${APEQ_FREQ[$b]} Hz"; fi
 		dt_tip "$id" "band:$b" "$lab"
 	done
-	console pen "$DT_DIM" "$AP_BG"
-	console put -p "w$id" "$APEQ_TOP" 2 "+"
-	console put -p "w$id" "$zero" 2 "0"
-	console put -p "w$id" $((APEQ_TOP + APEQ_ROWS - 1)) 2 "-"
 	console pen "$DT_DIM" "$DT_FACE"
-	dt_khint "$id" "$h" 2 "Preset p  Flat 0  On/Off o  Close e" Preset p Flat 0 On/Off o Close e
+	dt_khint "$id" "$h" 3 "Preset p  Flat 0  On/Off o  Close e" Preset p Flat 0 On/Off o Close e
 }
 
 # Which band a tag names; -9 when it names none.
@@ -1655,7 +1741,7 @@ fn ap_eqtoggle(int id) {
 	r=$((${AP[$id]["row"]:-1} + ${AP[$id]["h"]:-22} + 2))
 	[ $((r + 18)) -le "${DT_ROWS:-24}" ] || r=$((${DT_ROWS:-24} - 18))
 	[ "$r" -ge 1 ] || r=1
-	w := dt_new "Equalizer" 18 54 "$r" "${AP[$id]["col"]:-2}" audioeq "$id"
+	w := dt_new "Equalizer" 17 74 "$r" "${AP[$id]["col"]:-2}" audioeq "$id"
 	AP[$id]["eqwin"]=$w
 	ap_bump "$id"
 }
