@@ -1177,10 +1177,10 @@
     },
     "menubar/sound": {
       "title": "Volume",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "kind": "menubar",
       "bundle": "bundles/menubar/sound.hibr",
-      "sha256": "8e6065abf0fa4c330832dd5388d090d3ef7f65551fd50640036593592fb0029e",
+      "sha256": "bf647f906a7f6573cedbeb9608785f47e41e36c513d68c7c9c71465f73f35a80",
       "about": "The speaker on the menu bar and the sound it watches\n\nthe machine's sound: which output and input are used, their volume and mute, the speaker on the menu bar and the keys that change it (Gitea #306). Control Panel > Sound is the pane over it.\n\nThree ways to reach it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
