@@ -144,12 +144,24 @@ for t in "$DESK"/apps/**/*.hibr "$DESK"/system/*.hibr \
 	never=$((never + 1))
 done
 
-if [ "$n" = 0 ] && [ "$gone" = 0 ] && [ "$moved" = 0 ] && [ "$never" = 0 ]; then
+# Every platform function a bundle calls is classed for an app's own
+# process (hibr's ADR 0050), the catalogue's half of tests/appcalls.py: a
+# function an app newly reaches for fails here as it fails in the tree.
+unclassed=0
+if ! cls=$(HIBR_APPS=$HERE HIBR=$TREE/build/hibr HIBR_TESTMODS=$TREE/build/mods \
+	python3 "$TREE/tools/appcalls.py" --check 2>&1); then
+	printf '%s\n' "$cls" | grep '^FAIL' || printf '%s\n' "$cls" | tail -3
+	unclassed=1
+fi
+
+if [ "$n" = 0 ] && [ "$gone" = 0 ] && [ "$moved" = 0 ] && [ "$never" = 0 ] && [ "$unclassed" = 0 ]; then
 	printf '== every bundle matches the tree, and the tree has nothing unpublished\n'
 	exit 0
 fi
 [ "$never" -gt 0 ] &&
 	printf '== %s in the tree that was never published\n' "$never"
+[ "$unclassed" = 1 ] &&
+	printf '== a platform function a bundle calls is not classed (tools/appcalls.py)\n'
 printf '== %s behind, %s moved, %s with no file in the tree\n' \
 	"$n" "$moved" "$gone"
 exit 1
