@@ -22,7 +22,7 @@ strict
 
 # needs: lib/videocore, lib/video-bilibili, lib/video-bilibilitv, lib/video-tubi, lib/video-youtube
 # replaces: apps/youtube apps/tubi apps/bilibili apps/video-library
-app video "Video Player, every site in one player" 1.9
+app video "Video Player, every site in one player" 1.10
 # part: control-panel/videoset.hibr
 # part: lang/video.ar.json
 # modules: web

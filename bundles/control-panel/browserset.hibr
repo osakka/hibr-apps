@@ -27,7 +27,7 @@
 
 strict
 
-app browserset "The Control Panel pane for the Browser" 1.16
+app browserset "The Control Panel pane for the Browser" 1.17
 command -v cp_pane > /dev/null && cp_pane browserset "Browser" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app bwfield "Browser Setting" 8 64 "" "" fixed hidden
@@ -86,6 +86,8 @@ BS_ENGINES=(auto webkit light)
 BS_ZOOMS=(50 67 75 80 90 100 110 125 150 175 200)
 # how wide a page is drawn at most, in pixels (full: as wide as the window)
 BS_PIXMAXES=(full 1920 1280 960)
+# whether the engine is given the GPU, from the next time it starts
+BS_GPUS=(software gpu)
 declare -gA BSF
 
 # Tell every open Browser tab again; again loads each page again too.
@@ -122,6 +124,11 @@ fn bs_perm(int w, int n, var, key) {
 }
 fn cp_set_bwpixmax(int? id = "", value = "") {
 	case $value in full) BW_PIXMAX=0 ;; *) BW_PIXMAX=$value ;; esac
+	cp_save
+	bs_tell
+}
+fn cp_set_bwgpu(int? id = "", value = "") {
+	case $value in gpu) BW_GPU=auto ;; *) BW_GPU=off ;; esac
 	cp_save
 	bs_tell
 }
@@ -174,6 +181,13 @@ fn browserset_rows(int w) {
 		CP[$w][$n]["key"]=pixmax
 		pm=$BW_PIXMAX; [ "$pm" = 0 ] && pm=full
 		cp_choice "$w" "$n" "$pm" cp_set_bwpixmax "${BS_PIXMAXES[@]}"
+		n=$((n + 1))
+	fi
+	if bs_has gpu; then
+		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Graphics (Next Start)"
+		CP[$w][$n]["key"]=gpu
+		pm=software; [ "$BW_GPU" != off ] && pm=gpu
+		cp_choice "$w" "$n" "$pm" cp_set_bwgpu "${BS_GPUS[@]}"
 		n=$((n + 1))
 	fi
 	if bs_has effects; then

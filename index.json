@@ -220,10 +220,10 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "2.57",
+      "version": "2.58",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "772aa050f96654903b31fc873839395938ff6efef74c4f3c20329119e2546f25",
+      "sha256": "b9c243ef0bc3bf1859347c66f4be7db638b2ecb4b3c1c4cdc5d70dbe66d125d7",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -236,7 +236,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "8a65f62192fa8b8a248bb77093d65b082025cb1f4d3bc1730d8ae417b84cab39"
+          "sha256": "de84f9f46509f040eb917a2b7d2552c5391cba451934496d1399250665003a5c"
         },
         {
           "kind": "control-panel",
@@ -248,7 +248,7 @@
           "kind": "lang",
           "as": "browser.ar.json",
           "path": "bundles/lang/browser.ar.json",
-          "sha256": "d37ded546329235303479aa3bb0a375a60dffd54e1b78c0913e1275d895e6cb5"
+          "sha256": "c98900066b87e3b4418a50d64c9be705a0557385b4e6097b2ae83fff4ad2ae8b"
         }
       ]
     },
@@ -388,10 +388,10 @@
     },
     "apps/video": {
       "title": "Video Player",
-      "version": "1.9",
+      "version": "1.10",
       "kind": "apps",
       "bundle": "bundles/apps/Sound%20%26%20Video/video.hibr",
-      "sha256": "5ca5a8396a3ab4cff53a4b258b3ecfe3132d58e1fc4da02dfc1cd875877be8fc",
+      "sha256": "98866b318018c8f2fdc01494e0a1e4abf0a15dc81f18f74ff92463e35520a9a2",
       "about": "Video Player, every site in one player\n\nevery video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.\n\nNothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -412,7 +412,7 @@
           "kind": "lang",
           "as": "video.ar.json",
           "path": "bundles/lang/video.ar.json",
-          "sha256": "fbadadd5c5f9cc6acb2ffe9079186d8e509b81ee644c7bd4b8e86ed54519bbe9"
+          "sha256": "7ae3888948465e2fb24f9c11cfd0ac0d75a310bf9c000e06d3b9d4b1934cc317"
         }
       ]
     },
@@ -1632,10 +1632,10 @@
     },
     "lib/video-bilibili": {
       "title": "video-bilibili",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "lib",
       "bundle": "bundles/lib/video-bilibili.hibr",
-      "sha256": "514daeaeba2c47dcc0b104bebf9788e07e49fd9fa0ea66d16bf499c4e7573929",
+      "sha256": "cbbcaafec8c24f7070789f2ec50ddbd94644eb15515371c23e0fecc67a10635d",
       "about": "Video: Bilibili, a site for the Video player\n\nBilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search), which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1668,10 +1668,10 @@
     },
     "lib/video-youtube": {
       "title": "video-youtube",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "lib",
       "bundle": "bundles/lib/video-youtube.hibr",
-      "sha256": "e11589884d393736040aa483d5c12a74bf63ec6bc61ed9d362053b41a76852d9",
+      "sha256": "bb7a75299915e666b2dec1555327ead371e44c02b7a587ccf4cb69fc362bd59a",
       "about": "Video: YouTube, a site for the Video player\n\nYouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the qualities it offers and its captions.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1908,10 +1908,10 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "2.57",
+      "version": "2.58",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "772aa050f96654903b31fc873839395938ff6efef74c4f3c20329119e2546f25",
+      "sha256": "b9c243ef0bc3bf1859347c66f4be7db638b2ecb4b3c1c4cdc5d70dbe66d125d7",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2020,10 +2020,10 @@
     },
     "video": {
       "title": "Video Player",
-      "version": "1.9",
+      "version": "1.10",
       "kind": "apps",
       "bundle": "bundles/apps/Sound%20%26%20Video/video.hibr",
-      "sha256": "5ca5a8396a3ab4cff53a4b258b3ecfe3132d58e1fc4da02dfc1cd875877be8fc",
+      "sha256": "98866b318018c8f2fdc01494e0a1e4abf0a15dc81f18f74ff92463e35520a9a2",
       "about": "Video Player, every site in one player\n\nevery video site in one player: YouTube, Tubi, Bilibili and the ones a lib of the catalogue adds (kind `lib`, `lib/video-<site>`). One list (the site's popular or home page, a search, the history, the favourites), one player (the picture drawn as cells or pixels and the sound through the machine's own device, a bar, a clock, resume, the parts of a video, the next one), one set of menus and keys, whichever site a title is from.\n\nNothing here is a client of a site. The site's own page runs in the web module's WebKit engine, which fetches, decodes and plays the video itself; the page the video is in is drawn here and this app drives its one <video>: play and pause, a time, the volume. What only a site knows -- the address of a list, how to read it, how to start a title, what to say to its player -- is its provider's (`lib/video-<site>`, which adds itself to VIDEO_SITES and whose functions this app calls by their prefix). The shared core (lib/videocore) keeps the history, favourites and library lines.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2597,10 +2597,10 @@
     },
     "video-bilibili": {
       "title": "video-bilibili",
-      "version": "1.4",
+      "version": "1.5",
       "kind": "lib",
       "bundle": "bundles/lib/video-bilibili.hibr",
-      "sha256": "514daeaeba2c47dcc0b104bebf9788e07e49fd9fa0ea66d16bf499c4e7573929",
+      "sha256": "cbbcaafec8c24f7070789f2ec50ddbd94644eb15515371c23e0fecc67a10635d",
       "about": "Video: Bilibili, a site for the Video player\n\nBilibili (bilibili.com) for the Video player (apps/video): what only Bilibili knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vb_. Bilibili's lists are its own public pages of data (the popular list, a search), which the engine loads like any page and the app reads, after one visit to the site in the window (a search is refused without its cookies). A video is looked up in two steps -- its part, then its file, an MP4 of 720p or 360p that expires, so it is asked for each time one starts -- and played in a small page of this lib's own with one <video> in it. A file the engine cannot reach or play never says so (it stalls): the player gives a title up after thirty seconds. Only ids that look like Bilibili's (BV and letters and digits) are played.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2633,10 +2633,10 @@
     },
     "video-youtube": {
       "title": "video-youtube",
-      "version": "1.6",
+      "version": "1.7",
       "kind": "lib",
       "bundle": "bundles/lib/video-youtube.hibr",
-      "sha256": "e11589884d393736040aa483d5c12a74bf63ec6bc61ed9d362053b41a76852d9",
+      "sha256": "bb7a75299915e666b2dec1555327ead371e44c02b7a587ccf4cb69fc362bd59a",
       "about": "Video: YouTube, a site for the Video player\n\nYouTube (youtube.com) for the Video player (apps/video): what only YouTube knows. A provider lib (kind `lib`): it adds itself to VIDEO_SITES, and the app calls its functions by their prefix, vy_. YouTube's lists (a search, a playlist, a channel) are its own pages' data (ytInitialData), read once the page has made it; a title is YouTube's watch page, which the engine plays itself, cut down to its one <video>; the player is driven through YouTube's own (movie_player) calls. What only YouTube has is here: its adverts (their time and length are not the video's), a page that goes on to another video by itself (followed), its own autoplay switch (turned off, the player's Play Next Automatically is the one), the qualities it offers and its captions.",
       "licence": "GPL-3.0-or-later",
       "author": "Omar Sakka",

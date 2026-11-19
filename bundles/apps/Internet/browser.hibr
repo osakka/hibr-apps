@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.57
+app browser "The web, in a window" 2.58
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -90,6 +90,9 @@ BW_EFFECTS="${BW_EFFECTS-0}"
 # How wide, in pixels, a page is drawn at most when it is drawn as a picture (0: as wide as the window). The engine paints in software, so a window as wide as a screen costs about
 # twice the processor and memory of a small one on a heavy page (measured on suno.com); the page is laid out at that width and the picture is scaled to the window.
 BW_PIXMAX="${BW_PIXMAX-1920}"
+# Whether the engine is given the machine's GPU (off: it paints in software; auto: the first render device in /dev/dri). Used when the engine next starts. Off by default: the GPU is
+# shared with the rest of the desktop and this has only been tried where the person turned it on; the engine's log (webkit.log) says which it got.
+BW_GPU="${BW_GPU-off}"
 BW_UA="${BW_UA-}"
 BW_PROGRAM="${BW_PROGRAM-}"
 BW_PROFILE="${BW_PROFILE-}"
@@ -115,7 +118,7 @@ BW_ADBLOCK="${BW_ADBLOCK-1}"
 # How often a changing page is drawn at most, in ms (bw_body).
 BW_FRAMEMS="${BW_FRAMEMS-33}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_JS \
-	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_EFFECTS BW_PIXMAX BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
+	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_EFFECTS BW_PIXMAX BW_GPU BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
 	BW_AUTOPLAY BW_ADBLOCK BW_DARKMODE
 declare -gA BWX
@@ -215,6 +218,7 @@ bw_cfg() {
 		x=off; [ "$BW_RTC" = 1 ] && x=on
 		web config webrtc "$x"
 	fi
+	bw_has gpu && web config gpu "${BW_GPU:-off}" 2> /dev/null
 	web config profile "$BW_PROFILE"
 	bw_has notetab && web config notetab on 2> /dev/null
 	return 0
@@ -1160,7 +1164,7 @@ fn bw_install(int id) {
 		dt_notep high "Only a web page can be made an app"
 		return 0 ;;
 	esac
-	nm := web title "$t" 2> /dev/null
+	nm := web title "$t" wait 2> /dev/null
 	[ -n "$nm" ] || { nm=${u#*://}; nm=${nm%%/*}; }
 	nm=${nm:0:40}
 	app=${nm,,}
@@ -1595,7 +1599,7 @@ fn bw_drawkey(int id) {
 	k="$t|${BW_TABS[*]}|${DT[$id]["h"]}x${DT[$id]["w"]}|${BW[$id]["aed"]:-0}|${BW[$id]["abuf"]}|$DT_FACE $DT_IMGMODE $BW_MODE|${BW[$id]["sized"]}"
 	if [ -n "$t" ]; then
 		for n in "${BW_TABS[@]}"; do
-			x := web title "$n" 2> /dev/null || x=
+			x := web title "$n" now 2> /dev/null || x=
 			k+="|$x"
 		done
 		x := web url "$t" 2> /dev/null || x=
@@ -1673,7 +1677,7 @@ fn bw_strip(int id, t, int w) {
 	lab := str repeat " " "$w"
 	console put -p "w$id" 1 1 "$lab"
 	for n in "${BW_TABS[@]}"; do
-		tt := web title "$n" 2> /dev/null
+		tt := web title "$n" now 2> /dev/null
 		[ -n "$tt" ] || tt := web url "$n" 2> /dev/null
 		[ -n "$tt" ] && [ "$tt" != about:blank ] || tt="New Tab"
 		tt=${tt:0:18}
@@ -1886,7 +1890,7 @@ fn bw_body(int id, t, int h, int w, int pt, int ph) {
 		bw_text "$id" "$t" "$ph" "$w" "$pt"
 		[ "$st" = loading ] && dt_want 400
 		command -v dt_retitle > /dev/null && {
-			tt := web title "$t" 2> /dev/null
+			tt := web title "$t" now 2> /dev/null
 			an := bw_appname "$id"
 			tt := dt_wintitle "$an" "$tt"
 			dt_retitle "$id" "$tt"
@@ -1937,7 +1941,7 @@ fn bw_body(int id, t, int h, int w, int pt, int ph) {
 		dt_want 30
 	fi
 	command -v dt_retitle > /dev/null && {
-		tt := web title "$t" 2> /dev/null
+		tt := web title "$t" now 2> /dev/null
 		an := bw_appname "$id"
 		tt := dt_wintitle "$an" "$tt"
 		dt_retitle "$id" "$tt"
@@ -3233,6 +3237,7 @@ bw_histread() {
 
 # Keep the page tab t shows, once it has loaded and when it is not the one last
 # kept for that tab.
+declare -gA BWHW
 fn bw_histnote(int id, t) {
 	local u tt
 
@@ -3243,8 +3248,12 @@ fn bw_histnote(int id, t) {
 	case $u in http://* | https://*) ;; *) return 0 ;; esac
 	[ "${BWHL["$t"]-}" = "$u" ] && return 0
 	web loading "$t" 2> /dev/null && return 0
+	tt := web title "$t" now 2> /dev/null || tt=
+	# a title not known yet is asked of the page (not waited for) and read on the next pass, for up to three seconds; a page that has none is kept without one
+	[ -n "${BWHW["$t $u"]-}" ] || BWHW["$t $u"]=$EPOCHSECONDS
+	[ -z "$tt" ] && [ $((EPOCHSECONDS - BWHW["$t $u"])) -lt 3 ] && return 0
 	BWHL["$t"]=$u
-	tt := web title "$t" 2> /dev/null || tt=
+	unset 'BWHW["$t $u"]'
 	tt=${tt//$'\t'/ }
 	tt=${tt//$'\n'/ }
 	bw_histread
@@ -3811,7 +3820,7 @@ fn bw_mark(int id) {
 
 	[ -n "$t" ] || return 0
 	u := web url "$t" 2> /dev/null
-	tt := web title "$t" 2> /dev/null
+	tt := web title "$t" wait 2> /dev/null
 	[ -n "$u" ] && [ "$u" != about:blank ] || return 0
 	mkdir -p "${BW_MARKS%/*}" 2> /dev/null
 	printf '%s\t%s\n' "${tt:-$u}" "$u" >> "$BW_MARKS" ||
@@ -3861,7 +3870,7 @@ fn bw_pdfask(int id) {
 	local t=${BW[$id]["cur"]} nm d=$BW_DLDIR
 
 	[ -n "$t" ] || return 0
-	nm := web title "$t" 2> /dev/null
+	nm := web title "$t" wait 2> /dev/null
 	nm=${nm//[\/:]/-}
 	[ -d "$d" ] || d=$HOME
 	dt_filepick save "Save as PDF" "PDF:*.pdf" "$d" "${nm:-page}.pdf" \
@@ -4082,7 +4091,7 @@ fn bw_savepage(int id) {
 	local t=${BW[$id]["cur"]} nm d=$BW_DLDIR
 
 	[ -n "$t" ] || return 0
-	nm := web title "$t" 2> /dev/null
+	nm := web title "$t" wait 2> /dev/null
 	nm=${nm//[\/:]/-}
 	[ -d "$d" ] || d=$HOME
 	dt_filepick save "Save Page" "HTML:*.html" "$d" "${nm:-page}.html" bw_pagesaved "$id"
