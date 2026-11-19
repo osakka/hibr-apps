@@ -354,10 +354,10 @@
     },
     "apps/audio": {
       "title": "Audio Player",
-      "version": "0.7.1",
+      "version": "0.7.2",
       "kind": "apps",
       "bundle": "bundles/apps/Sound%20%26%20Video/audio.hibr",
-      "sha256": "c0f7edbac2949fa88e157a73b28eee6be65d918dc5e5bd0df5013e2c0cbcd2b8",
+      "sha256": "3b06548f6bd45cfaca7611cafc2b603d9def0d9f0d1a7ab67f2e083ca01b06cb",
       "about": "An audio player\n\na music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum, left and right level meters and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -382,7 +382,7 @@
           "kind": "lang",
           "as": "audio.ar.json",
           "path": "bundles/lang/audio.ar.json",
-          "sha256": "c13ec1af92b1bf3e301f261fa7fded93597694033f8b31e9c7872413ebb4fc56"
+          "sha256": "2cbf8e41908ae791c7827d4c5ac203d63e4506ac2a4550cb0dfe428676965451"
         }
       ]
     },
@@ -2006,10 +2006,10 @@
     },
     "audio": {
       "title": "Audio Player",
-      "version": "0.7.1",
+      "version": "0.7.2",
       "kind": "apps",
       "bundle": "bundles/apps/Sound%20%26%20Video/audio.hibr",
-      "sha256": "c0f7edbac2949fa88e157a73b28eee6be65d918dc5e5bd0df5013e2c0cbcd2b8",
+      "sha256": "3b06548f6bd45cfaca7611cafc2b603d9def0d9f0d1a7ab67f2e083ca01b06cb",
       "about": "An audio player\n\na music player made of the desktop's own widgets: it takes its look from the theme and colour scheme, speaks the desktop's language and keeps its settings in the Control Panel.  Plays WAV, MP3, FLAC, Ogg, AAC and more through the media module, with a playlist (.m3u), a seek bar, volume, shuffle, repeat, a spectrum, left and right level meters and a ten-band equalizer window.\n\nLicence: LGPL-3.0-or-later, as hibr's own apps are.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
