@@ -27,7 +27,7 @@
 
 strict
 
-app browserset "The Control Panel pane for the Browser" 1.15
+app browserset "The Control Panel pane for the Browser" 1.16
 command -v cp_pane > /dev/null && cp_pane browserset "Browser" "◎" app
 command -v dt_app > /dev/null &&
 	dt_app bwfield "Browser Setting" 8 64 "" "" fixed hidden
@@ -84,6 +84,8 @@ fn bs_perms() {
 BS_MODES=(follow half pixels text)
 BS_ENGINES=(auto webkit light)
 BS_ZOOMS=(50 67 75 80 90 100 110 125 150 175 200)
+# how wide a page is drawn at most, in pixels (full: as wide as the window)
+BS_PIXMAXES=(full 1920 1280 960)
 declare -gA BSF
 
 # Tell every open Browser tab again; again loads each page again too.
@@ -118,6 +120,11 @@ fn bs_perm(int w, int n, var, key) {
 	# the list is declared here once, for the click and the arrows alike (hibr 0.99.534); its setter is cp_set_bw<key>
 	cp_choice "$w" "$n" "$v" "cp_set_bw$key" "${pl[@]}"
 }
+fn cp_set_bwpixmax(int? id = "", value = "") {
+	case $value in full) BW_PIXMAX=0 ;; *) BW_PIXMAX=$value ;; esac
+	cp_save
+	bs_tell
+}
 fn cp_set_bwzoom(int? id = "", int? value = "") {
 	BW_ZOOM=$value
 	cp_save
@@ -143,7 +150,7 @@ fn bs_has(c) {
 }
 
 fn browserset_rows(int w) {
-	local n=0 md
+	local n=0 md pm
 
 	dt_has browser_draw || { cp_absent "$w" Browser; ret 1; }
 	CP[$w][$n]["kind"]=head; CP[$w][$n]["text"]="Pages"; n=$((n + 1))
@@ -161,6 +168,19 @@ fn browserset_rows(int w) {
 		md := bw_drawnname
 		CP[$w][$n]["kind"]=info; CP[$w][$n]["text"]="Drawn Now"
 		CP[$w][$n]["val"]=$md; n=$((n + 1))
+	fi
+	if bs_has pixmax; then
+		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Picture Detail"
+		CP[$w][$n]["key"]=pixmax
+		pm=$BW_PIXMAX; [ "$pm" = 0 ] && pm=full
+		cp_choice "$w" "$n" "$pm" cp_set_bwpixmax "${BS_PIXMAXES[@]}"
+		n=$((n + 1))
+	fi
+	if bs_has effects; then
+		CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="Frosted Glass Effects"
+		CP[$w][$n]["wtype"]=bool
+		CP[$w][$n]["val"]=off; [ "$BW_EFFECTS" = 1 ] && CP[$w][$n]["val"]=on
+		CP[$w][$n]["key"]=BW_EFFECTS; n=$((n + 1))
 	fi
 	CP[$w][$n]["kind"]=set; CP[$w][$n]["text"]="JavaScript"
 	CP[$w][$n]["wtype"]=bool
@@ -296,7 +316,7 @@ fn browserset_do(int? w = "", k = "", int? dir = "") {
 	BW_DL | BW_AUTOPLAY | BW_RTC | BW_ADBLOCK) cp_toggle "$k"; bs_tell ;;
 	BW_DNT) cp_toggle "$k"; bs_tell again ;;
 	preset) bs_preset ;;
-	BW_JS | BW_IMAGES) cp_toggle "$k"; bs_tell again ;;
+	BW_JS | BW_IMAGES | BW_EFFECTS) cp_toggle "$k"; bs_tell again ;;
 	field:*) bs_dialog "${k#field:}" ;;
 	cookies | cache | history) bs_clear "$k" ;;
 	esac

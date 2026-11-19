@@ -220,10 +220,10 @@
     },
     "apps/browser": {
       "title": "Browser",
-      "version": "2.56",
+      "version": "2.57",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "804a56edae7957f83207c1a9d5da16cf75886e965b643d4f676134ba2c97a478",
+      "sha256": "772aa050f96654903b31fc873839395938ff6efef74c4f3c20329119e2546f25",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -236,7 +236,7 @@
           "kind": "control-panel",
           "as": "browserset.hibr",
           "path": "bundles/control-panel/browserset.hibr",
-          "sha256": "c58bed456ba63d20e4a73e81568e408c92a7aa8b583613934ce9b22c117b4190"
+          "sha256": "8a65f62192fa8b8a248bb77093d65b082025cb1f4d3bc1730d8ae417b84cab39"
         },
         {
           "kind": "control-panel",
@@ -248,7 +248,7 @@
           "kind": "lang",
           "as": "browser.ar.json",
           "path": "bundles/lang/browser.ar.json",
-          "sha256": "d395c05bbfc94f372f5ec2c57efceb415fdabdf73e30f36ee1c3c4562bd864aa"
+          "sha256": "d37ded546329235303479aa3bb0a375a60dffd54e1b78c0913e1275d895e6cb5"
         }
       ]
     },
@@ -1908,10 +1908,10 @@
     },
     "browser": {
       "title": "Browser",
-      "version": "2.56",
+      "version": "2.57",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/browser.hibr",
-      "sha256": "804a56edae7957f83207c1a9d5da16cf75886e965b643d4f676134ba2c97a478",
+      "sha256": "772aa050f96654903b31fc873839395938ff6efef74c4f3c20329119e2546f25",
       "about": "The web, in a window: a browser engine driven by the web module (a headless Chromium, or WPE WebKit from hibr-browser), each page drawn as cells -- its text where the browser laid it out, in its colours, over a half-block picture of its backgrounds and images. Links are followed with a click, fields typed into, pages scrolled with the wheel or the page keys.\n\nA tab strip along the top -- a click switches, x closes, + opens another -- then back, forward, reload and the address: what is typed there is gone to as it is, with https:// put in front of a bare name, or searched for when it is not an address at all (BW_SEARCH). f6 or ctrl-l puts the keyboard in it; enter goes, escape gives it back to the page. Every other key goes to the page, except one the desktop holds.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",

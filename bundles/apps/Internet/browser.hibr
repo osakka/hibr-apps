@@ -50,7 +50,7 @@
 
 strict
 
-app browser "The web, in a window" 2.56
+app browser "The web, in a window" 2.57
 # modules: web
 # part: control-panel/browserset.hibr
 # part: control-panel/webapps.hibr
@@ -84,6 +84,12 @@ BW_DARK="${BW_DARK-0}"
 # always, or never. BW_DARK is what an older desktop, which has no such word, is asked by.
 BW_DARKMODE="${BW_DARKMODE-follow}"
 BW_ZOOM="${BW_ZOOM-100}"
+# Whether a page's frosted-glass blur (CSS backdrop-filter) is drawn: off by default. The engine paints without a GPU, and a page that uses the effect widely (suno.com) took
+# its web process to gigabytes and a core of CPU (hibr-browser 0.5.41); a panel keeps its own colour without it. Control Panel > Browser.
+BW_EFFECTS="${BW_EFFECTS-0}"
+# How wide, in pixels, a page is drawn at most when it is drawn as a picture (0: as wide as the window). The engine paints in software, so a window as wide as a screen costs about
+# twice the processor and memory of a small one on a heavy page (measured on suno.com); the page is laid out at that width and the picture is scaled to the window.
+BW_PIXMAX="${BW_PIXMAX-1920}"
 BW_UA="${BW_UA-}"
 BW_PROGRAM="${BW_PROGRAM-}"
 BW_PROFILE="${BW_PROFILE-}"
@@ -109,7 +115,7 @@ BW_ADBLOCK="${BW_ADBLOCK-1}"
 # How often a changing page is drawn at most, in ms (bw_body).
 BW_FRAMEMS="${BW_FRAMEMS-33}"
 command -v dt_keep > /dev/null && dt_keep BW_HOME BW_SEARCH BW_MODE BW_JS \
-	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
+	BW_ENGINE BW_IMAGES BW_DARK BW_ZOOM BW_EFFECTS BW_PIXMAX BW_UA BW_PROGRAM BW_PROFILE BW_ARGS \
 	BW_LANG BW_DNT BW_RTC BW_BLOCK BW_PGEO BW_PCAM BW_PMIC BW_PNOTE BW_PPOP BW_DL BW_DLDIR \
 	BW_AUTOPLAY BW_ADBLOCK BW_DARKMODE
 declare -gA BWX
@@ -241,6 +247,12 @@ fn bw_apply(t) {
 	bw_isdark && on=on
 	web set "$t" dark "$on" 2> /dev/null
 	web set "$t" zoom "${BW_ZOOM:-100}" 2> /dev/null
+	# the engines that know these words (hibr-browser 0.5.41): the blur, and how wide the picture is made
+	on=off
+	[ "$BW_EFFECTS" = 1 ] && on=on
+	bw_tabhas "$t" effects && web set "$t" effects "$on" 2> /dev/null
+	case ${BW_PIXMAX:-0} in *[!0-9]* | "") on=0 ;; *) on=$BW_PIXMAX ;; esac
+	bw_tabhas "$t" pixmax && web set "$t" pixmax "$on" 2> /dev/null
 	web set "$t" ua "${BWTUA["$t"]:-$BW_UA}" 2> /dev/null
 	web set "$t" lang "$BW_LANG" 2> /dev/null
 	on=off
@@ -664,26 +676,31 @@ declare -g BW_UPDIR=
 # Files dragged from another window (the Files app) and let go over the page: the page is given a drop event with them, at that point, as a
 # chat or an upload area takes a file dragged onto it.  Over the Browser's own parts (the address, the tabs) or a page drawn as text: nothing.
 fn browser_drop(int id, int r, int c, op, ...paths) {
-	local t=${BW[$id]["cur"]-} pt=${BW[$id]["pt"]:-3}
+	local t=${BW[$id]["cur"]-} pt=${BW[$id]["pt"]:-3} why=
 
-	[ -n "$t" ] || return 0
-	# said, not silent: a drop that goes nowhere looks like the desktop ignoring the file
-	if [ "$r" -lt "$pt" ]; then
+	# said, not silent: a drop that goes nowhere looks like the desktop ignoring the file; and one line in the desktop's log either way, so a drop that "did nothing" can be told
+	# from one the Browser never got (the page's own answer is in the engine's log, webkit.log)
+	if [ -z "$t" ]; then
+		why="the window has no tab"
+	elif [ "$r" -lt "$pt" ]; then
+		why="over the address or the tabs (row $r; the page starts at row $pt)"
 		dt_notep low "Let go of the file over the page, not over the address or the tabs"
-		return 0
-	fi
-	if ! bw_tabhas "$t" filedrop; then
+	elif ! bw_tabhas "$t" filedrop; then
+		why="the engine cannot take files"
 		dt_notep low "This page's engine cannot take files let go on it"
-		return 0
+	else
+		bw_drawmode
+		if [ "$BW_DRAWN" = text ]; then
+			why="the page is drawn as text"
+			dt_notep low "A page drawn as text cannot take files let go on it"
+		elif web drop "$t" $((r - pt)) $((c - 1)) "${paths[@]}" 2> /dev/null; then
+			why="given to the page at row $((r - pt)), column $((c - 1))"
+		else
+			why="the engine did not take them"
+			dt_notep low "The page's engine did not take the file"
+		fi
 	fi
-	bw_drawmode
-	if [ "$BW_DRAWN" = text ]; then
-		dt_notep low "A page drawn as text cannot take files let go on it"
-		return 0
-	fi
-	if ! web drop "$t" $((r - pt)) $((c - 1)) "${paths[@]}" 2> /dev/null; then
-		dt_notep low "The page's engine did not take the file"
-	fi
+	printf 'browser: a drop of %d file(s) on window %s, tab %s: %s\n' "${#paths[@]}" "$id" "${t:-none}" "$why" >&2
 	return 0
 }
 
