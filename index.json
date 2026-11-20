@@ -459,15 +459,15 @@
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.8",
+      "version": "1.8.1",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "ac292bd1e82025958d7c1c91f20db0526ffaf30b9dffcca47cfd2506bc0e5471",
+      "sha256": "2992c7c8171648af1ec560bea0787873f246d9c30b4fae32a5fa80bae33fb043",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.336",
+      "hibr": "0.99.553",
       "modules": "dav db pim",
       "parts": [
         {
@@ -512,10 +512,10 @@
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.8.4",
+      "version": "1.8.5",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "3f023fb7a32a9ccecc1e4e3c07642863d342019211b5b390c139e12127bc50b1",
+      "sha256": "9ec227b9df4f480a86633f6a02b8114f760d260c3a1625a1b8bd3a1f1373fec6",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -629,10 +629,10 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "c481dae37d804af302ed3ffd750a18bde68c4375b4db7043274f4fe3f5b4cb28",
+      "sha256": "ca23d2f7d87699b12456cafb9eabbcaeb6ccaa7feb00a580acfa1259456a1426",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -643,7 +643,7 @@
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "0459e9bf86ddcdf95fbd2e11bdcb5ac41ed51788a1cbff349d012f913dcb5bd4"
+          "sha256": "3451929ca06783cb94e522197994da1564625bab93e431b2914ef7ae497834f6"
         }
       ]
     },
@@ -789,15 +789,15 @@
     },
     "control-panel/filetypes": {
       "title": "File Types",
-      "version": "1.4",
+      "version": "1.4.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "3d2e9170a85ec53bdfb0feb1ad5f22e24c4e3d99a695deb5e015e0c1bdfb4c21",
+      "sha256": "fc1dcdeda81941bb5959ccfe071e968cd72679a93a1e4a4aac8ce4c0d59a86a0",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "filetypes",
-      "hibr": "0.99.300"
+      "hibr": "0.99.553"
     },
     "control-panel/language": {
       "title": "Language & Region",
@@ -1584,11 +1584,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.16",
+      "version": "3.99.17",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "4245656c7a986640ac85718d8125f98e0a45230533d6df97e29ee2995e139edc",
-      "about": "The desktop's own words in العربية (ar): 1441 strings, read right to left.",
+      "sha256": "9e73e9deda07edabe4187f733720bba4315f374edcd8b0ab980d161712f7f16e",
+      "about": "The desktop's own words in العربية (ar): 1444 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -2061,15 +2061,15 @@
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.8",
+      "version": "1.8.1",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "ac292bd1e82025958d7c1c91f20db0526ffaf30b9dffcca47cfd2506bc0e5471",
+      "sha256": "2992c7c8171648af1ec560bea0787873f246d9c30b4fae32a5fa80bae33fb043",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.336",
+      "hibr": "0.99.553",
       "modules": "dav db pim"
     },
     "files": {
@@ -2098,10 +2098,10 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.8.4",
+      "version": "1.8.5",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "3f023fb7a32a9ccecc1e4e3c07642863d342019211b5b390c139e12127bc50b1",
+      "sha256": "9ec227b9df4f480a86633f6a02b8114f760d260c3a1625a1b8bd3a1f1373fec6",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2171,10 +2171,10 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.6.2",
+      "version": "1.6.3",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "c481dae37d804af302ed3ffd750a18bde68c4375b4db7043274f4fe3f5b4cb28",
+      "sha256": "ca23d2f7d87699b12456cafb9eabbcaeb6ccaa7feb00a580acfa1259456a1426",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2302,15 +2302,15 @@
     },
     "filetypes": {
       "title": "File Types",
-      "version": "1.4",
+      "version": "1.4.1",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "3d2e9170a85ec53bdfb0feb1ad5f22e24c4e3d99a695deb5e015e0c1bdfb4c21",
+      "sha256": "fc1dcdeda81941bb5959ccfe071e968cd72679a93a1e4a4aac8ce4c0d59a86a0",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "filetypes",
-      "hibr": "0.99.300"
+      "hibr": "0.99.553"
     },
     "language": {
       "title": "Language & Region",

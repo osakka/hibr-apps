@@ -185,6 +185,10 @@ ENTHIBR["control-panel/blit"]=0.99.297
 ENTHIBR["apps/mail"]=0.99.299
 ENTHIBR["apps/calendar"]=0.99.336
 ENTHIBR["apps/contacts"]=0.99.336
+# Contacts 1.8.1 reads and writes its address book through lib/pim.hibr's
+# pe_load, pe_f and pe_write, which 0.99.553 brought for the `contacts`
+# command (hibr 6f7668c0); an older desktop's library has none of them.
+ENTHIBR["apps/contacts"]=0.99.553
 ENTHIBR["system/catalogue"]=0.99.336
 # Copy, Cut and Paste in a focused field are the desktop's own from
 # 0.99.300 (hibr Gitea #357 part 3), and these no longer carry their own:
@@ -198,6 +202,9 @@ ENTHIBR["apps/files"]=0.99.341
 ENTHIBR["apps/xscreen"]=0.99.300
 ENTHIBR["control-panel/datetime"]=0.99.300
 ENTHIBR["control-panel/filetypes"]=0.99.300
+# File Types 1.4.1 removes a handler through dt_handlerdrop, the desktop's
+# own request since 0.99.553 (hibr 6676e225): a pane writes no desktop table.
+ENTHIBR["control-panel/filetypes"]=0.99.553
 # X Screen 1.8 hands Xvfb its own flags through xscr start and paints the
 # root with xscr root (hibr #404); an older xscr takes the extra arguments
 # and drops them without a word, so its options would do nothing there.
