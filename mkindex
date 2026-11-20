@@ -185,10 +185,6 @@ ENTHIBR["control-panel/blit"]=0.99.297
 ENTHIBR["apps/mail"]=0.99.299
 ENTHIBR["apps/calendar"]=0.99.336
 ENTHIBR["apps/contacts"]=0.99.336
-# Contacts 1.8.1 reads and writes its address book through lib/pim.hibr's
-# pe_load, pe_f and pe_write, which 0.99.553 brought for the `contacts`
-# command (hibr 6f7668c0); an older desktop's library has none of them.
-ENTHIBR["apps/contacts"]=0.99.553
 ENTHIBR["system/catalogue"]=0.99.336
 # Copy, Cut and Paste in a focused field are the desktop's own from
 # 0.99.300 (hibr Gitea #357 part 3), and these no longer carry their own:
@@ -202,9 +198,6 @@ ENTHIBR["apps/files"]=0.99.341
 ENTHIBR["apps/xscreen"]=0.99.300
 ENTHIBR["control-panel/datetime"]=0.99.300
 ENTHIBR["control-panel/filetypes"]=0.99.300
-# File Types 1.4.1 removes a handler through dt_handlerdrop, the desktop's
-# own request since 0.99.553 (hibr 6676e225): a pane writes no desktop table.
-ENTHIBR["control-panel/filetypes"]=0.99.553
 # X Screen 1.8 hands Xvfb its own flags through xscr start and paints the
 # root with xscr root (hibr #404); an older xscr takes the extra arguments
 # and drops them without a word, so its options would do nothing there.
@@ -541,6 +534,58 @@ ENTHIBR["apps/audio"]=0.99.548
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
 # refused a `.so` by name, so an older client must decline rather than try.
 MODSHIBR=0.99.191
+
+# Each entry's floor as hibr's app interface contract says it (ADR 0050):
+# the newest release among the desktop functions it and its parts call,
+# from the calls table's since column (tools/appcalls.py --floors). An
+# entry's floor is the later of this and its ENTHIBR line, which is kept
+# for what the contract cannot see -- a widget's file, a module's verb.
+# No hibr tree beside this one means no derived floors, and says so.
+# Fails closed: a tree that is there and answers nothing, or fails, stops
+# the index rather than publishing floors that are too low -- the two lines
+# this derivation replaced are gone from ENTHIBR.
+TREE=${HIBR_TREE:-$HERE/../hibr}
+declare -A DERIVED
+if [ -r "$TREE/tools/appcalls.py" ]; then
+	FLOORSOUT=$(HIBR_APPS="$HERE" python3 "$TREE/tools/appcalls.py" --floors 2>&1) ||
+		{ printf 'mkindex: tools/appcalls.py --floors failed:\n%s\n' "${FLOORSOUT: -600}" >&2; exit 1; }
+	while IFS=$'\t' read -r k v; do
+		[[ $k == */* ]] && [[ $v =~ ^[0-9]+(\.[0-9]+)+$ ]] ||
+			{ printf 'mkindex: --floors said something that is no floor: %s\n' "$k $v" >&2; exit 1; }
+		DERIVED["$k"]=$v
+	done <<< "$FLOORSOUT"
+	[ "${#DERIVED[@]}" -gt 0 ] ||
+		{ printf 'mkindex: tools/appcalls.py --floors gave no floor at all\n' >&2; exit 1; }
+else
+	printf 'mkindex: no hibr tree at %s; floors are only the ones written here\n' "$TREE" >&2
+fi
+
+# The floors the published index holds now: a new index may raise one and
+# never lower it, which would let an entry install where it cannot run.
+declare -A PREVHIBR
+if [ -r "$HERE/index.json" ]; then
+	json parse PIX < "$HERE/index.json"
+	for k in "${!PIX["entries"][@]}"; do
+		[ -n "${PIX["entries"]["$k"]["hibr"]-}" ] && PREVHIBR["$k"]=${PIX["entries"]["$k"]["hibr"]}
+	done
+	unset PIX
+fi
+
+# The later of two releases, as numbers part by part.
+fn verlater(a = "", b = "") {
+	local -a x y
+	local i
+
+	[ -n "$a" ] || { ret "$b"; return 0; }
+	[ -n "$b" ] || { ret "$a"; return 0; }
+	IFS=. read -ra x <<< "$a"
+	IFS=. read -ra y <<< "$b"
+	for ((i = 0; i < ${#x[@]} || i < ${#y[@]}; i++)); do
+		[ "${x[$i]:-0}" -gt "${y[$i]:-0}" ] && { ret "$a"; return 0; }
+		[ "${x[$i]:-0}" -lt "${y[$i]:-0}" ] && { ret "$b"; return 0; }
+	done
+	ret "$a"
+}
 
 fn die(...msg) {
 	printf 'mkindex: %s\n' "${msg[*]}" >&2
@@ -1309,7 +1354,14 @@ builds for several machines has mkindex run on each of them."
 			      [ -n "$pl0" ] && v=$PARTSHIBR
 			      isnative "$kind" && v=$MODSHIBR
 			      [ -n "${ENTHIBR["$id"]-}" ] &&
-				      v=${ENTHIBR["$id"]} ;;
+				      v=${ENTHIBR["$id"]}
+			      [ -n "${DERIVED["$id"]-}" ] &&
+				      v := verlater "$v" "${DERIVED["$id"]}"
+			      if [ -n "${PREVHIBR["$id"]-}" ]; then
+				      w := verlater "$v" "${PREVHIBR["$id"]}"
+				      [ "$w" = "$v" ] ||
+					      die "$id: its floor would drop from ${PREVHIBR["$id"]} to ${v:-none}"
+			      fi ;;
 			# Only a module has either, and both are a refusal
 			# rather than a note: an object built for another
 			# machine or another ABI cannot be loaded at all, so
