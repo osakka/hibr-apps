@@ -7,7 +7,7 @@
 
 strict
 
-app prayer "Today's prayer times for where you are, the next one lit" 1.2.1
+app prayer "Today's prayer times for where you are, the next one lit" 1.2.2
 # part: control-panel/prayerset.hibr
 # part: control-strip/nextprayer.hibr
 # part: menubar/prayer.hibr
@@ -198,10 +198,8 @@ fn pyloc_do(int id, what) {
 			return 0
 		fi
 	fi
-	DT_PLAT=$a
-	DT_PLON=$b
 	DT_PKEY=
-	command -v dt_save > /dev/null && dt_save
+	dt_set DT_PLAT "$a" DT_PLON "$b"
 	dt_del "$id"
 	return 0
 }
