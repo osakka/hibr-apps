@@ -8,6 +8,10 @@ require 'json'
 require 'net/http'
 ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
+# Which Hibr runs this: the installed one, or a tree's (HIBR_BIN, its
+# HIBR_MODPATH, and HIBR_DESKTOP, a tree's programs/desktop).
+HIBR=ENV.fetch('HIBR_BIN','/usr/bin/hibr')
+HIBR_DESKTOP=ENV.fetch('HIBR_DESKTOP','/usr/share/hibr/desktop')
 # Blit's own mocked display (native KMS on its DRM mock; ADR 0184).
 require File.join(BLIT,'tools/tests/gate_server')
 PORT=Integer(ENV.fetch('BLIT_MOUSE_GATE_PORT','19520'))
@@ -33,10 +37,13 @@ Dir.mktmpdir('blit-mouse') do |root|
     script=File.join(root,'test.hibr')
     File.write(script,<<~HIBR)
       strict
-      source /usr/share/hibr/desktop/wm/settings.hibr
-      source /usr/share/hibr/desktop/system/panel.hibr
-      source /usr/share/hibr/desktop/wm/jobs.hibr
-      source /usr/share/hibr/desktop/wm/ask.hibr
+      # The desktop's seam into a pane's code (hibr ADR 0050: dt_appfn and
+      # the rest), which its interface loads first.
+      source #{HIBR_DESKTOP}/wm/seam.hibr
+      source #{HIBR_DESKTOP}/wm/settings.hibr
+      source #{HIBR_DESKTOP}/system/panel.hibr
+      source #{HIBR_DESKTOP}/wm/jobs.hibr
+      source #{HIBR_DESKTOP}/wm/ask.hibr
       source '#{ROOT}/bundles/control-panel/blit.hibr'
       BCP_URL=http://127.0.0.1:#{PORT}
       # Whether the rows the pane draws hold one with this text.
@@ -207,7 +214,7 @@ Dir.mktmpdir('blit-mouse') do |root|
       [ "${BCP_SNAPSHOT[settings][effective][pointer][busy_style]}" = spokes ] || exit 73
       echo BLIT_MOUSE_CALLBACK_PASS
     HIBR
-    out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},'/usr/bin/hibr',script)
+    out,err,status=Open3.capture3({'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),'TMPDIR'=>root},HIBR,script)
     abort("mouse callbacks failed #{status.exitstatus}:#{out}\n#{err}\n#{File.read(File.join(root,'server.log'))}") unless status.success?
     puts out
   ensure

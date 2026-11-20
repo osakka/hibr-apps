@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.37
+app blit "API configuration and diagnostics for the Blit display server" 0.1.38
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -262,7 +262,9 @@ fn blit_cp_start(what, method = "GET", path = "", body = "", revision = "", quie
     BCP_NEXT=$((EPOCHSECONDS + BCP_REFRESH_SECONDS))
     if ! need dav 2> /dev/null; then BCP_STATUS="The dav module is required"; blit_cp_schedule 1; return 1; fi
     if ! command -v dt_job > /dev/null; then BCP_STATUS="Needs hibr 0.99.297 or later"; blit_cp_schedule 1; return 1; fi
-    BCP_URL=${BCP_URL%/}
+    # A pane in a process of its own holds the desktop's state read-only
+    # (hibr ADR 0050): a kept setting changes through dt_set, which saves it.
+    [ "${BCP_URL%/}" = "$BCP_URL" ] || dt_set BCP_URL "${BCP_URL%/}"
     if [ "$BCP_CONNECTION_READY" != 1 ] || [ "$BCP_CREDENTIAL_URL" != "$BCP_URL" ]; then
         blit_cp_credentials
     fi
@@ -2007,11 +2009,10 @@ fn blit_cp_answer(value, int id) {
         BCP_TOKEN=$value
         blit_cp_credentials 0 || return 1
     else
-        BCP_URL=${value%/}; BCP_DIRTY=0; BCP_BASE_REV=-1
+        dt_set BCP_URL "${value%/}"; BCP_DIRTY=0; BCP_BASE_REV=-1
         blit_cp_credentials
         json parse BCP_SNAPSHOT '{}'; json parse BCP_DRAFT '{}'; json parse BCP_LIVE '{}'
     fi
-    command -v cp_save > /dev/null && cp_save
     BCP_LAST=0
     blit_cp_start refresh
     return 0

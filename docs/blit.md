@@ -1,5 +1,12 @@
 # Blit Control Panel
 
+## The Server address (pane 0.1.38)
+
+The **Server** address is kept without a trailing slash, however it was
+typed or given in `BLIT_CP_URL`, so `http://host:8080/` and
+`http://host:8080` are the same server. The pane needs Hibr 0.99.554 or
+later.
+
 ## Program Windows, and retired rows (pane 0.1.32)
 
 The **Screens** section is now **Program Windows**, after

@@ -9,6 +9,10 @@ require 'fileutils'
 require 'open3'
 ROOT=File.expand_path('..',__dir__)
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
+# Which Hibr runs this: the installed one, or a tree's (HIBR_BIN, its
+# HIBR_MODPATH, and HIBR_DESKTOP, a tree's programs/desktop).
+HIBR=ENV.fetch('HIBR_BIN','/usr/bin/hibr')
+HIBR_DESKTOP=ENV.fetch('HIBR_DESKTOP','/usr/share/hibr/desktop')
 # Blit's own mocked display (native KMS on its DRM mock; ADR 0184).
 require File.join(BLIT,'tools/tests/gate_server')
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
@@ -24,8 +28,8 @@ def req(method,path,body=nil)
   raise "HTTP #{r.code}:#{r.body}" unless r.code.start_with?('2')
   r.body.to_s.empty? ? nil : JSON.parse(r.body)
 end
-def await(message)
-  Timeout.timeout(20,RuntimeError,"timeout:#{message}") do
+def await(message,seconds=20)
+  Timeout.timeout(seconds,RuntimeError,"timeout:#{message}") do
     loop do
       begin
         v=yield;return v if v
@@ -43,9 +47,14 @@ Dir.mktmpdir('blit-panel-ui') do |root|
   File.write(script,<<~HIBR)
     strict
     mod load img; mod load pty; mod load term; mod load hold
-    source /usr/share/hibr/desktop/desktop.hibr
-    source /usr/share/hibr/desktop/system/panel.hibr
+    source #{HIBR_DESKTOP}/desktop.hibr
+    source #{HIBR_DESKTOP}/system/panel.hibr
     source '#{ROOT}/bundles/control-panel/blit.hibr'
+    # Which hibr this is, for the pass line: its version, and whether its
+    # dt_set leaves the redraw to each setting's own effects (dt_onset,
+    # 0.99.555) rather than forcing a whole frame.
+    o=forced; command -v dt_onset > /dev/null && o=onset
+    echo "$HIBR_VERSION $o" > '#{root}/hibr.txt'
     DT_TERMMS=0
     dt_open || exit 1
     id := dt_launch panel #{PANE}
@@ -64,10 +73,13 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       active=req('PUT','/v1/fonts',{font_id:ENV['BLIT_PANEL_UI_FONT'],size_px:16}).fetch('active')
       raise 'requested UI font was not selected' unless active['id']==ENV['BLIT_PANEL_UI_FONT']
     end
-    session=req('POST','/v1/terminal-sessions',{'command'=>'/usr/bin/hibr','arguments'=>[script],
+    session=req('POST','/v1/terminal-sessions',{'command'=>HIBR,'arguments'=>[script],
       'pane_id'=>'pane-display-1-1','environment'=>{'HOME'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config'),
        'XDG_DATA_HOME'=>File.join(root,'data'),'TMPDIR'=>root,'XDG_RUNTIME_DIR'=>root,
-       'BLIT_CP_URL'=>BASE.to_s,'DT_LOG'=>File.join(root,'desktop.log')}})
+       # With a trailing slash, which the pane drops (dt_set) as it first
+       # draws: until it has, the address is refused and nothing connects.
+       'BLIT_CP_URL'=>"#{BASE}/",'DT_LOG'=>File.join(root,'desktop.log'),
+       **(ENV['HIBR_MODPATH'] ? {'HIBR_MODPATH'=>ENV['HIBR_MODPATH']} : {})}})
     surface="/v1/surfaces/#{session['surface_id']}/cells"
     text=-> do
       cells=req('GET',surface)['cells']
@@ -98,6 +110,10 @@ Dir.mktmpdir('blit-panel-ui') do |root|
       Open3.capture3('ffmpeg','-hide_banner','-loglevel','error','-y','-i',File.join(output,"#{name}.bmp"),File.join(output,"#{name}.png"))
     end
     capture.call('panel')
+    if PANE=='blit'
+      saved=->{JSON.parse(File.read(File.join(root,'config/hibr/desktop.json'))).dig('settings','BCP_URL') rescue nil}
+      await('the address kept without its slash'){saved.call==BASE.to_s}
+    end
     # A Hibr desktop's first seconds on Blit are its startup repair: Blit
     # nudges the terminal's size until the desktop has laid itself out at the
     # canonical one, and each nudge is a repaint. Click only once Blit says
@@ -245,7 +261,52 @@ Dir.mktmpdir('blit-panel-ui') do |root|
     await('one pixel keyboard decrease'){req('GET','/v1/fonts').dig('active','size_px')==19 && text.call.include?('Font size (19 px)')}
     capture.call('font-size-keyboard-step')
     dropdown.call('Fallback','first_available','wait')
-    puts "BLIT_UI_PASS library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
+    # The Server row is the server the pane talks to, and has to show a new
+    # one on the frame after it is typed. From hibr 0.99.555 dt_set forces
+    # no whole frame (a setting's effects are declared, dt_onset, and
+    # BCP_URL has none), so the row has to be drawn from BCP_URL as it is,
+    # never a copy kept from before. First an address the pane refuses (a
+    # path), so no request starts and no refresh draws it later; then the
+    # gate's own server with a trailing slash, which the pane drops.
+    server=->(url,shown) do
+      settle.call("changing the server to #{url}")
+      cells=req('GET',surface)['cells']
+      row=cells.group_by{|c|c['y']}.find{|_,r|r.sort_by{|c|c['x']}.map{|c|c['text']}.join.match?(/│ *Server /)}
+      raise 'Server row missing' unless row
+      label=row[1].sort_by{|c|c['x']}; x=label[label.map{|c|c['text']}.join.index('Server')]['x']
+      grid=req('GET','/v1/topology')['panes'][0]['cell_grid']
+      req('POST','/v1/input/inject',{kind:'pointer_motion',x:grid['origin_x']+(x+2)*grid['cell_width'],y:grid['origin_y']+row[0]*grid['cell_height']+grid['cell_height']/2})
+      2.times do
+        break if text.call.include?('Blit Connection')
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:true})
+        req('POST','/v1/input/inject',{kind:'pointer_button',button:0,pressed:false})
+        sleep 0.3
+      end
+      await('server dialog from a click on its row'){text.call.include?('Blit Connection')}
+      input.call("\x15#{url}\r")
+      # The pane keeps the question open while a refresh is in flight, so
+      # Enter is pressed again until it is answered.
+      await('server dialog closed') do
+        open=text.call.include?('Blit Connection')
+        if open then sleep 0.5; input.call("\r") if text.call.include?('Blit Connection') end
+        !open
+      end
+      # Within 3 s: well inside the pane's own 15 s refresh, whose frame
+      # would otherwise show it in the end and hide a missing one.
+      await("Server row showing #{shown}",3) do
+        text.call.lines.any?{|line|line.match?(/│ *Server /) && line.include?(shown)}
+      end
+    end
+    # The row is narrower than the gate's address, which it ends with an
+    # ellipsis, so the refused one is short and the two start differently.
+    server.call('http://localhost/x','http://localhost/x')
+    await('the refused address said'){text.call.include?('Use an http(s)')}
+    capture.call('server-refused')
+    server.call("#{BASE}/",BASE.to_s[0,20])
+    await('connected again'){text.call.include?("Connected: #{EXPECTED_VERSION}")}
+    capture.call('server-changed')
+    hibr=File.read(File.join(root,'hibr.txt')).split
+    puts "BLIT_UI_PASS hibr=#{hibr[0]} redraw=#{hibr[1]} server_row=refused+changed library=installed_hibr display=kms_mock font=#{req('GET','/v1/fonts').dig('active','id')} panel=connected drag=actual_pointer_columns8_rows3_font19px keyboard=font_plus_minus_1px token=masked screenshots=#{output}"
     end
   rescue Exception
     File.write(File.join(output,'failure.txt'),text.call) rescue nil

@@ -10,6 +10,10 @@ require 'socket'
 ROOT=File.expand_path('..',__dir__)
 BUNDLE=ENV.fetch('BLIT_PANEL_BUNDLE',File.join(ROOT,'bundles/control-panel/blit.hibr'))
 BLIT=ENV.fetch('BLIT_ROOT',File.expand_path('../../hw-manager',__dir__))
+# Which Hibr runs this: the installed one, or a tree's (HIBR_BIN, its
+# HIBR_MODPATH, and HIBR_DESKTOP, a tree's programs/desktop).
+HIBR=ENV.fetch('HIBR_BIN','/usr/bin/hibr')
+HIBR_DESKTOP=ENV.fetch('HIBR_DESKTOP','/usr/share/hibr/desktop')
 # Blit's own mocked display (native KMS on its DRM mock; ADR 0184).
 require File.join(BLIT,'tools/tests/gate_server')
 BINARY=ENV.fetch('BLIT_GATE_BINARY',File.join(BLIT,'build/blit/blit-server'))
@@ -54,10 +58,14 @@ Dir.mktmpdir('blit-panel') do |root|
     script=File.join(root,'test.hibr')
     File.write(script,<<~HIBR)
       strict
-      source /usr/share/hibr/desktop/wm/settings.hibr
-      source /usr/share/hibr/desktop/system/panel.hibr
-      source /usr/share/hibr/desktop/wm/jobs.hibr
-      source /usr/share/hibr/desktop/wm/ask.hibr
+      # The desktop's seam into a pane's code (hibr ADR 0050: dt_appfn and
+      # the rest), which its interface loads first: without it a Control
+      # Panel row set does nothing.
+      source #{HIBR_DESKTOP}/wm/seam.hibr
+      source #{HIBR_DESKTOP}/wm/settings.hibr
+      source #{HIBR_DESKTOP}/system/panel.hibr
+      source #{HIBR_DESKTOP}/wm/jobs.hibr
+      source #{HIBR_DESKTOP}/wm/ask.hibr
       source '#{BUNDLE}'
       [ "${CP_PANES[blit][title]}" = Blit ] || { echo 'pane title is not Blit' >&2; exit 1; }
       BCP_TEST_WAKE=0
@@ -681,7 +689,7 @@ Dir.mktmpdir('blit-panel') do |root|
       dtask_draw 9 9 64 0 0
       echo BLIT_PANEL_PASS
     HIBR
-    out,err,st=Open3.capture3({'XDG_RUNTIME_DIR'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config')},'/usr/bin/hibr',script)
+    out,err,st=Open3.capture3({'XDG_RUNTIME_DIR'=>root,'XDG_CONFIG_HOME'=>File.join(root,'config')},HIBR,script)
     abort("panel callbacks failed #{st}:\n#{out}\n#{err}\n#{File.read(log)}") unless st.success? && out.include?('BLIT_PANEL_PASS')
     abort('token leaked through dialog') if out.include?('secret-must-be-masked')
     timing=out.lines.find { |l| l.start_with?('CALLBACK_LATENCY:') }.split(':')[1,2].map(&:to_f)
@@ -692,8 +700,12 @@ Dir.mktmpdir('blit-panel') do |root|
     reload_script=File.join(root,'reload.hibr')
     File.write(reload_script, <<~HIBR)
       strict
-      source /usr/share/hibr/desktop/wm/settings.hibr
-      source /usr/share/hibr/desktop/wm/jobs.hibr
+      # The desktop's seam into a pane's code (hibr ADR 0050: dt_appfn and
+      # the rest), which its interface loads first: without it a Control
+      # Panel row set does nothing.
+      source #{HIBR_DESKTOP}/wm/seam.hibr
+      source #{HIBR_DESKTOP}/wm/settings.hibr
+      source #{HIBR_DESKTOP}/wm/jobs.hibr
       source '#{BUNDLE}'
       # Match the installed session: cp_panes sources bundles first,
       # dt_load reads the preferences afterwards (desktop.json since Hibr
@@ -707,7 +719,7 @@ Dir.mktmpdir('blit-panel') do |root|
       while [ "$BCP_BUSY" = 1 ]; do blit_cp_poll; /bin/sleep 0.02; done
       [ "$BCP_BASE_REV" -ge 0 ] || exit 3
     HIBR
-    _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},'/usr/bin/hibr',reload_script)
+    _,err,st=Open3.capture3({'XDG_CONFIG_HOME'=>File.join(root,'config'),'XDG_RUNTIME_DIR'=>root},HIBR,reload_script)
     abort("credential not restored in a new process:#{err}") unless st.success?
     abort('token was written into the desktop settings') if File.read(File.join(root,'config/hibr/desktop.json')).include?('panel-test-token')
     puts 'BLIT_PANEL_PASS callbacks=actual_hibr api=actual_blit refresh=quiet_15s backoff=15_30_60 scratch=no_io apply_save=separate conflict=preserved auth=reported offline=reported font_size=8..64_pixels drag=latest_value effects=live_own_pane switches=bypass held=on_release staged=untouched draft=preserved token=masked export=no_secrets zap=read+off+on hud=on+corner+hibr_section+opacity zoom=slider_210to200+160to150+100 compositor=running+older_build+none restart_after_update=manual+at-login-screen restart=confirmed+back'
