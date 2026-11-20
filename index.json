@@ -14,15 +14,15 @@
     },
     "apps/camera": {
       "title": "Camera",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/camera.hibr",
-      "sha256": "428daa2dca95fd496cfdc22d30cd954eae63c18e7562da7ce4303a8929595251",
+      "sha256": "31f7dd535b7e1c72ab996cd67fa8b6106b142117a3f26b7494c0afbf8b0fd8fa",
       "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, Take Photo (space, or the button) to keep one in ~/Pictures/Camera, and Record (r) to keep the picture as a film in ~/Videos/Camera, with the microphone's sound where one answers and without it where none does. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and streams it down a pipe into a media player, the path a film takes, so the picture moves at the camera's own rate. Beside that it rewrites one full size JPEG twice a second, which is what a photo copies. ffmpeg writes to that pipe, so it ends with the player, however the desktop ends. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them and among the sizes the camera says it offers, and the size chosen is kept for next time.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "camera",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "media pty",
       "dir": "Accessories",
       "parts": [
@@ -30,7 +30,7 @@
           "kind": "control-panel",
           "as": "camset.hibr",
           "path": "bundles/control-panel/camset.hibr",
-          "sha256": "083cbd7b65954529cef46eda29cde56285d2d04c72ba5a9b978ac1f02a00476d"
+          "sha256": "509c30866b0fca835e4a60b742264b43b62da15f6fab5cd97bd6ccde7f70ce5b"
         }
       ]
     },
@@ -48,15 +48,15 @@
     },
     "apps/imgview": {
       "title": "Image Viewer",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/imgview.hibr",
-      "sha256": "ef7860c1b95e41bcfd65114fe939f84420600c322f471ebc8ef36709720a2503",
+      "sha256": "dc5ecf9c0d64561c1a308b50904e3478867a012f9c045be6418026c225072636",
       "about": "A picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "imgview",
-      "hibr": "0.99.554",
+      "hibr": "0.99.555",
       "modules": "img term",
       "dir": "Accessories"
     },
@@ -121,22 +121,22 @@
     },
     "apps/stickies": {
       "title": "Stickies",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/stickies.hibr",
-      "sha256": "9e624fd9010b48406ac04a3361ccd431323249c695ee320d9849e7fdd86e3b35",
+      "sha256": "4cc15e9a0b77efe5f9b40047deb228a2670a3a5358194ddca2ec05ee38be3144",
       "about": "Notes stuck on the desktop, each its own colour\n\nnotes stuck on the desktop, as many as you like, each its own colour, each saved as you type. Launching Stickies opens every note there is (a first, empty one if there are none); the Note menu makes a new one, changes the colour, and deletes one. Closing a note only puts it away until Stickies is opened again -- it is still there.\n\nThe colours are the notes' own, not the theme's, the way a game's art is: a yellow note is yellow on every theme. Text wraps at the window's width, and the desktop's Edit menu works on it -- undo and redo, cut, copy, paste, select all.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "stickies",
-      "hibr": "0.99.534",
+      "hibr": "0.99.555",
       "dir": "Accessories",
       "parts": [
         {
           "kind": "control-panel",
           "as": "notes.hibr",
           "path": "bundles/control-panel/notes.hibr",
-          "sha256": "b8a5cc6549e75aaeff76a1f5ec30126e813dc06f320f2215733f18831a3d4c8d"
+          "sha256": "49844fc2c85167a7c4c373d7d200d9db23bfbfb38fe8956c94ca1e984549aee4"
         }
       ]
     },
@@ -254,15 +254,15 @@
     },
     "apps/mail": {
       "title": "Mail",
-      "version": "2.5.4",
+      "version": "2.5.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "b7fbc315d46f4a0b206bee49e5ad6462952bb13347fa401fd89c071b7087a6f0",
+      "sha256": "bb55e262b6a669e35ae31c114ede7db09bb91e683231369bdeae8bd39f9731c3",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "db email html img",
       "dir": "Internet",
       "parts": [
@@ -270,7 +270,7 @@
           "kind": "control-panel",
           "as": "mailset.hibr",
           "path": "bundles/control-panel/mailset.hibr",
-          "sha256": "68bd6abbc84f77cf5936a7bfd9f7ed70872a7df303f0fb179da3d0c7c0a0527f"
+          "sha256": "61255637e3bd83368f1119522551b59e2be30fc07f265c57e7d873bb7d49b336"
         }
       ]
     },
@@ -304,10 +304,10 @@
     },
     "apps/pdfr": {
       "title": "PDF Reader",
-      "version": "1.2",
+      "version": "1.2.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/pdfr.hibr",
-      "sha256": "b94bf284b5ea183ba6c84e5faa722e57cbb78884e6bd7fcca6e1f0729d040190",
+      "sha256": "fab66fcff1dab05c05077ed5029953b5782028fb2056eae68a1456867f52d042",
       "about": "A PDF reader: pages as pictures where the terminal can, text where it cannot\n\na PDF reader (Gitea #348). The pages are drawn by the pdf module, which renders through Poppler loaded at run time, and placed by the img module, so a page is pixels on a terminal that takes them, half blocks or characters on one that does not, and -- under View > Text, or with no img at all -- the page's own text, wrapped to the window.\n\nThe document is one continuous column of pages: the wheel, the arrows, page up and down and the scroll bar move through it, and a view that spans the foot of one page and the head of the next is one picture. Fit Width is where a document opens; Fit Page, and zoom in and out, are on the View menu and on w, f, + and -. / searches the whole document, n and N step through what it found, each marked on its page. o shows the contents beside the pages; a link on a page is followed by clicking it -- to its page, or an address to the Browser. A drag selects text, and Copy takes it (or the whole page when nothing is selected); g goes to a page.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -318,15 +318,15 @@
     },
     "apps/sheet": {
       "title": "Sheet",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "4b39bb13a2b98021ca07da88568e5dd41a9c30cf154a458398546a32ced9d0fc",
+      "sha256": "8dcdcc5c98a2885f03295b701db8b4f08fbde5430bf4d4c33014cd88eae8f90c",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sheet",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "csv db math",
       "dir": "Office",
       "parts": [
@@ -334,7 +334,7 @@
           "kind": "control-panel",
           "as": "sheetset.hibr",
           "path": "bundles/control-panel/sheetset.hibr",
-          "sha256": "2f5de358aa6cbecdd1346bf392860652e8dc4956eab0e9714848faebe9dca93b"
+          "sha256": "07c70ec07870bd426e72b9af4213e623c4bc7f0fed1889710845abb75ce701e1"
         }
       ]
     },
@@ -418,72 +418,72 @@
     },
     "apps/archives": {
       "title": "Archives",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "kind": "apps",
       "bundle": "bundles/apps/archives.hibr",
-      "sha256": "1fd50f642358a426b36ca25df8e947ea08b712b2050edfd1d286d0549e3f53e0",
+      "sha256": "c86d5d4c3b2eb2ea6eaff4511450f971490326e8386e4b0a269a2d39143fa27b",
       "about": "Show archives as folders in Files, compress and extract them\n\nan archive in Files is a folder (Gitea #475, ADR 0053).\n\nA catalogue extension: it opens no window of its own. It registers a location, archive://FILE/path, which Files shows read-only, an opener that sends an archive there, and the verbs Compress, Extract Here and Extract To. Removed, an archive is a plain file again and Files is exactly as it was: Files names none of this.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "archives",
-      "hibr": "0.99.534",
+      "hibr": "0.99.555",
       "parts": [
         {
           "kind": "control-panel",
           "as": "archiveset.hibr",
           "path": "bundles/control-panel/archiveset.hibr",
-          "sha256": "7b81dafc6dae05061febe36e3801f31cf127a372bfe6ef4edbce98d53c4e44d1"
+          "sha256": "74ab7f6f226795171ea657e36ebd3d60f405f95b86a2ee05deceacff77aee9b2"
         }
       ]
     },
     "apps/calendar": {
       "title": "Calendar",
-      "version": "1.9.2",
+      "version": "1.9.3",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "68d234f1c626606823f898858d26d4a184be7ea79ac9b87af789a1175cc07216",
+      "sha256": "7c60196d5f212e388cc5b57d7f33bd3ae650c76296bedc2f342e895a94941959",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "dav db email pim",
       "parts": [
         {
           "kind": "control-panel",
           "as": "pimset.hibr",
           "path": "bundles/control-panel/pimset.hibr",
-          "sha256": "b0104b8cfeee9964ba6c9adb148ee4368f0707f61ff10879e22aaebe5a6013d0"
+          "sha256": "4b9344600407222184d20ae84190e4f9b2ba0f5a031bd3aa790420dc7cad0110"
         }
       ]
     },
     "apps/contacts": {
       "title": "Contacts",
-      "version": "1.8.1",
+      "version": "1.8.2",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "2992c7c8171648af1ec560bea0787873f246d9c30b4fae32a5fa80bae33fb043",
+      "sha256": "506790b6d7e90b79e07eb5d6c61458d2166a3a4951ebe357df5c6884dcd4f6a9",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.553",
+      "hibr": "0.99.554",
       "modules": "dav db pim",
       "parts": [
         {
           "kind": "control-panel",
           "as": "pimset.hibr",
           "path": "bundles/control-panel/pimset.hibr",
-          "sha256": "b0104b8cfeee9964ba6c9adb148ee4368f0707f61ff10879e22aaebe5a6013d0"
+          "sha256": "4b9344600407222184d20ae84190e4f9b2ba0f5a031bd3aa790420dc7cad0110"
         }
       ]
     },
     "apps/files": {
       "title": "Files",
-      "version": "3.13.4",
+      "version": "3.13.5",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "2f63d7100732bda566b3ad47620a3778d4b38680c7686b56721081a2cf2b53be",
+      "sha256": "15948458f91488d3a5e27209961c0fb7bd8beb1586dc6c3d9f8614b0af4db191",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -494,7 +494,7 @@
           "kind": "control-panel",
           "as": "filesview.hibr",
           "path": "bundles/control-panel/filesview.hibr",
-          "sha256": "a85f49cf688eb7019ab59a3f0f07cfd940eeac55d9da072c24d448e7ccec41f4"
+          "sha256": "da3d51ca2edd596b516586e0fb957f7f2655a3ab6ae2a90a39c1f28e9a55cbfa"
         }
       ]
     },
@@ -513,10 +513,10 @@
     },
     "apps/term": {
       "title": "Terminal",
-      "version": "1.8.6",
+      "version": "1.8.7",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "3dc29b8b7303cafa04a052178d529ed9df49080eee7cafd480d14cb7f6726337",
+      "sha256": "48b563131d45705335ffe62f504e4733ea6d5b5c13996a6cfe27f3d121141f3e",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -528,27 +528,27 @@
           "kind": "control-panel",
           "as": "terminal.hibr",
           "path": "bundles/control-panel/terminal.hibr",
-          "sha256": "462c32fc8736d33eaaf8f202484e9164d0bc4ee1cc44be1e7df4ac1ecccd25fa"
+          "sha256": "7efa5984c7920d964be5362d3a46b05ae047b42a5cceda15867cf2003f4baac1"
         }
       ]
     },
     "apps/vault": {
       "title": "Vault",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "apps",
       "bundle": "bundles/apps/vault.hibr",
-      "sha256": "296693a7c138e8956e640c5b7830639139ba8de4a32b790cd9f880b0157ba680",
+      "sha256": "124686093982c0e7dfb07317d35952ed5e12d1d2456520c61169af3ac77ce2ae",
       "about": "The Bitwarden or Vaultwarden vault's items, found by typing\n\na desk accessory (Gitea #71): the Bitwarden or Vaultwarden vault's items, found by typing, and a password, a username or a TOTP code copied for a while. Unlocking, locking and syncing are the desktop's own (wm/vault.hibr), so the window, Control Panel > Passwords and every Terminal opened after an unlock agree on whether it is open.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "vault",
-      "hibr": "0.99.554",
+      "hibr": "0.99.555",
       "parts": [
         {
           "kind": "control-panel",
           "as": "vaultset.hibr",
           "path": "bundles/control-panel/vaultset.hibr",
-          "sha256": "5cb7df82ad94fd9ee3aee9ba9294b0508188303388a41bbc31af6728b6ab584f"
+          "sha256": "20cdac9a1ba07b21ab0cea1952551e1f7c97d0a48a5bfc4194b872b920227192"
         }
       ]
     },
@@ -566,21 +566,21 @@
     },
     "system/about": {
       "title": "About This Computer",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "kind": "system",
       "bundle": "bundles/system/about.hibr",
-      "sha256": "777d04d77071dcb6f98980856040488421e5a42a2a797c2657ca5292bb978bf7",
+      "sha256": "0ee879a7f52be1041471a26ad8aaf1b8d0a17bb58af5edf01f5b15a8de2bb9dd",
       "about": "About this computer: the machine, and the desktop running on it\n\nwhat this is, and what it is running on.\n\nOn Linux the machine's own numbers come from /proc, read directly and costing no fork, the same way mods/sysinfo does in C. Nothing else keeps a /proc, so everywhere else forks a system command instead -- vm_stat and sysctl for memory, top for CPU, both throttled to AB_SLOWMS since forking a command every frame is not something to do at DT_TICK's pace. A window rather than the one-line note it used to be, because a bar that means something has to keep being redrawn, and a note fades on its own.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "about",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "parts": [
         {
           "kind": "control-panel",
           "as": "abouthibr.hibr",
           "path": "bundles/control-panel/abouthibr.hibr",
-          "sha256": "5016c7d6c4d9b11e6ec1d2d176bd1649b04345c4a3d6ab0d320ab86e7d6cbf89"
+          "sha256": "04f1c83db55f52a970ff0821e882260eabb9caa20c4dae080bd1665f7b92d790"
         }
       ]
     },
@@ -598,10 +598,10 @@
     },
     "system/clipboard": {
       "title": "Clipboard",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "kind": "system",
       "bundle": "bundles/system/clipboard.hibr",
-      "sha256": "8c390d1c53203bc82c7ec51f06000b633109effeab02dadf6564c512d4ca84cf",
+      "sha256": "8175434ccdd3ee0ff99ea05f9b9adb10e56d688c7df90b9c40c861e5429c9b5a",
       "about": "The clipboard's history: copy something back, pin it, keep it\n\nthe clipboard's history, newest first (wm/clip.hibr keeps it). Each line is when it was copied, a ★ if pinned, a • on what is on the clipboard now, and the start of the text. Enter makes the selected one the clipboard again; p pins it, so it is never dropped; delete takes it away. A paste into this window -- alt-v, or the machine's own -- keeps what was pasted, to come back to later; Copy takes the selected one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -612,7 +612,7 @@
           "kind": "control-panel",
           "as": "cliphist.hibr",
           "path": "bundles/control-panel/cliphist.hibr",
-          "sha256": "fbf987c86829dd867789e85882d0c0d6957fc65b80800eeec9c1806493bccf16"
+          "sha256": "b7e0b02024589f67fbe2398f66630e49d50ab3437cf62068f3c18e5be794b835"
         }
       ]
     },
@@ -630,21 +630,21 @@
     },
     "system/notifications": {
       "title": "Notifications",
-      "version": "1.6.4",
+      "version": "1.6.5",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "a11291872261c0ede40f579337cb9b0775abe257316f748f2add771d9f6eb0ec",
+      "sha256": "c213069c7cb6025d6b20040a8298d0d9596b527941e0b5953022d99bc41bd176",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.554",
+      "hibr": "0.99.555",
       "parts": [
         {
           "kind": "control-panel",
           "as": "notifications.hibr",
           "path": "bundles/control-panel/notifications.hibr",
-          "sha256": "4a163188a37b649753f4b60cea03094d72dc0de63b7388883c878699d2dd3c70"
+          "sha256": "05f140464eac4318fe713c0555e569f11eba5963e003f2cb99e542517a661959"
         }
       ]
     },
@@ -661,21 +661,21 @@
     },
     "system/tasks": {
       "title": "Task Manager",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "02efe2c822ae8d955f6ff8210bb695b57ad1a8ee623b62bf125c1f439bfc5cb3",
+      "sha256": "5d7a8e0f70df88330fc658c57a8ce4adc043bdad58ba121b2757f4a4edd853e1",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tasks",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "parts": [
         {
           "kind": "control-panel",
           "as": "taskmgr.hibr",
           "path": "bundles/control-panel/taskmgr.hibr",
-          "sha256": "cee0dc9a0d61a075731a4cbb32289a3cbf3fee6f52322ccd78ca53833c3a0ca8"
+          "sha256": "f6f739efd7257d291f156bf5152b831caeb693474c9dc0da40725ec07d81422c"
         }
       ]
     },
@@ -693,15 +693,15 @@
     },
     "control-panel/appearance": {
       "title": "Appearance",
-      "version": "2.17.2",
+      "version": "2.17.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "fdb339410cea6ce64c42e16114928695848625f5261104058eb346e92b0140a4",
+      "sha256": "ede735e01d9a6aa279522850000a2c517d3aff0784369c0aa2bbe1cd48b97a0d",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/arabizi": {
       "title": "Arabizi",
@@ -729,10 +729,10 @@
     },
     "control-panel/bluetooth": {
       "title": "Bluetooth",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/bluetooth.hibr",
-      "sha256": "5302f2c025d918a74940dd90318d296bd2ecbb0aef4a390a1aefd758ba8eab09",
+      "sha256": "0da5057058cbf5216bb001790fce0f9c9855b678c15411426cfab7959439cc47",
       "about": "The Control Panel pane for Bluetooth\n\nthe Control Panel pane called Bluetooth (Gitea #312): the adapter on or off and visible to others or not, the devices it knows -- each connected or not, with its battery, a click to connect or disconnect -- forgetting one, looking for new ones and pairing them, and the item on the menu bar. It acts through menubar/bluetooth.hibr.\n\nneeds: menubar/bluetooth",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -742,15 +742,15 @@
     },
     "control-panel/control-strip": {
       "title": "Control Strip",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "bdbe266a4964decadcfa1cfeabe020faa3496bad42f86d8a1837d98cabcbc414",
+      "sha256": "b2bea36060033adb643e50cc0da3143d3e3b3399490e27b9bbf95c1586c8890b",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "control-strip",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/datetime": {
       "title": "Date & Time",
@@ -766,10 +766,10 @@
     },
     "control-panel/desktop": {
       "title": "Desktop",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "25000a71a781c1a1467050d66ca7be6a2399e2daa0653e236ff528e7a01ddb42",
+      "sha256": "da8275e19d316411e98a43b110e2cab18e6c8cdadf31dfac06cb3b2e936e5733",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -778,39 +778,39 @@
     },
     "control-panel/displays": {
       "title": "Displays",
-      "version": "1.2.3",
+      "version": "1.2.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/displays.hibr",
-      "sha256": "6f88b3e2abce671ce37ca11fadb45b481f823ae7f59b3bd57c6373ce62c77a5b",
+      "sha256": "7cfbe2d9e307370846285869c834043fffca3f74097c6f15644529641dabcbed",
       "about": "Control Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "displays",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/filetypes": {
       "title": "File Types",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "c785b7f44b0f9e6b603e863bcfe6d3a4d3382b4b0f07c7de90395c417d2c8e7f",
+      "sha256": "aaab9d59792c09fd9c49b853b80ed725c768efc1f610d7437af8c16acffafd1f",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "filetypes",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/language": {
       "title": "Language & Region",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "dc5141d99f8efaf528805ef63d412b4bf00a1308becc3eb9fcba6244eb13931d",
+      "sha256": "d424298d017cc819a98acb576b148d7b187366cda8d05dfcd53cb8ef2fadfe59",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/loginmgr": {
       "title": "Login Manager",
@@ -840,10 +840,10 @@
     },
     "control-panel/menubar": {
       "title": "Menu Bar",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menubar.hibr",
-      "sha256": "e9f85ebe97038f0c54b9523d473ef0d4a2528a8f11567558cf4ef838c809a6e6",
+      "sha256": "20143f1c3b7f961692bd7d31d90a78fed2ae004a38adb46530fc0c61853443e7",
       "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -852,22 +852,22 @@
     },
     "control-panel/menuedit": {
       "title": "Applications Menu",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menuedit.hibr",
-      "sha256": "10d5559833cb76c2b4a579c4086d1625b2d6e0f2f243978ea6b811e9f9656ca3",
+      "sha256": "3b778b6bc580d88ecabaa2e4853ad625fbb875340cdfc2eb17d6100e3316c286",
       "about": "The Control Panel pane for what the Applications menu holds\n\nControl Panel > Applications Menu (Gitea #502): what the Applications menu holds besides the desktop's own apps. The programs installed on the machine are listed by themselves (wm/programs.hibr), each a row here that opens to change it, or Hide to take it off the menu; Add Program makes one of the person's own -- a name, a command, the folder under Applications it goes in, and whether it runs in a window of its own or in a Terminal window. What is changed here is the person's, kept as data in $XDG_DATA_HOME/hibr/menu.json, and wins over the machine's. Replaces Screens and its pane (owner, 2026-11-10). The dialog is pmfield.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "menuedit",
-      "hibr": "0.99.534"
+      "hibr": "0.99.555"
     },
     "control-panel/mouse": {
       "title": "Mouse",
-      "version": "1.7.2",
+      "version": "1.7.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "503072bd092168ad52b8d88af08f342412749bbf529e3110d140ec78e8fcb49c",
+      "sha256": "44cd6ea477ad5d0280c05bcbee1ff7dbd732b2a08bcf839ae6f5a31814638ff2",
       "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, whether a dragged window follows by its outline or whole, how far one notch of the wheel scrolls, and whether and how soon a tooltip shows. wm/input.hibr reads the window settings and every scrolling window the wheel's; this pane only changes the DT_* settings.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -876,10 +876,10 @@
     },
     "control-panel/network": {
       "title": "Servers",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/network.hibr",
-      "sha256": "9b9b9f0c54e933b059fefc5eeaaf42d1582fc7696922a9205852c8eb5349abcf",
+      "sha256": "259144a733c453887ad300756ed578d79aa44ec0e47906747c2b7360bb4709dc",
       "about": "The Control Panel pane for WebDAV servers (wm/remote.hibr): one row per server, each opening the dialog that changes it; Add Server; whether a remote file's copy is put back when it is saved; how long a server may take; and emptying the copies kept. Servers live in the dav module's own list, readable only by its owner -- this pane never shows a password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -888,10 +888,10 @@
     },
     "control-panel/networks": {
       "title": "Network",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/networks.hibr",
-      "sha256": "de26dc2f35edbb0f96cb9d217327785d44381d986f9ef0e4b4b920d11bd16a31",
+      "sha256": "41b4da6bc7cf66887c4c84128591b2a5bce6cc9fa07a2564241558ed1d1b422c",
       "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through menubar/network.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -901,34 +901,34 @@
     },
     "control-panel/pictures": {
       "title": "Pictures",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "131cfae576b027bc64fae3678a986cd21e8e95debc68a3ae3868f2eef810d5cf",
+      "sha256": "d336f7d5d6b1156cf63b365a5271e404a14e209f267138f729d88386771aa866",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pictures",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/pnotes": {
       "title": "Program Notifications",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pnotes.hibr",
-      "sha256": "60ca409fb0aea339d78c612f3a75fcb887d14a701e8174c549dbef16e0dd246c",
+      "sha256": "b0fa951aec333491e538be31630f3d6fecfe2d99ced8013f0ba70595c0929c0c",
       "about": "Programs' notifications as the desktop's own, switched in Notifications\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15). The listener alone: its switch is a row of Notifications, which shows it while this is installed, since a pane of its own beside Notifications was a second place for the same notes (the owner, 2026-11-15, 0.99.536). Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pnotes",
-      "hibr": "0.99.536"
+      "hibr": "0.99.555"
     },
     "control-panel/power": {
       "title": "Power",
-      "version": "3.2.2",
+      "version": "3.2.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/power.hibr",
-      "sha256": "4b3e9a4ca482f8ddaf4561159704daeec4a32fd64214636d66fa273cce312e2e",
+      "sha256": "8be5abd60c1211648f2a36f4ca3ac34fd5b37458e96fa534e9469015b0dff320",
       "about": "The Control Panel pane for the battery and the computer's power\n\nthe Control Panel pane called Power (Gitea #365): each battery's charge, whether it is charging, the time left and its health; the power item on the menu bar, the note at a low charge and what happens at a critical one; and Sleep, Hibernate, Restart and Shut Down. It acts through menubar/power.hibr, and its rows for a battery are there only where there is one.\n\nneeds: menubar/power",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -950,22 +950,22 @@
     },
     "control-panel/shortcuts": {
       "title": "Shortcuts",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "5163785e4ab3b0a94bf083a9fba6543098af4bc2648b21fdc62a3d57998476b8",
+      "sha256": "e12aee17e9360cce58e4325bc6a3cc3ba550742c5156cb193413223d13edf14a",
       "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app, then each app's own actions. A shortcut is the chords it is written as (ADR 0057): activating a row captures its next key as its only one; its + captures one more beside those it has; the ✕ beside a key, or delete or backspace on its row, clears them. wm/keys.hibr does all of it -- including asking before taking a key another action has, and refusing one Blit keeps for itself, which are listed last. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Use Super Instead of Alt, and back, rewrite the list once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "shortcuts",
-      "hibr": "0.99.509"
+      "hibr": "0.99.555"
     },
     "control-panel/sound": {
       "title": "Sound",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/sound.hibr",
-      "sha256": "99ae45ee8b171466dea4e31fb1c5466167588b4296636babf3e2ffec585bf628",
+      "sha256": "e39785b270b6f4e9b313218a13f166a72141c51557a11b3ff3a21fb339fab102",
       "about": "The Control Panel pane for the machine's sound (Gitea #306): the output and the input used, each one's level and mute, how far a key or a wheel notch moves the volume, and whether the speaker is on the menu bar. The keys themselves are rows in Shortcuts. Everything here acts through menubar/sound.hibr, which says what kind of sound this machine has: a server PipeWire or PulseAudio answers for, or ALSA's mixer.\n\nneeds: menubar/sound",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -986,22 +986,22 @@
     },
     "control-panel/wallset": {
       "title": "Wallpaper",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/wallset.hibr",
-      "sha256": "db419b800a440714e9e33d4937f569af2905a460ac2f3e5e9aef5931ae81e373",
+      "sha256": "8057ac53822d3980c07752bf9ce908b81b339447dfbddb7b7f775aa8b4f5e37e",
       "about": "The Control Panel pane for the wallpaper of each display\n\nthe Control Panel pane for the wallpaper: the pattern, or an image chosen in a picker of its own (control-panel/wallpaper.hibr), how it fills the screen, and how it is drawn -- for every display at once, or for one display by its name (Gitea #284). It was a section of Appearance until then; it is a pane of its own because a Display row choosing what every row below it applies to reads plainly here, and would not among Appearance's rows, which all apply everywhere.\n\nA display is known by the name it attached under: --name if it was given one, otherwise the machine it connects from (dt_dispname), so a reattach finds it again. One with a wallpaper of its own keeps it in DT_WALLDIMG, DT_WALLDMODE and DT_WALLDPIC (wm/wallpaper.hibr); one with none follows All Displays, which is DT_WALLIMG, DT_WALLMODE and DT_WALLIMGMODE as before -- so a settings file written before this pane existed means exactly what it did. The pattern is one for the whole desktop, and is only offered under All Displays.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "wallset",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "control-panel/windows": {
       "title": "Windows",
-      "version": "1.11.4",
+      "version": "1.11.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "b232ed68898d85f35e95ea88dadf92fca8ce22f2f0cf4cc18733c3d5ba641fcb",
+      "sha256": "6c7ec756b069cca0e30264ffa130035a2b502ff5d52023c49b80fb4145b19bd7",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, where its title sits, which glyphs the buttons are drawn with, the Title Bar Buttons list -- each button on or off, and on which side of the title -- Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1107,39 +1107,39 @@
     },
     "control-strip/workspaces": {
       "title": "Workspaces",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "control-strip",
       "bundle": "bundles/control-strip/workspaces.hibr",
-      "sha256": "28d1d3c4f56b97922d3267872d5d158051fa890c495e4770c63fb27aca5e7943",
+      "sha256": "48d69eeeeaa470d6ddafabdeb2fd0c85b7bf6ecff006c5ed161f8a4d6a590f93",
       "about": "A Control Strip module for the workspace numbers, the same ones the menu bar can show (menubar/workspaces.hibr): the current one lit, a click on another goes there. The strip and the bar can each show them, or both, or neither (Gitea #393).",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "workspaces",
-      "hibr": "0.99.354"
+      "hibr": "0.99.555"
     },
     "menubar/bluetooth": {
       "title": "Bluetooth",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "kind": "menubar",
       "bundle": "bundles/menubar/bluetooth.hibr",
-      "sha256": "d184a7b02a320fdb3e263352b9cf8a943b7d5c890ffccacd9c85ccbe0fa238ab",
+      "sha256": "18f4b608f21e9bfb0cb9a35ce605f593cb83ad383d4a22ef15dd25db7b6ca78f",
       "about": "Bluetooth on the menu bar and the devices it watches\n\nthe machine's Bluetooth: the adapter on or off and visible or not, the devices it knows and which are connected (and their battery), finding new ones and pairing them, and the item on the menu bar that says which (Gitea #312). Control Panel > Bluetooth is the pane over it.\n\nBlueZ, through bluetoothctl, read as captured from bluetoothctl 5.82 on the owner's machine (tests/net/bt-*.txt): `show` for the adapter, `devices Paired` and `devices Connected` for the devices -- one \"Device MAC name\" a line -- and `info MAC` for one device's battery and icon. HIBR_BT chooses -- auto, bluez or none; the suites start every desktop with none, so no test can touch a real machine's Bluetooth.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "bluetooth",
-      "hibr": "0.99.400"
+      "hibr": "0.99.555"
     },
     "menubar/keyboard": {
       "title": "Keyboard",
-      "version": "1.0.3",
+      "version": "1.0.4",
       "kind": "menubar",
       "bundle": "bundles/menubar/keyboard.hibr",
-      "sha256": "cc004d0fa69e41f0eb46b236024e15e5299aa7908be26c965f1234926129da65",
+      "sha256": "36f845054c30fb1884977a96eabe5f7a2333a26df561e3d84b4744826e14ea06",
       "about": "The keyboard typing now, on the menu bar: a keyboard and the current one's short label beside it (US, AR), when there is more than one to choose between, with every one listed in its menu.\n\nThe list is the window manager's (wm/kbd.hibr): Blit's keyboards, or the desktop's own away from Blit -- the terminal's keyboard and each input method hibr-ime has installed -- and Next Keyboard moves through it whether this item is there or not. This is only how it is shown, an item of its own so it can be taken off the bar or put back from the catalogue like the speaker or the network (the owner, 2026-11-13). The window manager reaches it only through dt_has. A catalogue entry, not part of the package (the owner, 2026-11-15). Its one setting is a row of Language & Region, there while this is installed, not a pane of its own (the owner, 2026-11-15, 0.99.538).",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "keyboard",
-      "hibr": "0.99.538"
+      "hibr": "0.99.554"
     },
     "menubar/longwire": {
       "title": "Longwire",
@@ -1155,57 +1155,57 @@
     },
     "menubar/network": {
       "title": "Wi-Fi",
-      "version": "1.4.3",
+      "version": "1.4.4",
       "kind": "menubar",
       "bundle": "bundles/menubar/network.hibr",
-      "sha256": "0708c3e589e85fff3d324e936aaf7425a0becc0ea8375da78a65ba25e0ca7f05",
+      "sha256": "c93193adbf7ff083bf23440eb9f2357c8674fac031f27ce12ca24eb76c701365",
       "about": "The network on the menu bar and the connection it watches\n\nthe machine's network: whether it is on Wi-Fi, a cable or neither, the Wi-Fi networks in reach and the ones it knows, joining and leaving them, and the item on the menu bar that says which (Gitea #311). Control Panel > Network is the pane over it.\n\nTwo ways to see it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "network",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "menubar/power": {
       "title": "Power",
-      "version": "1.5",
+      "version": "1.5.1",
       "kind": "menubar",
       "bundle": "bundles/menubar/power.hibr",
-      "sha256": "ab4d5d067e04a9a4d8d2c205c1047b23d6fd8140de7f9c6fd953d3b94a1077bb",
+      "sha256": "899c20eeb7017f67bf51d7d75ae7e5b85ceb386fb1aa659744a2c85e906e7f41",
       "about": "The computer's power on the menu bar, and the battery it watches\n\nthe battery and the machine's power (Gitea #365): each battery's charge, whether it is charging, the time left and its health, read from the kernel's own files; an item on the menu bar -- the battery where there is one, and the power symbol on the computer's own desktop where there is not, since power is not only a battery (the owner, 2026-10-27); a note when the charge runs low, and a choice of what to do when it runs out. Sleep, Restart and Shut Down are the platform's, in wm/machine.hibr, and are on the hibr menu whether this is installed or not; this item's menu offers them too.\n\nPart of the power pane's catalogue entry, not of the package (Gitea #388): installed with it, loaded with the Control Panel's panes by cp_panes, and absent -- no bar item, no watcher running -- on a desktop without it. The window manager reaches it only through dt_has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "power",
-      "hibr": "0.99.358"
+      "hibr": "0.99.555"
     },
     "menubar/sound": {
       "title": "Volume",
-      "version": "1.5.3",
+      "version": "1.5.4",
       "kind": "menubar",
       "bundle": "bundles/menubar/sound.hibr",
-      "sha256": "cc3c7b18c7e6fce60f6d79e89759b9741fbfcfa89b5eb21b32bc8828e4357186",
+      "sha256": "44dc2e2c2b291abf97e4341334b8f4e811b3c801f47b2b5f6e4a0817c3900685",
       "about": "The speaker on the menu bar and the sound it watches\n\nthe machine's sound: which output and input are used, their volume and mute, the speaker on the menu bar and the keys that change it (Gitea #306). Control Panel > Sound is the pane over it.\n\nThree ways to reach it, the first that answers taken:",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sound",
-      "hibr": "0.99.400"
+      "hibr": "0.99.555"
     },
     "menubar/tray": {
       "title": "Tray Icons",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "kind": "menubar",
       "bundle": "bundles/menubar/tray.hibr",
-      "sha256": "e02a25372820c32908109902314a5d9ed1057ffd3568bb1d6258a86cb26db8d8",
+      "sha256": "3db341a2936deb4cce7336bc47fca9586a313887316584484c4103e2300b7a5d",
       "about": "Programs' tray icons on the menu bar (Gitea #505): Steam, a chat program, anything that puts up a StatusNotifierItem. A catalogue entry, not part of the package (the owner, 2026-11-15): installed, the desktop asks to be the session's tray -- its watcher, or a host where another program already is -- and each item a program registers is drawn on the bar as its own picture, or its letter where the terminal shows no pixels. A left click activates the program (or opens its menu, as chosen, or for one that is only a menu), a right click opens its menu in its own words, the wheel scrolls it. Switched off or removed, the desktop lets the names go, so no program hides itself in a tray nobody draws.\n\nThe bus is never waited on, and this does not read it: wm/bus.hibr does, once for everybody, and hands this the events it asks for.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tray",
-      "hibr": "0.99.539",
+      "hibr": "0.99.554",
       "parts": [
         {
           "kind": "control-panel",
           "as": "trayset.hibr",
           "path": "bundles/control-panel/trayset.hibr",
-          "sha256": "96b25c18cacd3517e1bc3a0b9688a3cb24ebb5537ca4cff54bfce486e9ee2177"
+          "sha256": "7429639287c560627531f707afbee8e0b1945dd79f2bfdc7110b3651724f92f1"
         }
       ]
     },
@@ -1586,11 +1586,11 @@
     },
     "lang/ar": {
       "title": "العربية",
-      "version": "3.99.17",
+      "version": "3.99.18",
       "kind": "lang",
       "bundle": "bundles/lang/ar.json",
-      "sha256": "9e73e9deda07edabe4187f733720bba4315f374edcd8b0ab980d161712f7f16e",
-      "about": "The desktop's own words in العربية (ar): 1444 strings, read right to left.",
+      "sha256": "3c0dc4c2e3f1ed30753f8157d451e9e2b5418dbaa85107ea33f301d9cb75e792",
+      "about": "The desktop's own words in العربية (ar): 1448 strings, read right to left.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "ar",
@@ -1766,29 +1766,29 @@
     },
     "camera": {
       "title": "Camera",
-      "version": "2.1.1",
+      "version": "2.1.2",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/camera.hibr",
-      "sha256": "428daa2dca95fd496cfdc22d30cd954eae63c18e7562da7ce4303a8929595251",
+      "sha256": "31f7dd535b7e1c72ab996cd67fa8b6106b142117a3f26b7494c0afbf8b0fd8fa",
       "about": "The computer's camera in a window, and photos taken with it\n\nthe computer's camera in a window: the live picture, Take Photo (space, or the button) to keep one in ~/Pictures/Camera, and Record (r) to keep the picture as a film in ~/Videos/Camera, with the microphone's sound where one answers and without it where none does. ffmpeg reads the camera -- video4linux on Linux, AVFoundation on a Mac -- and streams it down a pipe into a media player, the path a film takes, so the picture moves at the camera's own rate. Beside that it rewrites one full size JPEG twice a second, which is what a photo copies. ffmpeg writes to that pipe, so it ends with the player, however the desktop ends. A machine with two cameras, or one that lists a metadata node beside its picture, is tried device by device until one gives a frame; the Camera menu chooses among them and among the sizes the camera says it offers, and the size chosen is kept for next time.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "camera",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "media pty",
       "dir": "Accessories"
     },
     "imgview": {
       "title": "Image Viewer",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/imgview.hibr",
-      "sha256": "ef7860c1b95e41bcfd65114fe939f84420600c322f471ebc8ef36709720a2503",
+      "sha256": "dc5ecf9c0d64561c1a308b50904e3478867a012f9c045be6418026c225072636",
       "about": "A picture in a window, drawn by the img module. Opens with a path (dt_launch imgview \"$path\", the same as any other app takes one through its own _open), or empty and waiting for one dropped onto it from a file browser -- there is no file-open dialog anywhere in this desktop, so a drop is the only way in short of already knowing the path.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "imgview",
-      "hibr": "0.99.554",
+      "hibr": "0.99.555",
       "modules": "img term",
       "dir": "Accessories"
     },
@@ -1833,15 +1833,15 @@
     },
     "stickies": {
       "title": "Stickies",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "kind": "apps",
       "bundle": "bundles/apps/Accessories/stickies.hibr",
-      "sha256": "9e624fd9010b48406ac04a3361ccd431323249c695ee320d9849e7fdd86e3b35",
+      "sha256": "4cc15e9a0b77efe5f9b40047deb228a2670a3a5358194ddca2ec05ee38be3144",
       "about": "Notes stuck on the desktop, each its own colour\n\nnotes stuck on the desktop, as many as you like, each its own colour, each saved as you type. Launching Stickies opens every note there is (a first, empty one if there are none); the Note menu makes a new one, changes the colour, and deletes one. Closing a note only puts it away until Stickies is opened again -- it is still there.\n\nThe colours are the notes' own, not the theme's, the way a game's art is: a yellow note is yellow on every theme. Text wraps at the window's width, and the desktop's Edit menu works on it -- undo and redo, cut, copy, paste, select all.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "stickies",
-      "hibr": "0.99.534",
+      "hibr": "0.99.555",
       "dir": "Accessories"
     },
     "coding": {
@@ -1924,15 +1924,15 @@
     },
     "mail": {
       "title": "Mail",
-      "version": "2.5.4",
+      "version": "2.5.5",
       "kind": "apps",
       "bundle": "bundles/apps/Internet/mail.hibr",
-      "sha256": "b7fbc315d46f4a0b206bee49e5ad6462952bb13347fa401fd89c071b7087a6f0",
+      "sha256": "bb55e262b6a669e35ae31c114ede7db09bb91e683231369bdeae8bd39f9731c3",
       "about": "Email, offline, labels and conversations as Gmail has them\n\nemail in a window, laid out as Gmail lays it out: a search bar, the labels down the side with their unread counts, the conversations in a list -- the sender, the subject and a snippet, the date -- and a conversation opened in place, each message's text drawn from its HTML by the html module, its attached pictures by the img module. Gmail's keys work: j and k move, o or enter opens, u goes back, e archives, # deletes, s stars, I and U mark read and unread, l labels, v moves, c composes, r and a reply and reply to all, f forwards, / searches, and g then i, s, t, d or a goes to the inbox, starred, sent, drafts or all mail.\n\nEverything is kept offline, per account, under ~/.local/share/hibr/mail/ACCOUNT -- msgs.db and the messages themselves -- by lib/mailsync.hibr, run in the background; a second job waits in IMAP IDLE and starts a sync the moment something arrives. What is done here is done to the copy at once and queued for the server, which the next sync brings it to. Accounts are the email module's (~/.config/hibr/mail, readable only by you), set up in Control Panel > Mail; a Google account uses an app password.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "mail",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "db email html img",
       "dir": "Internet"
     },
@@ -1966,10 +1966,10 @@
     },
     "pdfr": {
       "title": "PDF Reader",
-      "version": "1.2",
+      "version": "1.2.1",
       "kind": "apps",
       "bundle": "bundles/apps/Office/pdfr.hibr",
-      "sha256": "b94bf284b5ea183ba6c84e5faa722e57cbb78884e6bd7fcca6e1f0729d040190",
+      "sha256": "fab66fcff1dab05c05077ed5029953b5782028fb2056eae68a1456867f52d042",
       "about": "A PDF reader: pages as pictures where the terminal can, text where it cannot\n\na PDF reader (Gitea #348). The pages are drawn by the pdf module, which renders through Poppler loaded at run time, and placed by the img module, so a page is pixels on a terminal that takes them, half blocks or characters on one that does not, and -- under View > Text, or with no img at all -- the page's own text, wrapped to the window.\n\nThe document is one continuous column of pages: the wheel, the arrows, page up and down and the scroll bar move through it, and a view that spans the foot of one page and the head of the next is one picture. Fit Width is where a document opens; Fit Page, and zoom in and out, are on the View menu and on w, f, + and -. / searches the whole document, n and N step through what it found, each marked on its page. o shows the contents beside the pages; a link on a page is followed by clicking it -- to its page, or an address to the Browser. A drag selects text, and Copy takes it (or the whole page when nothing is selected); g goes to a page.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -1980,15 +1980,15 @@
     },
     "sheet": {
       "title": "Sheet",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "kind": "apps",
       "bundle": "bundles/apps/Office/sheet.hibr",
-      "sha256": "4b39bb13a2b98021ca07da88568e5dd41a9c30cf154a458398546a32ced9d0fc",
+      "sha256": "8dcdcc5c98a2885f03295b701db8b4f08fbde5430bf4d4c33014cd88eae8f90c",
       "about": "A spreadsheet whose formulas are hibr.\n\nWhat this comment says is now a page as well -- docs/sheet.md -- because for twenty releases it was the *only* place any of it was written down, and nobody using the app was ever going to read a source file. Reported as \"I have no idea how to use it this way ... there are no examples either\" (Gitea #150). The app itself says it too: the formula bar shows what a formula looks like on an empty cell, Help > How Formulas Work is a page of it, and Help > Open the Tour is a sheet of worked examples with one cell the sandbox refuses, which is the only way to see what it does. Keep the three in step: this comment, that page, and the Help window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "sheet",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "csv db math",
       "dir": "Office"
     },
@@ -2038,48 +2038,48 @@
     },
     "archives": {
       "title": "Archives",
-      "version": "1.1.1",
+      "version": "1.1.2",
       "kind": "apps",
       "bundle": "bundles/apps/archives.hibr",
-      "sha256": "1fd50f642358a426b36ca25df8e947ea08b712b2050edfd1d286d0549e3f53e0",
+      "sha256": "c86d5d4c3b2eb2ea6eaff4511450f971490326e8386e4b0a269a2d39143fa27b",
       "about": "Show archives as folders in Files, compress and extract them\n\nan archive in Files is a folder (Gitea #475, ADR 0053).\n\nA catalogue extension: it opens no window of its own. It registers a location, archive://FILE/path, which Files shows read-only, an opener that sends an archive there, and the verbs Compress, Extract Here and Extract To. Removed, an archive is a plain file again and Files is exactly as it was: Files names none of this.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "archives",
-      "hibr": "0.99.534"
+      "hibr": "0.99.555"
     },
     "calendar": {
       "title": "Calendar",
-      "version": "1.9.2",
+      "version": "1.9.3",
       "kind": "apps",
       "bundle": "bundles/apps/calendar.hibr",
-      "sha256": "68d234f1c626606823f898858d26d4a184be7ea79ac9b87af789a1175cc07216",
+      "sha256": "7c60196d5f212e388cc5b57d7f33bd3ae650c76296bedc2f342e895a94941959",
       "about": "Your calendars, a month at a time, kept offline from CalDAV\n\nyour calendars, kept on this machine from a CalDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a month at a time, each day's events in it, and the chosen day's events listed underneath; or an agenda of what is coming. The arrows choose a day, n and p (or page down and up) change month, t comes back to today, a and m switch to the agenda and back, tab moves between the month and the day's list, c makes an event on the chosen day, enter makes one there or edits the one chosen in the list, # removes it, R syncs now.\n\nThe servers are Contacts' -- Control Panel > PIM -- and lib/pimsync.hibr keeps their calendars under ~/.local/share/hibr/pim/SERVER: each event's file, and every occurrence from a year back to two years on, which this reads by date. A change made here is queued and sent at the next sync. Reminders go off whether or not a Calendar window is open: a ticker run after every frame looks for the next one and asks for the frame it is due in.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "calendar",
-      "hibr": "0.99.534",
+      "hibr": "0.99.554",
       "modules": "dav db email pim"
     },
     "contacts": {
       "title": "Contacts",
-      "version": "1.8.1",
+      "version": "1.8.2",
       "kind": "apps",
       "bundle": "bundles/apps/contacts.hibr",
-      "sha256": "2992c7c8171648af1ec560bea0787873f246d9c30b4fae32a5fa80bae33fb043",
+      "sha256": "506790b6d7e90b79e07eb5d6c61458d2166a3a4951ebe357df5c6884dcd4f6a9",
       "about": "The people in your address books, kept offline from CardDAV\n\nthe people in your address books, kept on this machine from a CardDAV server (Nextcloud, Fastmail, iCloud, Radicale, anything standard): a list down the left, searchable, and the person chosen on the right -- their emails, any of which writes them a message in Mail, their phones, address, organisation and note. n adds someone, e or enter edits, # or delete removes, / searches, j and k move, R syncs now.\n\nWhich servers are used is Control Panel > PIM, from the Servers list; each is kept under ~/.local/share/hibr/pim/SERVER by lib/pimsync.hibr, run in the background -- the only thing that writes there. A change made here is made to the list at once and queued for the server, conditional on the copy it was read from; the next sync sends it. Mail reads the same copies to finish an address as it is typed.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "contacts",
-      "hibr": "0.99.553",
+      "hibr": "0.99.554",
       "modules": "dav db pim"
     },
     "files": {
       "title": "Files",
-      "version": "3.13.4",
+      "version": "3.13.5",
       "kind": "apps",
       "bundle": "bundles/apps/files.hibr",
-      "sha256": "2f63d7100732bda566b3ad47620a3778d4b38680c7686b56721081a2cf2b53be",
+      "sha256": "15948458f91488d3a5e27209961c0fb7bd8beb1586dc6c3d9f8614b0af4db191",
       "about": "A file browser for the desktop, and a lister on its own.\n\n    hibr programs/desktop/apps/files.hibr /etc",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2101,10 +2101,10 @@
     },
     "term": {
       "title": "Terminal",
-      "version": "1.8.6",
+      "version": "1.8.7",
       "kind": "apps",
       "bundle": "bundles/apps/term.hibr",
-      "sha256": "3dc29b8b7303cafa04a052178d529ed9df49080eee7cafd480d14cb7f6726337",
+      "sha256": "48b563131d45705335ffe62f504e4733ea6d5b5c13996a6cfe27f3d121141f3e",
       "about": "A shell in a window, which is the last step of decision 0020.\n\nThe window manager hands this app a rectangle and some keys; the term module runs a program on a pseudo terminal, keeps a picture of its screen and paints that picture into the rectangle. What runs inside is a real program with a real terminal: it edits its own line, draws its own colours and does not know it is in a window.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2114,27 +2114,27 @@
     },
     "vault": {
       "title": "Vault",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "apps",
       "bundle": "bundles/apps/vault.hibr",
-      "sha256": "296693a7c138e8956e640c5b7830639139ba8de4a32b790cd9f880b0157ba680",
+      "sha256": "124686093982c0e7dfb07317d35952ed5e12d1d2456520c61169af3ac77ce2ae",
       "about": "The Bitwarden or Vaultwarden vault's items, found by typing\n\na desk accessory (Gitea #71): the Bitwarden or Vaultwarden vault's items, found by typing, and a password, a username or a TOTP code copied for a while. Unlocking, locking and syncing are the desktop's own (wm/vault.hibr), so the window, Control Panel > Passwords and every Terminal opened after an unlock agree on whether it is open.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "vault",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "about": {
       "title": "About This Computer",
-      "version": "1.5.1",
+      "version": "1.5.2",
       "kind": "system",
       "bundle": "bundles/system/about.hibr",
-      "sha256": "777d04d77071dcb6f98980856040488421e5a42a2a797c2657ca5292bb978bf7",
+      "sha256": "0ee879a7f52be1041471a26ad8aaf1b8d0a17bb58af5edf01f5b15a8de2bb9dd",
       "about": "About this computer: the machine, and the desktop running on it\n\nwhat this is, and what it is running on.\n\nOn Linux the machine's own numbers come from /proc, read directly and costing no fork, the same way mods/sysinfo does in C. Nothing else keeps a /proc, so everywhere else forks a system command instead -- vm_stat and sysctl for memory, top for CPU, both throttled to AB_SLOWMS since forking a command every frame is not something to do at DT_TICK's pace. A window rather than the one-line note it used to be, because a bar that means something has to keep being redrawn, and a note fades on its own.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "about",
-      "hibr": "0.99.534"
+      "hibr": "0.99.554"
     },
     "catalogue": {
       "title": "Catalogue",
@@ -2150,10 +2150,10 @@
     },
     "clipboard": {
       "title": "Clipboard",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "kind": "system",
       "bundle": "bundles/system/clipboard.hibr",
-      "sha256": "8c390d1c53203bc82c7ec51f06000b633109effeab02dadf6564c512d4ca84cf",
+      "sha256": "8175434ccdd3ee0ff99ea05f9b9adb10e56d688c7df90b9c40c861e5429c9b5a",
       "about": "The clipboard's history: copy something back, pin it, keep it\n\nthe clipboard's history, newest first (wm/clip.hibr keeps it). Each line is when it was copied, a ★ if pinned, a • on what is on the clipboard now, and the start of the text. Enter makes the selected one the clipboard again; p pins it, so it is never dropped; delete takes it away. A paste into this window -- alt-v, or the machine's own -- keeps what was pasted, to come back to later; Copy takes the selected one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2174,15 +2174,15 @@
     },
     "notifications": {
       "title": "Notifications",
-      "version": "1.6.4",
+      "version": "1.6.5",
       "kind": "system",
       "bundle": "bundles/system/notifications.hibr",
-      "sha256": "a11291872261c0ede40f579337cb9b0775abe257316f748f2add771d9f6eb0ec",
+      "sha256": "c213069c7cb6025d6b20040a8298d0d9596b527941e0b5953022d99bc41bd176",
       "about": "A read-only look back at recent notifications\n\na look back at what DT_NOTEHIST kept: newest first, each note's time, priority, sender and text. Up and down select one, delete clears it, and the History menu clears the low ones or all of them.\n\nOpened directly by the menu bar's icon (dt_bar in wm/bar.hibr, dt_mouse in wm/input.hibr) and by the Notifications pane's own \"View History\" row, never from a generic Applications pick -- hidden, the same reason About and Process Details are: nothing about \"show me what already happened\" makes sense launched with no history behind it, though here an empty one just shows an empty list rather than being refused.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "notifications",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "screenshot": {
       "title": "Screenshot…",
@@ -2197,15 +2197,15 @@
     },
     "tasks": {
       "title": "Task Manager",
-      "version": "1.7.1",
+      "version": "1.7.2",
       "kind": "system",
       "bundle": "bundles/system/tasks.hibr",
-      "sha256": "02efe2c822ae8d955f6ff8210bb695b57ad1a8ee623b62bf125c1f439bfc5cb3",
+      "sha256": "5d7a8e0f70df88330fc658c57a8ce4adc043bdad58ba121b2757f4a4edd853e1",
       "about": "What is running, and a way to end one of them.\n\nOn Linux, reads /proc directly, the same technique mods/mon and the about window both use: no forking, and no dependency on anything but the kernel giving a truthful /proc. Elsewhere, one ps -axo per scan, since there is no /proc to read there at all -- ps already computes %CPU itself, so there is no delta of its own to keep between scans, unlike the Linux path. Sorted by CPU or memory, x or Task > End Task sends the selected one SIGTERM, shift-x sends SIGKILL.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "tasks",
-      "hibr": "0.99.534"
+      "hibr": "0.99.554"
     },
     "aboutme": {
       "title": "About Me",
@@ -2221,15 +2221,15 @@
     },
     "appearance": {
       "title": "Appearance",
-      "version": "2.17.2",
+      "version": "2.17.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/appearance.hibr",
-      "sha256": "fdb339410cea6ce64c42e16114928695848625f5261104058eb346e92b0140a4",
+      "sha256": "ede735e01d9a6aa279522850000a2c517d3aff0784369c0aa2bbe1cd48b97a0d",
       "about": "The Control Panel pane for how the desktop looks: the theme (the whole look at once), the colour scheme, the glyphs and trees, the shadows, and how dialog buttons look. The menu bar has a pane of its own since 0.99.356 (menubar.hibr, Gitea #396), its look and its items. The wallpaper has a pane of its own since 0.99.246 (wallset.hibr, Gitea #284), though a theme still carries one and applies it here. A theme or a colour scheme sets the variables the window manager already reads every frame, so a change shows on the next one, in every window at once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "appearance",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "arabizi": {
       "title": "Arabizi",
@@ -2257,15 +2257,15 @@
     },
     "control-strip": {
       "title": "Control Strip",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/control-strip.hibr",
-      "sha256": "bdbe266a4964decadcfa1cfeabe020faa3496bad42f86d8a1837d98cabcbc414",
+      "sha256": "b2bea36060033adb643e50cc0da3143d3e3b3399490e27b9bbf95c1586c8890b",
       "about": "The Control Panel pane for the strip itself: which side it docks to, and whether it casts its own shadow, the same reasoning as Behaviour's own Window Shadow and Menu Shadow rows. Position, collapse and length are dragged directly on the strip, the same as a window is moved and resized on itself rather than from a settings row -- this pane only carries the two things that are otherwise nowhere to see or change.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "control-strip",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "datetime": {
       "title": "Date & Time",
@@ -2281,10 +2281,10 @@
     },
     "desktop": {
       "title": "Desktop",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/desktop.hibr",
-      "sha256": "25000a71a781c1a1467050d66ca7be6a2399e2daa0653e236ff528e7a01ddb42",
+      "sha256": "da8275e19d316411e98a43b110e2cab18e6c8cdadf31dfac06cb3b2e936e5733",
       "about": "The Control Panel pane for the bare desktop: which icons sit on it, how many workspaces it has, whether Cycle goes through this one's windows or every one's, how often a busy screen is redrawn, and how screenshots are taken and where they go.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2293,39 +2293,39 @@
     },
     "displays": {
       "title": "Displays",
-      "version": "1.2.3",
+      "version": "1.2.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/displays.hibr",
-      "sha256": "6f88b3e2abce671ce37ca11fadb45b481f823ae7f59b3bd57c6373ce62c77a5b",
+      "sha256": "7cfbe2d9e307370846285869c834043fffca3f74097c6f15644529641dabcbed",
       "about": "Control Panel's own picture of a multi-monitor arrangement: a dropdown to choose which display is primary, and every attached display drawn to scale below it from hold clients, dragged to reposition (hold move on release). Right-click a rectangle for Detach (hold drop) or Identify (flash its own name on its own screen, so whoever is looking can tell which is which). The primary display is the picture's own anchor -- every rectangle is positioned relative to it, so switching which one is primary, or dragging a *different* display, never moves where the primary itself draws -- but its own rectangle cannot be dragged: the dropdown is the one reliable way to change it, since a mouse click precise enough to land on a specific terminal cell with *no* movement at all is not something to depend on, over ssh least of all. Nothing else is kept that a fresh read of hold clients cannot recompute -- the same as every other pane's row list is rebuilt every frame -- except the drag itself, which is this window's own gesture in progress and belongs nowhere else, and is frozen against hold clients while it is happening: re-reading mid-drag would have the dragged rectangle's own base position shift under the live preview the moment the release this same drag ends in reaches the server.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "displays",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "filetypes": {
       "title": "File Types",
-      "version": "1.4.2",
+      "version": "1.4.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/filetypes.hibr",
-      "sha256": "c785b7f44b0f9e6b603e863bcfe6d3a4d3382b4b0f07c7de90395c417d2c8e7f",
+      "sha256": "aaab9d59792c09fd9c49b853b80ed725c768efc1f610d7437af8c16acffafd1f",
       "about": "Which program opens which kind of file\n\nthe Control Panel pane for dt_handler's own extension-to- program table (DT_HANDLERS). Files' own Open With menu already reads it; this is where a mapping is added, changed or removed, rather than only through a dt_handler line in a script of your own -- which still works exactly as before, and is what dt_save now writes these back out as.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "filetypes",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "language": {
       "title": "Language & Region",
-      "version": "1.0.8",
+      "version": "1.0.9",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/language.hibr",
-      "sha256": "dc5141d99f8efaf528805ef63d412b4bf00a1308becc3eb9fcba6244eb13931d",
+      "sha256": "d424298d017cc819a98acb576b148d7b187366cda8d05dfcd53cb8ef2fadfe59",
       "about": "The system's language and region, and how the desktop shows them\n\nthe Control Panel pane for Language & Region (Gitea #526): the system's language, which programs speak and the desktop's own words follow wherever hibr has a catalogue (#68, ADR 0032), and its region, the formats programs write dates, numbers, money, measures and paper in, each of which may be set on its own. They are the system's, one source of truth: read from it and changed through localectl, which asks for an administrator (wm/locale.hibr). Below them, how the desktop itself shows right-to-left text and digits.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "language",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "loginmgr": {
       "title": "Login Manager",
@@ -2341,10 +2341,10 @@
     },
     "menubar": {
       "title": "Menu Bar",
-      "version": "1.3.2",
+      "version": "1.3.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menubar.hibr",
-      "sha256": "e9f85ebe97038f0c54b9523d473ef0d4a2528a8f11567558cf4ef838c809a6e6",
+      "sha256": "20143f1c3b7f961692bd7d31d90a78fed2ae004a38adb46530fc0c61853443e7",
       "about": "The Control Panel pane for the menu bar: how it looks -- the gap between its items, how much of a picture shows through it, the notification icon, its shadow, bold titles and how wide a menu may grow -- and what is on it, Menu Bar Items, every item on its right ticked on or off and dragged into the order it reads in (Gitea #396). These were Appearance's own Menu Bar rows until 0.99.356; the settings are the same ones, so nothing saved moves.\n\nThe pane is called barset, not menubar: dt_menubar is the window manager's own loader, and a pane's name is the prefix its callbacks are looked up by.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2353,22 +2353,22 @@
     },
     "menuedit": {
       "title": "Applications Menu",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/menuedit.hibr",
-      "sha256": "10d5559833cb76c2b4a579c4086d1625b2d6e0f2f243978ea6b811e9f9656ca3",
+      "sha256": "3b778b6bc580d88ecabaa2e4853ad625fbb875340cdfc2eb17d6100e3316c286",
       "about": "The Control Panel pane for what the Applications menu holds\n\nControl Panel > Applications Menu (Gitea #502): what the Applications menu holds besides the desktop's own apps. The programs installed on the machine are listed by themselves (wm/programs.hibr), each a row here that opens to change it, or Hide to take it off the menu; Add Program makes one of the person's own -- a name, a command, the folder under Applications it goes in, and whether it runs in a window of its own or in a Terminal window. What is changed here is the person's, kept as data in $XDG_DATA_HOME/hibr/menu.json, and wins over the machine's. Replaces Screens and its pane (owner, 2026-11-10). The dialog is pmfield.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "menuedit",
-      "hibr": "0.99.534"
+      "hibr": "0.99.555"
     },
     "mouse": {
       "title": "Mouse",
-      "version": "1.7.2",
+      "version": "1.7.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/mouse.hibr",
-      "sha256": "503072bd092168ad52b8d88af08f342412749bbf529e3110d140ec78e8fcb49c",
+      "sha256": "44cd6ea477ad5d0280c05bcbee1ff7dbd732b2a08bcf839ae6f5a31814638ff2",
       "about": "The Control Panel pane for what the mouse does to a window: whether a plain side resizes it as well as a corner, whether a modifier click anywhere in its body moves it and which modifier, and what a double click on its title bar does, whether a dragged window follows by its outline or whole, how far one notch of the wheel scrolls, and whether and how soon a tooltip shows. wm/input.hibr reads the window settings and every scrolling window the wheel's; this pane only changes the DT_* settings.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2377,10 +2377,10 @@
     },
     "networks": {
       "title": "Network",
-      "version": "3.0.2",
+      "version": "3.0.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/networks.hibr",
-      "sha256": "de26dc2f35edbb0f96cb9d217327785d44381d986f9ef0e4b4b920d11bd16a31",
+      "sha256": "41b4da6bc7cf66887c4c84128591b2a5bce6cc9fa07a2564241558ed1d1b422c",
       "about": "The Control Panel pane for the machine's network and Wi-Fi\n\nthe Control Panel pane called Network (Gitea #311): what the machine is on and its address, Wi-Fi on or off, the networks in reach to join, the ones it knows to forget, and the item on the menu bar. It acts through menubar/network.hibr, which says how this machine is networked: NetworkManager, or iproute2's view alone.\n\nThe pane is called networks, not network, on purpose: network is the WebDAV servers' pane (titled Servers), shipped and in the catalogue, and a copy of it installed in a person's own scope would win over a shipped file of the same name -- so a new pane there would be shadowed by an old one.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2390,27 +2390,27 @@
     },
     "pictures": {
       "title": "Pictures",
-      "version": "1.5.2",
+      "version": "1.5.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pictures.hibr",
-      "sha256": "131cfae576b027bc64fae3678a986cd21e8e95debc68a3ae3868f2eef810d5cf",
+      "sha256": "d336f7d5d6b1156cf63b365a5271e404a14e209f267138f729d88386771aa866",
       "about": "The Control Panel pane for how a picture is drawn: half blocks, the same in grey, the character ramp, or real pixels where the terminal can place them. One setting reaches every picture the desktop draws -- the Image Viewer, the wallpaper, Mail's pictures, the film player and the browser -- since each passes DT_IMGMODE to the module that draws it.\n\nWhat the terminal can do is shown beside it, because the honest answer is \"it depends on your terminal\", and it names the protocol in force: the kitty graphics protocol or sixel, each needing the terminal to say what a cell measures (ADR 0037). Which of the two is not a choice -- no terminal does both well, and kitty does not do sixel at all -- so the setting says Pixels and the console picks.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pictures",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "pnotes": {
       "title": "Program Notifications",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/pnotes.hibr",
-      "sha256": "60ca409fb0aea339d78c612f3a75fcb887d14a701e8174c549dbef16e0dd246c",
+      "sha256": "b0fa951aec333491e538be31630f3d6fecfe2d99ced8013f0ba70595c0929c0c",
       "about": "Programs' notifications as the desktop's own, switched in Notifications\n\nprograms' notifications as the desktop's own (Gitea #505): a catalogue entry, not part of the package (the owner, 2026-11-15). The listener alone: its switch is a row of Notifications, which shows it while this is installed, since a pane of its own beside Notifications was a second place for the same notes (the owner, 2026-11-15, 0.99.536). Installed and switched on, the desktop is the session's org.freedesktop.Notifications, through the dbus module and wm/bus.hibr: what a program says becomes one of the desktop's notes -- the same stack, history, per-app rules and Do Not Disturb -- under the program's own name, at a priority from its urgency. A click runs the program's default action (or its first); a note the program replaces is replaced; one it closes goes; and the program is told when each has gone, by a click or its time running out. Another program already the session's notification server keeps the name, and the log says so.\n\nRemoved while the desktop runs, it lets the name go (dt_onunload), so the notifications go back to whatever else the session has.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "pnotes",
-      "hibr": "0.99.536"
+      "hibr": "0.99.555"
     },
     "screensaver": {
       "title": "Screen Saver",
@@ -2426,15 +2426,15 @@
     },
     "shortcuts": {
       "title": "Shortcuts",
-      "version": "1.3.3",
+      "version": "1.3.4",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/shortcuts.hibr",
-      "sha256": "5163785e4ab3b0a94bf083a9fba6543098af4bc2648b21fdc62a3d57998476b8",
+      "sha256": "e12aee17e9360cce58e4325bc6a3cc3ba550742c5156cb193413223d13edf14a",
       "about": "The Control Panel pane for every shortcut in one list: the desktop's own actions, then a launch shortcut for any app, then each app's own actions. A shortcut is the chords it is written as (ADR 0057): activating a row captures its next key as its only one; its + captures one more beside those it has; the ✕ beside a key, or delete or backspace on its row, clears them. wm/keys.hibr does all of it -- including asking before taking a key another action has, and refusing one Blit keeps for itself, which are listed last. Every key the desktop acts on is here, the menu bar's, Copy's, Cut's and Paste's included. A key two actions share, which only a settings file edited by hand can arrange, is marked ⚠ on both. Use Super Instead of Alt, and back, rewrite the list once.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "shortcuts",
-      "hibr": "0.99.509"
+      "hibr": "0.99.555"
     },
     "versions": {
       "title": "Versions",
@@ -2449,22 +2449,22 @@
     },
     "wallset": {
       "title": "Wallpaper",
-      "version": "1.1.2",
+      "version": "1.1.3",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/wallset.hibr",
-      "sha256": "db419b800a440714e9e33d4937f569af2905a460ac2f3e5e9aef5931ae81e373",
+      "sha256": "8057ac53822d3980c07752bf9ce908b81b339447dfbddb7b7f775aa8b4f5e37e",
       "about": "The Control Panel pane for the wallpaper of each display\n\nthe Control Panel pane for the wallpaper: the pattern, or an image chosen in a picker of its own (control-panel/wallpaper.hibr), how it fills the screen, and how it is drawn -- for every display at once, or for one display by its name (Gitea #284). It was a section of Appearance until then; it is a pane of its own because a Display row choosing what every row below it applies to reads plainly here, and would not among Appearance's rows, which all apply everywhere.\n\nA display is known by the name it attached under: --name if it was given one, otherwise the machine it connects from (dt_dispname), so a reattach finds it again. One with a wallpaper of its own keeps it in DT_WALLDIMG, DT_WALLDMODE and DT_WALLDPIC (wm/wallpaper.hibr); one with none follows All Displays, which is DT_WALLIMG, DT_WALLMODE and DT_WALLIMGMODE as before -- so a settings file written before this pane existed means exactly what it did. The pattern is one for the whole desktop, and is only offered under All Displays.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "wallset",
-      "hibr": "0.99.554"
+      "hibr": "0.99.555"
     },
     "windows": {
       "title": "Windows",
-      "version": "1.11.4",
+      "version": "1.11.5",
       "kind": "control-panel",
       "bundle": "bundles/control-panel/windows.hibr",
-      "sha256": "b232ed68898d85f35e95ea88dadf92fca8ce22f2f0cf4cc18733c3d5ba641fcb",
+      "sha256": "6c7ec756b069cca0e30264ffa130035a2b502ff5d52023c49b80fb4145b19bd7",
       "about": "The Control Panel pane for how a window looks and where it opens\n\nthe Control Panel pane for how a window looks and where a new one goes: its frame, where its title sits, which glyphs the buttons are drawn with, the Title Bar Buttons list -- each button on or off, and on which side of the title -- Placement, what Zoom fills -- the window's own display or every display (Gitea #286) -- and how wide a tiled workspace's main window is. How the mouse moves, resizes and double-clicks one is the Mouse pane's. Every value here is read by wm/frame.hibr; this pane only ever changes the DT_* settings, never the drawing itself.",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
@@ -2521,15 +2521,15 @@
     },
     "workspaces": {
       "title": "Workspaces",
-      "version": "1.0",
+      "version": "1.0.1",
       "kind": "control-strip",
       "bundle": "bundles/control-strip/workspaces.hibr",
-      "sha256": "28d1d3c4f56b97922d3267872d5d158051fa890c495e4770c63fb27aca5e7943",
+      "sha256": "48d69eeeeaa470d6ddafabdeb2fd0c85b7bf6ecff006c5ed161f8a4d6a590f93",
       "about": "A Control Strip module for the workspace numbers, the same ones the menu bar can show (menubar/workspaces.hibr): the current one lit, a click on another goes there. The strip and the bar can each show them, or both, or neither (Gitea #393).",
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "workspaces",
-      "hibr": "0.99.354"
+      "hibr": "0.99.555"
     },
     "classicmac": {
       "title": "Classic Mac",

@@ -15,7 +15,7 @@
 
 strict
 
-app networks "The Control Panel pane for the machine's network and Wi-Fi" 3.0.2
+app networks "The Control Panel pane for the machine's network and Wi-Fi" 3.0.3
 command -v cp_pane > /dev/null && cp_pane networks "Network" "⇌" hardware
 
 NT_KINDS=(Auto NetworkManager None)
@@ -183,7 +183,7 @@ fn networks_do(int w, k, int dir) {
 		dt_confirm "$DT_T" networks_forget
 		return 0
 		;;
-	DT_NETBAR) cp_toggle "$k"; dt_netbar ;;
+	DT_NETBAR) cp_toggle "$k"; dt_netbar; return 0 ;;
 	netrule)
 		if dt_netfree; then dt_netrule off; else dt_netrule on; fi
 		return 0

@@ -532,6 +532,20 @@ ENTHIBR["apps/audio"]=0.99.548
 # Blit's pane 0.1.38 sets its server address with dt_set (a pane's process
 # holds the desktop's state read-only, hibr ADR 0050), new in 0.99.554.
 ENTHIBR["control-panel/blit"]=0.99.554
+# 0.99.555: these stopped calling what dt_onset now does for them (the console's picture calls,
+# the compositor's layout, the strip's relist, the glyphs) -- the contract cannot see a call
+# that went away, and on an older hibr they would silently stop reaching it.
+ENTHIBR["control-panel/pictures"]=0.99.555
+ENTHIBR["control-panel/displays"]=0.99.555
+ENTHIBR["control-panel/control-strip"]=0.99.555
+ENTHIBR["control-panel/language"]=0.99.555
+ENTHIBR["control-panel/appearance"]=0.99.555
+# And these rely on 0.99.555 doing what they no longer do themselves: Vault's pane on the
+# job's exit status (dt_vwjobrun), Image Viewer on the wallpaper retry (dt_onset), Shortcuts
+# on dt_keyswap rebuilding the menus.
+ENTHIBR["apps/vault"]=0.99.555
+ENTHIBR["apps/imgview"]=0.99.555
+ENTHIBR["control-panel/shortcuts"]=0.99.555
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`

@@ -15,7 +15,7 @@ strict
 # CPU and memory, worked out the same way in every window that shows them.
 [ -n "${SY_LIBDONE-}" ] || . "$DT_HERE/lib/sysstat.hibr"
 
-app tasks "What is running, and a way to end one" 1.7.1
+app tasks "What is running, and a way to end one" 1.7.2
 # part: control-panel/taskmgr.hibr
 
 # 64 columns rather than the 50 it opened at until 0.99.133: the names are
@@ -312,7 +312,7 @@ fn tasks_retitle(int id) {
 fn tasks_filterset(f) {
 	local id
 
-	TK_FILTER=$f
+	dt_set TK_FILTER "$f"
 	for id in "${!TK[@]}"; do
 		case $id in *[!0-9]*) continue ;; esac
 		TK[$id]["scant"]=
@@ -320,7 +320,6 @@ fn tasks_filterset(f) {
 		TK[$id]["sel"]=0
 		tasks_retitle "$id"
 	done
-	command -v dt_save > /dev/null && dt_save
 	return 0
 }
 

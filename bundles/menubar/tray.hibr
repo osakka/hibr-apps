@@ -16,7 +16,7 @@
 
 strict
 
-app tray "Programs' tray icons on the menu bar" 1.0.5
+app tray "Programs' tray icons on the menu bar" 1.0.6
 
 # The settings, Control Panel > Tray Icons (control-panel/trayset.hibr):
 # whether the desktop is the tray at all; a picture two cells wide where
@@ -490,8 +490,7 @@ fn tray_context(id = "") {
 
 # On or off, from the pane: the names taken or let go at once.
 fn dt_trayset(int v) {
-	DT_TRAY=$v
-	dt_has dt_save && dt_save
+	dt_set DT_TRAY "$v"
 	if [ -n "${DT_BUSFD-}" ]; then
 		if [ "$v" = 1 ]; then
 			dbus tray on 2> /dev/null

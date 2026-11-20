@@ -12,7 +12,7 @@
 strict
 
 
-app language "The system's language and region, and how the desktop shows them" 1.0.8
+app language "The system's language and region, and how the desktop shows them" 1.0.9
 command -v cp_pane > /dev/null && cp_pane language "Language & Region" "A"
 # The pane's own dialog, named so the application menu reads "Add a
 # Language" rather than its prefix.
@@ -49,13 +49,11 @@ fn cp_set_bidi(int? id = "", value = "") {
 
 	case $value in on | off) v=$value ;; esac
 	dt_set DT_BIDI "$v"
-	dt_langapply
 }
 
 # Mirror the layout: auto (with the language), on or off.
 fn cp_set_mirror(int? id = "", value = "") {
 	dt_set DT_MIRROR "$value"
-	dt_langapply
 }
 
 # Western or Arabic-Indic digits.
@@ -261,9 +259,8 @@ fn language_do(int? w = "", k = "", int? dir = "") {
 		return 0
 		;;
 	kbname)
-		dt_has dt_kbbar || return 0
-		if [ "${DT_KBNAME:-1}" = 1 ]; then DT_KBNAME=0; else DT_KBNAME=1; fi
-		dt_kbbar
+		dt_has dt_kbnameflip && dt_kbnameflip
+		return 0
 		;;
 	esac
 	cp_save

@@ -20,7 +20,7 @@
 
 strict
 
-app notifications "A read-only look back at recent notifications" 1.6.4
+app notifications "A read-only look back at recent notifications" 1.6.5
 # part: control-panel/notifications.hibr
 
 command -v dt_app > /dev/null && dt_app notifications "Notifications" 16 66 \
@@ -61,7 +61,7 @@ fn nh_at(int i) {
 fn notifications_draw(int id, int h, int w, int row, int col) {
 	local n i r vis top hid at t line p sel f rb
 
-	DT_NOTEUNSEEN=0
+	[ "$DT_NOTEUNSEEN" = 0 ] || dt_noteseen
 	n=${#DT_NOTEHIST_ORDER[@]}
 	vis=$((h - 1))
 	NHW[$id]["vis"]=$vis

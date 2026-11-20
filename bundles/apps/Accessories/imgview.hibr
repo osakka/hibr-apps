@@ -8,10 +8,11 @@
 
 strict
 
-app imgview "A picture in a window" 1.2.1
+app imgview "A picture in a window" 1.2.2
 # modules: img term
 
 command -v dt_app > /dev/null && dt_app imgview "Image Viewer" 16 40 "" "◧"
+command -v dt_opener > /dev/null && dt_opener imgview "Image Viewer" "png jpg jpeg ans" app imgview
 
 # Per window, not per app: two viewers must be able to show two different
 # pictures. Everything an app remembers goes under the window id it was
@@ -363,7 +364,6 @@ fn imgview_setwall(int id) {
 		dt_notep low "No picture open to set as wallpaper"
 		return 0
 	fi
-	DT_WALLBAD=
 	dt_set DT_WALLIMG "$path"
 	dt_notep low "Wallpaper set"
 }
