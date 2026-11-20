@@ -20,7 +20,7 @@
 
 strict
 
-app audio "An audio player" 0.7.2
+app audio "An audio player" 0.7.3
 # replaces: apps/huiamp
 # part: control-panel/audioset.hibr
 # part: menubar/audiobar.hibr
@@ -1070,7 +1070,7 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	loading) glyph=${GL[ellipsis]}; pen=$DT_DIM; text := dt_tr "Loading" ;;
 	*) glyph=${GL[stop]}; pen=$DT_DIM; text := dt_tr "Stopped" ;;
 	esac
-	if [ "$blit" = 1 ] && [ -n "${APB["vinyl-0-left"]-}" ]; then
+	if [ "$blit" = 1 ] && [ -z "${APB["vinyl-big-0-r0c0"]-}" ] && [ -n "${APB["vinyl-0-left"]-}" ]; then
 		# Blit's record turns while it plays, eight frames a second
 		x=0
 		[ "$st" != playing ] || x=$(( (${EPOCHREALTIME/./} / 125000) % 8 ))
@@ -1120,7 +1120,15 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	[ "$st" != paused ] || pen=$DT_WARN
 	[ "$cur" -ge 0 ] || pen=$DT_IDLE
 	if [ "$blit" = 1 ]; then
-		# eleven columns wide: centred where the pixel digits stand
+		# eleven columns wide, after Blit's big record (four cells by two
+		# rows, Blit 0.3.127) where this Blit has it
+		if [ -n "${APB["vinyl-big-0-r0c0"]-}" ]; then
+			x=0
+			[ "$st" != playing ] || x=$(( (${EPOCHREALTIME/./} / 125000) % 8 ))
+			console pen "$DT_INK" "$AP_BG"
+			console put -p "w$id" 2 3 "${APB["vinyl-big-$x-r0c0"]}${APB["vinyl-big-$x-r0c1"]}${APB["vinyl-big-$x-r0c2"]}${APB["vinyl-big-$x-r0c3"]}"
+			console put -p "w$id" 3 3 "${APB["vinyl-big-$x-r1c0"]}${APB["vinyl-big-$x-r1c1"]}${APB["vinyl-big-$x-r1c2"]}${APB["vinyl-big-$x-r1c3"]}"
+		fi
 		ap_lcdblit "$id" 2 8 "$text" "$pen"
 	elif [ "$pix" = 1 ]; then
 		ap_lcd "$id" 2 3 "$text" "$pen"
