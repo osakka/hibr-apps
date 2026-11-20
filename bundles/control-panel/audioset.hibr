@@ -20,13 +20,11 @@ declare -g AUDIO_EQPRESET="${AUDIO_EQPRESET-Flat}" AUDIO_SPECTRUM="${AUDIO_SPECT
 AUDIOSET_VOLUMES=(0 10 20 30 40 50 60 70 80 90 100)
 
 fn cp_set_hvol(int? id = "", value = "") {
-	AUDIO_VOLUME=$value
-	cp_save
+	dt_set AUDIO_VOLUME "$value"
 }
 
 fn cp_set_hpreset(int? id = "", value = "") {
-	AUDIO_EQPRESET=$value
-	cp_save
+	dt_set AUDIO_EQPRESET "$value"
 }
 
 # A volume in words.
@@ -81,5 +79,5 @@ fn audioset_do(int w, k, int dir) {
 	AUDIO_SHUFFLE | AUDIO_REPEAT | AUDIO_AUTOPLAY | AUDIO_SPECTRUM | AUDIO_LEVELS | AUDIO_REMEMBER) cp_toggle "$k" ;;
 	AUDIO_BAR) cp_toggle "$k"; dt_has audiobar_switch && audiobar_switch ;;
 	esac
-	cp_save
+	return 0
 }

@@ -20,7 +20,7 @@
 
 strict
 
-app audio "An audio player" 0.7.3
+app audio "An audio player" 0.7.5
 # replaces: apps/huiamp
 # part: control-panel/audioset.hibr
 # part: menubar/audiobar.hibr
@@ -65,11 +65,10 @@ fn ap_clock(secs) {
 	ret "$s"
 }
 
-# A setting changed from the window: keep it, for every window.
-fn ap_keep() {
-	command -v dt_save > /dev/null && dt_save
-	return 0
-}
+# A setting changed from the window goes through dt_set, which keeps it for
+# every window and saves it: an app's own process holds the desktop's state
+# read-only (ADR 0050), and a read right after the set may still see the old
+# value, so what follows works from the value it set, not the variable.
 
 fn ap_bump(int id) {
 	AP[$id]["gen"]=$((AP[$id]["gen"] + 1))
@@ -399,6 +398,7 @@ fn ap_play(int id, int i) {
 		return 1
 	fi
 	media volume "$p" "$AUDIO_VOLUME" > /dev/null
+	AP[$id]["vol"]=$AUDIO_VOLUME
 	AP[$id]["err"]=
 	AP[$id]["errarg"]=
 	AP[$id]["player"]=$p
@@ -499,18 +499,17 @@ fn ap_vol(int id, int v) {
 
 	[ "$v" -le 100 ] || v=100
 	[ "$v" -ge 0 ] || v=0
-	AUDIO_VOLUME=$v
+	dt_set AUDIO_VOLUME "$v"
 	[ -z "$p" ] || media volume "$p" "$v" > /dev/null
-	ap_keep
+	AP[$id]["vol"]=$v
 	ap_bump "$id"
 }
 
 fn ap_flip(int id, which) {
 	case $which in
-	shuffle) AUDIO_SHUFFLE=$((1 - AUDIO_SHUFFLE)) ;;
-	repeat) AUDIO_REPEAT=$((1 - AUDIO_REPEAT)) ;;
+	shuffle) dt_set AUDIO_SHUFFLE $((1 - AUDIO_SHUFFLE)) ;;
+	repeat) dt_set AUDIO_REPEAT $((1 - AUDIO_REPEAT)) ;;
 	esac
-	ap_keep
 	ap_bump "$id"
 }
 
@@ -537,6 +536,11 @@ audio_tick() {
 
 	for id in "${AP_WINS[@]}"; do
 		[ "${AP[$id]["savedirty"]:-0}" = 0 ] || ap_savelist "$id"
+		# the volume set in the Control Panel reaches the sound playing
+		if [ -n "${AP[$id]["player"]:-}" ] && [ -n "${AP[$id]["vol"]:-}" ] && [ "${AP[$id]["vol"]}" != "$AUDIO_VOLUME" ]; then
+			media volume "${AP[$id]["player"]}" "$AUDIO_VOLUME" > /dev/null
+			AP[$id]["vol"]=$AUDIO_VOLUME
+		fi
 		ap_sleepcheck "$id"
 		[ -z "${AP[$id]["player"]:-}" ] || any=1
 	done
@@ -982,13 +986,24 @@ fn ap_visdraw(int id, int c0, int n) {
 }
 
 fn audio_dirty(int id) {
+	local s
+
 	case ${AP[$id]["state"]} in
 	playing | loading) return 0 ;;
 	esac
 	[ "${AP[$id]["visany"]:-0}" = 0 ] || return 0
 	[ "${AP[$id]["lvlany"]:-0}" = 0 ] || return 0
 	case ${AP[$id]["sleep"]:-0} in 0 | track) ;; *) return 0 ;; esac
+	# a setting changed elsewhere (the Control Panel, another window): since
+	# hibr 0.99.555 a dt_set draws nothing by itself
+	s := ap_sets
+	[ "$s" = "${AP[$id]["sets"]:-}" ] || return 0
 	[ "${AP[$id]["gen"]}" != "${AP[$id]["drawn"]:-x}" ]
+}
+
+# The settings a window draws, as one word, to see when one has changed.
+fn ap_sets() {
+	ret "$AUDIO_VOLUME/$AUDIO_SHUFFLE/$AUDIO_REPEAT/$AUDIO_SPECTRUM/$AUDIO_LEVELS"
 }
 
 # One of the lit words on the display: SHUF, REP, EQ, SLP, with a glyph before
@@ -1033,11 +1048,13 @@ fn ap_format(codec) {
 
 fn audio_draw(int id, int h, int w, int row, int col) {
 	local t u line i vis top idx n sel cur frac off title iw secs rem text eqon=0 pix=0 x pl slp
-	local r c st glyph pen right lc vc vw sc sw nb dur sep blit
+	local r c st glyph pen right lc vc vw sc sw nb dur sep blit kw
 
 	dt_wclear "$id"
 	ap_poll "$id"
 	AP[$id]["drawn"]=${AP[$id]["gen"]}
+	t := ap_sets
+	AP[$id]["sets"]=$t
 	AP[$id]["h"]=$h
 	AP[$id]["w"]=$w
 	AP[$id]["row"]=$row
@@ -1209,20 +1226,30 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	pl=play
 	[ "$st" != playing ] || pl=pause
 	glyph := ap_kglyph "$pl" "$blit"
+	# a key is as wide as its glyph allows it to stand centred: five cells
+	# round a one-cell glyph, six round Blit's two-cell ones
+	kw=$((4 + ${#glyph}))
+	c=3
 	t := ap_kglyph prev "$blit"
-	ap_key "$id" 9 3 5 prev "$t" 0 "$pix"
-	ap_key "$id" 9 9 7 "$pl" "$glyph" 1 "$pix"
+	ap_key "$id" 9 "$c" "$kw" prev "$t" 0 "$pix"
+	c=$((c + kw + 1))
+	ap_key "$id" 9 "$c" $((kw + 2)) "$pl" "$glyph" 1 "$pix"
+	c=$((c + kw + 3))
 	t := ap_kglyph stop "$blit"
-	ap_key "$id" 9 17 5 stop "$t" 0 "$pix"
+	ap_key "$id" 9 "$c" "$kw" stop "$t" 0 "$pix"
+	c=$((c + kw + 1))
 	t := ap_kglyph next "$blit"
-	ap_key "$id" 9 23 5 next "$t" 0 "$pix"
+	ap_key "$id" 9 "$c" "$kw" next "$t" 0 "$pix"
+	c=$((c + kw + 2))
 	t := ap_kglyph eject "$blit"
-	ap_key "$id" 9 30 5 open "$t" 0 "$pix"
+	ap_key "$id" 9 "$c" "$kw" open "$t" 0 "$pix"
+	c=$((c + kw))
 
 	# the volume beside them: the speaker, a slider, a number
 	glyph=${GL[sound]}
 	[ "$AUDIO_VOLUME" -gt 0 ] || glyph=${GL[soundoff]}
-	vc=38
+	vc=$((c + 3))
+	AP[$id]["volfrom"]=$vc
 	console pen "$DT_DIM" "$DT_FACE"
 	console put -p "w$id" 10 "$vc" "$glyph"
 	dt_wreg "$id" 10 "$vc" "${#glyph}" mute
@@ -1464,7 +1491,7 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 fn audio_wheel(int id, dir, int r, int c) {
 	local top=${AP[$id]["top"]} n=${AP[$id]["n"]}
 
-	if [ "$r" = "${AP[$id]["volr"]:-10}" ] && [ "$c" -ge 38 ]; then
+	if [ "$r" = "${AP[$id]["volr"]:-10}" ] && [ "$c" -ge "${AP[$id]["volfrom"]:-38}" ]; then
 		if [ "$dir" = up ]; then ap_vol "$id" $((AUDIO_VOLUME + 5)); else ap_vol "$id" $((AUDIO_VOLUME - 5)); fi
 		return 0
 	fi
@@ -1532,8 +1559,8 @@ fn ap_menu(int id, what) {
 	remove) ap_remove "$id" ;;
 	open) ap_openbox "$id" ;;
 	eq) ap_eqtoggle "$id" ;;
-	spectrum) AUDIO_SPECTRUM=$((1 - AUDIO_SPECTRUM)); ap_keep; ap_bump "$id" ;;
-	levels) AUDIO_LEVELS=$((1 - AUDIO_LEVELS)); ap_keep; ap_bump "$id" ;;
+	spectrum) dt_set AUDIO_SPECTRUM $((1 - AUDIO_SPECTRUM)); ap_bump "$id" ;;
+	levels) dt_set AUDIO_LEVELS $((1 - AUDIO_LEVELS)); ap_bump "$id" ;;
 	mute) ap_mute "$id" ;;
 	compact) ap_compact "$id" ;;
 	sleep0) ap_sleepset "$id" 0 ;;
