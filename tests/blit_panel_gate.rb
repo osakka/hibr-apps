@@ -32,6 +32,8 @@ Dir.mktmpdir('blit-panel') do |root|
   log=File.join(root,'server.log')
   env={**gate_display_env,'BLIT_LOGIN_AUTOSTART'=>'0','BLIT_PANE_LAYOUT'=>'1x2',
        'BLIT_PSF_FONT'=>File.join(BLIT,'assets/fonts/Blit-Terminus16.psf'),
+       # The fonts of the Blit tree under test (its Arabic word face among them).
+       'BLIT_FONT_ROOT'=>File.join(BLIT,'assets/fonts'),
        'BLIT_SETTINGS_PATH'=>File.join(root,'settings.json'),'BLIT_INPUT_ROOT'=>File.join(root,'input'),
        'BLIT_AUTH_TOKEN'=>'panel-test-token'}
   pid=spawn(env,BINARY,PORT.to_s,out:log,err:[:child,:out])
@@ -571,6 +573,24 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_cp_choose hinting full
       finish
       [ "${BCP_SNAPSHOT[fonts][active][hinting]}" = full ] || exit 111
+      # Arabic (Blit ADR 0241): a choice row, applied live through the font API.
+      n := blit_rows 44
+      i=0; arabic_found=0
+      while [ "$i" -lt "$n" ]; do
+          [ "${CP[44][$i][key]}" != arabic ] || arabic_found=1
+          i=$((i + 1))
+      done
+      [ "$arabic_found" = 1 ] || { echo 'arabic row missing' >&2; exit 112; }
+      finish
+      blit_cp_choose arabic modern
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][arabic]}" = modern ] || { echo "arabic failed: $BCP_STATUS" >&2; exit 113; }
+      blit_cp_choose arabic cursive
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][arabic]}" = modern ] || { echo 'unknown arabic accepted' >&2; exit 114; }
+      blit_cp_choose arabic naskh
+      finish
+      [ "${BCP_SNAPSHOT[fonts][active][arabic]}" = naskh ] || exit 115
       blit_slide 44 font_size 7
       blit_slide 44 font_size 65
       [ "$BCP_BUSY" = 0 ] || exit 47
