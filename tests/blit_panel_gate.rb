@@ -64,6 +64,8 @@ Dir.mktmpdir('blit-panel') do |root|
       # the rest), which its interface loads first: without it a Control
       # Panel row set does nothing.
       source #{HIBR_DESKTOP}/wm/seam.hibr
+      source #{HIBR_DESKTOP}/wm/rtwire.hibr
+      source #{HIBR_DESKTOP}/wm/names.hibr
       source #{HIBR_DESKTOP}/wm/settings.hibr
       source #{HIBR_DESKTOP}/system/panel.hibr
       source #{HIBR_DESKTOP}/wm/jobs.hibr
@@ -573,24 +575,14 @@ Dir.mktmpdir('blit-panel') do |root|
       blit_cp_choose hinting full
       finish
       [ "${BCP_SNAPSHOT[fonts][active][hinting]}" = full ] || exit 111
-      # Arabic (Blit ADR 0241): a choice row, applied live through the font API.
+      # Arabic (Blit ADR 0243): one face, no choice, so no row.
       n := blit_rows 44
-      i=0; arabic_found=0
+      i=0
       while [ "$i" -lt "$n" ]; do
-          [ "${CP[44][$i][key]}" != arabic ] || arabic_found=1
+          [ "${CP[44][$i][key]}" != arabic ] || { echo 'an Arabic row is shown' >&2; exit 112; }
           i=$((i + 1))
       done
-      [ "$arabic_found" = 1 ] || { echo 'arabic row missing' >&2; exit 112; }
       finish
-      blit_cp_choose arabic modern
-      finish
-      [ "${BCP_SNAPSHOT[fonts][active][arabic]}" = modern ] || { echo "arabic failed: $BCP_STATUS" >&2; exit 113; }
-      blit_cp_choose arabic cursive
-      finish
-      [ "${BCP_SNAPSHOT[fonts][active][arabic]}" = modern ] || { echo 'unknown arabic accepted' >&2; exit 114; }
-      blit_cp_choose arabic naskh
-      finish
-      [ "${BCP_SNAPSHOT[fonts][active][arabic]}" = naskh ] || exit 115
       blit_slide 44 font_size 7
       blit_slide 44 font_size 65
       [ "$BCP_BUSY" = 0 ] || exit 47
@@ -724,6 +716,8 @@ Dir.mktmpdir('blit-panel') do |root|
       # the rest), which its interface loads first: without it a Control
       # Panel row set does nothing.
       source #{HIBR_DESKTOP}/wm/seam.hibr
+      source #{HIBR_DESKTOP}/wm/rtwire.hibr
+      source #{HIBR_DESKTOP}/wm/names.hibr
       source #{HIBR_DESKTOP}/wm/settings.hibr
       source #{HIBR_DESKTOP}/wm/jobs.hibr
       source '#{BUNDLE}'

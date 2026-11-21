@@ -1,13 +1,11 @@
 # Blit Control Panel
 
-## Arabic (pane 0.1.39)
+## Arabic (pane 0.1.40)
 
-Under **Font**, an **Arabic** row chooses how Blit draws Arabic: `naskh`
-(the default) shapes each word in Noto Naskh Arabic, joined and with its
-tashkeel, as a browser does; `modern` keeps the older look, one letter per
-cell. It applies at once and is saved through Blit's font API
-(`PUT /v1/fonts {"arabic": ...}`, Blit ADR 0241); with a Blit that does not
-report it the row is not shown.
+The **Arabic** row is gone. Blit draws Arabic one way, shaped as words in
+Noto Naskh Arabic (Blit ADR 0241); its older one-letter-per-cell face was
+retired (Blit ADR 0243), and with it the `arabic` font setting the row
+chose. Pane 0.1.39's row showed `naskh` or `modern`.
 
 ## The Server address (pane 0.1.38)
 
