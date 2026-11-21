@@ -4,9 +4,11 @@
 # modules: inspect
 # edit: fields
 strict
-app coding "Hibr source inspection with evidence" 0.1.0
+app coding "Preview: Hibr source inspection with evidence" 0.2.0
 command -v dt_app > /dev/null && dt_app coding "Hibr Coding" 20 76 once "{}"
 declare -gA HC
+declare -g CODING_CLAIM_SERIAL
+declare -g HC_SOURCE="$BASH_SOURCE"
 
 # Render producer records into readable text without analysing source again.
 fn coding_text(body, mode) {
@@ -74,44 +76,499 @@ Scope: this file only. Syntax and author declarations do not prove runtime behav
 	ret "$out"
 }
 
-# Inspect in a background worker so source reads do not hold a desktop frame.
-fn coding_scan(path, mode) {
-	local body text
-	local -A record
-	if ! need inspect; then
-		printf '%s\n' 'Source inspection is unavailable. Install a Hibr release providing inspect version 1.'
+# Capture a small navigation entry, never a duplicate of the evidence payload.
+fn coding_capture(int id) {
+	local body position=${HC[$id][history_pos]:--1}
+	local -A snapshot
+	[ "$position" -ge 0 ] || return 0
+	[ "${HC[$id][document][condition]}" = current ] || return 0
+	[ -n "${HC[$id][document][identity]}" ] || return 0
+	snapshot[path]=${HC[$id][document][path]}
+	snapshot[identity]=${HC[$id][document][identity]}
+	snapshot[size]=${HC[$id][document][size]}
+	snapshot[mode]=${HC[$id][document][mode]}
+	snapshot[context]=${HC[$id][document][context]}
+	snapshot[target]=${HC[$id][document][target]}
+	snapshot[selection]=${HC[$id][document][selection][index]:--1}
+	snapshot[evidence_line]=${HC[$id][evidence_line]:-0}
+	snapshot[evidence_endline]=${HC[$id][evidence_endline]:-0}
+	snapshot[top]=${HC[$id][top]:-0}
+	snapshot[left]=${HC[$id][left]:-0}
+	snapshot[registration]=${HC[$id][document][registration]}
+	snapshot[search_scope]=${HC[$id][search_scope]:-functions}
+	snapshot[query]=${HC[$id][query]}
+	snapshot[query_cursor]=${HC[$id][query_cursor]:-0}
+	body := json emit snapshot
+	json parse "HC[$id][history][$position]" "$body"
+}
+
+# Append a bounded history entry and discard an obsolete forward branch.
+fn coding_remember(int id) {
+	local i next=$((${HC[$id][history_pos]:--1} + 1)) body
+	local count=${HC[$id][history_count]:-0}
+	i=$next
+	while [ "$i" -lt "$count" ]; do
+		unset HC[$id][history][$i]
+		i=$((i + 1))
+	done
+	if [ "$next" -ge 16 ]; then
+		i=1
+		while [ "$i" -lt 16 ]; do
+			body := json get HC ".$id.history.$i"
+			json parse "HC[$id][history][$((i - 1))]" "$body"
+			i=$((i + 1))
+		done
+		next=15
+	fi
+	HC[$id][history_pos]=$next
+	HC[$id][history_count]=$((next + 1))
+	coding_capture "$id"
+}
+
+# Copy bounded source bytes and let Hibr verify the exact snapshot identity.
+fn coding_snapshot(path, identity, size) {
+	local source= fd directory= line n=0 body count
+	local -A preview proof
+	preview[state]=unavailable
+	preview[message]="Source preview is unavailable for this path."
+	if ! { exec {fd}< "$path"; } 2> /dev/null; then
+		body := json emit preview
+		ret "$body"
+	fi
+	IFS= read -r -N 131073 -u "$fd" source || :
+	exec {fd}<&-
+	count := str len "$source"
+	if [ "$count" -gt 131072 ]; then
+		preview[state]=too_large
+		preview[message]="Source preview exceeds 131072 characters. Evidence remains available."
+	else
+		directory=$(command mktemp -d "${TMPDIR:-/tmp}/coding-source.XXXXXXXX" 2> /dev/null)
+		if [ -n "$directory" ]; then
+			printf '%s' "$source" > "$directory/source.hibr"
+			if proof := inspect functions "$directory/source.hibr" -j; then :; fi
+			command rm -rf -- "$directory"
+			preview[identity]=${proof[source][id]}
+			preview[size]=${proof[source][size]}
+			if [ "${proof[source][id]}" = "$identity" ] && [ "${proof[source][size]}" = "$size" ]; then
+				preview[state]=verified
+				preview[message]="Verified source snapshot"
+				while IFS= read -r line; do
+					if [ "$n" -ge 4096 ]; then
+						preview[state]=too_large
+						preview[message]="Source preview exceeds 4096 lines. Evidence remains available."
+						unset preview[lines]
+						break
+					fi
+					preview[lines][$n]=$line
+					n=$((n + 1))
+				done <<< "$source"
+				preview[line_count]=$n
+			else
+				preview[state]=changed
+				preview[message]="Source changed while preparing its preview. Reload before opening it."
+			fi
+		fi
+	fi
+	body := json emit preview
+	ret "$body"
+}
+
+# Inspect in a worker; retain typed facts and bound the interactive payload.
+fn coding_scan(path, mode, expected = "", expected_size = "", selected = "-1", preferred = "") {
+	local body text count preview index=0 links owner extra
+	local -A record packet related
+	packet[version]=1
+	packet[path]=$path
+	packet[mode]=$mode
+	packet[expected]=$expected
+	packet[expected_size]=$expected_size
+	packet[outcome]=unavailable
+	if ! need inspect 2> /dev/null; then
+		packet[summary]="Source inspection is unavailable. Install a Hibr release providing inspect version 1."
+		json emit packet
 		return 1
 	fi
 	if record := inspect "$mode" "$path" -j; then :; fi
-	body := json emit record
-	text := coding_text "$body" "$mode"
-	printf '%s\n' "$text"
+	packet[identity]=${record[source][id]}
+	packet[size]=${record[source][size]}
+	packet[state]=${record[state]}
+	if { [ -n "$expected" ] && [ "$expected" != "${record[source][id]}" ]; } ||
+	   { [ -n "$expected_size" ] && [ "$expected_size" != "${record[source][size]}" ]; }; then
+		packet[outcome]=stale
+		packet[summary]="The source changed or became unavailable. Reload to inspect the current version."
+	elif [ "${record[state]}" = unreadable ] || [ "${record[state]}" = unsupported ]; then
+		body := json emit record
+		packet[summary] := coding_text "$body" "$mode"
+	else
+		body := json emit record
+		count := str len "$body"
+		if [ "$count" -gt 262144 ]; then
+			packet[outcome]=too_large
+			packet[summary]="This investigation exceeds the interactive evidence limit (262144 JSON characters). Choose a smaller source; no inspection records were retained."
+		else
+			packet[outcome]=current
+			json parse 'packet[records]' "$body"
+			text := coding_text "$body" "$mode"
+			count := str len "$text"
+			if [ "$count" -gt 16384 ]; then
+				text := str slice "$text" 0 16384
+				text+="
+Report preview shortened. The full accepted evidence remains available."
+			fi
+			packet[summary]=$text
+			if [ "$mode" = functions ]; then
+				preview := coding_snapshot "$path" "${record[source][id]}" "${record[source][size]}"
+				json parse 'packet[preview]' "$preview"
+				if [ "${packet[preview][state]}" = changed ]; then
+					packet[outcome]=stale
+					packet[summary]=${packet[preview][message]}
+					unset packet[records]
+					unset packet[preview][lines]
+				else
+					if [ "$selected" -lt 0 ]; then
+						selected=0
+						while [ -n "${record[functions][$index][name]+x}" ]; do
+							if [ -n "$preferred" ] && [ "${record[functions][$index][name]}" = "$preferred" ]; then selected=$index; break; fi
+							index=$((index + 1))
+						done
+					fi
+					packet[selected]=$selected
+					owner=${record[functions][$selected][name]}
+					if [ -n "$owner" ]; then
+						if related := inspect calls "$path" "$owner" -j; then :; fi
+						if [ "${related[source][id]}" != "${record[source][id]}" ] || [ "${related[source][size]}" != "${record[source][size]}" ]; then
+							packet[outcome]=stale
+							packet[summary]="Source changed while inspecting its calls. Reload before opening it."
+							unset packet[records]
+							unset packet[preview][lines]
+						else
+							links := json emit related
+							count := str len "$links"
+							if [ "$count" -le 65536 ]; then
+								json parse 'packet[links]' "$links"
+								packet[links_owner]=$owner
+							else packet[links_message]="Call list exceeds the interactive limit."; fi
+						fi
+					fi
+				fi
+			fi
+		fi
+	fi
+	if [ "$mode" = functions ] && [ "${packet[outcome]}" = current ]; then
+		for extra in refs check calls vars; do
+			unset related
+			local -A related
+			if [ "$extra" = vars ] && [ -n "$owner" ]; then
+				if related := inspect vars "$path" "$owner" -j; then :; fi
+			else
+				if related := inspect "$extra" "$path" -j; then :; fi
+			fi
+			if [ "$extra" = vars ] && [ "${related[state]}" = unsupported ]; then
+				links := json emit related
+				json parse "packet[extra][$extra]" "$links"
+				continue
+			fi
+			if [ "${related[source][id]}" != "${record[source][id]}" ] || [ "${related[source][size]}" != "${record[source][size]}" ]; then
+				packet[outcome]=stale
+				packet[summary]="Source changed while preparing related evidence. Reload to continue."
+				unset packet[records]
+				unset packet[preview][lines]
+				unset packet[extra]
+				break
+			fi
+			links := json emit related
+			count := str len "$links"
+			if [ "$count" -le 65536 ]; then json parse "packet[extra][$extra]" "$links";
+			else packet[extra_message][$extra]="Evidence exceeds the interactive limit (65536 JSON characters)."; fi
+		done
+	fi
+
+	body := json emit packet
+	count := str len "$body"
+	if [ "$count" -gt 1048576 ]; then
+		unset packet[preview][lines]
+		packet[preview][state]=too_large
+		packet[preview][message]="Source preview exceeds the response limit. Evidence remains available."
+		json emit packet
+	else printf '%s\n' "$body"; fi
 }
 
-# Accept a finished inspection only while its target window still exists.
+# Apply one versioned worker response without mixing source revisions.
+fn coding_accept(int id, body) {
+	local extra
+	local mode identity previous index records
+	local -A packet
+	if ! json parse packet "$body" 2> /dev/null || [ "${packet[version]}" != 1 ] ||
+	   [ "${packet[path]}" != "${HC[$id][request_path]}" ] ||
+	   [ "${packet[mode]}" != "${HC[$id][request_mode]}" ]; then
+		HC[$id][document][condition]=error
+		unset HC[$id][document][views]
+		unset HC[$id][document][preview]
+		unset HC[$id][document][links]
+		unset HC[$id][document][extra]
+		unset HC[$id][document][selection]
+		HC[$id][text]="Inspection returned an invalid response. Reload or choose another source."
+		return 1
+	fi
+	mode=${packet[mode]}
+	identity=${packet[identity]}
+	previous=${HC[$id][document][identity]}
+	if [ "${HC[$id][document][path]}" != "${packet[path]}" ] || [ "$previous" != "$identity" ] ||
+	   [ "${HC[$id][document][size]}" != "${packet[size]}" ]; then
+		unset HC[$id][document][views]
+		unset HC[$id][document][preview]
+		unset HC[$id][document][links]
+		unset HC[$id][document][extra]
+		unset HC[$id][document][selection]
+		unset HC[$id][document][preview]
+		unset HC[$id][document][links]
+		unset HC[$id][document][extra]
+	fi
+	HC[$id][document][path]=${packet[path]}
+	HC[$id][document][scope][kind]=single-file
+	HC[$id][document][scope][path]=${packet[path]}
+	HC[$id][document][identity]=$identity
+	HC[$id][document][size]=${packet[size]}
+	HC[$id][document][state]=${packet[state]}
+	HC[$id][document][condition]=${packet[outcome]}
+	HC[$id][document][mode]=$mode
+	HC[$id][document][context]=${HC[$id][context]}
+	HC[$id][document][target]=${HC[$id][target]}
+	HC[$id][document][registration]=${HC[$id][registration]}
+	HC[$id][text]="${HC[$id][context]}
+${packet[summary]}"
+	case ${packet[outcome]} in
+	current)
+		if [ "${packet[records][inspect]}" != 1 ] ||
+		   [ "${packet[records][source][path]}" != "${packet[path]}" ] ||
+		   [ "${packet[records][source][id]}" != "$identity" ] ||
+		   [ "${packet[records][source][size]}" != "${packet[size]}" ] ||
+		   [ "${packet[records][state]}" != "${packet[state]}" ]; then
+			HC[$id][document][condition]=error
+			unset HC[$id][document][views]
+			unset HC[$id][document][selection]
+			HC[$id][text]="Inspection returned inconsistent evidence. Reload or choose another source."
+			return 1
+		fi
+		records := json get packet .records
+		json parse "HC[$id][document][views][$mode]" "$records"
+		unset HC[$id][document][selection]
+		index=${packet[selected]:-${HC[$id][pending_selection]:--1}}
+		if [ "$mode" = functions ]; then
+			unset HC[$id][document][preview]
+			unset HC[$id][document][links]
+			unset HC[$id][document][extra]
+			for extra in refs check calls vars; do
+				if [ "${packet[extra][$extra][inspect]}" = 1 ] &&
+				   [ "${packet[extra][$extra][source][path]}" = "${packet[path]}" ] &&
+				   [ "${packet[extra][$extra][source][id]}" = "$identity" ] &&
+				   [ "${packet[extra][$extra][source][size]}" = "${packet[size]}" ]; then
+					records := json get packet ".extra.$extra"
+					json parse "HC[$id][document][extra][$extra]" "$records"
+				fi
+			done
+
+			if [ -n "${packet[preview][state]}" ]; then
+				records := json get packet .preview
+				if [ "${packet[preview][state]}" != verified ] ||
+				   { [ "${packet[preview][identity]}" = "$identity" ] && [ "${packet[preview][size]}" = "${packet[size]}" ]; }; then
+					json parse "HC[$id][document][preview]" "$records"
+				fi
+			fi
+			if [ "${packet[links][source][id]}" = "$identity" ] && [ "${packet[links][source][size]}" = "${packet[size]}" ] &&
+			   [ "${packet[links][source][path]}" = "${packet[path]}" ] &&
+			   [ "${packet[links_owner]}" = "${packet[records][functions][$index][name]}" ]; then
+				records := json get packet .links
+				json parse "HC[$id][document][links]" "$records"
+			fi
+		fi
+		if [ "$index" -ge 0 ] && [ -n "${HC[$id][document][views][functions][functions][$index][name]+x}" ]; then
+			HC[$id][document][selection][index]=$index
+			HC[$id][document][selection][name]=${HC[$id][document][views][functions][functions][$index][name]}
+			HC[$id][document][selection][identity]=$identity
+			HC[$id][document][selection][size]=${packet[size]}
+			HC[$id][document][selection][start]=${HC[$id][document][views][functions][functions][$index][span][start]}
+			HC[$id][document][selection][end]=${HC[$id][document][views][functions][functions][$index][span][end]}
+			HC[$id][pending_selection]=$index
+			if [ "${HC[$id][navigation]}" != restore ]; then
+				HC[$id][top]=$((${HC[$id][document][views][functions][functions][$index][span][line]} - 1))
+				HC[$id][left]=0
+			fi
+		fi
+		HC[$id][evidence_line]=${HC[$id][pending_line]:-0}
+		HC[$id][evidence_endline]=${HC[$id][pending_endline]:-0}
+		if [ "${HC[$id][evidence_line]}" -gt 0 ]; then HC[$id][top]=$((${HC[$id][evidence_line]} - 1)); fi
+		HC[$id][pending_line]=0
+		HC[$id][pending_endline]=0
+		if [ "$mode" = functions ]; then coding_filter "$id"; fi
+		if [ "${HC[$id][navigation]}" = restore ]; then
+			HC[$id][top]=${HC[$id][restore_top]:-0}
+			HC[$id][left]=${HC[$id][restore_left]:-0}
+			coding_capture "$id"
+		else
+			coding_remember "$id"
+		fi
+		;;
+	stale | unavailable | too_large)
+		unset HC[$id][document][views]
+		unset HC[$id][document][preview]
+		unset HC[$id][document][links]
+		unset HC[$id][document][extra]
+		unset HC[$id][document][selection]
+		HC[$id][text]+="
+No current evidence is open. Use File > Reload current source, or choose another source."
+		;;
+	*)
+		HC[$id][document][condition]=error
+		unset HC[$id][document][views]
+		unset HC[$id][document][preview]
+		unset HC[$id][document][links]
+		unset HC[$id][document][extra]
+		unset HC[$id][document][selection]
+		HC[$id][text]="Inspection returned an unknown outcome. Reload or choose another source."
+		return 1
+		;;
+	esac
+	return 0
+}
+
+# Accept only the newest job while the assistant and selected target exist.
 fn coding_done(int n, int st) {
-	local id=${DTJ[$n][tag]} f body=
+	local tag=${DTJ[$n][tag]} f body=
+	local id=${tag%:*} generation=${tag##*:}
 	[ -n "${HC[$id][path]+x}" ] || return 0
+	[ "${HC[$id][generation]}" = "$generation" ] || return 0
+	if [ -n "${HC[$id][queued]}" ]; then
+		HC[$id][queued]=
+		HC[$id][busy]=
+		coding_load "$id" "${HC[$id][queued_navigation]}" "${HC[$id][queued_expected]}" "${HC[$id][queued_size]}"
+		return 0
+	fi
+	if [ -n "${HC[$id][target]}" ] && [ -z "${DT[${HC[$id][target]}][title]}" ]; then
+		HC[$id][message]="That window closed during inspection. Choose another window."
+		coding_windows "$id"
+		return 0
+	fi
 	f := dt_jobfile "$n" out
-	read -r -d '' body < "$f"
-	[ -n "$body" ] || body="Inspection did not produce a result."
-	HC[$id][text]=$body
+	read -r -N 1179648 body 2> /dev/null < "$f" || :
+	coding_accept "$id" "$body" || :
 	HC[$id][busy]=
 	dt_want 0
 }
 
-# Start a fresh inspection when no earlier request is running.
-fn coding_load(int id) {
+# Start a source-bound request; drawing callbacks consume retained facts only.
+fn coding_load(int id, navigation = "push", expected = "", expected_size = "") {
 	local n
-	[ -z "${HC[$id][busy]}" ] || return 0
 	[ -n "${HC[$id][path]}" ] || return 0
+	if [ -n "${HC[$id][busy]}" ]; then
+		HC[$id][queued]=1
+		HC[$id][queued_navigation]=$navigation
+		HC[$id][queued_expected]=$expected
+		HC[$id][queued_size]=$expected_size
+		return 0
+	fi
+	if [ "$navigation" != restore ]; then
+		[ "$navigation" = push-saved ] || coding_capture "$id"
+		if [ -z "$expected" ] && [ "${HC[$id][document][path]}" = "${HC[$id][path]}" ]; then
+			expected=${HC[$id][document][identity]}
+			expected_size=${HC[$id][document][size]}
+		fi
+	fi
+	HC[$id][navigation]=$navigation
+	HC[$id][request_path]=${HC[$id][path]}
+	HC[$id][request_mode]=${HC[$id][mode]}
+	HC[$id][document][condition]=loading
+	unset HC[$id][claim_request]
+	unset HC[$id][claim_verified]
+	HC[$id][claim_state]=idle
+	HC[$id][claim_error]=
+	unset HC[$id][answer]
+	HC[$id][generation]=$((${HC[$id][generation]:-0} + 1))
 	HC[$id][busy]=1
 	HC[$id][top]=0
-	n := dt_job inspection "$id" coding_done coding_scan "${HC[$id][path]}" "${HC[$id][mode]}"
+	n := dt_job inspection "$id:${HC[$id][generation]}" coding_done coding_scan "${HC[$id][path]}" "${HC[$id][mode]}" "$expected" "$expected_size" "${HC[$id][pending_selection]:--1}" "${HC[$id][preferred]}"
+}
+
+# Explicit reload discards invalid evidence instead of blessing a changed span.
+fn coding_reload(int id) {
+	coding_capture "$id"
+	unset HC[$id][document]
+	HC[$id][pending_selection]=-1
+	HC[$id][pending_line]=0
+	HC[$id][pending_endline]=0
+	coding_load "$id"
+}
+
+# Restore a small history snapshot and revalidate its source identity in a job.
+fn coding_history(int id, int direction) {
+	local position=${HC[$id][history_pos]:--1} next
+	[ -z "${HC[$id][busy]}" ] || return 0
+	next=$((position + direction))
+	if [ "$direction" = -1 ] && [ "$position" -ge 0 ] &&
+	   [ "${HC[$id][document][condition]}" != current ] &&
+	   [ "${HC[$id][request_path]}" != "${HC[$id][history][$position][path]}" ]; then
+		next=$position
+	fi
+	[ "$next" -ge 0 ] && [ "$next" -lt "${HC[$id][history_count]:-0}" ] || return 0
+	coding_capture "$id"
+	HC[$id][history_pos]=$next
+	HC[$id][path]=${HC[$id][history][$next][path]}
+	HC[$id][cursor]=${#HC[$id][path]}
+	HC[$id][mode]=${HC[$id][history][$next][mode]}
+	HC[$id][context]=${HC[$id][history][$next][context]}
+	HC[$id][target]=${HC[$id][history][$next][target]}
+	HC[$id][registration]=${HC[$id][history][$next][registration]}
+	if [ -n "${HC[$id][target]}" ] && [ -z "${DT[${HC[$id][target]}][title]}" ]; then
+		HC[$id][target]=
+		HC[$id][context]+=" (window closed; historical registration)"
+	fi
+	HC[$id][search_scope]=${HC[$id][history][$next][search_scope]:-functions}
+	HC[$id][query]=${HC[$id][history][$next][query]}
+	HC[$id][query_cursor]=${HC[$id][history][$next][query_cursor]:-0}
+	HC[$id][left_mode]=functions
+	HC[$id][pending_selection]=${HC[$id][history][$next][selection]}
+	HC[$id][pending_line]=${HC[$id][history][$next][evidence_line]:-0}
+	HC[$id][pending_endline]=${HC[$id][history][$next][evidence_endline]:-0}
+	HC[$id][restore_top]=${HC[$id][history][$next][top]}
+	HC[$id][restore_left]=${HC[$id][history][$next][left]}
+	HC[$id][page]=report
+	coding_load "$id" restore "${HC[$id][history][$next][identity]}" "${HC[$id][history][$next][size]}"
+}
+
+# A function selection is usable only after an identity-checked refresh.
+fn coding_select(int id, int index, navigation = "push") {
+	case ${HC[$id][document][condition]} in current | loading) : ;; *) return 1 ;; esac
+	if [ "${HC[$id][document][condition]}" = loading ] && [ "${HC[$id][request_path]}" != "${HC[$id][document][path]}" ]; then return 1; fi
+	[ -n "${HC[$id][document][views][functions][functions][$index][name]+x}" ] || return 1
+	HC[$id][pending_line]=0
+	HC[$id][pending_selection]=$index
+	HC[$id][path]=${HC[$id][document][path]}
+	HC[$id][mode]=functions
+	coding_load "$id" "$navigation"
 }
 
 # Open a source path or wait for the user to enter one.
 fn coding_open(int id, arg) {
+	unset HC[$id][claim_request]
+	unset HC[$id][claim_verified]
+	HC[$id][claim_state]=idle
+	HC[$id][claim_error]=
+	HC[$id][page]=home
+	HC[$id][pick]=0
+	HC[$id][view]=workspace
+	HC[$id][focus]=functions
+	HC[$id][search_scope]=functions
+	HC[$id][query]=
+	HC[$id][query_cursor]=0
+	HC[$id][outline_pos]=0
+	HC[$id][left_mode]=functions
+	HC[$id][generation]=0
+	HC[$id][history_pos]=-1
+	HC[$id][history_count]=0
+	HC[$id][pending_selection]=-1
+	HC[$id][pending_line]=0
+	HC[$id][pending_endline]=0
+	HC[$id][context]=
 	HC[$id][path]=$arg
 	HC[$id][cursor]=${#arg}
 	HC[$id][mode]=functions
@@ -119,7 +576,1537 @@ fn coding_open(int id, arg) {
 	HC[$id][top]=0
 	HC[$id][left]=0
 	HC[$id][busy]=
-	[ -z "$arg" ] || coding_load "$id"
+	if [ -n "$arg" ]; then
+		HC[$id][page]=report
+		coding_load "$id"
+	fi
+}
+
+# Return to task selection and invalidate earlier background results.
+fn coding_home(int id) {
+	unset HC[$id][claim_request]
+	unset HC[$id][claim_verified]
+	HC[$id][claim_state]=idle
+	HC[$id][claim_error]=
+	HC[$id][page]=home
+	HC[$id][pick]=0
+	HC[$id][queued]=
+	HC[$id][generation]=$((${HC[$id][generation]:-0} + 1))
+	HC[$id][busy]=
+}
+
+# Use the desktop's file picker instead of requiring a source path.
+fn coding_browse(int id) {
+	dt_filepick open "Explore a Hibr script" "Hibr scripts:hibr|All files:*" "" "" coding_picked "$id"
+}
+
+# A cancelled picker makes no change; a chosen path starts a new investigation.
+fn coding_picked(int id, path, type = "") {
+	[ -n "${HC[$id][path]+x}" ] || return 0
+	HC[$id][target]=
+	HC[$id][preferred]=
+	HC[$id][registration]=
+	HC[$id][context]="Chosen script"
+	HC[$id][pending_selection]=-1
+	HC[$id][pending_line]=0
+	HC[$id][pending_endline]=0
+	HC[$id][path]=$path
+	HC[$id][cursor]=${#path}
+	HC[$id][mode]=functions
+	HC[$id][page]=report
+	coding_load "$id"
+}
+
+# Snapshot actual windows; do not guess app identities from their titles.
+fn coding_windows(int id) {
+	local window i=0
+	coding_home "$id"
+	HC[$id][page]=windows
+	unset HC[$id][windows]
+	for window in "${!DT[@]}"; do
+		[ -n "${DT[$window][title]}" ] || continue
+		HC[$id][windows][$i]=$window
+		i=$((i + 1))
+	done
+	HC[$id][window_count]=$i
+}
+
+# Resolve source only from registration provenance, or this script's own identity.
+fn coding_window(int id, int window) {
+	local app=${DT[$window][app]} source title=${DT[$window][title]} body
+	local -A registration
+	if [ -z "$title" ]; then
+		HC[$id][message]="That window has closed. Choose another window."
+		return 0
+	fi
+	source=${DT_APPS[$app][src]}
+	[ -n "$source" ] || { [ "$app" != coding ] || source=$HC_SOURCE; }
+	if [ -z "$source" ]; then
+		HC[$id][message]="HUI has no registered source for $title. Open its script explicitly."
+		return 0
+	fi
+	registration[window]=$window
+	registration[title]=$title
+	registration[app]=$app
+	registration[source]=$source
+	registration[key]=${DT[$window][key]}
+	registration[draw]=${DT[$window][draw]}
+	body := json emit registration
+	HC[$id][registration]=$body
+	HC[$id][pending_selection]=-1
+	HC[$id][pending_line]=0
+	HC[$id][pending_endline]=0
+	HC[$id][preferred]=${DT[$window][key]:-${DT[$window][draw]}}
+	HC[$id][target]=$window
+	HC[$id][context]="Window: $title
+Key handler: ${DT[$window][key]:-none}
+Draw handler: ${DT[$window][draw]:-none}
+Registration snapshot | app: $app"
+	HC[$id][path]=$source
+	HC[$id][cursor]=${#source}
+	HC[$id][mode]=functions
+	HC[$id][page]=report
+	HC[$id][message]=
+	coding_load "$id"
+}
+
+# The native menus keep task entry available while exploring a script.
+fn coding_menus() {
+	dt_menu "File"
+	dt_item "Start an investigation" h coding_home "$DT_FOCUS"
+	dt_item "Choose a window" w coding_windows "$DT_FOCUS"
+	dt_item "Open a script" o coding_browse "$DT_FOCUS"
+	dt_sep
+	dt_item "Reload current source" r coding_reload "$DT_FOCUS"
+	dt_item "Close" c dt_close_focused
+	dt_editmenu
+	dt_menu "Investigation"
+	dt_item "Back" b coding_history "$DT_FOCUS" -1
+	dt_item "Forward" f coding_history "$DT_FOCUS" 1
+	dt_item "Questions" q coding_questions "$DT_FOCUS"
+}
+
+# Activate a landing-page task from the keyboard or a button.
+fn coding_start(int id, int choice) {
+	HC[$id][message]=
+	case $choice in
+	0) coding_windows "$id" ;;
+	1) coding_browse "$id" ;;
+	2) coding_window "$id" "$id" ;;
+	esac
+}
+
+# Filter names from typed records; this is UI search, not source parsing.
+fn coding_filter(int id) {
+	local i=0 n=0 name query selected=${HC[$id][document][selection][index]:--1}
+	query := str lower "${HC[$id][query]}"
+	unset HC[$id][outline]
+	HC[$id][outline_pos]=0
+	if [ "${HC[$id][search_scope]}" = source ]; then
+		if [ "${HC[$id][document][condition]}" = current ] && [ "${HC[$id][document][preview][state]}" = verified ] && [ -n "$query" ]; then
+			while [ "$i" -lt "${HC[$id][document][preview][line_count]}" ]; do
+				name := str lower "${HC[$id][document][preview][lines][$i]}"
+				if str contains "$name" "$query"; then HC[$id][outline][$n]=$i; n=$((n + 1)); fi
+				i=$((i + 1))
+			done
+		fi
+		HC[$id][outline_count]=$n
+		return 0
+	fi
+	while [ -n "${HC[$id][document][views][functions][functions][$i][name]+x}" ]; do
+		name := str lower "${HC[$id][document][views][functions][functions][$i][name]}"
+		if [ -z "$query" ] || str contains "$name" "$query"; then
+			HC[$id][outline][$n]=$i
+			[ "$i" != "$selected" ] || HC[$id][outline_pos]=$n
+			n=$((n + 1))
+		fi
+		i=$((i + 1))
+	done
+	HC[$id][outline_count]=$n
+}
+
+# Resolve only unique current-file definitions, leaving external calls unresolved.
+fn coding_follow(int id, int index) {
+	local name=${HC[$id][document][links][calls][$index][name]} i=0 found=-1 matches=0
+	[ "${HC[$id][document][condition]}" = current ] || return 0
+	while [ -n "${HC[$id][document][views][functions][functions][$i][name]+x}" ]; do
+		if [ -n "$name" ] && [ "${HC[$id][document][views][functions][functions][$i][name]}" = "$name" ]; then
+			found=$i
+			matches=$((matches + 1))
+		fi
+		i=$((i + 1))
+	done
+	case $matches in
+	1)
+		coding_capture "$id"
+		HC[$id][search_scope]=functions
+		HC[$id][query]=
+		HC[$id][query_cursor]=0
+		HC[$id][left_mode]=functions
+		HC[$id][focus]=functions
+		HC[$id][message]=
+		coding_select "$id" "$found" push-saved
+		;;
+	0) HC[$id][message]="This call is not defined in the inspected file. Its runtime behavior remains unresolved." ;;
+	*) HC[$id][message]="Several definitions share this name. Choose the intended definition in Functions." ;;
+	esac
+}
+
+# Source search matches literal cached text; it does not infer language semantics.
+fn coding_outline_open(int id, int position) {
+	local index=${HC[$id][outline][$position]}
+	[ -n "$index" ] || return 0
+	if [ "${HC[$id][search_scope]}" = source ]; then coding_line_open "$id" "$((index + 1))" "$((index + 1))";
+	else coding_select "$id" "$index"; fi
+}
+
+# Every source location is revalidated before the worker snapshot is displayed.
+fn coding_line_open(int id, int line, int endline) {
+	[ "${HC[$id][document][condition]}" = current ] || return 0
+	[ "${HC[$id][document][preview][state]}" = verified ] || return 0
+	[ "$line" -gt 0 ] && [ "$line" -le "${HC[$id][document][preview][line_count]}" ] || return 0
+	coding_capture "$id"
+	HC[$id][pending_line]=$line
+	HC[$id][pending_endline]=$endline
+	HC[$id][path]=${HC[$id][document][path]}
+	HC[$id][mode]=functions
+	HC[$id][view]=workspace
+	HC[$id][focus]=source
+	coding_load "$id" push-saved
+}
+
+# Render cached outline rows through the native hit registry and theme.
+fn coding_outline_draw(int id, int h, int width) {
+	local position=${HC[$id][outline_pos]:-0} start=0 i row=6 index label count
+	if [ "${HC[$id][document][condition]}" != current ]; then console put -p "w$id" 6 2 "No current evidence"; return 0; fi
+	if [ "${HC[$id][left_mode]}" = calls ]; then
+		count=${#HC[$id][document][links][calls][@]}
+		console put -p "w$id" 5 2 "Calls in this function"
+	else
+		count=${HC[$id][outline_count]:-0}
+		if [ "${HC[$id][search_scope]}" = source ]; then console put -p "w$id" 5 2 "Source hits ($count)";
+		else console put -p "w$id" 5 2 "Functions ($count)"; fi
+	fi
+	[ "$position" -lt $((h - 8)) ] || start=$((position - h + 9))
+	i=$start
+	while [ "$i" -lt "$count" ] && [ "$row" -lt $((h - 2)) ]; do
+		if [ "${HC[$id][left_mode]}" = calls ]; then
+			label=${HC[$id][document][links][calls][$i][name]:-dynamic call}
+			index=$i
+		else
+			index=${HC[$id][outline][$i]}
+			if [ "${HC[$id][search_scope]}" = source ]; then
+				label="L$((index + 1)) ${HC[$id][document][preview][lines][$index]}"
+				label := str replace "$label" $'\t' '    '
+			else label=${HC[$id][document][views][functions][functions][$index][name]}; fi
+		fi
+		console pen "$DT_INK" "$DT_FACE"
+		if [ "$i" = "$position" ] && [ "${HC[$id][focus]}" = functions ]; then console pen "$DT_SELINK" "$DT_ACTIVE"; fi
+		label := str slice "$label" 0 $((width - 3))
+		console put -p "w$id" "$row" 2 "$label"
+		dt_wreg "$id" "$row" 2 $((width - 3)) "outline-$i"
+		i=$((i + 1))
+		row=$((row + 1))
+	done
+	console pen "$DT_INK" "$DT_FACE"
+	if [ "$count" = 0 ]; then console put -p "w$id" 7 2 "No matching entries"; fi
+}
+
+# Render readable source from the verified immutable worker snapshot only.
+fn coding_source_draw(int id, int h, int col, int width) {
+	local selected=${HC[$id][document][selection][index]:--1} name signature= parameter i=0 summary line number row=10 text first last
+	if [ "${HC[$id][document][condition]}" != current ]; then
+		text := str slice "Source ${HC[$id][document][condition]:-loading}. F5 reloads." 0 "$width"
+		console put -p "w$id" 9 "$col" "$text"
+		return 0
+	fi
+	name=${HC[$id][document][views][functions][functions][$selected][name]:-File source}
+	while [ -n "${HC[$id][document][views][functions][functions][$selected][params][$i][name]+x}" ]; do
+		parameter=${HC[$id][document][views][functions][functions][$selected][params][$i][name]}
+		[ "${HC[$id][document][views][functions][functions][$selected][params][$i][rest]}" != true ] || parameter="...$parameter"
+		[ -z "$signature" ] || signature+=", "
+		signature+="${HC[$id][document][views][functions][functions][$selected][params][$i][type]:-untyped} $parameter"
+		if [ "${HC[$id][document][views][functions][functions][$selected][params][$i][has_default]}" = true ]; then
+			signature+="=${HC[$id][document][views][functions][functions][$selected][params][$i][default][text]}"
+		fi
+		i=$((i + 1))
+	done
+	if [ "${HC[$id][evidence_line]:-0}" -gt 0 ]; then name="Evidence at line ${HC[$id][evidence_line]}"; fi
+	text := str slice "$name" 0 "$width"
+	console pen "$DT_INK" "$DT_FACE" bold
+	console put -p "w$id" 4 "$col" "$text"
+	console pen "$DT_INK" "$DT_FACE"
+	text := str slice "Inputs: ${signature:-none declared}" 0 "$width"
+	if [ "${HC[$id][evidence_line]:-0}" -gt 0 ]; then text="Source location; inspect surrounding code."; fi
+	console put -p "w$id" 5 "$col" "$text"
+	summary=${HC[$id][document][views][functions][functions][$selected][summary][text]}
+	if [ "${HC[$id][evidence_line]:-0}" -gt 0 ]; then summary=; fi
+	if [ -n "$summary" ]; then
+		dt_textfit "Author: $summary" "$width" "$width" 1 2
+		row=6
+		for line in "${DT_FITLINES[@]}"; do console put -p "w$id" "$row" "$col" "$line"; row=$((row + 1)); done
+		row=10
+	else console put -p "w$id" 6 "$col" "No author description supplied."; fi
+	console pen "$DT_DIM" "$DT_FACE"
+	if [ "${HC[$id][document][preview][state]}" != verified ]; then
+		text := str slice "${HC[$id][document][preview][message]:-Preparing verified source...}" 0 "$width"
+		console put -p "w$id" 9 "$col" "$text"
+		return 0
+	fi
+	console put -p "w$id" 8 "$col" "Source snapshot - F8: calls"
+	i=${HC[$id][top]:-0}
+	first=${HC[$id][document][views][functions][functions][$selected][span][line]:-0}
+	last=${HC[$id][document][views][functions][functions][$selected][span][endline]:-0}
+	if [ "${HC[$id][evidence_line]:-0}" -gt 0 ]; then first=${HC[$id][evidence_line]}; last=${HC[$id][evidence_endline]}; fi
+	while [ "$i" -lt "${HC[$id][document][preview][line_count]}" ] && [ "$row" -lt $((h - 2)) ]; do
+		number=$((i + 1))
+		line=${HC[$id][document][preview][lines][$i]}
+		line := str replace "$line" $'\t' '    '
+		line := str slice "$line" "${HC[$id][left]:-0}" $((width - 6))
+		printf -v text '%4d  %s' "$number" "$line"
+		console pen "$DT_INK" "$DT_FACE"
+		if [ "$number" -ge "$first" ] && [ "$number" -le "$last" ]; then console pen "$DT_INK" "$DT_WELL"; fi
+		console put -p "w$id" "$row" "$col" "$text"
+		i=$((i + 1))
+		row=$((row + 1))
+	done
+	console pen "$DT_INK" "$DT_FACE"
+	dt_wreg "$id" 8 "$col" "$width" source-pane $((h - 10))
+}
+
+# The primary workspace keeps source, inputs and navigation together.
+fn coding_workspace_draw(int id, int h, int w) {
+	local left=$((w / 3)) col width focus=0 text path=${HC[$id][document][path]:-${HC[$id][path]}}
+	if [ "$h" -lt 13 ] || [ "$w" -lt 40 ]; then
+		console put -p "w$id" 1 1 "Enlarge the window to explore source."
+		return 0
+	fi
+	[ "$left" -le 28 ] || left=28
+	[ "$left" -ge 20 ] || left=20
+	if [ "${HC[$id][document][condition]}" = loading ]; then path=${HC[$id][request_path]}; fi
+	local context=${HC[$id][context]%%$'\n'*}
+	text := str slice "${context:-Script} | ${path##*/}" 0 $((w - 2))
+	console put -p "w$id" 1 1 "$text"
+	dt_button "$id" 2 1 "Back" 0 nav-back
+	dt_button "$id" 2 10 "Forward" 0 nav-forward
+	dt_button "$id" 2 22 "Open script" 0 open-script
+	[ "$w" -lt 68 ] || dt_button "$id" 2 39 "Questions" 0 questions
+	[ "$w" -lt 68 ] || dt_button "$id" 2 51 "Explain" 0 brief
+	console pen "$DT_INK" "$DT_FACE"
+	if [ "$w" -lt 68 ]; then left=$w; fi
+	if [ "$w" -ge 68 ] || [ "${HC[$id][focus]}" != source ]; then
+		console put -p "w$id" 4 2 "Find"
+		[ "${HC[$id][focus]}" != search ] || focus=1
+		dt_textdraw "$id" 4 7 $((left - 9)) "${HC[$id][query]}" "${HC[$id][query_cursor]:-0}" "$focus"
+		coding_outline_draw "$id" "$h" "$left"
+	fi
+	if [ "$w" -ge 68 ] || [ "${HC[$id][focus]}" = source ]; then
+		col=$((left + 2))
+		[ "$w" -ge 68 ] || col=2
+		width=$((w - col - 1))
+		coding_source_draw "$id" "$h" "$col" "$width"
+	fi
+	console pen "$DT_DIM" "$DT_FACE"
+	text := str slice "State: ${HC[$id][document][state]:-loading} | ${HC[$id][document][condition]:-loading} | single-file scope" 0 $((w - 2))
+	console put -p "w$id" $((h - 2)) 1 "$text"
+	text=${HC[$id][message]:-F7: explain | F2: questions | F3: find | Ctrl+F: functions}
+	text := str slice "$text" 0 $((w - 2))
+	console put -p "w$id" $((h - 1)) 1 "$text"
+}
+
+# Navigate cached UI rows; selecting evidence always revalidates in a job.
+fn coding_workspace_key(int id, key, int h) {
+	local position=${HC[$id][outline_pos]:-0} count edited index step=$((h - 12))
+	[ "$step" -gt 0 ] || step=1
+	case $key in
+	f3) HC[$id][search_scope]=source; HC[$id][query]=; HC[$id][query_cursor]=0; HC[$id][focus]=search; HC[$id][left_mode]=functions; coding_filter "$id"; return 0 ;;
+	ctrl-f) HC[$id][search_scope]=functions; HC[$id][query]=; HC[$id][query_cursor]=0; HC[$id][focus]=search; HC[$id][left_mode]=functions; coding_filter "$id"; return 0 ;;
+	shift-tab)
+		case ${HC[$id][focus]} in functions) HC[$id][focus]=search ;; search) HC[$id][focus]=source ;; *) HC[$id][focus]=functions ;; esac
+		return 0 ;;
+	tab)
+		case ${HC[$id][focus]} in functions) HC[$id][focus]=source ;; source) HC[$id][focus]=search ;; *) HC[$id][focus]=functions ;; esac
+		return 0 ;;
+	f8) if [ "${HC[$id][left_mode]}" = calls ]; then HC[$id][left_mode]=functions; coding_filter "$id"; else HC[$id][left_mode]=calls; HC[$id][outline_pos]=0; fi; HC[$id][focus]=functions; return 0 ;;
+	esac
+	if [ "${HC[$id][focus]}" = search ]; then
+		if [ "$key" = enter ]; then HC[$id][focus]=functions; key=enter;
+		else
+			edited := dt_textkey "${HC[$id][query]}" "${HC[$id][query_cursor]}" "$key" || return 1
+			HC[$id][query_cursor]=${edited##* }
+			HC[$id][query]=${edited% *}
+			coding_filter "$id"
+			return 0
+		fi
+	fi
+	if [ "${HC[$id][focus]}" = source ]; then
+		case $key in
+		up) [ "${HC[$id][top]}" -le 0 ] || HC[$id][top]=$((${HC[$id][top]} - 1)) ;;
+		down) [ "${HC[$id][top]}" -ge $((${HC[$id][document][preview][line_count]:-1} - 1)) ] || HC[$id][top]=$((${HC[$id][top]} + 1)) ;;
+		pageup) HC[$id][top]=$((${HC[$id][top]} - step)); [ "${HC[$id][top]}" -ge 0 ] || HC[$id][top]=0 ;;
+		pagedown) HC[$id][top]=$((${HC[$id][top]} + step)); local limit=$((${HC[$id][document][preview][line_count]:-1} - 1)); [ "$limit" -ge 0 ] || limit=0; [ "${HC[$id][top]}" -le "$limit" ] || HC[$id][top]=$limit ;;
+		left | ctrl-left) [ "${HC[$id][left]}" -lt 4 ] && HC[$id][left]=0 || HC[$id][left]=$((${HC[$id][left]} - 4)) ;;
+		right | ctrl-right) HC[$id][left]=$((${HC[$id][left]} + 4)) ;;
+		home) HC[$id][top]=0 ;;
+		*) return 1 ;;
+		esac
+		return 0
+	fi
+	if [ "${HC[$id][left_mode]}" = calls ]; then count=${#HC[$id][document][links][calls][@]}; else count=${HC[$id][outline_count]:-0}; fi
+	case $key in
+	up) [ "$position" -le 0 ] || HC[$id][outline_pos]=$((position - 1)) ;;
+	down) [ "$position" -ge $((count - 1)) ] || HC[$id][outline_pos]=$((position + 1)) ;;
+	home) HC[$id][outline_pos]=0 ;;
+	end) [ "$count" -le 0 ] || HC[$id][outline_pos]=$((count - 1)) ;;
+	enter)
+		[ "$count" -gt 0 ] || return 0
+		if [ "${HC[$id][left_mode]}" = calls ]; then coding_follow "$id" "$position";
+		else coding_outline_open "$id" "$position"; fi
+		;;
+	*) return 1 ;;
+	esac
+}
+
+# One derived packet for people and learning consumers; semantics stay in inspect.
+fn coding_brief_block(reason) {
+	local body
+	local -A packet
+	packet[version]=1
+	packet[state]=blocked
+	packet[reason]=$reason
+	packet[text]="A complete source-bound brief is unavailable: $reason. Reload or inspect the source."
+	body := json emit packet
+	ret "$body"
+}
+
+fn coding_brief_packet(int id, include_vars = false, selected_variable = "") {
+	local index=${HC[$id][document][selection][index]:--1} name=${HC[$id][document][selection][name]} i=0 j=0 n=0 matches=0 body text parameter section record type candidate_index=0 candidate_count=0 candidate_key call_index call_previous candidate_word binding_incomplete=0 binding_unavailable=0 binding_truncated=0 binding_state summary_line summary_endline summary_start summary_end displayed_sites=0 site_summary
+	local path=${HC[$id][document][path]} identity=${HC[$id][document][identity]} size=${HC[$id][document][size]}
+	local e=1
+	local variable_kind variable_access variable_form
+	local -A packet variable_records dynamic_seen
+	if [ -n "${HC[$id][busy]}" ] || [ "${HC[$id][document][condition]}" != current ] ||
+	   [ "${HC[$id][document][preview][state]}" != verified ] ||
+	   [ "${HC[$id][document][views][functions][inspect]}" != 1 ] ||
+	   [ "${HC[$id][document][views][functions][state]}" != ok ] ||
+	   [ "${HC[$id][document][views][functions][partial]}" != false ] || [ "$index" -lt 0 ] || [ -z "$name" ]; then
+		body := coding_brief_block "incomplete or unverified selection"; ret "$body"
+	fi
+	if [ "${HC[$id][document][selection][identity]}" != "$identity" ] ||
+	   [ "${HC[$id][document][selection][size]}" != "$size" ] ||
+	   [ "${HC[$id][document][views][functions][functions][$index][name]}" != "$name" ] ||
+	   [ "${HC[$id][document][preview][identity]}" != "$identity" ] || [ "${HC[$id][document][preview][size]}" != "$size" ]; then
+		body := coding_brief_block "selection identity mismatch"; ret "$body"
+	fi
+	while [ -n "${HC[$id][document][views][functions][functions][$i][name]+x}" ]; do
+		[ "${HC[$id][document][views][functions][functions][$i][name]}" != "$name" ] || matches=$((matches + 1))
+		i=$((i + 1))
+	done
+	if [ "$matches" != 1 ] || [ "${HC[$id][document][views][functions][functions][$index][known]}" != syntax ] ||
+	   [ "${HC[$id][document][views][functions][functions][$index][declared_signature]}" != true ]; then
+		body := coding_brief_block "ambiguous name or unsupported signature"; ret "$body"
+	fi
+	body := json get HC ".$id.document.views.functions.functions[$index]"
+	json parse 'packet[declaration]' "$body"
+	if [ "${packet[declaration][source][path]}" != "$path" ] || [ "${packet[declaration][source][id]}" != "$identity" ] ||
+	   [ "${packet[declaration][source][size]}" != "$size" ]; then
+		body := coding_brief_block "declaration identity mismatch"; ret "$body"
+	fi
+	packet[evidence][0][id]=definition
+	packet[evidence][0][record]=.declaration
+	packet[evidence][0][label]="Function $name (declared)"
+	if [ -n "${packet[declaration][summary][known]+x}" ]; then
+		summary_line=${packet[declaration][summary][span][line]}
+		summary_endline=${packet[declaration][summary][span][endline]}
+		summary_start=${packet[declaration][summary][span][start]}
+		summary_end=${packet[declaration][summary][span][end]}
+		if [ -z "${packet[declaration][summary][text]}" ] ||
+		   [ "${packet[declaration][summary][known]}" != declared ] ||
+		   [ "${packet[declaration][summary][source][path]}" != "$path" ] ||
+		   [ "${packet[declaration][summary][source][id]}" != "$identity" ] ||
+		   [ "${packet[declaration][summary][source][size]}" != "$size" ] ||
+		   [ -z "$summary_line" ] || [ "$summary_line" -lt 1 ] ||
+		   [ "$summary_endline" -lt "$summary_line" ] ||
+		   [ -z "$summary_start" ] || [ "$summary_start" -lt 0 ] ||
+		   [ "$summary_end" -le "$summary_start" ] || [ "$summary_end" -gt "$size" ] ||
+		   [ "${#packet[declaration][summary][text]}" -gt 4096 ]; then
+			body := coding_brief_block "author description is malformed or from another source snapshot"; ret "$body"
+		fi
+		packet[author_summary]=${packet[declaration][summary][text]}
+		packet[author_summary_line]=$summary_line
+		packet[author_summary_endline]=$summary_endline
+		packet[evidence][$e][id]=author-description
+		packet[evidence][$e][record]=.declaration.summary
+		packet[evidence][$e][label]="Author description (comment; not verified behavior)"
+		e=$((e + 1))
+	fi
+	for section in links extra.refs; do
+		body := json get HC ".$id.document.$section"
+		unset record
+		local -A record
+		if ! json parse record "$body" 2> /dev/null || [ "${record[inspect]}" != 1 ] || [ "${record[state]}" != ok ] ||
+		   [ "${record[partial]}" != false ] || [ "${record[source][path]}" != "$path" ] ||
+		   [ "${record[source][id]}" != "$identity" ] || [ "${record[source][size]}" != "$size" ]; then
+			body := coding_brief_block "missing, partial or mismatched related evidence"; ret "$body"
+		fi
+	done
+	packet[version]=1; packet[state]=ready; packet[scope]=single-file-static-snapshot
+	packet[path]=$path; packet[identity]=$identity; packet[size]=$size; packet[name]=$name; packet[index]=$index
+	if [ "$include_vars" = true ]; then
+		body := json get HC ".$id.document.extra.vars"
+		unset record
+		local -A record
+		if ! json parse record "$body" 2> /dev/null || [ "${record[inspect]}" != 1 ] ||
+		   [ "${record[state]}" != ok ] || [ "${record[partial]}" != false ] ||
+		   [ "${record[source][path]}" != "$path" ] ||
+		   [ "${record[source][id]}" != "$identity" ] ||
+		   [ "${record[source][size]}" != "$size" ]; then
+			body := coding_brief_block "variable inspection is unsupported, partial or from another source snapshot"; ret "$body"
+		fi
+		body := json emit record
+		json parse variable_records "$body"
+	fi
+	text="$name - captured source facts"$'\n'
+	text+="Declared inputs: "
+	while [ -n "${packet[declaration][params][$j][name]+x}" ]; do
+		if [ "$j" -ge 64 ] || [ "${packet[declaration][params][$j][known]}" != declared ] ||
+		   [ "${packet[declaration][params][$j][source][path]}" != "$path" ] ||
+		   [ "${packet[declaration][params][$j][source][id]}" != "$identity" ] ||
+		   [ "${packet[declaration][params][$j][source][size]}" != "$size" ]; then
+			body := coding_brief_block "unsupported or oversized parameter evidence"; ret "$body"
+		fi
+		parameter=${packet[declaration][params][$j][name]}
+		[ "${packet[declaration][params][$j][rest]}" != true ] || parameter="...$parameter"
+		[ "$j" = 0 ] || text+=", "
+		text+="${packet[declaration][params][$j][type]:-untyped} $parameter"
+		if [ "${packet[declaration][params][$j][has_default]}" = true ]; then
+			if [ "${packet[declaration][params][$j][default][evaluated]}" != false ] ||
+			   [ "${packet[declaration][params][$j][default][source][path]}" != "$path" ] ||
+			   [ "${packet[declaration][params][$j][default][source][id]}" != "$identity" ] ||
+			   [ "${packet[declaration][params][$j][default][source][size]}" != "$size" ]; then
+				body := coding_brief_block "default is not unevaluated source evidence"; ret "$body"
+			fi
+			text+="=${packet[declaration][params][$j][default][text]}"
+		fi
+		packet[evidence][$e][id]="parameter:$j"
+		packet[evidence][$e][record]=".declaration.params[$j]"
+		packet[evidence][$e][label]="Input $parameter (declared)"
+		e=$((e + 1))
+		j=$((j + 1))
+	done
+	[ "$j" -gt 0 ] || text+="none declared"
+	packet[parameter_count]=$j
+	text+=". Defaults are source expressions, not runtime values."
+	text+=$'\n'
+	text+="Static call sites: "
+	i=0
+	while [ "$i" -lt "${#HC[$id][document][links][calls][@]}" ]; do
+		if [ "$i" -ge 256 ] || [ "${HC[$id][document][links][calls][$i][owner]}" != "$name" ] ||
+		   [ "${HC[$id][document][links][calls][$i][source][id]}" != "$identity" ] ||
+		   [ "${HC[$id][document][links][calls][$i][source][size]}" != "$size" ] ||
+		   [ "${HC[$id][document][links][calls][$i][source][path]}" != "$path" ]; then
+			body := coding_brief_block "unsupported or oversized call evidence"; ret "$body"
+		fi
+		body := json get HC ".$id.document.links.calls[$i]"
+		json parse "packet[calls][$i]" "$body"
+		[ "$i" = 0 ] || text+=", "
+		text+="${packet[calls][$i][name]:-dynamic} [${packet[calls][$i][resolution]}] at L${packet[calls][$i][span][line]}"
+		packet[evidence][$e][id]="call:$i"
+		packet[evidence][$e][record]=".calls[$i]"
+		packet[evidence][$e][label]="Call ${packet[calls][$i][name]:-dynamic} (${packet[calls][$i][resolution]})"
+		e=$((e + 1))
+		i=$((i + 1))
+	done
+	packet[call_count]=$i
+	[ "$i" -gt 0 ] || text+="none reported in this complete snapshot"
+	text+=". These are written call sites, not an execution trace."
+	text+=$'\n'
+	text+="Named callers in this file: "
+	packet[incoming_state]=unavailable
+	body := json get HC ".$id.document.extra.calls"
+	unset record
+	local -A record
+	if json parse record "$body" 2> /dev/null && [ "${record[inspect]}" = 1 ] &&
+	   [ "${record[state]}" = ok ] && [ "${record[partial]}" = false ] &&
+	   [ "${record[source][path]}" = "$path" ] && [ "${record[source][id]}" = "$identity" ] && [ "${record[source][size]}" = "$size" ]; then
+		packet[incoming_state]=ready
+		i=0; j=0
+		while [ "$i" -lt "${#record[calls][@]}" ]; do
+			if [ "${record[calls][$i][source][path]}" != "$path" ] || [ "${record[calls][$i][source][id]}" != "$identity" ] ||
+			   [ "${record[calls][$i][source][size]}" != "$size" ]; then
+				body := coding_brief_block "mismatched file-wide call evidence"; ret "$body"
+			fi
+			if [ "${record[calls][$i][name]}" = "$name" ] && [ "${record[calls][$i][resolution]}" = function ]; then
+				if [ "$j" -ge 64 ] || [ "${record[calls][$i][source][path]}" != "$path" ] ||
+				   [ "${record[calls][$i][source][id]}" != "$identity" ] || [ "${record[calls][$i][source][size]}" != "$size" ]; then
+					body := coding_brief_block "unsupported or oversized incoming-call evidence"; ret "$body"
+				fi
+				body := json get record ".calls[$i]"
+				json parse "packet[incoming][$j]" "$body"
+				[ "$j" = 0 ] || text+=", "
+				text+="${packet[incoming][$j][owner]:-top level} at L${packet[incoming][$j][span][line]}"
+				packet[evidence][$e][id]="caller:$j"
+				packet[evidence][$e][record]=".incoming[$j]"
+				packet[evidence][$e][label]="Caller ${packet[incoming][$j][owner]:-top level} (static name)"
+				e=$((e + 1)); j=$((j + 1))
+			fi
+			i=$((i + 1))
+		done
+		packet[incoming_count]=$j
+		[ "$j" -gt 0 ] || text+="none statically named in this complete snapshot"
+	else text+="unavailable or incomplete; no absence claim"; fi
+	text+=". Dynamic/unresolved names and callers in other files remain unknown."
+	text+=$'\n'
+	text+="Literal name references: "
+	i=0
+	while [ -n "${HC[$id][document][extra][refs][refs][$i][name]+x}" ]; do
+		if [ "${HC[$id][document][extra][refs][refs][$i][name]}" = "$name" ]; then
+			if [ "$n" -ge 64 ] || [ "${HC[$id][document][extra][refs][refs][$i][source][path]}" != "$path" ] ||
+			   [ "${HC[$id][document][extra][refs][refs][$i][source][id]}" != "$identity" ] ||
+			   [ "${HC[$id][document][extra][refs][refs][$i][source][size]}" != "$size" ]; then
+				body := coding_brief_block "unsupported or oversized reference evidence"; ret "$body"
+			fi
+			body := json get HC ".$id.document.extra.refs.refs[$i]"
+			json parse "packet[references][$n]" "$body"
+			[ "$n" = 0 ] || text+=", "
+			text+="L${packet[references][$n][span][line]}"
+			packet[evidence][$e][id]="reference:$n"
+			packet[evidence][$e][record]=".references[$n]"
+			packet[evidence][$e][label]="Literal name $name"
+			e=$((e + 1))
+			n=$((n + 1))
+		fi
+		i=$((i + 1))
+	done
+	packet[reference_count]=$n
+	[ "$n" -gt 0 ] || text+="none reported in this complete snapshot"
+	text+=". Naming does not prove calling or registration."
+	if [ "$include_vars" = true ]; then
+		text+=$'\n'
+		text+="Variable sites in this function: "
+		i=0; j=0
+		while [ -n "${variable_records[vars][$i][source][path]+x}" ]; do
+			if [ "$i" -ge 512 ] ||
+			   [ "${variable_records[vars][$i][source][path]}" != "$path" ] ||
+			   [ "${variable_records[vars][$i][source][id]}" != "$identity" ] ||
+			   [ "${variable_records[vars][$i][source][size]}" != "$size" ]; then
+				body := coding_brief_block "unsupported, mismatched or oversized variable evidence"; ret "$body"
+			fi
+			variable_kind=${variable_records[vars][$i][kind]}
+			if [ -z "$variable_kind" ]; then
+				variable_access=${variable_records[vars][$i][access]}
+				variable_form=${variable_records[vars][$i][form]}
+				case $variable_access in
+				read) variable_kind=read ;;
+				name) variable_kind=reference ;;
+				write)
+					case $variable_form in
+					param) variable_kind=parameter ;;
+					local|declare|typeset|export|readonly) variable_kind=declaration ;;
+					prefix) variable_kind=prefix ;;
+					bind) variable_kind=bind ;;
+					for|select) variable_kind=loop-write ;;
+					array|array-append|array-key) variable_kind=array-write ;;
+					*) variable_kind=write ;;
+					esac ;;
+				*) body := coding_brief_block "unsupported variable access classification"; ret "$body" ;;
+				esac
+			fi
+			if [ "${variable_records[vars][$i][owner]}" = "$name" ] &&
+			   { [ -z "$selected_variable" ] || [ "${variable_records[vars][$i][name]}" = "$selected_variable" ]; }; then
+				if [ "$j" -ge 256 ] ||
+				   { [ "${variable_records[vars][$i][known]}" != syntax ] &&
+				     [ "${variable_records[vars][$i][known]}" != inferred ]; }; then
+					body := coding_brief_block "unsupported or oversized variable record"; ret "$body"
+				fi
+				body := json get variable_records ".vars[$i]"
+				json parse "packet[variables][$j]" "$body"
+				packet[variables][$j][kind]=$variable_kind
+				if [ "$variable_kind" = read ] || [ "$variable_kind" = write ]; then
+					binding_state=${packet[variables][$j][binding_analysis][state]}
+					if [ -z "$binding_state" ]; then
+						binding_state=unavailable
+						packet[variables][$j][binding_analysis][state]=unavailable
+						packet[variables][$j][binding_analysis][complete]=false
+						packet[variables][$j][binding_analysis][truncated]=false
+					fi
+					if { [ "$binding_state" != candidate-set ] && [ "$binding_state" != incomplete ] && [ "$binding_state" != unavailable ]; } ||
+					   [ "${packet[variables][$j][binding_analysis][complete]}" != false ] ||
+					   { [ "${packet[variables][$j][binding_analysis][truncated]}" != true ] && [ "${packet[variables][$j][binding_analysis][truncated]}" != false ]; };
+					then
+						body := coding_brief_block "invalid or unsupported binding-analysis status"; ret "$body"
+					fi
+					[ "$binding_state" != incomplete ] || binding_incomplete=1
+					[ "$binding_state" != unavailable ] || binding_unavailable=1
+					[ "${packet[variables][$j][binding_analysis][truncated]}" != true ] || binding_truncated=1
+				fi
+				packet[evidence][$e][id]="variable:$j"
+				packet[evidence][$e][record]=".variables[$j]"
+				packet[evidence][$e][label]="${packet[variables][$j][name]} (${packet[variables][$j][kind]})"
+				[ "${packet[variables][$j][known]}" != inferred ] ||
+					packet[evidence][$e][label]+=" (inferred from arithmetic text)"
+				if [ "$displayed_sites" -lt 12 ]; then
+					[ "$displayed_sites" -eq 0 ] || text+=", "
+					site_summary="${packet[variables][$j][name]} ${packet[variables][$j][kind]} at L${packet[variables][$j][span][line]}"
+					[ "${packet[variables][$j][known]}" != inferred ] || site_summary+=" (inferred)"
+					text+="$site_summary"
+					displayed_sites=$((displayed_sites + 1))
+				fi
+				e=$((e + 1)); j=$((j + 1))
+				candidate_index=0
+				while [ -n "${packet[variables][$((j - 1))][binding_analysis][candidates][$candidate_index][relation]+x}" ]; do
+					if [ "${packet[variables][$((j - 1))][binding_analysis][candidates][$candidate_index][relation]}" = dynamic-caller ] ||
+					   [ "${packet[variables][$((j - 1))][binding_analysis][candidates][$candidate_index][relation]}" = possible-global ]; then
+						body := json get packet ".variables[$((j - 1))].binding_analysis.candidates[$candidate_index]"
+						unset candidate
+						local -A candidate
+						if ! json parse candidate "$body" 2> /dev/null ||
+						   [ "${candidate[source][path]}" != "$path" ] ||
+						   [ "${candidate[source][id]}" != "$identity" ] ||
+						   [ "${candidate[source][size]}" != "$size" ] ||
+						   [ "${candidate[known]}" != syntax ]; then
+							body := coding_brief_block "invalid or mismatched dynamic-binding candidate"; ret "$body"
+						fi
+						# Hibr JSON null is represented as the literal string here;
+						# normalize it to an absent owner for top-level candidates.
+						[ "${candidate[owner]}" != null ] || unset candidate[owner]
+						if [ "${candidate[relation]}" = dynamic-caller ]; then
+							if [ -z "${candidate[owner]}" ] ||
+							   [ "${candidate[kind]}" != parameter -a "${candidate[kind]}" != declaration ] ||
+							   [ "${candidate[kind]}" = declaration -a "${candidate[storage]}" != local ]; then
+								body := coding_brief_block "invalid dynamic-caller declaration candidate"; ret "$body"
+							fi
+						elif { [ "${candidate[kind]}" = declaration ] && [ "${candidate[storage]}" = global ]; } ||
+						     { [ -z "${candidate[owner]}" ] &&
+						       { [ "${candidate[kind]}" = write ] || [ "${candidate[kind]}" = bind ] ||
+						         [ "${candidate[kind]}" = loop-write ] || [ "${candidate[kind]}" = array-write ]; }; }; then
+							:
+						else
+							body := coding_brief_block "invalid possible-global candidate"; ret "$body"
+						fi
+					candidate_key="${candidate[id]}:${candidate[relation]}"
+					if [ -z "${dynamic_seen[$candidate_key]+x}" ]; then
+						if [ "$candidate_count" -ge 64 ] || [ "$e" -ge 512 ]; then
+							body := coding_brief_block "dynamic-binding evidence exceeds the interactive limit"; ret "$body"
+						fi
+						dynamic_seen[$candidate_key]=1
+						body := json get packet ".variables[$((j - 1))].binding_analysis.candidates[$candidate_index]"
+						json parse "packet[dynamic_candidates][$candidate_count]" "$body"
+						packet[evidence][$e][id]="binding-candidate:$candidate_count"
+						packet[evidence][$e][record]=".dynamic_candidates[$candidate_count]"
+						if [ "${candidate[relation]}" = dynamic-caller ]; then
+							packet[evidence][$e][label]="Possible dynamic local ${candidate[name]} (${candidate[owner]})"
+						else
+							packet[evidence][$e][label]="Possible global ${candidate[name]} (${candidate[owner]:-top level})"
+						fi
+						e=$((e + 1))
+						call_index=0; call_previous=${candidate[owner]}
+						while [ -n "${candidate[call_path][$call_index][name]+x}" ]; do
+							if [ "$e" -ge 512 ] ||
+							   [ "${candidate[call_path][$call_index][source][path]}" != "$path" ] ||
+							   [ "${candidate[call_path][$call_index][source][id]}" != "$identity" ] ||
+							   [ "${candidate[call_path][$call_index][source][size]}" != "$size" ] ||
+							   [ "${candidate[call_path][$call_index][known]}" != syntax ] ||
+							   [ -z "${candidate[call_path][$call_index][owner]}" ] ||
+							   [ "${candidate[call_path][$call_index][owner]}" != "$call_previous" ]; then
+								body := coding_brief_block "invalid or mismatched dynamic call path"; ret "$body"
+							fi
+							body := json get packet ".dynamic_candidates[$candidate_count].call_path[$call_index]"
+							json parse "packet[dynamic_calls][$e]" "$body"
+							packet[evidence][$e][id]="binding-call:$candidate_count:$call_index"
+							packet[evidence][$e][record]=".dynamic_calls[$e]"
+							packet[evidence][$e][label]="Possible caller path ${candidate[call_path][$call_index][owner]} calls ${candidate[call_path][$call_index][name]}"
+							e=$((e + 1)); call_index=$((call_index + 1))
+							call_previous=${candidate[call_path][$((call_index - 1))][name]}
+						done
+						if [ "${candidate[relation]}" = dynamic-caller ] &&
+						   { [ "$call_index" -eq 0 ] || [ "$call_previous" != "$name" ]; }; then
+							body := coding_brief_block "dynamic call path does not reach the selected function"; ret "$body"
+						fi
+						candidate_count=$((candidate_count + 1))
+					fi
+				fi
+					candidate_index=$((candidate_index + 1))
+				done
+				# Candidate evidence is retained once in dynamic_candidates;
+				# keeping a second full copy inside each variable record bloats
+				# the bounded brief and can hide truncation from the reader.
+				unset packet[variables][$((j - 1))][binding_analysis][candidates]
+			fi
+			i=$((i + 1))
+		done
+		packet[variable_count]=$j
+		packet[dynamic_candidate_count]=$candidate_count
+		packet[binding_incomplete]=false
+		packet[binding_unavailable]=false
+		packet[binding_truncated]=false
+		[ "$binding_incomplete" -eq 0 ] || packet[binding_incomplete]=true
+		[ "$binding_unavailable" -eq 0 ] || packet[binding_unavailable]=true
+		[ "$binding_truncated" -eq 0 ] || packet[binding_truncated]=true
+		packet[variable_name]=$selected_variable
+		[ "$j" -gt 0 ] || text+="none reported by this request"
+		[ "$j" -le "$displayed_sites" ] || text+=", and $((j - displayed_sites)) more"
+		text+="; evidence is tied to this exact source snapshot, not runtime values. Inferred arithmetic reads are marked separately."
+		if [ "$candidate_count" -gt 0 ]; then
+			candidate_word=candidates
+			[ "$candidate_count" != 1 ] || candidate_word=candidate
+			text+=" $candidate_count possible binding $candidate_word; this is not a resolved binding, and call paths do not prove execution."
+		else
+			text+=" No possible binding candidates were listed; that does not establish that no binding exists."
+		fi
+		if [ "$binding_unavailable" -eq 1 ]; then
+			text+=" Binding analysis was unavailable for one or more sites; those sites have no candidate-absence claim."
+		fi
+		if [ "$binding_incomplete" -eq 1 ]; then
+			text+=" Binding analysis was incomplete; additional caller candidates may be missing."
+		fi
+		if [ "$binding_truncated" -eq 1 ]; then
+			text+=" The candidate output was truncated; more candidates may exist."
+		fi
+	fi
+	text+=$'\n'
+	text+="Unknown: current values, branch execution, aliasing, cross-file effects and event causes. No runtime observations were collected."
+	packet[runtime]=not-observed
+	packet[evidence_count]=$e
+	packet[text]=$text
+	body := json emit packet
+	if [ "${#text}" -gt 16384 ] || [ "${#body}" -gt 131072 ]; then body := coding_brief_block "brief exceeds bounded presentation size"; fi
+	ret "$body"
+}
+
+# Human and learning consumers both receive the exact same derived packet.
+fn coding_brief(int id) {
+	[ "${HC[$id][page]}" = report ] || return 0
+	HC[$id][view]=questions
+	HC[$id][brief_scroll]=0
+	HC[$id][brief_mode]=text
+	HC[$id][brief_position]=0
+	coding_answer "$id" 7
+}
+
+# A source action resolves a packet reference, never a model-supplied coordinate.
+fn coding_brief_current(int id) {
+	{ [ "${HC[$id][answer][question]}" = 7 ] || [ "${HC[$id][answer][question]}" = 8 ] || [ "${HC[$id][answer][question]}" = 9 ]; } && [ "${HC[$id][answer][brief][state]}" = ready ] &&
+	[ "${HC[$id][document][condition]}" = current ] && [ -z "${HC[$id][busy]}" ] &&
+	[ "${HC[$id][answer][path]}" = "${HC[$id][document][path]}" ] &&
+	[ "${HC[$id][answer][identity]}" = "${HC[$id][document][identity]}" ] &&
+	[ "${HC[$id][answer][size]}" = "${HC[$id][document][size]}" ] &&
+	[ "${HC[$id][answer][index]}" = "${HC[$id][document][selection][index]}" ] &&
+	[ "${HC[$id][answer][brief][name]}" = "${HC[$id][document][selection][name]}" ]
+}
+
+fn coding_brief_record(int id, int position) {
+	local path body line endline
+	local -A record
+	coding_brief_current "$id" || { ret ""; }
+	[ "$position" -ge 0 ] && [ "$position" -lt "${HC[$id][answer][brief][evidence_count]}" ] || { ret ""; }
+	path=${HC[$id][answer][brief][evidence][$position][record]}
+	body := json get HC ".$id.answer.brief$path"
+	json parse record "$body" 2> /dev/null || { ret ""; }
+	[ "${record[source][path]}" = "${HC[$id][document][path]}" ] &&
+	[ "${record[source][id]}" = "${HC[$id][document][identity]}" ] &&
+	[ "${record[source][size]}" = "${HC[$id][document][size]}" ] || { ret ""; }
+	line=${record[span][line]}; endline=${record[span][endline]}
+	[ "${line:-0}" -gt 0 ] && [ "${endline:-0}" -ge "$line" ] &&
+	[ "$endline" -le "${HC[$id][document][preview][line_count]:-0}" ] || { ret ""; }
+	ret "$body"
+}
+
+fn coding_brief_evidence_open(int id, int position) {
+	local body
+	local -A record
+	body := coding_brief_record "$id" "$position"
+	[ -n "$body" ] || return 0
+	json parse record "$body"
+	HC[$id][brief_position]=$position
+	coding_line_open "$id" "${record[span][line]}" "${record[span][endline]}"
+}
+
+fn coding_brief_evidence_draw(int id, int h, int w) {
+	local count=${HC[$id][answer][brief][evidence_count]:-0} position=${HC[$id][brief_position]:-0} start=0 i row=5 text path body
+	local -A record
+	if ! coding_brief_current "$id"; then console put -p "w$id" 5 2 "Evidence changed or is unavailable. Reload the source."; return 0; fi
+	[ "$position" -lt $((h - 9)) ] || start=$((position - h + 10))
+	i=$start
+	while [ "$i" -lt "$count" ] && [ "$row" -lt $((h - 4)) ]; do
+		path=${HC[$id][answer][brief][evidence][$i][record]}
+		body := json get HC ".$id.answer.brief$path"
+		json parse record "$body"
+		text := str slice "L${record[span][line]} ${HC[$id][answer][brief][evidence][$i][label]}" 0 $((w - 4))
+		console pen "$DT_INK" "$DT_FACE"
+		[ "$i" != "$position" ] || console pen "$DT_SELINK" "$DT_ACTIVE"
+		console put -p "w$id" "$row" 2 "$text"
+		dt_wreg "$id" "$row" 2 $((w - 4)) "brief-fact-$i"
+		i=$((i + 1)); row=$((row + 1))
+	done
+	console pen "$DT_INK" "$DT_FACE"
+	text := str slice "${HC[$id][answer][path]##*/} | $count source locations | this file only" 0 $((w - 4))
+	console put -p "w$id" $((h - 3)) 2 "$text"
+	console put -p "w$id" $((h - 1)) 2 "Tab: brief | Arrows: select | Enter: open"
+}
+
+fn coding_brief_draw(int id, int h, int w) {
+	local text=${HC[$id][answer][text]} paragraph line row=5 position=${HC[$id][brief_scroll]:-0} i=0 limit=$((h - 9))
+	console put -p "w$id" 1 2 "Function brief - captured evidence"
+	dt_button "$id" 2 2 "Source" 0 answer-source
+	dt_button "$id" 2 12 "Calls" 0 brief-calls
+	if [ "${HC[$id][brief_mode]}" = evidence ]; then dt_button "$id" 2 21 "Brief" 0 brief-text;
+	else dt_button "$id" 2 21 "Evidence" 0 brief-evidence; fi
+	dt_button "$id" 2 36 "Questions" 0 questions
+	console put -p "w$id" 4 2 "Source snapshot; no runtime observations."
+	if [ "${HC[$id][brief_mode]}" = evidence ]; then coding_brief_evidence_draw "$id" "$h" "$w"; return 0; fi
+	if [ "${HC[$id][document][condition]}" != current ] || [ "${HC[$id][answer][identity]}" != "${HC[$id][document][identity]}" ] ||
+	   [ "${HC[$id][answer][index]}" != "${HC[$id][document][selection][index]}" ]; then text="Evidence changed or is unavailable. Reload before using this brief."; fi
+	local -a lines
+	while IFS= read -r paragraph; do
+		dt_textwrap "$paragraph" $((w - 4))
+		lines+=("${DT_WRAPLINES[@]}")
+	done <<< "$text"
+	HC[$id][brief_lines]=${#lines[@]}
+	HC[$id][brief_page]=$limit
+	local last=$((${HC[$id][brief_lines]} - limit))
+	[ "$last" -ge 0 ] || last=0
+	[ "$position" -le "$last" ] || position=$last
+	HC[$id][brief_scroll]=$position
+	for line in "${lines[@]}"; do
+		if [ "$i" -ge "$position" ] && [ "$row" -lt $((5 + limit)) ]; then console put -p "w$id" "$row" 2 "$line"; row=$((row + 1)); fi
+		i=$((i + 1))
+	done
+	local shown=$((position + limit))
+	[ "$shown" -le "${HC[$id][brief_lines]}" ] || shown=${HC[$id][brief_lines]}
+	text := str slice "${HC[$id][answer][path]##*/} | lines $((position + 1))-$shown of ${HC[$id][brief_lines]} | this file only" 0 $((w - 4))
+	console put -p "w$id" $((h - 3)) 2 "$text"
+	console put -p "w$id" $((h - 1)) 2 "Tab: evidence | Arrows: scroll | Enter: open"
+}
+
+# Build bounded answers from retained facts; no language inference or source IO.
+fn coding_questions(int id) {
+	[ "${HC[$id][page]}" = report ] || return 0
+	HC[$id][view]=questions
+	coding_answer "$id" 0
+}
+
+# Keep question editing in per-window state using the desktop text widget.
+fn coding_ask(int id) {
+	[ "${HC[$id][page]}" = report ] || return 0
+	HC[$id][view]=ask
+	HC[$id][request_text]=${HC[$id][request_text]:-'What does this function accept?'}
+	HC[$id][request_cursor]=${#HC[$id][request_text]}
+}
+
+fn coding_ask_key(int id, key) {
+	local edited candidate
+	case $key in
+		escape) HC[$id][view]=questions; return 0 ;;
+		enter) coding_request "$id" "${HC[$id][request_text]}"; return 0 ;;
+	esac
+	edited := dt_textkey "${HC[$id][request_text]}" "${HC[$id][request_cursor]:-0}" "$key" || return 1
+	candidate=${edited% *}
+	[ "${#candidate}" -le 512 ] || return 0
+	HC[$id][request_text]=$candidate
+	HC[$id][request_cursor]=${edited##* }
+}
+
+# Route common natural phrasings to the same bounded Hibr evidence operations.
+# This is lexical intent routing, not open-ended interpretation or authority.
+fn coding_request(int id, request) {
+	local question original=$request normalized punctuation token i=0 var_name lowered target_matches=0 normalized_words
+	local -a request_words
+	local -A variable_names
+	normalized := str lower "$request"
+	str trim "$normalized" normalized
+	for punctuation in '?' '.' '!' ',' ':' ';'; do
+		normalized := str replace "$normalized" "$punctuation" ''
+	done
+	str trim "$normalized" normalized
+	case $normalized in
+		*'who calls'* | *'what calls this function'* | *'which function calls'* | *'callers'* | *'called by'* | *'used by'* | *'where is it used'* | *'where is this function used'*) question=8 ;;
+		*'variable'* | *'where does'*' change'* | *'where is'*' assigned'* | *'where is'*' read'* | *'what carries'* | *'what gets stored'*) question=9 ;;
+		*'what does this function call'* | *'what does it call'* | *'what function does it call'* | *'what does this call'* | *'which functions does this one call'* | *'calls from here'* | *'outgoing call'* | *'function call'*) question=3 ;;
+		*'parameter'* | *'argument'* | *'input'* | *'what does this function accept'* | *'what does this take'*) question=2 ;;
+		*'draw handler'* | *'what draws'* | *'draws this window'* | *'window draw function'*) question=0 ;;
+		*'key handler'* | *'keyboard handler'* | *'what handles keys'* | *'handles escape'* | *'escape key'*) question=1 ;;
+		*'reference'* | *'referenced'* | *'mentions this function'* | *'function named'* | *'where is this function named'*) question=5 ;;
+		*'diagnostic'* | *'syntax error'* | *'lint'* | *'show errors'* | *'check this script'*) question=6 ;;
+		*'value'* | *'contain'* | *'runtime'* | *'what happened'* | *'what caused'*) question=4 ;;
+		*'explain'* | *'what does this function do'* | *'what does this do'* | *'how does this function work'* | *'what happens when this function runs'* | *'where is this function defined'* | *'show me this function'* | *'purpose of this function'* | *'describe this function'*) question=7 ;;
+		*) question= ;;
+	esac
+	case $question in
+		0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9) : ;;
+		*)
+			unset HC[$id][answer]
+			unset HC[$id][claim_request]
+			unset HC[$id][claim_verified]
+			HC[$id][view]=questions
+			HC[$id][answer][question]=-1
+			HC[$id][answer][kind]=clarification
+			HC[$id][answer][action]=none
+			HC[$id][answer][text]="I can answer common questions about inputs, calls, callers, references and diagnostics from this source. I could not match that request; choose one of those topics or open the function brief."
+			HC[$id][answer][request]=$original
+			return 0 ;;
+	esac
+	if [ "$question" = 9 ]; then
+		unset HC[$id][variable_target]
+		str lower "$request" normalized_words
+		for punctuation in '?' '.' '!' ',' ':' ';'; do
+			normalized_words := str replace "$normalized_words" "$punctuation" ' '
+		done
+		normalized_words := str replace "$normalized_words" $'\n' ' '
+		normalized_words := str replace "$normalized_words" $'\t' ' '
+		str split "$normalized_words" ' ' request_words
+		while [ -n "${HC[$id][document][extra][vars][vars][$i][name]+x}" ]; do
+			var_name=${HC[$id][document][extra][vars][vars][$i][name]}
+			lowered := str lower "$var_name"
+			for token in "${request_words[@]}"; do
+				if [ "$token" = "$lowered" ] && [ -z "${variable_names[$var_name]+x}" ]; then
+					variable_names[$var_name]=1
+					target_matches=$((target_matches + 1))
+					HC[$id][variable_target]=$var_name
+				fi
+			done
+			i=$((i + 1))
+		done
+		if [ "$target_matches" != 1 ]; then unset HC[$id][variable_target]; fi
+	fi
+	HC[$id][view]=questions
+	coding_answer "$id" "$question"
+	HC[$id][answer][request]=$original
+}
+
+# Shared answer envelope keeps provenance and an evidence action explicit.
+fn coding_answer(int id, int question) {
+	unset HC[$id][claim_request]
+	unset HC[$id][claim_verified]
+	HC[$id][claim_state]=idle
+	HC[$id][claim_error]=
+	local name= i=0 matches=0 index=-1 text= body parameter j=0 n=0 category
+	local -A answer registration brief
+	answer[question]=$question
+	answer[path]=${HC[$id][document][path]}
+	answer[identity]=${HC[$id][document][identity]}
+	answer[size]=${HC[$id][document][size]}
+	answer[scope]=single-file
+	answer[action]=none
+	answer[kind]=limitation
+	answer[text]="No current source evidence. Reload or choose another script."
+	if [ "${HC[$id][document][condition]}" = current ] || [ "$question" = 7 ]; then
+		case $question in
+		0 | 1)
+			if [ -n "${HC[$id][document][registration]}" ]; then
+				json parse registration "${HC[$id][document][registration]}"
+				if [ "$question" = 0 ]; then name=${registration[draw]}; else name=${registration[key]}; fi
+				answer[kind]=registration-snapshot
+				answer[text]="HUI registered ${name:-no handler} for ${registration[title]}. This is a registration snapshot, not proof that a callback ran."
+				if [ -z "${DT[${registration[window]}][title]}" ]; then answer[text]+=" The window has since closed."; fi
+			else answer[text]="This script has no selected window registration. Choose a running window to identify its draw and key handlers."; fi
+			;;
+		2)
+			name=${HC[$id][document][selection][name]}
+			index=${HC[$id][document][selection][index]:--1}
+			if [ -z "$name" ]; then answer[text]="No function is selected. Select a definition in the source workspace first."; body := json emit answer; json parse "HC[$id][answer]" "$body"; return 0; fi
+			answer[kind]=source-declaration
+			text="${name:-No selected function}: "
+			while [ -n "${HC[$id][document][views][functions][functions][$index][params][$j][name]+x}" ]; do
+				parameter=${HC[$id][document][views][functions][functions][$index][params][$j][name]}
+				[ "$j" = 0 ] || text+=", "
+				text+="${HC[$id][document][views][functions][functions][$index][params][$j][type]:-untyped} $parameter"
+				if [ "${HC[$id][document][views][functions][functions][$index][params][$j][has_default]}" = true ]; then text+="=${HC[$id][document][views][functions][functions][$index][params][$j][default][text]}"; fi
+				j=$((j + 1))
+			done
+			[ "$j" -gt 0 ] || text+="no inputs declared"
+			answer[text]="$text. Defaults are declared expressions, not evaluated values. See the source for the full signature."
+			;;
+		7)
+			body := coding_brief_packet "$id"
+			json parse brief "$body"
+			json parse 'answer[brief]' "$body"
+			answer[kind]=function-brief
+			answer[text]=${brief[text]}
+			if [ "${brief[state]}" = ready ]; then name=${brief[name]}; answer[action]=source; fi
+			;;
+		8)
+			body := coding_brief_packet "$id"
+			json parse brief "$body"
+			json parse 'answer[brief]' "$body"
+			answer[kind]=static-incoming-calls
+			answer[text]="Caller evidence is unavailable or incomplete. No absence or cross-file claim is possible."
+			if [ "${brief[state]}" = ready ] && [ "${brief[incoming_state]}" = ready ]; then
+				name=${brief[name]}
+				answer[index]=${brief[index]}
+				answer[line]=${brief[declaration][span][line]}
+				answer[action]=brief-locations
+				answer[text]="${brief[incoming_count]} named sites here; execution, dynamic names and other files are unknown."
+				i=0
+				while [ "$i" -lt "${brief[evidence_count]}" ]; do
+					case ${brief[evidence][$i][id]} in caller:*) answer[items][$n][evidence_position]=$i; n=$((n + 1)) ;; esac
+					i=$((i + 1))
+				done
+				answer[count]=$n
+				[ "$n" -gt 0 ] || answer[action]=none
+				name=
+				i=0
+			fi
+			;;
+		9)
+			local variable_label= candidate_word
+			body := coding_brief_packet "$id" true "${HC[$id][variable_target]}"
+			json parse brief "$body"
+			json parse 'answer[brief]' "$body"
+			if [ "${brief[state]}" != ready ]; then
+				answer[kind]=limitation
+				answer[text]=${brief[text]}
+			else
+				answer[kind]=variable-flow
+				if [ -n "${brief[variable_name]}" ]; then answer[variable_name]=${brief[variable_name]}; fi
+				[ -z "${brief[variable_name]}" ] || variable_label=" for ${brief[variable_name]}"
+				if [ -n "${brief[variables][0][scope_id]}" ]; then
+					answer[text]="${brief[variable_count]} sites$variable_label in ${brief[name]} (scope ${brief[variables][0][scope_id]})."
+				else
+					answer[text]="${brief[variable_count]} variable sites$variable_label in ${brief[name]}."
+				fi
+				if [ "${brief[dynamic_candidate_count]:-0}" -gt 0 ]; then
+					candidate_word=candidates
+					[ "${brief[dynamic_candidate_count]:-0}" != 1 ] || candidate_word=candidate
+					answer[text]+=" ${brief[dynamic_candidate_count]} possible binding $candidate_word; unconfirmed."
+				fi
+				if [ "${brief[binding_unavailable]}" = true ]; then
+					answer[text]+=" Binding analysis was unavailable; caller origins remain unknown."
+				fi
+				if [ "${brief[binding_incomplete]}" = true ]; then
+					answer[text]+=" Binding analysis incomplete; more candidates may be missing."
+				fi
+				if [ "${brief[binding_truncated]}" = true ]; then
+					answer[text]+=" Candidate list truncated."
+				fi
+				if [ "${brief[dynamic_candidate_count]:-0}" = 0 ] &&
+				   [ "${brief[binding_unavailable]}" != true ] &&
+				   [ "${brief[binding_incomplete]}" != true ]; then
+					answer[text]+=" No candidates reported; absence is not proof."
+				fi
+				answer[action]=brief-locations
+				i=0
+				while [ "$i" -lt "${brief[evidence_count]}" ]; do
+					case ${brief[evidence][$i][id]} in
+					variable:* | binding-candidate:* | binding-call:*) answer[items][$n][evidence_position]=$i; n=$((n + 1)) ;;
+					esac
+					i=$((i + 1))
+				 done
+				answer[count]=$n
+				[ "$n" -gt 0 ] || { answer[action]=none; answer[text]+=" No variable records were returned for this function."; }
+				name=${brief[name]}
+				i=0
+			fi
+			;;
+		3)
+			name=${HC[$id][document][selection][name]}
+			answer[kind]=static-call-records
+			if [ -n "${HC[$id][document][links][source][id]}" ]; then
+				answer[text]="Hibr lists ${#HC[$id][document][links][calls][@]} static call records for $name in this file. Open the calls pane to inspect names and follow a unique local definition. These records do not prove execution order, branches taken or runtime dispatch."
+				answer[action]=calls
+			else answer[text]="Call evidence is unavailable for this selection. A missing list does not prove that the function makes no calls."; fi
+			;;
+		5 | 6)
+			answer[action]=locations
+			if [ "$question" = 5 ]; then
+				name=${HC[$id][document][selection][name]}
+				answer[kind]=literal-source-reference
+				answer[text]="Literal arguments naming ${name:-the selected function} in this file. Naming does not prove calling or runtime registration."
+				if [ -z "${HC[$id][document][extra][refs][source][id]}" ]; then
+					answer[text]="Reference evidence is unavailable or exceeds the interactive limit. This does not prove there are no references."
+				else
+					while [ -n "${HC[$id][document][extra][refs][refs][$i][name]+x}" ]; do
+						if [ -n "$name" ] && [ "${HC[$id][document][extra][refs][refs][$i][name]}" = "$name" ]; then
+							answer[items][$n][line]=${HC[$id][document][extra][refs][refs][$i][span][line]}
+							answer[items][$n][endline]=${HC[$id][document][extra][refs][refs][$i][span][endline]}
+							answer[items][$n][text]="${HC[$id][document][extra][refs][refs][$i][name]} (${HC[$id][document][extra][refs][refs][$i][known]})"
+							n=$((n + 1))
+						fi
+						i=$((i + 1))
+					done
+				fi
+				name=
+			else
+				answer[kind]=producer-diagnostics
+				answer[text]="Hibr parser diagnostics and rule findings. They identify source to investigate, not a verified cause of a runtime failure."
+				if [ -z "${HC[$id][document][extra][check][source][id]}" ]; then
+					answer[text]="Diagnostic evidence is unavailable or exceeds the interactive limit. No clean bill of health is implied."
+				else
+					for category in diagnostics findings; do
+						i=0
+						while [ -n "${HC[$id][document][extra][check][$category][$i][message]+x}" ]; do
+							answer[items][$n][line]=${HC[$id][document][extra][check][$category][$i][span][line]}
+							answer[items][$n][endline]=${HC[$id][document][extra][check][$category][$i][span][endline]}
+							answer[items][$n][text]="${HC[$id][document][extra][check][$category][$i][rule]:-parser}: ${HC[$id][document][extra][check][$category][$i][message]}"
+							n=$((n + 1))
+							i=$((i + 1))
+						done
+					done
+				fi
+			fi
+			answer[count]=$n
+			if [ "$n" = 0 ]; then answer[action]=none; answer[text]+=" No matching records were returned. Empty or partial analysis does not prove absence of behavior."; fi
+			;;
+
+		*) answer[text]="This inspection cannot establish a variable's runtime value or why an event occurred. It has source declarations and static calls, not runtime observations. Locate the handler and read its source to find a candidate change region; no edit or behavioral diagnosis has been validated." ;;
+		esac
+		if [ -n "$name" ]; then
+			while [ -n "${HC[$id][document][views][functions][functions][$i][name]+x}" ]; do
+				if [ "${HC[$id][document][views][functions][functions][$i][name]}" = "$name" ]; then matches=$((matches + 1)); index=$i; fi
+				i=$((i + 1))
+			done
+			if [ "$matches" = 1 ]; then
+				answer[index]=$index
+				answer[line]=${HC[$id][document][views][functions][functions][$index][span][line]}
+				[ "${answer[action]}" != none ] || answer[action]=source
+			else
+				answer[action]=none
+				answer[text]+=" The name has $matches definitions in this inspected file; source resolution remains uncertain."
+			fi
+		fi
+	fi
+	HC[$id][answer_pos]=0
+	body := json emit answer
+	json parse "HC[$id][answer]" "$body"
+}
+
+# Issue an internal closed-fact request; factual routes need no model invocation.
+fn coding_claim_request(int id, int question) {
+	local -A request
+	local i=0 n=0 j=0 matches=0 index=${HC[$id][document][selection][index]:--1} name body
+	case $question in 2 | 4) : ;; *) return 1 ;; esac
+	[ -n "${HC[$id][path]+x}" ] || return 1
+	unset HC[$id][claim_request]
+	unset HC[$id][claim_verified]
+	HC[$id][claim_state]=refused
+	HC[$id][claim_error]=unavailable-evidence
+	[ -n "${HC[$id][path]+x}" ] && [ -z "${HC[$id][busy]}" ] &&
+	[ "${HC[$id][document][condition]}" = current ] &&
+	[ "${HC[$id][document][views][functions][state]}" = ok ] &&
+	[ "${HC[$id][document][views][functions][partial]}" = false ] &&
+	[ "${HC[$id][document][preview][state]}" = verified ] || return 1
+	coding_answer "$id" "$question"
+	HC[$id][claim_state]=refused
+	HC[$id][claim_error]=unsupported-declaration
+	if [ "$question" = 2 ]; then
+		name=${HC[$id][document][selection][name]}
+		[ -n "$name" ] && [ "$index" -ge 0 ] || return 1
+		while [ -n "${HC[$id][document][views][functions][functions][$i][name]+x}" ]; do
+			[ "${HC[$id][document][views][functions][functions][$i][name]}" != "$name" ] || matches=$((matches + 1))
+			i=$((i + 1))
+		done
+		[ "$matches" = 1 ] &&
+		[ "${HC[$id][document][views][functions][functions][$index][known]}" = syntax ] &&
+		[ "${HC[$id][document][views][functions][functions][$index][declared_signature]}" = true ] &&
+		[ "${HC[$id][document][views][functions][functions][$index][source][path]}" = "${HC[$id][document][path]}" ] &&
+		[ "${HC[$id][document][views][functions][functions][$index][source][id]}" = "${HC[$id][document][identity]}" ] &&
+		[ "${HC[$id][document][views][functions][functions][$index][source][size]}" = "${HC[$id][document][size]}" ] || return 1
+		while [ -n "${HC[$id][document][views][functions][functions][$index][params][$j][name]+x}" ]; do
+			[ "$j" -lt 64 ] &&
+			[ "${HC[$id][document][views][functions][functions][$index][params][$j][known]}" = declared ] &&
+			[ "${HC[$id][document][views][functions][functions][$index][params][$j][rest]}" = false ] &&
+			[ "${HC[$id][document][views][functions][functions][$index][params][$j][source][id]}" = "${HC[$id][document][identity]}" ] &&
+			[ "${HC[$id][document][views][functions][functions][$index][params][$j][source][path]}" = "${HC[$id][document][path]}" ] &&
+			[ "${HC[$id][document][views][functions][functions][$index][params][$j][source][size]}" = "${HC[$id][document][size]}" ] || return 1
+			if [ "${HC[$id][document][views][functions][functions][$index][params][$j][has_default]}" = true ]; then
+				[ "${HC[$id][document][views][functions][functions][$index][params][$j][default][evaluated]}" = false ] || return 1
+			fi
+			request[claims][$n][id]="parameter:$j"
+			request[claims][$n][parameter_index]=$j
+			n=$((n + 1)); j=$((j + 1))
+		done
+		if [ "$j" = 0 ]; then request[claims][$n][id]=parameters:none; n=$((n + 1)); fi
+		request[claims][$n][id]=defaults:unevaluated
+		body := json get HC ".$id.document.views.functions.functions[$index]"
+		json parse 'request[declaration]' "$body" || return 1
+	else request[claims][0][id]=runtime:unknown; fi
+	CODING_CLAIM_SERIAL=$((${CODING_CLAIM_SERIAL:-0} + 1))
+	request[version]=1
+	request[request]=$CODING_CLAIM_SERIAL
+	request[question]=$question
+	request[generation]=${HC[$id][generation]}
+	request[path]=${HC[$id][document][path]}
+	request[identity]=${HC[$id][document][identity]}
+	request[size]=${HC[$id][document][size]}
+	request[scope]=single-file-static
+	request[selection]=${HC[$id][document][selection][index]:--1}
+	body := json emit request
+	json parse "HC[$id][claim_request]" "$body"
+	HC[$id][claim_state]=issued
+	HC[$id][claim_error]=
+	ret "$body"
+}
+
+# Match only the exact current request; process-wide serials survive window reuse.
+fn coding_claim_current(int id, serial) {
+	[ -n "$serial" ] &&
+	[ -n "${HC[$id][path]+x}" ] && [ -z "${HC[$id][busy]}" ] &&
+	[ "${HC[$id][claim_request][request]}" = "$serial" ] &&
+	[ "${HC[$id][claim_request][generation]}" = "${HC[$id][generation]}" ] &&
+	[ "${HC[$id][document][condition]}" = current ] &&
+	[ "${HC[$id][claim_request][path]}" = "${HC[$id][document][path]}" ] &&
+	[ "${HC[$id][claim_request][identity]}" = "${HC[$id][document][identity]}" ] &&
+	[ "${HC[$id][claim_request][size]}" = "${HC[$id][document][size]}" ] &&
+	[ "${HC[$id][claim_request][selection]}" = "${HC[$id][document][selection][index]:--1}" ]
+}
+
+# Validate references/completeness only. Candidate values or prose never render.
+fn coding_claim_accept(int id, body) {
+	local -A candidate seen
+	local kind count expected i=0 j found claim n
+	[ "${HC[$id][claim_state]}" = issued ] || return 1
+	HC[$id][claim_error]=invalid-proposal
+	count := str len "$body"
+	[ "$count" -le 8192 ] || return 1
+	json parse candidate "$body" 2> /dev/null || return 1
+	kind := json type candidate .
+	[ "$kind" = object ] || return 1
+	count := json len candidate .
+	[ "$count" = 3 ] || return 1
+	kind := json type candidate .version 2> /dev/null
+	[ "$kind" = string ] && [ "${candidate[version]}" = 1 ] || return 1
+	kind := json type candidate .request 2> /dev/null
+	[ "$kind" = string ] || return 1
+	coding_claim_current "$id" "${candidate[request]}" || return 1
+	kind := json type candidate .claims 2> /dev/null
+	[ "$kind" = array ] || return 1
+	count := json len candidate .claims
+	expected := json len HC ".$id.claim_request.claims"
+	[ "$count" = "$expected" ] && [ "$count" -le 65 ] || return 1
+	while [ "$i" -lt "$count" ]; do
+		kind := json type candidate ".claims[$i]"
+		[ "$kind" = string ] || return 1
+		claim=${candidate[claims][$i]}; j=0; found=
+		while [ "$j" -lt "$expected" ]; do
+			if [ "$claim" = "${HC[$id][claim_request][claims][$j][id]}" ]; then
+				[ -z "${seen[$j]+x}" ] || return 1
+				seen[$j]=1; found=1
+			fi
+			j=$((j + 1))
+		done
+		[ -n "$found" ] || return 1
+		i=$((i + 1))
+	done
+	HC[$id][claim_state]=verifying
+	HC[$id][claim_error]=
+	n := dt_job claim-proof "$id:${HC[$id][generation]}:${candidate[request]}" coding_claim_done coding_claim_verify "${HC[$id][claim_request][path]}" "${HC[$id][claim_request][identity]}" "${HC[$id][claim_request][size]}"
+}
+
+# Reuse Hibr's bounded snapshot proof in a worker, without returning source lines.
+fn coding_claim_verify(path, identity, size) {
+	local body
+	local -A proof
+	need inspect || return 1
+	body := coding_snapshot "$path" "$identity" "$size"
+	json parse proof "$body" || return 1
+	unset proof[lines]
+	json emit proof
+}
+
+# Fresh proof admits only authoritative rendering; superseded results are ignored.
+fn coding_claim_done(int n, int st) {
+	local tag=${DTJ[$n][tag]} id rest serial file body admitted question
+	local -A proof packet
+	id=${tag%%:*}; rest=${tag#*:}; serial=${rest#*:}
+	[ "${rest%%:*}" = "${HC[$id][generation]}" ] || return 0
+	coding_claim_current "$id" "$serial" || return 0
+	[ "${HC[$id][claim_state]}" = verifying ] || return 0
+	if [ -n "${HC[$id][target]}" ] && [ -z "${DT[${HC[$id][target]}][title]}" ]; then
+		HC[$id][claim_state]=refused; HC[$id][claim_error]=target-closed; return 0
+	fi
+	file := dt_jobfile "$n" out
+	read -r -N 4096 body 2> /dev/null < "$file" || :
+	if [ "$st" = 0 ] && json parse proof "$body" 2> /dev/null &&
+	   [ "${proof[state]}" = verified ] &&
+	   [ "${proof[identity]}" = "${HC[$id][claim_request][identity]}" ] &&
+	   [ "${proof[size]}" = "${HC[$id][claim_request][size]}" ]; then
+		question=${HC[$id][claim_request][question]}
+		admitted := json get HC ".$id.claim_request"
+		coding_answer "$id" "$question"
+		json parse "HC[$id][claim_verified]" "$admitted"
+		HC[$id][claim_state]=verified
+	else
+		HC[$id][claim_state]=refused
+		HC[$id][claim_error]=source-unverified
+		packet[version]=1; packet[path]=${HC[$id][request_path]}; packet[mode]=${HC[$id][request_mode]}
+		packet[identity]=${HC[$id][document][identity]}; packet[size]=${HC[$id][document][size]}
+		packet[outcome]=stale; packet[state]=unavailable
+		packet[summary]="Source can no longer be verified. Reload before using these facts."
+		body := json emit packet
+		coding_accept "$id" "$body" || :
+		unset HC[$id][answer]
+	fi
+	dt_want 0
+}
+
+# Revalidate before following an answer; the answer is never an execution claim.
+fn coding_answer_open(int id) {
+	[ "${HC[$id][document][condition]}" = current ] || return 0
+	[ "${HC[$id][answer][identity]}" = "${HC[$id][document][identity]}" ] || return 0
+	[ "${HC[$id][answer][path]}" = "${HC[$id][document][path]}" ] || return 0
+	[ "${HC[$id][answer][size]}" = "${HC[$id][document][size]}" ] || return 0
+	case ${HC[$id][answer][action]} in
+	brief-locations) coding_brief_evidence_open "$id" "${HC[$id][answer][items][${HC[$id][answer_pos]:-0}][evidence_position]:--1}" ;;
+	locations)
+		local position=${HC[$id][answer_pos]:-0} line=${HC[$id][answer][items][${HC[$id][answer_pos]:-0}][line]}
+		[ "${line:-0}" -gt 0 ] || return 0
+		coding_line_open "$id" "$line" "${HC[$id][answer][items][$position][endline]:-$line}"
+		;;
+	source | calls)
+		HC[$id][view]=workspace
+		HC[$id][focus]=source
+		HC[$id][left_mode]=functions
+		if [ "${HC[$id][answer][action]}" = calls ]; then HC[$id][left_mode]=calls; HC[$id][focus]=functions; HC[$id][outline_pos]=0; fi
+		coding_select "$id" "${HC[$id][answer][index]}"
+		;;
+	esac
+}
+
+# Keep the question and its uncertainty beside a direct evidence action.
+fn coding_questions_draw(int id, int h, int w) {
+	if [ "${HC[$id][answer][question]}" = 7 ] && [ "$h" -ge 13 ] && [ "$w" -ge 48 ]; then coding_brief_draw "$id" "$h" "$w"; return 0; fi
+	local row=9 line text limit=$((h - 13)) position=${HC[$id][answer_pos]:-0} i start=0 evidence body list_row=12 page
+	local -A fact
+	if [ "$h" -lt 18 ] || [ "$w" -lt 48 ]; then
+		console put -p "w$id" 1 1 "Enlarge the window for questions. Escape: source"
+		return 0
+	fi
+	if [ "${HC[$id][answer][question]}" = 8 ]; then
+		text := str slice "Callers of ${HC[$id][answer][brief][name]:-${HC[$id][document][selection][name]}}" 0 $((w - 4))
+		console put -p "w$id" 1 2 "$text"
+		dt_button "$id" 2 2 "Workspace" 0 workspace
+		dt_button "$id" 2 16 "Brief" 0 brief
+		dt_button "$id" 2 26 "Questions" 0 questions
+		row=4; list_row=7
+	else
+		console put -p "w$id" 1 2 "What would you like to understand?"
+		dt_button "$id" 2 2 "Source workspace" 0 workspace
+		dt_button "$id" 2 26 "Ask (F3)" 0 ask
+		dt_button "$id" 4 2 "1 Draw handler" 0 question-0
+		dt_button "$id" 4 26 "2 Key handler" 0 question-1
+		dt_button "$id" 5 2 "3 Declared inputs" 0 question-2
+		dt_button "$id" 5 26 "4 Calls from here" 0 question-3
+		dt_button "$id" 6 2 "5 Values and causes?" 0 question-4
+		dt_button "$id" 6 26 "6 Literal references" 0 question-5
+		dt_button "$id" 7 2 "7 Diagnostics" 0 question-6
+		dt_button "$id" 7 26 "8 Callers here" 0 question-8
+		dt_button "$id" 8 2 "9 Variable sites" 0 question-9
+	fi
+	if [ "${HC[$id][answer][kind]}" = clarification ]; then text=${HC[$id][answer][text]};
+	elif [ "${HC[$id][document][condition]}" != current ] || [ "${HC[$id][answer][identity]}" != "${HC[$id][document][identity]}" ]; then
+		text="Evidence changed or is unavailable. Reload and choose your question again."
+	else text=${HC[$id][answer][text]}; fi
+	if { [ "${HC[$id][answer][action]}" = locations ] || [ "${HC[$id][answer][action]}" = brief-locations ]; }; then limit=2; fi
+	dt_textfit "$text" $((w - 4)) $((w - 4)) 1 "$limit"
+	for line in "${DT_FITLINES[@]}"; do console put -p "w$id" "$row" 2 "$line"; row=$((row + 1)); done
+	if { [ "${HC[$id][answer][action]}" = locations ] || [ "${HC[$id][answer][action]}" = brief-locations ]; } && [ "${HC[$id][document][condition]}" = current ]; then
+		row=$list_row; page=$((h - 4 - list_row))
+		[ "$position" -lt "$page" ] || start=$((position - page + 1))
+		i=$start
+		while [ "$i" -lt "${HC[$id][answer][count]}" ] && [ "$row" -lt $((h - 4)) ]; do
+			console pen "$DT_INK" "$DT_FACE"
+			[ "$i" != "$position" ] || console pen "$DT_SELINK" "$DT_ACTIVE"
+			if [ "${HC[$id][answer][action]}" = brief-locations ]; then
+				evidence=${HC[$id][answer][items][$i][evidence_position]}
+				body := coding_brief_record "$id" "$evidence"
+				if json parse fact "$body" 2> /dev/null; then text="L${fact[span][line]} ${HC[$id][answer][brief][evidence][$evidence][label]}";
+				else text="Unavailable source location"; fi
+				text := str slice "$text" 0 $((w - 4))
+			else text := str slice "L${HC[$id][answer][items][$i][line]} ${HC[$id][answer][items][$i][text]}" 0 $((w - 4)); fi
+			console put -p "w$id" "$row" 2 "$text"
+			dt_wreg "$id" "$row" 2 $((w - 4)) "answer-item-$i"
+			i=$((i + 1)); row=$((row + 1))
+		done
+		console pen "$DT_INK" "$DT_FACE"
+	fi
+	if [ "${HC[$id][answer][question]}" = 8 ]; then text="Source snapshot | this file only";
+	else text="Evidence: ${HC[$id][answer][kind]} | this file only"; fi
+	text := str slice "$text" 0 $((w - 4))
+	console put -p "w$id" $((h - 4)) 2 "$text"
+	if { [ "${HC[$id][answer][action]}" = source ] || [ "${HC[$id][answer][action]}" = calls ] || [ "${HC[$id][answer][action]}" = locations ] || [ "${HC[$id][answer][action]}" = brief-locations ]; } &&
+	   [ "${HC[$id][document][condition]}" = current ] && [ "${HC[$id][answer][identity]}" = "${HC[$id][document][identity]}" ]; then
+		dt_button "$id" $((h - 3)) 2 "Open evidence" 0 answer-source
+	fi
+	if [ "${HC[$id][answer][question]}" = 8 ]; then text="Arrows: select | Enter: source | F2: questions";
+	else text="1-9: question | Up/Down: item | Enter: source"; fi
+	text := str slice "$text" 0 $((w - 4))
+	console put -p "w$id" $((h - 1)) 2 "$text"
+}
+
+# Draw a task-oriented entry page with the desktop's standard buttons.
+fn coding_home_draw(int id, int h, int w) {
+	console pen "$DT_INK" "$DT_FACE" bold
+	console put -p "w$id" 1 3 "Understand the HUI window in front of you"
+	console pen "$DT_INK" "$DT_FACE"
+	console put -p "w$id" 3 3 "Choose a window to find its source and registered handlers."
+	dt_button "$id" 5 3 "Choose a window" $(( ${HC[$id][pick]} == 0 )) home-0
+	dt_button "$id" 7 3 "Open a script" $(( ${HC[$id][pick]} == 1 )) home-1
+	dt_button "$id" 9 3 "Explore this app" $(( ${HC[$id][pick]} == 2 )) home-2
+	console put -p "w$id" 12 3 "Prototype: source discovery and declared facts."
+	console put -p "w$id" 13 3 "Find handlers, explore source, and ask evidence-led questions."
+	console put -p "w$id" 15 3 "Up/Down: choose | Enter: open | Ctrl+O: script"
+}
+
+# Display a scrollable snapshot, checking source availability only on selection.
+fn coding_windows_draw(int id, int h, int w) {
+	local i start=0 row=4 window selected=${HC[$id][pick]} label
+	console put -p "w$id" 1 3 "Which window would you like to understand?"
+	console put -p "w$id" 2 3 "Enter: explore | Escape: back | F5: refresh"
+	[ "$selected" -lt $((h - 7)) ] || start=$((selected - h + 8))
+	i=$start
+	while [ "$i" -lt "${HC[$id][window_count]}" ] && [ "$row" -lt $((h - 2)) ]; do
+		window=${HC[$id][windows][$i]}
+		console pen "$DT_INK" "$DT_FACE"
+		[ "$i" != "$selected" ] || console pen "$DT_SELINK" "$DT_ACTIVE"
+		label="${DT[$window][title]:-Closed window} (${DT[$window][app]:-no app})"
+		label := str slice "$label" 0 $((w - 6))
+		console put -p "w$id" "$row" 3 "$label"
+		dt_wreg "$id" "$row" 3 $((w - 6)) "window-$i"
+		i=$((i + 1))
+		row=$((row + 1))
+	done
+	console pen "$DT_INK" "$DT_FACE"
+	console put -p "w$id" $((h - 1)) 3 "${HC[$id][message]}"
+}
+
+# Click targets come from the desktop's own widget hit registry.
+fn coding_click(int id, int r, int c, btn) {
+	local hit index
+	[ "$btn" = left ] || return 0
+	hit := dt_hit "$id" "$r" "$c"
+	case $hit in
+	ask) coding_ask "$id" ;;
+	questions) coding_questions "$id" ;;
+	brief) coding_brief "$id" ;;
+	brief-calls) coding_answer "$id" 3; coding_answer_open "$id" ;;
+	brief-refs) coding_answer "$id" 5 ;;
+	brief-evidence) HC[$id][brief_mode]=evidence; HC[$id][brief_position]=0 ;;
+	brief-text) HC[$id][brief_mode]=text ;;
+	brief-fact-*) coding_brief_evidence_open "$id" "${hit#brief-fact-}" ;;
+		question-9) coding_request "$id" "variable sites" ;;
+		question-*) coding_answer "$id" "${hit#question-}" ;;
+	answer-item-*) HC[$id][answer_pos]=${hit#answer-item-}; coding_answer_open "$id" ;;
+	answer-source) coding_answer_open "$id" ;;
+	workspace) HC[$id][view]=workspace ;;
+	nav-back) coding_history "$id" -1 ;;
+	nav-forward) coding_history "$id" 1 ;;
+	open-script) coding_browse "$id" ;;
+	choose-window) coding_windows "$id" ;;
+	source-pane) HC[$id][focus]=source ;;
+	outline-*)
+		index=${hit#outline-}
+		HC[$id][outline_pos]=$index
+		HC[$id][focus]=functions
+		if [ "${HC[$id][left_mode]}" = calls ]; then coding_follow "$id" "$index";
+		else coding_outline_open "$id" "$index"; fi
+		;;
+	home-*) coding_start "$id" "${hit#home-}" ;;
+	window-*)
+		index=${hit#window-}
+		HC[$id][pick]=$index
+		coding_window "$id" "${HC[$id][windows][$index]}"
+		;;
+	esac
 }
 
 # Forget the closed window so a late worker cannot recreate its state.
@@ -131,6 +2118,26 @@ fn coding_close(int id) {
 fn coding_draw(int id, int h, int w, int row, int col) {
 	local line n=0 r=4 text=${HC[$id][text]}
 	dt_wclear "$id"
+	console pen "$DT_INK" "$DT_FACE"
+	case ${HC[$id][page]} in
+	home) coding_home_draw "$id" "$h" "$w"; return 0 ;;
+	windows) coding_windows_draw "$id" "$h" "$w"; return 0 ;;
+	esac
+	if [ "${HC[$id][view]}" = ask ]; then
+		if [ "$h" -lt 10 ] || [ "$w" -lt 48 ]; then console put -p "w$id" 1 1 "Enlarge window. Escape: questions"; return 0; fi
+		console put -p "w$id" 1 2 "Ask about the selected source"
+		dt_textdraw "$id" 3 2 $((w - 4)) "${HC[$id][request_text]}" "${HC[$id][request_cursor]:-0}" 1
+		console put -p "w$id" 5 2 "Supported topics, in your own words:"
+		console put -p "w$id" 6 2 "What inputs does this function use?"
+		console put -p "w$id" 7 2 "Who calls it? What does it call?"
+		console put -p "w$id" 8 2 "Enter: ask | Escape: questions | arrows: edit"
+		return 0
+	fi
+	if [ "${HC[$id][view]}" = questions ]; then coding_questions_draw "$id" "$h" "$w"; return 0; fi
+	if [ "${HC[$id][view]}" != evidence ] && [ "${HC[$id][mode]}" = functions ]; then
+		coding_workspace_draw "$id" "$h" "$w"
+		return 0
+	fi
 	console pen "$DT_INK" "$DT_FACE"
 	dt_textdraw "$id" 1 1 $((w - 2)) "${HC[$id][path]}" "${HC[$id][cursor]}" 1
 	console put -p "w$id" 2 1 "${HC[$id][mode]} ${HC[$id][busy]:+— reading}"
@@ -148,11 +2155,78 @@ fn coding_draw(int id, int h, int w, int row, int col) {
 
 # Edit the path, choose a request or scroll the current result.
 fn coding_key(int id, key) {
-	local edited
+	local edited choice=${HC[$id][pick]}
+	if [ "${HC[$id][view]}" = ask ]; then coding_ask_key "$id" "$key"; return 0; fi
+	if [ "$key" = f3 ] && [ "${HC[$id][view]}" = questions ]; then coding_ask "$id"; return 0; fi
 	case $key in
-	enter) coding_load "$id" ;;
+	f2) coding_questions "$id"; return 0 ;;
+	f7) coding_brief "$id"; return 0 ;;
+	ctrl-o) coding_browse "$id"; return 0 ;;
+	escape)
+		if [ "${HC[$id][view]}" = questions ]; then HC[$id][view]=workspace; return 0; fi
+		if [ "${HC[$id][page]}" = report ] && [ "${HC[$id][focus]}" = search ] && [ "${HC[$id][view]}" != evidence ]; then
+			HC[$id][query]=; HC[$id][query_cursor]=0; HC[$id][focus]=functions; coding_filter "$id"
+		else coding_home "$id"; fi
+		return 0 ;;
+	f4)
+		if [ "${HC[$id][view]}" = evidence ]; then HC[$id][view]=workspace; HC[$id][mode]=functions; coding_load "$id";
+		else HC[$id][view]=evidence; HC[$id][top]=0; HC[$id][left]=0; fi
+		return 0 ;;
+	f6) coding_history "$id" -1; return 0 ;;
+	shift-f6) coding_history "$id" 1; return 0 ;;
+	f5) coding_reload "$id"; return 0 ;;
+	esac
+	case ${HC[$id][page]} in
+	home)
+		case $key in
+		up | shift-tab) [ "$choice" -le 0 ] || HC[$id][pick]=$((choice - 1)) ;;
+		down | tab) HC[$id][pick]=$(((choice + 1) % 3)) ;;
+		enter) coding_start "$id" "$choice" ;;
+		*) return 1 ;;
+		esac
+		return 0
+		;;
+	windows)
+		case $key in
+		up) [ "$choice" -le 0 ] || HC[$id][pick]=$((choice - 1)) ;;
+		down) [ "$choice" -ge $((${HC[$id][window_count]} - 1)) ] || HC[$id][pick]=$((choice + 1)) ;;
+		enter) coding_window "$id" "${HC[$id][windows][$choice]}" ;;
+		f5) coding_windows "$id" ;;
+		*) return 1 ;;
+		esac
+		return 0
+		;;
+	esac
+	if [ "${HC[$id][view]}" = questions ]; then
+		if [ "${HC[$id][answer][question]}" = 7 ]; then
+			case $key in
+			tab) if [ "${HC[$id][brief_mode]}" = evidence ]; then HC[$id][brief_mode]=text; else HC[$id][brief_mode]=evidence; fi; return 0 ;;
+			enter) if [ "${HC[$id][brief_mode]}" = evidence ]; then coding_brief_evidence_open "$id" "${HC[$id][brief_position]:-0}"; else coding_answer_open "$id"; fi; return 0 ;;
+			up) if [ "${HC[$id][brief_mode]}" = evidence ]; then [ "${HC[$id][brief_position]:-0}" -le 0 ] || HC[$id][brief_position]=$((${HC[$id][brief_position]} - 1)); return 0; fi ;;
+			down) if [ "${HC[$id][brief_mode]}" = evidence ]; then [ "${HC[$id][brief_position]:-0}" -ge $((${HC[$id][answer][brief][evidence_count]:-0} - 1)) ] || HC[$id][brief_position]=$((${HC[$id][brief_position]:-0} + 1)); return 0; fi ;;
+			esac
+		fi
+		case $key in
+		1 | 2 | 3 | 4 | 5 | 6 | 7) coding_answer "$id" "$((key - 1))" ;;
+		8) coding_answer "$id" 8 ;;
+		9) coding_request "$id" "variable sites" ;;
+		up) if [ "${HC[$id][answer][question]}" = 7 ]; then [ "${HC[$id][brief_scroll]:-0}" -le 0 ] || HC[$id][brief_scroll]=$((${HC[$id][brief_scroll]} - 1)); return 0; fi; [ "${HC[$id][answer_pos]:-0}" -le 0 ] || HC[$id][answer_pos]=$((${HC[$id][answer_pos]} - 1)) ;;
+		down) if [ "${HC[$id][answer][question]}" = 7 ]; then [ "${HC[$id][brief_scroll]:-0}" -ge $((${HC[$id][brief_lines]:-1} - ${HC[$id][brief_page]:-1})) ] || HC[$id][brief_scroll]=$((${HC[$id][brief_scroll]:-0} + 1)); return 0; fi; [ "${HC[$id][answer_pos]:-0}" -ge $((${HC[$id][answer][count]:-0} - 1)) ] || HC[$id][answer_pos]=$((${HC[$id][answer_pos]:-0} + 1)) ;;
+		enter) coding_answer_open "$id" ;;
+		*) return 1 ;;
+		esac
+		return 0
+	fi
+	if [ "${HC[$id][view]}" != evidence ] && [ "${HC[$id][mode]}" = functions ]; then
+		coding_workspace_key "$id" "$key" "${DT[$id][h]}"
+		return $?
+	fi
+	case $key in
+	enter) coding_reload "$id" ;;
+	f5) coding_reload "$id" ;;
+	f6) coding_history "$id" -1 ;;
+	shift-f6) coding_history "$id" 1 ;;
 	tab)
-		[ -z "${HC[$id][busy]}" ] || return 0
 		case ${HC[$id][mode]} in functions) HC[$id][mode]=calls ;; calls) HC[$id][mode]=refs ;; refs) HC[$id][mode]=check ;; *) HC[$id][mode]=functions ;; esac
 		coding_load "$id"
 		;;
@@ -163,6 +2237,12 @@ fn coding_key(int id, key) {
 	*)
 		edited := dt_textkey "${HC[$id][path]}" "${HC[$id][cursor]}" "$key" || return 1
 		HC[$id][cursor]=${edited##* }
+		if [ "${HC[$id][path]}" != "${edited% *}" ]; then
+			HC[$id][target]=
+			HC[$id][registration]=
+			HC[$id][preferred]=
+			HC[$id][context]="Chosen script"
+		fi
 		HC[$id][path]=${edited% *}
 		;;
 	esac
