@@ -7,10 +7,10 @@
 # events. See docs/CLI.md.
 
 # What the catalogue reads before it fetches this (docs/BUILD.md): the name, a description, the version, and the module it needs.
-app longwire "One long wire between your sites: dial a number, share a LAN" 0.5.75
+app longwire "One long wire between your sites: dial a number, share a LAN" 0.5.76
 # modules: longwire
 
-SELF_VERSION=${LONGWIRE_SELF_VERSION:-0.5.75}		# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${LONGWIRE_SELF_VERSION:-0.5.76}		# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 LW_DIR=${LW_DIR:-$HOME/.longwire}
 LW_SEED=${LW_SEED:-$LW_DIR/seed}
@@ -141,6 +141,7 @@ announce() {
 	                       else say "☎  ${e[from]} is calling"; fi
 	                       bn=$(book_name "${e[from]}")
 	                       [ -z "$bn" ] || say "   in your address book: $bn"
+	                       [ -z "${e[why]}" ] || say "   it is on your line, but not let in by itself: ${e[why]}"
 	                       say "   the safety phrase comes once you are connected: compare it with theirs"
 	                       say "   picking up adds ${e[from]} to your network (your line): it stays a member, and reconnects by itself, until you evict it"
 	                       [ "${e[known]}" = true ] || say "   first call from this number"; fi ;;
