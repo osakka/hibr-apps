@@ -4,7 +4,7 @@
 # modules: hibr-intelligence
 # edit: fields
 strict
-app hibr_intelligence "Preview: local model chat over Hibr source evidence; experimental, answers unverified" 0.1.0
+app hibr_intelligence "Preview: local model chat over Hibr source evidence; experimental, answers unverified" 0.1.1
 command -v dt_app > /dev/null && dt_app hibr_intelligence "Hibr Intelligence" 20 76 once "✦"
 declare -gA HIC
 declare -gA HIC_SOURCE_DIALOG_OWNER
@@ -680,6 +680,7 @@ fn hibr_intelligence_submit(int id, prompt, message, knowledge = "") {
 	if request := intelligence submit "${HIC[$id][session]}" "$maximum" \
 		"${HIC[$id][messages][0][content]}" "$message" 0 0 "${HIC[$id][top_k]:-0}"; then
 		HIC[$id][pending_index]=$count
+		HIC[$id][stream_index]=
 		HIC[$id][request]=$request
 		HIC[$id][prompt]=
 		HIC[$id][cursor]=0
@@ -1463,6 +1464,9 @@ fn hibr_intelligence_memory_source_ready(int job, int status) {
 
 fn hibr_intelligence_restore_pending(int id, message) {
 	local index=${HIC[$id][pending_index]:-0}
+	# A partly streamed answer to a failed or cancelled request is removed.
+	[ -z "${HIC[$id][stream_index]}" ] || unset HIC[$id][messages][${HIC[$id][stream_index]}]
+	HIC[$id][stream_index]=
 	if [ "$index" -gt 0 ]; then
 		HIC[$id][prompt]=$message
 		HIC[$id][cursor]=${#message}
@@ -1790,9 +1794,14 @@ fn hibr_intelligence_poll(int id) {
 			case ${state[state]} in
 			completed)
 				HIC[$id][history_tokens]=${state[result][history_tokens]:-0}
-				HIC[$id][messages][${HIC[$id][message_count]}][role]=assistant
-				HIC[$id][messages][${HIC[$id][message_count]}][content]=${state[result][text]}
-				HIC[$id][message_count]=$((${HIC[$id][message_count]} + 1))
+				# The streamed message, if any, becomes the final answer.
+				if [ -z "${HIC[$id][stream_index]}" ]; then
+					HIC[$id][stream_index]=${HIC[$id][message_count]}
+					HIC[$id][message_count]=$((${HIC[$id][message_count]} + 1))
+				fi
+				HIC[$id][messages][${HIC[$id][stream_index]}][role]=assistant
+				HIC[$id][messages][${HIC[$id][stream_index]}][content]=${state[result][text]}
+				HIC[$id][stream_index]=
 				HIC[$id][request]=
 				HIC[$id][status]=ready
 				HIC[$id][pending_index]=
@@ -1810,6 +1819,16 @@ fn hibr_intelligence_poll(int id) {
 					HIC[$id][status_text]="Generating locally: preparing prompt ${state[progress][prefilled_tokens]:-0}/${state[progress][input_tokens]:-?}; ${state[progress][generated_tokens]:-0}/${state[progress][output_limit]:-?} answer tokens"
 				else
 					HIC[$id][status_text]="Generating locally: decoding ${state[progress][generated_tokens]:-0}/${state[progress][output_limit]:-?} answer tokens"
+					# Show the answer as it is written; it is replaced when complete.
+					if [ -n "${state[progress][text]}" ]; then
+						if [ -z "${HIC[$id][stream_index]}" ]; then
+							HIC[$id][stream_index]=${HIC[$id][message_count]}
+							HIC[$id][message_count]=$((${HIC[$id][message_count]} + 1))
+							HIC[$id][messages][${HIC[$id][stream_index]}][role]=assistant
+						fi
+						HIC[$id][messages][${HIC[$id][stream_index]}][content]=${state[progress][text]}
+						HIC[$id][scroll]=999999
+					fi
 				fi
 				;;
 			esac
