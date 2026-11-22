@@ -20,7 +20,7 @@
 
 strict
 
-app audio "An audio player" 0.7.5
+app audio "An audio player" 0.8.0
 # replaces: apps/huiamp
 # part: control-panel/audioset.hibr
 # part: menubar/audiobar.hibr
@@ -563,23 +563,25 @@ command -v dt_ticker > /dev/null && dt_ticker audio_tick
 #
 # Rows of the window, from the top, on one grid: everything starts at column
 # 3 and ends two short of the right edge.
-#   1-6   the display, on the theme's well colour from edge to edge:
+#   1-6   the display, an LCD panel (the scheme's lcd and lcdink) edge to edge:
 #         1    what it is doing, and the lit words (shuffle, repeat, EQ, sleep)
-#         2-4  the time in big pixel digits, and the spectrum beside it
+#         2-4  the time in big digits, and the spectrum beside it
 #         5    the track's title
 #         6    its format and place in the list, and the stereo level meter
-#   7     the time gone, the seek bar, the length
-#   9-11  the keys (previous, play or pause, stop, next, open) and the volume
-#   13    the playlist's heading, then its tracks, then a line of keys
-# Everything is drawn with the desktop's theme roles and named glyphs; the
-# pictures (the digits, the keys' caps, the meter) are half blocks, two pixels
-# to a cell, as the Video Player's are.  A glyph set with no half blocks
-# (ASCII) gets the same player in plain characters.
+#   7     the time gone, the seek bar (hibr's dt_slider), the length
+#   9     the keys (previous, play or pause, stop, next, open), hibr's icon
+#         buttons, and the volume
+#   11    the playlist's heading, then its tracks, then a line of keys
+# Everything is drawn with the desktop's theme roles, widgets and named
+# glyphs; the pictures (the digits, the meter) are half blocks, two pixels to
+# a cell.  A glyph set with no half blocks (ASCII) gets the same player in
+# plain characters.
 
-AP_LISTROW=14
+AP_LISTROW=12
 AP_TIMEW=21
 AP_VISC=27
 AP_BG=
+AP_LDIM=
 
 # Blit's player glyphs (itdlabs/huiamp#1, Blit 0.3.126): big and small LCD
 # digits, LED meters, slider and fader parts, transport keys and turning discs.
@@ -640,31 +642,6 @@ fn ap_lcdblit(int id, int r, int c, text, pen) {
 	console pen "$pen" "$AP_BG"
 	console put -p "w$id" "$r" "$c" "$top"
 	console put -p "w$id" $((r + 1)) "$c" "$bot"
-}
-
-# A slider in Blit's parts: a cap either side of the track (outside c..c+w-1,
-# so a click maps as dt_slider's does), filled up to the knob.  Without
-# them, dt_slider.
-fn ap_slider(int id, int r, int c, int w, int value, int min, int max, tag) {
-	local pos=0 i line
-
-	if ! ap_blitok; then
-		dt_slider "$id" "$r" "$c" "$w" "$value" "$min" "$max" "$tag"
-		return 0
-	fi
-	[ "$max" -le "$min" ] || pos=$(( (value - min) * (w - 1) / (max - min) ))
-	[ "$pos" -ge 0 ] || pos=0
-	[ "$pos" -le $((w - 1)) ] || pos=$((w - 1))
-	line=${APB["slider-cap-left"]}
-	for ((i = 0; i < w; i++)); do
-		if [ "$i" -lt "$pos" ]; then line+=${APB["slider-track-filled"]}
-		elif [ "$i" = "$pos" ]; then line+=${APB["slider-knob"]}
-		else line+=${APB["slider-track"]}; fi
-	done
-	line+=${APB["slider-cap-right"]}
-	! dt_hot "$id" "$tag" || console pen "$DT_ACTIVE" "$DT_FACE"
-	console put -p "w$id" "$r" $((c - 1)) "$line"
-	dt_wreg "$id" "$r" "$c" "$w" "$tag"
 }
 
 # Do the glyphs here have half blocks to draw pictures with?
@@ -757,46 +734,6 @@ fn ap_lcd(int id, int r, int c, text, pen) {
 	ap_pix "$id" "$r" "$c" "$pen" "$pen" "$AP_BG" "${AP_LCDROWS[@]}"
 }
 
-# One key: a cap of width cells over rows r to r+2 at column c, the glyph in
-# the middle row.  The caps' top and bottom are half cells, so the key stands
-# two cells high with its glyph in the middle.  The main key (play or pause)
-# is drawn in the theme's active colour; any key is lit under the pointer.
-fn ap_key(int id, int r, int c, int width, tag, glyph, int main, pix) {
-	local bg=$DT_IDLE fg=$DT_INK hot line="" i pad name
-
-	if dt_hot "$id" "$tag"; then
-		hot := dt_hotcolour
-		bg=$hot
-		fg=$DT_FACE
-	elif [ "$main" = 1 ]; then
-		bg=$DT_ACTIVE
-		fg=$DT_SELINK
-	fi
-	if [ "$pix" = 1 ]; then
-		for ((i = 0; i < width; i++)); do line+=${GL[lower]}; done
-		console pen "$bg" "$DT_FACE"
-		console put -p "w$id" "$r" "$c" "$line"
-		line=
-		for ((i = 0; i < width; i++)); do line+=${GL[upper]}; done
-		console put -p "w$id" $((r + 2)) "$c" "$line"
-	fi
-	pad=$(((width - ${#glyph}) / 2))
-	[ "$pad" -ge 0 ] || pad=0
-	printf -v line "%*s%s%*s" "$pad" "" "$glyph" $((width - pad - ${#glyph})) ""
-	console pen "$fg" "$bg" bold
-	console put -p "w$id" $((r + 1)) "$c" "${line:0:$width}"
-	dt_wreg "$id" "$r" "$c" "$width" "$tag" 3
-	case $tag in
-	prev) name := dt_tr "Previous" ;;
-	play) name := dt_tr "Play" ;;
-	pause) name := dt_tr "Pause" ;;
-	stop) name := dt_tr "Stop" ;;
-	next) name := dt_tr "Next" ;;
-	open) name := dt_tr "Open" ;;
-	esac
-	dt_tip "$id" "$tag" "$name"
-}
-
 # The level meter: `media wave` gives the newest sound's peaks, 0-255 and
 # linear, so a quiet passage would barely show.  A table made once turns a peak
 # into where it sits on a -48..0 dB scale (0-1000).  The meter is one row of
@@ -858,14 +795,14 @@ fn ap_lvldraw(int id, int r, int c, int n, pix) {
 		pen := ap_segpen "$s" "$n"
 		x=$((c + s * 2))
 		if [ "$pix" = 1 ]; then
-			fg=$DT_IDLE
-			bg=$DT_IDLE
-			if [ "$s" -lt "${lit[0]}" ]; then fg=$pen; elif [ "$s" = $((hold[0] - 1)) ]; then fg=$DT_INK; fi
-			if [ "$s" -lt "${lit[1]}" ]; then bg=$pen; elif [ "$s" = $((hold[1] - 1)) ]; then bg=$DT_INK; fi
+			fg=$AP_LDIM
+			bg=$AP_LDIM
+			if [ "$s" -lt "${lit[0]}" ]; then fg=$pen; elif [ "$s" = $((hold[0] - 1)) ]; then fg=$DT_LCDINK; fi
+			if [ "$s" -lt "${lit[1]}" ]; then bg=$pen; elif [ "$s" = $((hold[1] - 1)) ]; then bg=$DT_LCDINK; fi
 			console pen "$fg" "$bg"
 			console put -p "w$id" "$r" "$x" "${GL[upper]}"
 		else
-			if [ "$s" -lt "${lit[0]}" ] || [ "$s" -lt "${lit[1]}" ]; then console pen "$pen" "$AP_BG" bold; else console pen "$DT_IDLE" "$AP_BG"; fi
+			if [ "$s" -lt "${lit[0]}" ] || [ "$s" -lt "${lit[1]}" ]; then console pen "$pen" "$AP_BG" bold; else console pen "$AP_LDIM" "$AP_BG"; fi
 			console put -p "w$id" "$r" "$x" "${GL[bar4]}"
 		fi
 	done
@@ -883,7 +820,7 @@ fn ap_lvlblit(int id, int r, int c, int width) {
 	[ "$n" -ge 2 ] || return 0
 	for ch in 0 1; do
 		x=$((c + ch * (n + 3)))
-		console pen "$DT_DIM" "$AP_BG"
+		console pen "$AP_LDIM" "$AP_BG"
 		if [ "$ch" = 0 ]; then console put -p "w$id" "$r" "$x" "L"; else console put -p "w$id" "$r" "$x" "R"; fi
 		steps=$(((${AP[$id]["lv$ch"]:-0} * n * 8 + 999) / 1000))
 		[ "${AP[$id]["lv$ch"]:-0}" -gt 0 ] || steps=0
@@ -895,7 +832,7 @@ fn ap_lvlblit(int id, int r, int c, int width) {
 			[ "$g" -le 8 ] || g=8
 			if [ "$g" = 0 ] && [ "$s" = "$hold" ] && [ "$hold" -gt 0 ]; then
 				g=${APB["led-peak-h"]}
-				pen=$DT_INK
+				pen=$DT_LCDINK
 			else
 				g=${APB["led-h-$g"]}
 			fi
@@ -957,7 +894,7 @@ fn ap_visdraw(int id, int c0, int n) {
 				[ "$cells" -le 8 ] || cells=8
 				if [ "$cells" = 0 ] && [ "$cap" -gt "$lvl" ] && [ "$cap" -gt 2 ] && [ $(((cap - 1) / 8)) = "$k" ]; then
 					g=${APB["led-peak-v"]}
-					console pen "$DT_INK" "$AP_BG"
+					console pen "$DT_LCDINK" "$AP_BG"
 				else
 					g=${APB["led-v-$cells"]}
 					console pen "$pen" "$AP_BG"
@@ -970,10 +907,10 @@ fn ap_visdraw(int id, int c0, int n) {
 				console pen "$pen" "$AP_BG"
 			elif [ "$cap" -gt "$lvl" ] && [ "$cap" -gt 2 ] && [ $(((cap - 1) / 8)) = "$k" ]; then
 				g=${GL["spark1"]}
-				console pen "$DT_INK" "$AP_BG"
+				console pen "$DT_LCDINK" "$AP_BG"
 			elif [ "$k" = 0 ]; then
 				g=${GL["spark1"]}
-				console pen "$DT_IDLE" "$AP_BG"
+				console pen "$AP_LDIM" "$AP_BG"
 			else
 				continue
 			fi
@@ -1013,12 +950,32 @@ fn ap_led(int id, int r, int c, text, int on, tag) {
 	if dt_hot "$id" "$tag"; then
 		console pen "$DT_ACTIVE" "$AP_BG" bold
 	elif [ "$on" = 1 ]; then
-		console pen "$DT_GOOD" "$AP_BG" bold
+		console pen "$DT_LCDINK" "$AP_BG" bold
 	else
-		console pen "$DT_DIM" "$AP_BG"
+		console pen "$AP_LDIM" "$AP_BG"
 	fi
 	console put -p "w$id" "$r" "$c" "$text"
 	dt_wreg "$id" "$r" "$c" "${#text}" "$tag"
+}
+
+# One of the keys: hibr's icon button w columns wide at row 9, column c --
+# lit while it is the key that is playing, down while the pointer holds it --
+# and its tip.
+fn ap_btn(int id, int c, int w, tag, glyph) {
+	local state="" name
+
+	[ "${AP[$id]["down"]:-}" != "$tag" ] || state=pressed
+	[ "$tag" != pause ] || state=lit
+	dt_button "$id" 9 "$c" "$glyph" 0 "$tag" "$w" "$state"
+	case $tag in
+	prev) name := dt_tr "Previous" ;;
+	play) name := dt_tr "Play" ;;
+	pause) name := dt_tr "Pause" ;;
+	stop) name := dt_tr "Stop" ;;
+	next) name := dt_tr "Next" ;;
+	open) name := dt_tr "Open" ;;
+	esac
+	dt_tip "$id" "$tag" "$name"
 }
 
 # A key's glyph: Blit's wide transport picture, or the glyph set's own.
@@ -1062,7 +1019,10 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	ap_pixok && pix=1
 	blit=0
 	ap_blitok && blit=1
-	AP_BG=$DT_WELL
+	# the display is an LCD panel: the scheme's lcd colour, lit in its lcdink,
+	# and the unlit parts that ink at half strength
+	AP_BG=${DT_LCD:-$DT_WELL}
+	AP_LDIM := console shade "${DT_LCDINK:-$DT_GOOD}" 40 || AP_LDIM=$DT_DIM
 	n=${AP[$id]["n"]}
 	sel=${AP[$id]["sel"]}
 	cur=${AP[$id]["cur"]}
@@ -1075,17 +1035,17 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	esac
 	sep=" ${GL[dot]} "
 
-	# the display: the well colour from edge to edge, rows 1 to 6
+	# the display: the LCD from edge to edge, rows 1 to 6
 	printf -v line "%*s" "$w" ""
-	console pen "$DT_INK" "$AP_BG"
+	console pen "$DT_LCDINK" "$AP_BG"
 	for ((r = 1; r <= 6; r++)); do console put -p "w$id" "$r" 1 "$line"; done
 
 	# row 1: what it is doing, and the lit words at the right
 	case $st in
-	playing) glyph=${GL[play]}; pen=$DT_GOOD; text := dt_tr "Playing" ;;
+	playing) glyph=${GL[play]}; pen=$DT_LCDINK; text := dt_tr "Playing" ;;
 	paused) glyph=${GL[pause]}; pen=$DT_WARN; text := dt_tr "Paused" ;;
-	loading) glyph=${GL[ellipsis]}; pen=$DT_DIM; text := dt_tr "Loading" ;;
-	*) glyph=${GL[stop]}; pen=$DT_DIM; text := dt_tr "Stopped" ;;
+	loading) glyph=${GL[ellipsis]}; pen=$AP_LDIM; text := dt_tr "Loading" ;;
+	*) glyph=${GL[stop]}; pen=$AP_LDIM; text := dt_tr "Stopped" ;;
 	esac
 	if [ "$blit" = 1 ] && [ -z "${APB["vinyl-big-0-r0c0"]-}" ] && [ -n "${APB["vinyl-0-left"]-}" ]; then
 		# Blit's record turns while it plays, eight frames a second
@@ -1095,7 +1055,7 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	fi
 	console pen "$pen" "$AP_BG" bold
 	console put -p "w$id" 1 3 "$glyph"
-	console pen "$DT_DIM" "$AP_BG"
+	console pen "$AP_LDIM" "$AP_BG"
 	console put -p "w$id" 1 $((4 + ${#glyph})) "$text"
 	slp=0
 	[ "${AP[$id]["sleep"]:-0}" = 0 ] || slp=1
@@ -1103,7 +1063,7 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	[ "$slp" = 0 ] || t := ap_sleeptext "$id"
 	c=$((right + 1 - ${#t}))
 	if [ -n "$t" ]; then
-		console pen "$DT_GOOD" "$AP_BG"
+		console pen "$DT_LCDINK" "$AP_BG"
 		console put -p "w$id" 1 "$c" "$t"
 		c=$((c - 1))
 	fi
@@ -1133,9 +1093,9 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	fi
 	[ "$secs" -le 5999 ] || secs=5999
 	printf -v text "%s%02d:%02d" "$rem" $((secs / 60)) $((secs % 60))
-	pen=$DT_GOOD
+	pen=$DT_LCDINK
 	[ "$st" != paused ] || pen=$DT_WARN
-	[ "$cur" -ge 0 ] || pen=$DT_IDLE
+	[ "$cur" -ge 0 ] || pen=$AP_LDIM
 	if [ "$blit" = 1 ]; then
 		# eleven columns wide, after Blit's big record (four cells by two
 		# rows, Blit 0.3.127) where this Blit has it
@@ -1168,9 +1128,9 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	title=${AP[$id]["title"]}
 	if [ -z "$title" ]; then
 		title := dt_tr "Audio Player"
-		console pen "$DT_DIM" "$AP_BG" bold
+		console pen "$AP_LDIM" "$AP_BG" bold
 	else
-		console pen "$DT_INK" "$AP_BG" bold
+		console pen "$DT_LCDINK" "$AP_BG" bold
 	fi
 	if [ "${#title}" -gt "$iw" ]; then
 		title="$title     "
@@ -1190,7 +1150,7 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 		if [ "${dur:-0}" -gt 0 ]; then u := ap_clock "$dur"; line+="$sep$u"; fi
 	fi
 	lc=$((right / 2 + 4))
-	console pen "$DT_DIM" "$AP_BG"
+	console pen "$AP_LDIM" "$AP_BG"
 	console put -p "w$id" 6 3 "${line:0:$((lc - 5))}"
 	ap_lvldraw "$id" 6 "$lc" $(((right - lc + 2) / 2)) "$pix"
 	if [ "$st" != playing ]; then
@@ -1217,32 +1177,33 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	printf -v line "%5s" "$t"
 	console put -p "w$id" 7 3 "$line"
 	console put -p "w$id" 7 $((right - 4)) "$u"
-	console pen "$DT_ACTIVE" "$DT_FACE"
-	ap_slider "$id" 7 "$sc" "$sw" "$frac" 0 1000 seek
+	dt_slider "$id" 7 "$sc" "$sw" "$frac" 0 1000 seek
 	t := dt_tr "Seek"
 	dt_tip "$id" seek "$t"
 
-	# rows 9-11: the keys; one key plays and pauses, as its glyph says
+	# row 9: the keys, hibr's icon buttons (Blit's key caps in the blit set);
+	# one plays and pauses, as its glyph says, and stays down, lit, while it
+	# plays; a key is down while the pointer holds it
 	pl=play
 	[ "$st" != playing ] || pl=pause
 	glyph := ap_kglyph "$pl" "$blit"
-	# a key is as wide as its glyph allows it to stand centred: five cells
-	# round a one-cell glyph, six round Blit's two-cell ones
+	# as wide as lets its glyph stand centred: two ends round the face, and
+	# the face two wider than a glyph of one cell or two
 	kw=$((4 + ${#glyph}))
 	c=3
 	t := ap_kglyph prev "$blit"
-	ap_key "$id" 9 "$c" "$kw" prev "$t" 0 "$pix"
+	ap_btn "$id" "$c" "$kw" prev "$t"
 	c=$((c + kw + 1))
-	ap_key "$id" 9 "$c" $((kw + 2)) "$pl" "$glyph" 1 "$pix"
+	ap_btn "$id" "$c" $((kw + 2)) "$pl" "$glyph"
 	c=$((c + kw + 3))
 	t := ap_kglyph stop "$blit"
-	ap_key "$id" 9 "$c" "$kw" stop "$t" 0 "$pix"
+	ap_btn "$id" "$c" "$kw" stop "$t"
 	c=$((c + kw + 1))
 	t := ap_kglyph next "$blit"
-	ap_key "$id" 9 "$c" "$kw" next "$t" 0 "$pix"
+	ap_btn "$id" "$c" "$kw" next "$t"
 	c=$((c + kw + 2))
 	t := ap_kglyph eject "$blit"
-	ap_key "$id" 9 "$c" "$kw" open "$t" 0 "$pix"
+	ap_btn "$id" "$c" "$kw" open "$t"
 	c=$((c + kw))
 
 	# the volume beside them: the speaker, a slider, a number
@@ -1251,36 +1212,35 @@ fn audio_draw(int id, int h, int w, int row, int col) {
 	vc=$((c + 3))
 	AP[$id]["volfrom"]=$vc
 	console pen "$DT_DIM" "$DT_FACE"
-	console put -p "w$id" 10 "$vc" "$glyph"
-	dt_wreg "$id" 10 "$vc" "${#glyph}" mute
+	console put -p "w$id" 9 "$vc" "$glyph"
+	dt_wreg "$id" 9 "$vc" "${#glyph}" mute
 	vc=$((vc + ${#glyph} + 1))
 	vw=$((right - 4 - vc))
 	[ "$vw" -ge 6 ] || vw=6
 	AP[$id]["volc"]=$vc
 	AP[$id]["volw"]=$vw
-	AP[$id]["volr"]=10
-	console pen "$DT_GOOD" "$DT_FACE"
-	ap_slider "$id" 10 "$vc" "$vw" "$AUDIO_VOLUME" 0 100 vol
+	AP[$id]["volr"]=9
+	dt_slider "$id" 9 "$vc" "$vw" "$AUDIO_VOLUME" 0 100 vol
 	console pen "$DT_DIM" "$DT_FACE"
 	printf -v line "%4s" "$AUDIO_VOLUME%"
-	console put -p "w$id" 10 $((vc + vw + 1)) "$line"
+	console put -p "w$id" 9 $((vc + vw + 1)) "$line"
 	t := dt_tr "Volume"
 	dt_tip "$id" vol "$t"
 	t := dt_tr "Mute"
 	dt_tip "$id" mute "$t"
 
-	# row 13: the playlist's heading on a rule
+	# row 11: the playlist's heading on a rule
 	console pen "$DT_IDLE" "$DT_FACE"
 	line=
 	for ((i = 0; i < w; i++)); do line+=${GL[hline]}; done
-	console put -p "w$id" 13 1 "$line"
+	console put -p "w$id" $((AP_LISTROW - 1)) 1 "$line"
 	t := dt_tr "Playlist"
 	console pen "$DT_INK" "$DT_FACE" bold
-	console put -p "w$id" 13 3 " $t "
+	console put -p "w$id" $((AP_LISTROW - 1)) 3 " $t "
 	if [ "$n" -gt 0 ]; then
 		if [ "$n" = 1 ]; then u := dt_tr "1 track"; else u := dt_tr "%s tracks" "$n"; fi
 		console pen "$DT_DIM" "$DT_FACE"
-		console put -p "w$id" 13 $((right - ${#u} - 1)) " $u "
+		console put -p "w$id" $((AP_LISTROW - 1)) $((right - ${#u} - 1)) " $u "
 	fi
 
 	# the tracks; the one playing has the play glyph and its length
@@ -1367,7 +1327,7 @@ fn ap_compact(int id) {
 	else
 		AP[$id]["mini"]=1
 		AP[$id]["fullh"]=$h
-		dt_resize "$id" 13 "$w"
+		dt_resize "$id" 11 "$w"
 	fi
 	ap_bump "$id"
 }
@@ -1414,6 +1374,7 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 	if [ "$act" = release ]; then
 		if [ "${AP[$id]["drag"]}" = seek ]; then ap_seekfrac "$id" "${AP[$id]["dragval"]}"; fi
 		AP[$id]["drag"]=
+		AP[$id]["down"]=
 		ap_bump "$id"
 		return 0
 	fi
@@ -1447,6 +1408,9 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 	fi
 	[ "$button" = left ] || return 0
 	tag := dt_hit "$id" "$r" "$c" || tag=
+	case $tag in
+	prev | play | pause | stop | next | open) AP[$id]["down"]=$tag ;;
+	esac
 	case $tag in
 	seek)
 		AP[$id]["drag"]=seek
@@ -1491,7 +1455,7 @@ fn audio_mouse(int id, act, button, int r, int c, mods) {
 fn audio_wheel(int id, dir, int r, int c) {
 	local top=${AP[$id]["top"]} n=${AP[$id]["n"]}
 
-	if [ "$r" = "${AP[$id]["volr"]:-10}" ] && [ "$c" -ge "${AP[$id]["volfrom"]:-38}" ]; then
+	if [ "$r" = "${AP[$id]["volr"]:-9}" ] && [ "$c" -ge "${AP[$id]["volfrom"]:-38}" ]; then
 		if [ "$dir" = up ]; then ap_vol "$id" $((AUDIO_VOLUME + 5)); else ap_vol "$id" $((AUDIO_VOLUME - 5)); fi
 		return 0
 	fi
@@ -1636,7 +1600,7 @@ audio_menus() {
 # simply kept until then.
 # ============================================================================
 
-command -v dt_app > /dev/null && dt_app audioeq "Audio Player Equalizer" 17 74 once "≋" fixed hidden
+command -v dt_app > /dev/null && dt_app audioeq "Audio Player Equalizer" 19 74 once "≋" fixed hidden
 
 declare -gA APEQ
 APEQ_FREQ=("60" "170" "310" "600" "1K" "3K" "6K" "12K" "14K" "16K")
@@ -1644,7 +1608,7 @@ APEQ_CAN=
 APEQ_SPEC=
 APEQ_WAVE=
 APEQ_TOP=3
-APEQ_ROWS=9
+APEQ_ROWS=11
 
 # The presets, in the order the list shows them: the preamp, then ten bands.
 APEQ_NAMES=("Flat" "Rock" "Pop" "Bass Boost" "Treble Boost" "Vocal" "Dance" "Classical")
@@ -1772,95 +1736,52 @@ fn audioeq_dirty(int id) {
 }
 
 fn audioeq_draw(int id, int h, int w, int row, int col) {
-	local pid=${APEQ[$id]["parent"]} b r c v line lab name zero p kr half fg blit=0 vr
+	local b r c v line lab name zero
 	local bot=$((APEQ_TOP + APEQ_ROWS))
-
-	ap_blitok && blit=1
-	# Blit's faders have a cap at each end: the values and names go a row lower
-	vr=$bot
-	[ "$blit" = 0 ] || vr=$((bot + 1))
 
 	dt_wclear "$id"
 	APEQ[$id]["drawn"]=${APEQ[$id]["gen"]}
-	zero=$((APEQ_TOP + 4))
-	AP_BG=$DT_WELL
-
-	# the display: the player's well colour from edge to edge, over all but
-	# the line of keys
-	printf -v line "%*s" "$w" ""
-	console pen "$DT_INK" "$AP_BG"
-	for ((r = 1; r < h; r++)); do console put -p "w$id" "$r" 1 "$line"; done
+	zero=$((APEQ_TOP + APEQ_ROWS / 2))
 
 	# on or off, the preset in a dropdown, and a word when the engine has none
-	console pen "$DT_INK" "$AP_BG"
+	console pen "$DT_INK" "$DT_FACE"
 	dt_check "$id" 1 3 "${APEQ[$id]["on"]}" "On" on
 	name=${APEQ[$id]["preset"]}
 	[ "$name" != Custom ] || name := dt_tr "Custom"
 	dt_wdrop "$id" 1 13 18 "$name" preset
 	if [ "$APEQ_CAN" != 1 ]; then
 		line := dt_tr "The media module here has no equalizer"
-		console pen "$DT_WARN" "$AP_BG"
+		console pen "$DT_WARN" "$DT_FACE"
 		console put -p "w$id" 1 34 "${line:0:$((w - 35))}"
 	fi
 
 	# the scale at the left, and a rule between the preamp and the bands
-	console pen "$DT_DIM" "$AP_BG"
+	console pen "$DT_DIM" "$DT_FACE"
 	console put -p "w$id" "$APEQ_TOP" 3 "+12"
 	console put -p "w$id" "$zero" 3 "  0"
 	console put -p "w$id" $((bot - 1)) 3 "-12"
-	console pen "$DT_IDLE" "$AP_BG"
-	for ((r = APEQ_TOP; r <= vr + 1; r++)); do console put -p "w$id" "$r" 11 "${GL[vline]}"; done
+	console pen "$DT_IDLE" "$DT_FACE"
+	for ((r = APEQ_TOP; r <= bot + 1; r++)); do console put -p "w$id" "$r" 11 "${GL[vline]}"; done
 
-	# the faders: a track, the part of it from zero to the knob lit, a zero
-	# mark, and a three-cell knob that moves by half a row, so every step of
-	# the value shows; the one the arrows move has its value and name lit
+	# the faders, hibr's dt_fader (Blit's in the blit set), -12 dB at the
+	# bottom and +12 at the top, a tick either side at zero; the one the
+	# arrows move has its value and name lit.  A click anywhere in a band's
+	# three columns sets it.
 	for ((b = -1; b < 10; b++)); do
 		v := ap_eqvalue "$id" "$b"
 		c := ap_eqcol "$b"
-		p=$(( ((12 - v) * 17 + 12) / 24 ))
-		kr=$((APEQ_TOP + p / 2))
-		half=$((p % 2))
-		fg=$DT_ACTIVE
-		[ "${APEQ[$id]["on"]}" = 1 ] || fg=$DT_DIM
-		if [ "$blit" = 1 ]; then
-			# Blit's fader: plain track above the knob, filled below it
-			console pen "$fg" "$AP_BG"
-			console put -p "w$id" $((APEQ_TOP - 1)) "$c" "${APB["fader-cap-top"]}"
-			for ((r = APEQ_TOP; r < bot; r++)); do
-				if [ "$r" = "$kr" ]; then line=${APB["fader-knob"]}
-				elif [ "$r" -lt "$kr" ]; then line=${APB["fader-track"]}
-				else line=${APB["fader-track-filled"]}; fi
-				console put -p "w$id" "$r" "$c" "$line"
-			done
-			console put -p "w$id" "$bot" "$c" "${APB["fader-cap-bottom"]}"
-		else
-			for ((r = APEQ_TOP; r < bot; r++)); do
-				if { [ "$v" -gt 0 ] && [ "$r" -gt "$kr" ] && [ "$r" -lt "$zero" ]; } ||
-					{ [ "$v" -lt 0 ] && [ "$r" -lt "$kr" ] && [ "$r" -gt "$zero" ]; }; then
-					console pen "$fg" "$AP_BG"
-				else
-					console pen "$DT_IDLE" "$AP_BG"
-				fi
-				console put -p "w$id" "$r" "$c" "${GL[vline]}"
-			done
-			console pen "$DT_IDLE" "$AP_BG"
-			console put -p "w$id" "$zero" $((c - 1)) "${GL[hline]}${GL[hline]}${GL[hline]}"
-			console pen "$fg" "$AP_BG" bold
-			if [ "$half" = 0 ]; then
-				console put -p "w$id" "$kr" $((c - 1)) "${GL[upper]}${GL[upper]}${GL[upper]}"
-			else
-				console put -p "w$id" "$kr" $((c - 1)) "${GL[lower]}${GL[lower]}${GL[lower]}"
-			fi
-		fi
-		# the value under it and the frequency under that
-		if [ "$b" = "${APEQ[$id]["focus"]}" ]; then console pen "$DT_ACTIVE" "$AP_BG" bold; else console pen "$DT_DIM" "$AP_BG"; fi
+		console pen "$DT_IDLE" "$DT_FACE"
+		console put -p "w$id" "$zero" $((c - 1)) "${GL[hline]}"
+		console put -p "w$id" "$zero" $((c + 1)) "${GL[hline]}"
+		dt_wreg "$id" "$APEQ_TOP" $((c - 1)) 3 "band:$b" "$APEQ_ROWS"
+		dt_fader "$id" "$APEQ_TOP" "$c" "$APEQ_ROWS" "$v" -12 12 "band:$b"
+		if [ "$b" = "${APEQ[$id]["focus"]}" ]; then console pen "$DT_ACTIVE" "$DT_FACE" bold; else console pen "$DT_DIM" "$DT_FACE"; fi
 		line := ap_db "$v"
 		printf -v line "%3s" "$line"
-		console put -p "w$id" "$vr" $((c - 1)) "$line"
+		console put -p "w$id" "$bot" $((c - 1)) "$line"
 		if [ "$b" = -1 ]; then lab := dt_tr "Pre"; else lab=${APEQ_FREQ[$b]}; fi
 		printf -v lab "%3s" "$lab"
-		console put -p "w$id" $((vr + 1)) $((c - 1)) "$lab"
-		dt_wreg "$id" "$APEQ_TOP" $((c - 1)) 3 "band:$b" "$APEQ_ROWS"
+		console put -p "w$id" $((bot + 1)) $((c - 1)) "$lab"
 		if [ "$b" = -1 ]; then lab := dt_tr "Preamp"; else lab="${APEQ_FREQ[$b]} Hz"; fi
 		dt_tip "$id" "band:$b" "$lab"
 	done
@@ -1907,7 +1828,7 @@ fn audioeq_key(int id, key) {
 
 # A click: On, the preset list, a band's column (the row says the value).
 fn audioeq_click(int id, int r, int c, button) {
-	local tag b x zero=$((APEQ_TOP + 4))
+	local tag b x v
 
 	tag := dt_hit "$id" "$r" "$c" || tag=
 	case $tag in
@@ -1920,7 +1841,8 @@ fn audioeq_click(int id, int r, int c, button) {
 	band:*)
 		b := ap_eqtagband "$tag"
 		APEQ[$id]["focus"]=$b
-		ap_eqset "$id" "$b" $(((zero - r) * 3))
+		v := dt_fadepos "$r" "$APEQ_TOP" "$APEQ_ROWS" -12 12
+		ap_eqset "$id" "$b" "$v"
 		;;
 	key:*) audioeq_key "$id" "${tag#key:}" ;;
 	esac
@@ -1953,7 +1875,7 @@ fn ap_eqtoggle(int id) {
 	r=$((${AP[$id]["row"]:-1} + ${AP[$id]["h"]:-22} + 2))
 	[ $((r + 18)) -le "${DT_ROWS:-24}" ] || r=$((${DT_ROWS:-24} - 18))
 	[ "$r" -ge 1 ] || r=1
-	w := dt_new "Equalizer" 17 74 "$r" "${AP[$id]["col"]:-2}" audioeq "$id"
+	w := dt_new "Equalizer" 19 74 "$r" "${AP[$id]["col"]:-2}" audioeq "$id"
 	AP[$id]["eqwin"]=$w
 	ap_bump "$id"
 }

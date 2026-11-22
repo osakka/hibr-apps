@@ -528,7 +528,8 @@ ENTHIBR["control-panel/longwire"]=0.99.534
 ENTHIBR["apps/huiamp"]=0.99.534
 # In the Sound & Video folder, which a client before 0.99.548 could not place (cat_dirok refused the ampersand and put the app at the top of Applications): an older desktop keeps the version it has, in Internet or as Huiamp.
 ENTHIBR["apps/video"]=0.99.548
-ENTHIBR["apps/audio"]=0.99.548
+# Audio Player 0.8.0 draws its LCD panel in the colour scheme's DT_LCD and DT_LCDINK, which 0.99.556 added (#603).
+ENTHIBR["apps/audio"]=0.99.556
 # Blit's pane 0.1.38 sets its server address with dt_set (a pane's process
 # holds the desktop's state read-only, hibr ADR 0050), new in 0.99.554.
 ENTHIBR["control-panel/blit"]=0.99.554
