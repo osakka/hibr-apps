@@ -7,10 +7,10 @@
 # events. See docs/CLI.md.
 
 # What the catalogue reads before it fetches this (docs/BUILD.md): the name, a description, the version, and the module it needs.
-app longwire "One long wire between your sites: dial a number, share a LAN" 0.5.79
+app longwire "One long wire between your sites: dial a number, share a LAN" 0.5.80
 # modules: longwire
 
-SELF_VERSION=${LONGWIRE_SELF_VERSION:-0.5.79}		# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
+SELF_VERSION=${LONGWIRE_SELF_VERSION:-0.5.80}		# this script's version: the catalogue's. The engine is the package's, and a running node has its own.
 
 LW_DIR=${LW_DIR:-$HOME/.longwire}
 LW_SEED=${LW_SEED:-$LW_DIR/seed}
@@ -147,6 +147,7 @@ announce() {
 	                       [ "${e[known]}" = true ] || say "   first call from this number"; fi ;;
 	found)            [ "${e[directory]}" = true ] || say "·  this switchboard has no directory" ;;
 	line-joined)      say "·  on line ${e[line]} with ${e[members]} members" ;;
+	port-lost)        say "✗  ${e[port]} is gone: the node ends here, and its service starts it again (a card unplugged, or a container's link removed)" ;;
 	member-joined)    say "·  ${e[number]} joined the line" ;;
 	member-left)      say "·  ${e[number]} left the line" ;;
 	member-expired)   say "·  ${e[number]}'s admit has ended: it is off the line until its operator gives it a new one" ;;
@@ -591,7 +592,14 @@ cmd_show() {
 		if [ "$xu" = true ]; then		# through the member that shares its internet (docs/adr/0056)
 			xn := json get S .exit.using
 			xw := json get S .exit.wanted
-			if [ -n "$xn" ]; then
+			local df ds= xr=
+			for df in "${LONGWIRE_RUN:-/run/longwire}"/dhcp-lw*.state; do	# the lease's router is the way out when it names one (docs/adr/0108)
+				[ -r "$df" ] && read -r ds < "$df" 2> /dev/null
+				[[ $ds == bound*" via "* ]] && { xr=${ds##* via }; break; }
+			done
+			if [ -n "$xr" ]; then
+				echo "   way out       the LAN's router $xr (from the lease)"
+			elif [ -n "$xn" ]; then
 				echo "   way out       $xn, which shares its internet"
 			elif [ -n "$xw" ]; then
 				lw_out "   ⚠  way out: $xw is not sharing its internet now, so nothing goes out through the line"
@@ -607,6 +615,14 @@ cmd_show() {
 		esac
 	fi
 	cnt := json len S .peers
+	local pairl= role
+	for ((i = 0; i < ${cnt:-0}; i++)); do	# the boxes of a pair, as they say they are (docs/adr/0111): one line for the pair
+		role := json get S ".peers[$i].site"
+		[ -n "$role" ] || continue
+		num := json get S ".peers[$i].number"
+		pairl="${pairl:+$pairl · }$num $role"
+	done
+	[ -z "$pairl" ] || echo "   pair          $pairl   (one site: if the active box fails, the standby takes over by itself)"
 	for ((i = 0; i < ${cnt:-0}; i++)); do
 		num := json get S ".peers[$i].number"
 		st := json get S ".peers[$i].state"
@@ -616,7 +632,8 @@ cmd_show() {
 		tx := json get S ".peers[$i].tx_bytes"
 		[ -n "$num" ] || continue
 		if [ "$st" = up ]; then
-			echo "   connected     $num  up${path:+ $path}${age:+, $(human_age "${age%.*}")}  in $(human_bytes "${rx:-0}"), out $(human_bytes "${tx:-0}")"
+			role := json get S ".peers[$i].site"
+			echo "   connected     $num  up${path:+ $path}${age:+, $(human_age "${age%.*}")}${role:+, $role box of the pair}  in $(human_bytes "${rx:-0}"), out $(human_bytes "${tx:-0}")"
 		else			# a peer known to this node with no session now: not a connection, whatever it carried before
 			echo "   not connected $num  ($st: no session now; it comes back by itself when the other end does)  carried in $(human_bytes "${rx:-0}"), out $(human_bytes "${tx:-0}")"
 		fi
@@ -1103,7 +1120,7 @@ up_again() {
 }
 
 cmd_up() {
-	local answer= line profile= given=0 a
+	local answer= line profile= given=0 a pair= pair_at=0
 	local args=()
 	local orig=("$@")
 	while [ $# -gt 0 ]; do
@@ -1112,6 +1129,11 @@ cmd_up() {
 		--switchboard|--jack|--splice|--sock-port|--peer) given=1 ;;&
 		--answer|--admit) [ $# -ge 2 ] || { echo "longwire: $1 needs a value" >&2; exit 2; } ;;&
 		--answer) answer=$2; shift 2 ;;
+		--pair) [ $# -ge 2 ] || { echo "longwire: --pair needs the other box's number" >&2; exit 2; }	# the other box of a pair (ADR 0109): dialled until the two are in touch, and answered by itself
+			pair=${2//-/}
+			[[ $pair =~ ^[0-9]{9}$ ]] || { echo "longwire: --pair wants a number like 259-619-514" >&2; exit 2; }
+			pair=${pair:0:3}-${pair:3:3}-${pair:6:3}
+			shift 2 ;;
 		--admit) local ad=$2; [ -r "$ad" ] && read -r ad < "$2"; args+=(--admit "$ad"); shift 2 ;;	# a file, or the hex itself
 		*) args+=("$1"); shift ;;
 		esac
@@ -1155,12 +1177,17 @@ cmd_up() {
 	while :; do
 		next_event
 		rc=$?
+		if [ -n "$pair" ] && [ $(( SECONDS - pair_at )) -ge 30 ]; then	# the other box of the pair: in touch, or being called, or dialled now (ADR 0109)
+			pair_at=$SECONDS
+			a=$(lw status 2> /dev/null)
+			[[ $a == *"\"number\":\"$pair\",\"state\":"* ]] || lw dial "$pair" > /dev/null 2>&1	# without a dial tone it fails, and is tried again
+		fi
 		[ $rc -eq 142 ] && continue
 		[ $rc -ne 0 ] && break
 		line=$EVLINE
 		json parse e "$line"
 		case ${e[event]} in
-		ring) announce ring; on_ring "$answer" ;;
+		ring) announce ring; if [ -n "$pair" ] && [ "${e[from]}" = "$pair" ] && [ "$answer" != never ]; then lw pickup "${e[call]}" > /dev/null; else on_ring "$answer"; fi ;;
 		roamed) announce roamed; exec 5<&-; up_again "${orig[@]}" ;;
 		watching) ;;
 		*) announce "${e[event]}" ;;
