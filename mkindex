@@ -546,6 +546,17 @@ ENTHIBR["control-panel/appearance"]=0.99.555
 ENTHIBR["apps/vault"]=0.99.555
 ENTHIBR["apps/imgview"]=0.99.555
 ENTHIBR["control-panel/shortcuts"]=0.99.555
+# 0.99.556: Appearance sets the colour roles 0.99.556 added (DT_LCD and the
+# control roles), Screen Saver's keep-awake row needs 0.99.556's saver rule,
+# and Mouse offers Super, which only 0.99.556's console carries on a press.
+ENTHIBR["control-panel/appearance"]=0.99.556
+ENTHIBR["control-panel/screensaver"]=0.99.556
+ENTHIBR["control-panel/mouse"]=0.99.556
+# Kept, not needed: Program Notifications was floored 0.99.555 by
+# dt_note_drop's since, which hibr #627 found later than the function's
+# first release (it predates the contract). A published floor never drops,
+# so it stays until the pane's version next moves.
+ENTHIBR["control-panel/pnotes"]=0.99.555
 # And the release whose `apps` has a `mods` kind at all, and whose shell
 # has a module directory of the person's own to put one in (ADR 0044,
 # Gitea #221). Before it there was nowhere for a module to land and `apps`
