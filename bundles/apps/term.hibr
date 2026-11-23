@@ -13,7 +13,7 @@
 
 strict
 
-app term "A shell in a window" 1.8.8
+app term "A shell in a window" 1.8.9
 # part: control-panel/terminal.hibr
 # modules: pty term
 
@@ -235,7 +235,9 @@ fn tw_fit(int id, int h, int w) {
 	tsess := dt_holdsess
 	pt := dt_procfull term "$tsess" "$id" "$pt"
 	if [ -z "${TW[$id]["t"]}" ]; then
-		if [ -n "${TW[$id]["argvn"]}" ]; then
+		if [ -n "${DT[$id]["prog"]-}" ] && [ -z "${TW[$id]["took"]-}" ] && tw_takeback "$id" "$h" "$w"; then
+			:
+		elif [ -n "${TW[$id]["argvn"]}" ]; then
 			n=${TW[$id]["argvn"]}
 			i=0
 			while [ "$i" -lt "$n" ]; do
@@ -261,6 +263,12 @@ fn tw_fit(int id, int h, int w) {
 		[ -n "$DT_CURSOR" ] && term cursor "${TW[$id]["t"]}" "$DT_CURSOR"
 		TW[$id]["h"]=$h
 		TW[$id]["w"]=$w
+		# Said to the desktop, which owns it when this window is drawn by
+		# the app's own process (ADR 0050): kept for Reopen should that
+		# process go, as the window's record names it.
+		local prog
+		prog := term pid "${TW[$id]["t"]}"
+		[ -z "$prog" ] || [ "$prog" = "${DT[$id]["prog"]-}" ] || dt_winprog "$id" "$prog"
 		# console key's own wait now watches this pty's master fd
 		# alongside real input, so the desktop wakes the instant the
 		# program inside writes something -- a key's echo included --
@@ -281,6 +289,22 @@ fn tw_fit(int id, int h, int w) {
 		TW[$id]["h"]=$h
 		TW[$id]["w"]=$w
 	fi
+	return 0
+}
+
+# The program the desktop kept for this window when its app's process went
+# (ADR 0050): taken back by its pid, once, as Reopen opens the window again,
+# not started afresh. Status 1 when it cannot be, and a new one is started.
+fn tw_takeback(int id, int h, int w) {
+	local p t
+
+	TW[$id]["took"]=1
+	p := pty adopt -1 "${DT[$id]["prog"]}" "$h" "$w" 2> /dev/null || return 1
+	if ! t := term adopt -r "$h" -c "$w" "$p"; then
+		pty close "$p"
+		return 1
+	fi
+	TW[$id]["t"]=$t
 	return 0
 }
 
@@ -686,29 +710,26 @@ fn term_isshell(int id) {
 }
 
 # A window opened on a file edits it, and is called what it shows.  Opened
-# through a registered handler that wanted a terminal, DT_OPENCMD carries
-# what runs instead of hvi -- read once, here, and cleared, so the next
-# ordinary terminal or file does not inherit it.
+# through a registered handler that wanted a terminal, the window's own
+# record carries what runs instead of hvi (cmd0 to cmd<n-1>, cmdn), and
+# whether that is the file itself (openself) or a shell (openshell): the
+# desktop took them into it as the window was made, so it reaches this
+# whichever process runs it.
 fn term_open(int id, arg) {
-	local n i
+	local n=${DT[$id]["cmdn"]-0} i=0
 
-	# Its content is text, so the pointer over it is an I-beam (Gitea #394).
-	dt_has dt_pointer && dt_pointer "$id" text
 	TW[$id]["file"]=$arg
-	if [ "${#DT_OPENCMD[@]}" -gt 0 ]; then
-		n=${#DT_OPENCMD[@]}
-		i=0
+	if [ "$n" -gt 0 ]; then
 		while [ "$i" -lt "$n" ]; do
-			TW[$id]["arg$i"]="${DT_OPENCMD[$i]}"
+			TW[$id]["arg$i"]="${DT[$id]["cmd$i"]}"
 			i=$((i + 1))
 		done
 		TW[$id]["argvn"]=$n
-		DT_OPENCMD=()
 	fi
-	TW[$id]["selfrun"]=$DT_OPENSELF
-	TW[$id]["shell"]=$DT_OPENSHELL
-	DT_OPENSELF=
-	DT_OPENSHELL=
+	TW[$id]["selfrun"]=${DT[$id]["openself"]-}
+	TW[$id]["shell"]=${DT[$id]["openshell"]-}
+	# Its content is text, so the pointer over it is an I-beam (Gitea #394).
+	dt_has dt_pointer && dt_pointer "$id" text
 	if [ -n "$arg" ] && command -v dt_retitle > /dev/null; then
 		local wt
 		wt := dt_wintitle Terminal "${arg##*/}"
@@ -943,6 +964,9 @@ fn term_resume(int id) {
 		return 0
 	fi
 	TW[$id]["t"]=$t
+	# The master's number here: the same after an exec, and whatever it
+	# arrived at in a fresh process the desktop handed it to (ADR 0050).
+	fd := term fd "$t"
 	TW[$id]["fd"]=$fd
 	dt_rsclaim "$fd"
 	[ -n "$DT_CURSOR" ] && term cursor "$t" "$DT_CURSOR"
