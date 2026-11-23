@@ -8,7 +8,7 @@
 
 strict
 
-app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.7
+app wiretap "The Control Panel pane for wiretap: see every byte" 0.8.8
 # modules: wiretap
 # needs: cli/wiretap
 
@@ -365,11 +365,8 @@ fn wtp_logo(state = on, int cells = 2) {
 	ret "$g"
 }
 
-# The pane tile wears the one-cell tap (Blit 0.3.53: wiretap-1, wiretap-1-off), a "T" elsewhere: the glyph is read once, when the pane is registered.
-if command -v cp_pane > /dev/null; then
-	tile := wtp_logo off 1
-	cp_pane wiretap "Wiretap" "${tile:-T}" app
-fi
+# The pane tile wears the one-cell tap (Blit 0.3.53: wiretap-1-off), a "T" elsewhere, written out so the desktop reads it (hibr's decision record 0050, Decision 3).
+command -v cp_pane > /dev/null && cp_pane wiretap "Wiretap" "@wiretap-1-off:T" app
 
 # The module is the package's (`mod load wiretap`); WT_MOD names a file for a build tree. Nothing here hardcodes build/ (the rule longwire writes as its adr/0046).
 WTP_LOADED=0

@@ -20,7 +20,7 @@
 
 strict
 
-app audio "An audio player" 0.8.0
+app audio "An audio player" 0.8.1
 # replaces: apps/huiamp
 # part: control-panel/audioset.hibr
 # part: menubar/audiobar.hibr
@@ -471,9 +471,9 @@ fn ap_poll(int id) {
 	local -A i
 
 	[ -n "$p" ] || return 0
-	# media sets `ended` inside `frame`, so a player with no picture still has
-	# to be asked for one now and then
-	media frame "$p" > /dev/null || true
+	# `media info` notices the end itself since hibr 0.99.549 (the floor is
+	# 0.99.556), so no `media frame` -- a picture call, which a hosted app's
+	# process does not carry (ADR 0050)
 	i := media info "$p"
 	if [ "${i["loading"]:-0}" = 1 ]; then
 		AP[$id]["state"]=loading

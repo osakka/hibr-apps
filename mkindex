@@ -530,6 +530,9 @@ ENTHIBR["apps/huiamp"]=0.99.534
 ENTHIBR["apps/video"]=0.99.548
 # Audio Player 0.8.0 draws its LCD panel in the colour scheme's DT_LCD and DT_LCDINK, which 0.99.556 added (#603).
 ENTHIBR["apps/audio"]=0.99.556
+# Wiretap 0.8.8 writes its window's and pane's tiles as @wiretap-1-off:T, an icon form hibr reads from 0.99.558 (ADR 0050); the floor check cannot see a new meaning of an existing word, and an older desktop would draw the text.
+ENTHIBR["apps/wiretap"]=0.99.558
+ENTHIBR["control-panel/wiretap"]=0.99.558
 # Blit's pane 0.1.38 sets its server address with dt_set (a pane's process
 # holds the desktop's state read-only, hibr ADR 0050), new in 0.99.554.
 ENTHIBR["control-panel/blit"]=0.99.554

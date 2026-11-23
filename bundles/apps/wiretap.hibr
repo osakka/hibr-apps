@@ -13,13 +13,10 @@
 
 strict
 
-app wtview "Wiretap: a live graph and every app's traffic" 0.8.7
+app wtview "Wiretap: a live graph and every app's traffic" 0.8.8
 # needs: control-panel/wiretap
-if command -v dt_app > /dev/null; then
-	tile=
-	if command -v wtp_logo > /dev/null; then tile := wtp_logo off 1; fi
-	dt_app wtview "Wiretap" 26 90 once "${tile:-T}"
-fi
+# The one-cell tap (Blit 0.3.53: wiretap-1-off), a "T" elsewhere, written out so the desktop reads it (hibr's decision record 0050, Decision 3).
+command -v dt_app > /dev/null && dt_app wtview "Wiretap" 26 90 once "@wiretap-1-off:T"
 
 declare -gA WV
 declare -gi WV_WAIT0=0		# when this window first had nothing to show (SECONDS), for the waiting note
