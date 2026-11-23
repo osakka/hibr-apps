@@ -544,11 +544,6 @@ ENTHIBR["control-panel/displays"]=0.99.555
 # Blit Glyphs 0.1.0's pane icon is a Blit glyph, `@blit:▦` (the glyph `blit`, Blit's logo),
 # and the @ID:TEXT icon form is new in 0.99.558.
 ENTHIBR["control-panel/blitglyphs"]=0.99.558
-# Blit 0.1.41 and Blit Glyphs 0.1.1 hold HIBR_DAV_TIMEOUT local to the job
-# that makes their requests: a pane in a process of its own writes no desktop
-# state (hibr ADR 0050, the flip in 0.99.560).
-ENTHIBR["control-panel/blit"]=0.99.560
-ENTHIBR["control-panel/blitglyphs"]=0.99.560
 ENTHIBR["control-panel/control-strip"]=0.99.555
 ENTHIBR["control-panel/language"]=0.99.555
 ENTHIBR["control-panel/appearance"]=0.99.555

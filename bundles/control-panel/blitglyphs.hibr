@@ -12,7 +12,7 @@
 # glyph sets come later, from the Catalogue (Blit ADR 0245). The source of
 # this pane is this file, in the hibr catalogue (itdlabs/hibr-apps).
 strict
-app blitglyphs "Blit's fonts and glyph sets, read-only" 0.1.1
+app blitglyphs "Blit's fonts and glyph sets, read-only" 0.1.0
 # needs: control-panel/blit
 command -v cp_pane > /dev/null && cp_pane blit_glyphs "Blit Glyphs" "@blit:▦" hardware
 
@@ -179,7 +179,7 @@ fn blit_gs_http(path) {
 fn blit_gs_work(what, a = "", b = "") {
     local ok=0 old=0 raw
     local -A envelope reply
-    local HIBR_DAV_TIMEOUT=6   # this job's, never the desktop's (hibr ADR 0050)
+    export HIBR_DAV_TIMEOUT=6
     json parse reply '{}'
     case $what in
     refresh)
