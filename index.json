@@ -740,6 +740,19 @@
       "name": "blit",
       "hibr": "0.99.554"
     },
+    "control-panel/blitglyphs": {
+      "title": "Blit Glyphs",
+      "version": "0.1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/blitglyphs.hibr",
+      "sha256": "942b3ef0b085ad82e6e8f3d5399324473328dfbf1c00f4b094bbd7c1fb932d2d",
+      "about": "Blit's fonts and glyph sets, read-only\n\nthe Blit display server's fonts and glyph sets, read-only: the text font in use, every text font and every face Blit ships by its role, and every glyph set it answers for by name, each set browsed a page at a time with its glyphs drawn in the rows, and one name looked up.\n\nIt reaches Blit through the connection the Blit pane saved (its server and API token, ~/.config/hibr/blit/connection.json), so the token is entered once, there; this pane never writes it. Every request is hibr's own dav request in a bounded background job of the desktop's (dt_job), never in the draw. Nothing here changes Blit: installing and removing glyph sets come later, from the Catalogue (Blit ADR 0245). The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps).",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "blitglyphs",
+      "hibr": "0.99.558",
+      "needs": "control-panel/blit"
+    },
     "control-panel/bluetooth": {
       "title": "Bluetooth",
       "version": "3.0.3",
@@ -2281,6 +2294,19 @@
       "author": "Omar Sakka",
       "name": "blit",
       "hibr": "0.99.554"
+    },
+    "blitglyphs": {
+      "title": "Blit Glyphs",
+      "version": "0.1.0",
+      "kind": "control-panel",
+      "bundle": "bundles/control-panel/blitglyphs.hibr",
+      "sha256": "942b3ef0b085ad82e6e8f3d5399324473328dfbf1c00f4b094bbd7c1fb932d2d",
+      "about": "Blit's fonts and glyph sets, read-only\n\nthe Blit display server's fonts and glyph sets, read-only: the text font in use, every text font and every face Blit ships by its role, and every glyph set it answers for by name, each set browsed a page at a time with its glyphs drawn in the rows, and one name looked up.\n\nIt reaches Blit through the connection the Blit pane saved (its server and API token, ~/.config/hibr/blit/connection.json), so the token is entered once, there; this pane never writes it. Every request is hibr's own dav request in a bounded background job of the desktop's (dt_job), never in the draw. Nothing here changes Blit: installing and removing glyph sets come later, from the Catalogue (Blit ADR 0245). The source of this pane is this file, in the hibr catalogue (itdlabs/hibr-apps).",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "blitglyphs",
+      "hibr": "0.99.558",
+      "needs": "control-panel/blit"
     },
     "control-strip": {
       "title": "Control Strip",

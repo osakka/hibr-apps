@@ -538,6 +538,9 @@ ENTHIBR["control-panel/blit"]=0.99.554
 # that went away, and on an older hibr they would silently stop reaching it.
 ENTHIBR["control-panel/pictures"]=0.99.555
 ENTHIBR["control-panel/displays"]=0.99.555
+# Blit Glyphs 0.1.0's pane icon is a Blit glyph, `@blit:▦` (the glyph `blit`, Blit's logo),
+# and the @ID:TEXT icon form is new in 0.99.558.
+ENTHIBR["control-panel/blitglyphs"]=0.99.558
 ENTHIBR["control-panel/control-strip"]=0.99.555
 ENTHIBR["control-panel/language"]=0.99.555
 ENTHIBR["control-panel/appearance"]=0.99.555

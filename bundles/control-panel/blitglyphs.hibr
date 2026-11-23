@@ -1,0 +1,735 @@
+#!/usr/bin/env hibr
+# blitglyphs -- the Blit display server's fonts and glyph sets, read-only:
+# the text font in use, every text font and every face Blit ships by its
+# role, and every glyph set it answers for by name, each set browsed a page
+# at a time with its glyphs drawn in the rows, and one name looked up.
+#
+# It reaches Blit through the connection the Blit pane saved (its server
+# and API token, ~/.config/hibr/blit/connection.json), so the token is
+# entered once, there; this pane never writes it. Every request is hibr's
+# own dav request in a bounded background job of the desktop's (dt_job),
+# never in the draw. Nothing here changes Blit: installing and removing
+# glyph sets come later, from the Catalogue (Blit ADR 0245). The source of
+# this pane is this file, in the hibr catalogue (itdlabs/hibr-apps).
+strict
+app blitglyphs "Blit's fonts and glyph sets, read-only" 0.1.0
+# needs: control-panel/blit
+command -v cp_pane > /dev/null && cp_pane blit_glyphs "Blit Glyphs" "@blit:▦" hardware
+
+# The connection, as the Blit pane saved it: "" not read yet, ok, or none
+# (no file, or one this pane will not use, BGS_CONNWHY saying why).
+BGS_URL=
+BGS_TOKEN=
+BGS_CONN=
+BGS_CONNWHY=
+# The server the rows below were read from; another one clears them.
+BGS_DATAURL=
+BGS_DIR=
+# The one request in flight, and when the next read is due.
+BGS_BUSY=0
+BGS_OP=
+BGS_NEXT=0
+BGS_FAILURES=0
+BGS_REFRESH_SECONDS=30
+BGS_STATUS="Not read yet"
+# What the last read found: "" nothing yet, ok, or old (a Blit without
+# glyph sets, before 0.3.134). BGS_HAVE is 1 while rows from a good read
+# are held, kept through a later failure, which the status row says.
+BGS_STATE=
+BGS_HAVE=0
+BGS_VERSION=
+# The set browsed, the after= of the page shown, the after= of each page
+# before it, and whether a page is waiting to be read.
+BGS_SET=
+BGS_AFTER=
+BGS_TRAIL=()
+BGS_WANTPAGE=
+BGS_PAGESTATUS=
+# The name looked up (set/name), what Blit said of it, and whether the
+# lookup is waiting to be made.
+BGS_QUERY=
+BGS_FOUND=
+BGS_FOUNDV=
+BGS_FOUNDA=
+BGS_WANTFIND=
+BGS_HTTP_CODE=000
+BGS_INVALID=0
+DAV_CODE=
+declare -gA BGS_HTTP BGS_FONTS BGS_SETS BGS_PAGE BGS_REC
+json parse BGS_HTTP '{}'
+json parse BGS_FONTS '{}'
+json parse BGS_SETS '{}'
+json parse BGS_PAGE '{}'
+json parse BGS_REC '{}'
+# The rows a read gives, made once when it arrives rather than every
+# frame: kind, label, value, key and what follows the label. The page's
+# names the same way, and the set ids for the Browse list.
+declare -ga BGS_RK BGS_RT BGS_RV BGS_RKEY BGS_RA BGS_PT BGS_PV BGS_PA BGS_SETIDS
+BGS_PMORE=
+BGS_PLAST=
+BGS_PCOUNT=0
+
+fn blit_gs_ready() {
+    [ -n "$BGS_DIR" ] && [ -d "$BGS_DIR" ] && return 0
+    BGS_DIR=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/hibr-blitglyphs-$UID/$$
+    ( umask 077; mkdir -p "$BGS_DIR" ) 2> /dev/null || return 1
+}
+
+# A file's mode as ls -l writes it, from hibr's own ls module, as the Blit
+# pane reads it.
+fn blit_gs_mode(path) {
+    local l
+    need ls 2> /dev/null || return 1
+    blit_gs_ready || return 1
+    ls -ld "$path" > "$BGS_DIR/mode" 2> /dev/null || return 1
+    read -r l _ < "$BGS_DIR/mode"
+    ret "$l"
+}
+
+# The Blit pane's saved connection, read with the Blit pane's own care: the
+# folder and the file the person's own, no symlink, 0700 and 0600. Only
+# read, never written. When the Blit pane is loaded in this process and
+# points at another server, the saved token is not that server's, as the
+# Blit pane itself holds.
+fn blit_gs_connection() {
+    local dir=${XDG_CONFIG_HOME:-$HOME/.config}/hibr/blit file mode url token
+    local -A saved
+    file=$dir/connection.json
+    BGS_CONN=none
+    BGS_CONNWHY=
+    BGS_URL=
+    BGS_TOKEN=
+    [ -e "$file" ] || return 1
+    if [ -L "$dir" ] || [ -L "$file" ] || [ ! -O "$dir" ] || [ ! -O "$file" ]; then
+        BGS_CONNWHY="The saved connection has an unsafe owner or a symlink"; return 1
+    fi
+    mode := blit_gs_mode "$dir" || mode=
+    if [ "${mode:0:10}" != drwx------ ]; then
+        BGS_CONNWHY="The saved connection's folder must be 0700"; return 1
+    fi
+    mode := blit_gs_mode "$file" || mode=
+    if [ "${mode:0:10}" != -rw------- ]; then
+        BGS_CONNWHY="The saved connection must be 0600"; return 1
+    fi
+    json parse saved < "$file" 2> /dev/null || { BGS_CONNWHY="The saved connection is not valid"; return 1; }
+    url=${saved[url]}
+    token=${saved[token]}
+    [ -n "$url" ] && [ "$url" != null ] || return 1
+    if [ -n "${BCP_URL-}" ] && [ "${BCP_URL%/}" != "${url%/}" ]; then
+        BGS_CONNWHY="The Blit pane's server has no saved token"; return 1
+    fi
+    url=${url%/}
+    if ! match "$url" '^https?://([A-Za-z0-9._-]+|\[[0-9A-Fa-f:]+\])(:[0-9]+)?$'; then
+        BGS_CONNWHY="The saved server is not an http(s) address"; return 1
+    fi
+    case "$token" in *[!a-zA-Z0-9._~+/=-]*) BGS_CONNWHY="The saved token has characters a token cannot"; return 1 ;; esac
+    BGS_URL=$url
+    BGS_TOKEN=$token
+    BGS_CONN=ok
+    return 0
+}
+
+# Everything read from a server, forgotten: another server, or none.
+fn blit_gs_forget() {
+    BGS_STATE=
+    BGS_HAVE=0
+    BGS_VERSION=
+    BGS_DATAURL=
+    BGS_RK=() BGS_RT=() BGS_RV=() BGS_RKEY=() BGS_RA=() BGS_SETIDS=()
+    BGS_SET=
+    BGS_AFTER=
+    BGS_TRAIL=()
+    BGS_WANTPAGE=
+    BGS_PAGESTATUS=
+    BGS_PT=() BGS_PV=() BGS_PA=()
+    BGS_PCOUNT=0
+    BGS_PMORE=
+    BGS_PLAST=
+    BGS_FOUND=
+    BGS_WANTFIND=
+    BGS_STATUS="Not read yet"
+    json parse BGS_FONTS '{}'
+    json parse BGS_SETS '{}'
+    json parse BGS_PAGE '{}'
+    return 0
+}
+
+# One GET through hibr's dav module, the token a header on a builtin so no
+# command line holds it. The reply is in BGS_HTTP, its status in
+# BGS_HTTP_CODE (000 when no server answered).
+fn blit_gs_http(path) {
+    local -a o
+    local reply
+    o=(-H "Accept: application/json")
+    [ -z "$BGS_TOKEN" ] || o+=(-H "Authorization: Bearer $BGS_TOKEN")
+    DAV_CODE=
+    reply=
+    BGS_INVALID=0
+    json parse BGS_HTTP '{}'
+    reply := dav request "${o[@]}" GET "$BGS_URL$path" 2> /dev/null || :
+    case ${DAV_CODE:-0} in 0 | 000) BGS_HTTP_CODE=000; return 1 ;; esac
+    BGS_HTTP_CODE=$DAV_CODE
+    json parse BGS_HTTP "${reply:-"{}"}" 2> /dev/null || { BGS_INVALID=1; json parse BGS_HTTP '{}'; return 1; }
+    case $BGS_HTTP_CODE in 2??) return 0 ;; *) return 1 ;; esac
+}
+
+# The job's work, in the background: the requests one read makes, and one
+# JSON document on standard output for blit_gs_done -- {"what":..,"ok":..,
+# "code":..,"invalid":..,"old":..,"set":..,"after":..,"reply":{..}}.
+fn blit_gs_work(what, a = "", b = "") {
+    local ok=0 old=0 raw
+    local -A envelope reply
+    export HIBR_DAV_TIMEOUT=6
+    json parse reply '{}'
+    case $what in
+    refresh)
+        if blit_gs_http /v1/version; then
+            raw := json emit BGS_HTTP
+            json parse 'reply[version]' "$raw"
+            if blit_gs_http /v1/fonts; then
+                raw := json emit BGS_HTTP
+                json parse 'reply[fonts]' "$raw"
+                if blit_gs_http /v1/fonts/sets; then
+                    raw := json emit BGS_HTTP
+                    json parse 'reply[sets]' "$raw"
+                    ok=1
+                elif [ "$BGS_HTTP_CODE" = 404 ] && [ "${BGS_HTTP[code]}" = route_not_found ]; then
+                    # A Blit before 0.3.134: fonts, and no glyph sets.
+                    old=1
+                    ok=1
+                fi
+            fi
+        fi
+        ;;
+    page)
+        blit_gs_http "/v1/fonts/sets/$a?limit=128${b:+&after=$b}" && ok=1 ;;
+    lookup)
+        blit_gs_http "/v1/fonts/sets/$a/$b" && ok=1 ;;
+    esac
+    if [ "$ok" = 1 ] && [ "$what" != refresh ]; then
+        raw := json emit BGS_HTTP
+        json parse reply "$raw"
+    fi
+    if [ "$ok" = 0 ]; then
+        raw := json emit BGS_HTTP
+        json parse 'reply[error]' "$raw"
+    fi
+    json parse envelope '{}'
+    json set envelope .what "$what" -s
+    json set envelope .ok "$ok"
+    json set envelope .old "$old"
+    json set envelope .code "$BGS_HTTP_CODE" -s
+    json set envelope .invalid "${BGS_INVALID:-0}"
+    json set envelope .set "$a" -s
+    json set envelope .after "$b" -s
+    raw := json emit reply
+    json parse 'envelope[reply]' "$raw"
+    json emit envelope
+}
+
+# The next read: the usual interval after a good one, doubled for each
+# failure in a row up to four times as long.
+fn blit_gs_schedule(failed = "0") {
+    local seconds=$BGS_REFRESH_SECONDS i=1
+    if [ "$failed" = 1 ]; then
+        [ "$BGS_FAILURES" -ge 3 ] || BGS_FAILURES=$((BGS_FAILURES + 1))
+        while [ "$i" -lt "$BGS_FAILURES" ]; do seconds=$((seconds * 2)); i=$((i + 1)); done
+    else BGS_FAILURES=0; fi
+    BGS_NEXT=$((EPOCHSECONDS + seconds))
+}
+
+fn blit_gs_start(what, a = "", b = "") {
+    local n
+    [ "$BGS_BUSY" = 0 ] || return 1
+    if [ "$what" = refresh ]; then
+        # Scheduled before anything can fail, so a failed start is never
+        # tried again on every draw.
+        BGS_NEXT=$((EPOCHSECONDS + BGS_REFRESH_SECONDS))
+        if ! blit_gs_connection; then
+            # Nothing to read until the Blit pane saves a connection:
+            # looked for again in a few seconds, a file read and no request.
+            BGS_NEXT=$((EPOCHSECONDS + 5))
+            [ -z "$BGS_DATAURL" ] || blit_gs_forget
+            return 1
+        fi
+        [ "$BGS_URL" = "$BGS_DATAURL" ] || [ -z "$BGS_DATAURL" ] || blit_gs_forget
+    fi
+    if ! need dav 2> /dev/null; then BGS_STATUS="The dav module is required"; blit_gs_schedule 1; return 1; fi
+    if ! command -v dt_job > /dev/null; then BGS_STATUS="Needs hibr 0.99.297 or later"; blit_gs_schedule 1; return 1; fi
+    case $what in
+    page) BGS_WANTPAGE= ;;
+    lookup) BGS_WANTFIND= ;;
+    esac
+    if ! n := dt_job blitglyphs "$what" blit_gs_done blit_gs_work "$what" "$a" "$b"; then
+        BGS_STATUS="Cannot create private job directory"; blit_gs_schedule 1; return 1
+    fi
+    BGS_BUSY=1
+    BGS_OP=$what
+    command -v dt_want > /dev/null && dt_want 250
+    return 0
+}
+
+# Start what is waiting, when nothing is in flight: a read that is due,
+# then the page asked for, then the name.
+fn blit_gs_kick() {
+    [ "$BGS_BUSY" = 0 ] || return 0
+    if [ "$EPOCHSECONDS" -ge "$BGS_NEXT" ]; then
+        blit_gs_start refresh
+        return 0
+    fi
+    [ "$BGS_CONN" = ok ] && [ "$BGS_STATE" = ok ] || return 0
+    if [ -n "$BGS_WANTPAGE" ] && [ -n "$BGS_SET" ]; then
+        blit_gs_start page "$BGS_SET" "$BGS_AFTER"
+    elif [ -n "$BGS_WANTFIND" ] && [ -n "$BGS_QUERY" ]; then
+        blit_gs_start lookup "${BGS_QUERY%%/*}" "${BGS_QUERY#*/}"
+    fi
+    return 0
+}
+
+# Finished work is handed on by the desktop's job runner after a frame; a
+# caller with no desktop loop (a test) calls this to look now.
+fn blit_gs_poll() {
+    command -v dt_jobtick > /dev/null && dt_jobtick
+    return 0
+}
+
+# What a failed request says, in words.
+fn blit_gs_failure(code, invalid, ecode = "") {
+    [ "$invalid" != 1 ] || { ret "HTTP $code: not a JSON answer"; return 0; }
+    case $code in
+    000) ret "Offline or request timed out" ;;
+    401) ret "Blit refused the API token (HTTP 401); enter it again in the Blit pane" ;;
+    *) ret "HTTP $code: ${ecode:-request failed}" ;;
+    esac
+}
+
+# A request has finished: what it read, into the pane.
+fn blit_gs_done(int n, int st) {
+    local f what code raw ecode
+    local -A envelope reply
+    BGS_BUSY=0
+    f := dt_jobfile "$n"
+    if ! json parse envelope < "$f" 2> /dev/null; then
+        case $BGS_OP in
+        refresh) blit_gs_schedule 1; BGS_STATUS="The request ended without an answer" ;;
+        page) BGS_PAGESTATUS="The request ended without an answer" ;;
+        lookup) BGS_FOUND="no answer" ;;
+        esac
+        return 0
+    fi
+    what=${envelope[what]}
+    code=${envelope[code]:-000}
+    raw := json get envelope .reply
+    json parse reply "${raw:-"{}"}"
+    ecode=${reply[error][code]}
+    [ "$ecode" != null ] || ecode=
+    case $what in
+    refresh)
+        if [ "${envelope[ok]}" != 1 ]; then
+            blit_gs_schedule 1
+            BGS_STATUS := blit_gs_failure "$code" "${envelope[invalid]}" "$ecode"
+        else
+            blit_gs_schedule
+            raw := json get reply .fonts
+            json parse BGS_FONTS "${raw:-"{}"}"
+            raw := json get reply .sets 2> /dev/null || raw=
+            [ -n "$raw" ] && [ "$raw" != null ] || raw='{"sets":[]}'
+            json parse BGS_SETS "$raw"
+            BGS_VERSION=${reply[version][server_version]}
+            BGS_DATAURL=$BGS_URL
+            BGS_HAVE=1
+            if [ "${envelope[old]}" = 1 ]; then
+                BGS_STATE=old
+                BGS_STATUS="Connected: Blit $BGS_VERSION, without glyph sets"
+            else
+                BGS_STATE=ok
+                BGS_STATUS="Connected: Blit $BGS_VERSION"
+            fi
+            blit_gs_build
+        fi
+        ;;
+    page)
+        # A page of a set no longer browsed, or of another page, is let go.
+        [ "${envelope[set]}" = "$BGS_SET" ] && [ "${envelope[after]}" = "$BGS_AFTER" ] || { blit_gs_kick; return 0; }
+        if [ "${envelope[ok]}" = 1 ]; then
+            json parse BGS_PAGE "$raw"
+            BGS_PAGESTATUS=
+            blit_gs_pagebuild
+        else
+            BGS_PAGESTATUS := blit_gs_failure "$code" "${envelope[invalid]}" "$ecode"
+            [ "$ecode" != unknown_set ] || BGS_PAGESTATUS="Blit no longer serves $BGS_SET"
+        fi
+        ;;
+    lookup)
+        [ "${envelope[set]}/${envelope[after]}" = "$BGS_QUERY" ] || { blit_gs_kick; return 0; }
+        BGS_FOUNDV=
+        BGS_FOUNDA=
+        if [ "${envelope[ok]}" = 1 ]; then
+            json parse BGS_REC "$raw"
+            BGS_FOUND=found
+            blit_gs_record
+            BGS_FOUNDV=$BGS_CPS
+            BGS_FOUNDA=$BGS_MARKS
+        else
+            case $code:$ecode in
+            404:unknown_name) BGS_FOUND="unknown name" ;;
+            404:unknown_set) BGS_FOUND="unknown set" ;;
+            404:route_not_found) BGS_FOUND="needs Blit 0.3.134 or newer" ;;
+            410:*)
+                BGS_FOUND="retired"
+                raw := json get reply .error.replaced_by 2> /dev/null || raw=
+                [ -z "$raw" ] || [ "$raw" = null ] || BGS_FOUNDA="(use ${reply[error][replaced_by][0]})"
+                ;;
+            400:*) BGS_FOUND="not a set and name" ;;
+            *) BGS_FOUND := blit_gs_failure "$code" "${envelope[invalid]}" "$ecode" ;;
+            esac
+        fi
+        ;;
+    esac
+    blit_gs_kick
+    return 0
+}
+
+# A codepoint as the character it is, for Blit to draw in the row; nothing
+# for a control character, a surrogate or anything not a scalar.
+fn blit_gs_glyph(cp) {
+    local -i v
+    local h c
+    [[ $cp =~ ^[0-9a-f]{1,6}$ ]] || { ret ""; return 0; }
+    v=$((16#$cp))
+    if [ "$v" -lt 32 ] || { [ "$v" -ge 127 ] && [ "$v" -lt 160 ]; } ||
+       { [ "$v" -ge 55296 ] && [ "$v" -le 57343 ]; } || [ "$v" -gt 1114111 ]; then
+        ret ""; return 0
+    fi
+    h=00000000$cp
+    h=${h:$((${#h} - 8))}
+    printf -v c "\U$h"
+    ret "$c"
+}
+
+# A record's codepoints (a name in a page, or a lookup), drawn and written:
+# "<glyphs> U+101006", a sequence's glyphs together and each codepoint.
+fn blit_gs_cps(...cps) {
+    local cp g= u= x
+    for cp in "${cps[@]}"; do
+        x := blit_gs_glyph "$cp"
+        g+=$x
+        u+=" U+${cp^^}"
+    done
+    ret "${g:+$g }${u# }"
+}
+
+# What a record says of itself besides its codepoints: an alias, a
+# deprecated name and its replacement, one cell of a picture.
+fn blit_gs_marks(alias = "", deprecated = "", replaced = "", col = "", row = "", cols = "", rows = "") {
+    local m=
+    [ -z "$alias" ] || [ "$alias" = null ] || m="alias of $alias"
+    if [ "$deprecated" = true ]; then
+        if [ -n "$replaced" ] && [ "$replaced" != null ]; then m="${m:+$m; }deprecated, use $replaced"
+        else m="${m:+$m; }deprecated"; fi
+    fi
+    [ -z "$cols" ] || [ "$cols" = null ] || m="${m:+$m; }cell $((col + 1)),$((row + 1)) of ${cols}x$rows"
+    ret "${m:+($m)}"
+}
+
+# A lookup's record, and name i of the page, as BGS_CPS and BGS_MARKS.
+BGS_CPS=
+BGS_MARKS=
+fn blit_gs_record() {
+    local j=0
+    local -a cps=()
+    while [ -n "${BGS_REC[codepoints][$j]}" ]; do cps+=("${BGS_REC[codepoints][$j]}"); j=$((j + 1)); done
+    BGS_CPS := blit_gs_cps "${cps[@]}"
+    BGS_MARKS := blit_gs_marks "${BGS_REC[alias_of]}" "${BGS_REC[deprecated]}" "${BGS_REC[replaced_by][0]}" \
+        "${BGS_REC[tile][column]}" "${BGS_REC[tile][row]}" "${BGS_REC[tile][columns]}" "${BGS_REC[tile][rows]}"
+}
+fn blit_gs_pagename(int i) {
+    local j=0
+    local -a cps=()
+    while [ -n "${BGS_PAGE[names][$i][codepoints][$j]}" ]; do cps+=("${BGS_PAGE[names][$i][codepoints][$j]}"); j=$((j + 1)); done
+    BGS_CPS := blit_gs_cps "${cps[@]}"
+    BGS_MARKS := blit_gs_marks "${BGS_PAGE[names][$i][alias_of]}" "${BGS_PAGE[names][$i][deprecated]}" \
+        "${BGS_PAGE[names][$i][replaced_by][0]}" "${BGS_PAGE[names][$i][tile][column]}" \
+        "${BGS_PAGE[names][$i][tile][row]}" "${BGS_PAGE[names][$i][tile][columns]}" "${BGS_PAGE[names][$i][tile][rows]}"
+}
+
+# A row for the rows made when a read arrives. A row that names something
+# of Blit's -- a font, a face, a set, a glyph's name -- has it after the
+# label (CP's "after"), not as the label: the label is looked up in the
+# language's catalogue and "after" is not, and a glyph named "file" or
+# "user" is not the word a catalogue translates.
+fn blit_gs_add(kind, text, value = "", key = "", after = "") {
+    BGS_RK+=("$kind"); BGS_RT+=("$text"); BGS_RV+=("$value"); BGS_RKEY+=("$key"); BGS_RA+=("$after")
+}
+
+# A long version (a SHA-256) cut to what tells two apart at a glance.
+fn blit_gs_short(v) {
+    [ "${#v}" -le 12 ] || v="${v:0:8}${GL[ellipsis]:-...}"
+    ret "$v"
+}
+
+# The rows of a read: the summary, the text font in use, the text fonts,
+# the faces by role, and the glyph sets, made once when the read arrives.
+fn blit_gs_build() {
+    local i=0 np=0 nr=0 ns=0 id title t v a active size fam
+    BGS_RK=() BGS_RT=() BGS_RV=() BGS_RKEY=() BGS_RA=() BGS_SETIDS=()
+    while [ -n "${BGS_FONTS[profiles][$np][id]}" ]; do np=$((np + 1)); done
+    while [ -n "${BGS_FONTS[registry][$nr][id]}" ]; do nr=$((nr + 1)); done
+    while [ -n "${BGS_SETS[sets][$ns][id]}" ]; do ns=$((ns + 1)); done
+    blit_gs_add head Summary
+    blit_gs_add info Blit "$BGS_VERSION"
+    blit_gs_add info "Text fonts" "$np"
+    blit_gs_add info Faces "$nr"
+    if [ "$BGS_STATE" = old ]; then blit_gs_add info "Glyph sets" none
+    else blit_gs_add info "Glyph sets" "$ns"; fi
+    active=${BGS_FONTS[active][id]}
+    title=$active
+    i=0
+    while [ "$i" -lt "$np" ]; do
+        [ "${BGS_FONTS[profiles][$i][id]}" != "$active" ] || title=${BGS_FONTS[profiles][$i][title]}
+        i=$((i + 1))
+    done
+    size=${BGS_FONTS[active][size_px]}
+    blit_gs_add head "Text font in use"
+    if [ -n "$active" ] && [ "$active" != null ]; then
+        v=
+        [ -z "$size" ] || [ "$size" = null ] || v="$size px"
+        blit_gs_add info "" "$v" "" "$title ($active)"
+    else
+        blit_gs_add info "Not reported by server"
+    fi
+    blit_gs_add head "Text fonts"
+    i=0
+    while [ "$i" -lt "$np" ]; do
+        id=${BGS_FONTS[profiles][$i][id]}
+        v=${BGS_FONTS[profiles][$i][source]}
+        [ "${BGS_FONTS[profiles][$i][available]}" != false ] || v="$v, missing"
+        a="($id)"
+        [ "$id" != "$active" ] || a="($id, in use)"
+        blit_gs_add info "" "$v" "font:$id" "${BGS_FONTS[profiles][$i][title]:-$id} $a"
+        i=$((i + 1))
+    done
+    # Every face Blit ships comes from its one registry, so each is shipped;
+    # the value is what the face is for.
+    blit_gs_add head "Faces Blit ships, by role"
+    i=0
+    while [ "$i" -lt "$nr" ]; do
+        id=${BGS_FONTS[registry][$i][id]}
+        fam=${BGS_FONTS[registry][$i][family]}
+        a="($id)"
+        [ -n "$fam" ] && [ "$fam" != null ] || { fam=$id; a=; }
+        blit_gs_add info "" "${BGS_FONTS[registry][$i][role]}" "face:$id" "$fam${a:+ $a}"
+        i=$((i + 1))
+    done
+    blit_gs_add head "Glyph sets"
+    if [ "$BGS_STATE" = old ]; then
+        blit_gs_add info "Glyph sets need Blit 0.3.134 or newer" "" old "(this is $BGS_VERSION)"
+        return 0
+    fi
+    blit_gs_add browse Browse
+    i=0
+    while [ "$i" -lt "$ns" ]; do
+        id=${BGS_SETS[sets][$i][id]}
+        BGS_SETIDS+=("$id")
+        v="${BGS_SETS[sets][$i][count]} names"
+        [ "${BGS_SETS[sets][$i][count]}" != 1 ] || v="1 name"
+        a := blit_gs_short "${BGS_SETS[sets][$i][version]}"
+        blit_gs_add action "" "$v" "set:$id" \
+            "$id (${BGS_SETS[sets][$i][owner]}, ${BGS_SETS[sets][$i][scope]}, $a)"
+        i=$((i + 1))
+    done
+    blit_gs_add info "Installing and removing sets come later, from the Catalogue"
+    return 0
+}
+
+# The rows of a page of names, made once when it arrives.
+fn blit_gs_pagebuild() {
+    local i=0 v a
+    BGS_PT=() BGS_PV=() BGS_PA=()
+    while [ -n "${BGS_PAGE[names][$i][name]}" ]; do
+        blit_gs_pagename "$i"
+        BGS_PT+=("${BGS_PAGE[names][$i][name]}"); BGS_PV+=("$BGS_CPS"); BGS_PA+=("$BGS_MARKS")
+        i=$((i + 1))
+    done
+    BGS_PCOUNT=$i
+    BGS_PLAST=
+    [ "$i" = 0 ] || BGS_PLAST=${BGS_PT[$((i - 1))]}
+    BGS_PMORE=
+    [ "${BGS_PAGE[more]}" != true ] || BGS_PMORE=1
+}
+
+# A set chosen to browse, from its row or the Browse list: its first page.
+fn blit_gs_browse(id) {
+    if [ -z "$id" ] || [ "$id" = none ]; then
+        BGS_SET=
+        BGS_WANTPAGE=
+        return 0
+    fi
+    BGS_SET=$id
+    BGS_AFTER=
+    BGS_TRAIL=()
+    BGS_PT=() BGS_PV=() BGS_PA=()
+    BGS_PCOUNT=0
+    BGS_PMORE=
+    BGS_PAGESTATUS="Reading"
+    BGS_WANTPAGE=1
+    blit_gs_kick
+}
+
+fn blit_gs_choose(int w, value) {
+    blit_gs_browse "$value"
+}
+
+# The next page, after the last name shown, or the one before.
+fn blit_gs_turn(int dir) {
+    local n=${#BGS_TRAIL[@]}
+    if [ "$dir" -gt 0 ]; then
+        [ -n "$BGS_PMORE" ] && [ -n "$BGS_PLAST" ] || return 0
+        BGS_TRAIL+=("$BGS_AFTER")
+        BGS_AFTER=$BGS_PLAST
+    else
+        [ "$n" -gt 0 ] || return 0
+        BGS_AFTER=${BGS_TRAIL[$((n - 1))]}
+        unset "BGS_TRAIL[$((n - 1))]"
+        BGS_TRAIL=("${BGS_TRAIL[@]}")
+    fi
+    BGS_PAGESTATUS="Reading"
+    BGS_WANTPAGE=1
+    blit_gs_kick
+}
+
+# The name to look up is the desktop's one-line question (dt_ask).
+fn blit_gs_ask() {
+    dt_ask "Blit Glyphs" "Set and name:" "${BGS_QUERY:-}" blit_gs_answer \
+        "As blit/bluetooth or nerd-fa/bluetooth; a name alone is looked up in the set browsed." "" 54
+}
+
+# What was typed, held to Blit's address grammar before it is any part of
+# a request: a set id of 1-32 lowercase letters, digits and single
+# hyphens, and a name of 1-96 lowercase letters, digits, - and _.
+fn blit_gs_answer(value, int id) {
+    local q=$value set name
+    q=${q//[[:space:]]/}
+    [[ $q == */* ]] || [ -z "$BGS_SET" ] || q="$BGS_SET/$q"
+    set=${q%%/*}
+    name=${q#*/}
+    BGS_FOUNDV=
+    BGS_FOUNDA=
+    if [[ $q != */* ]] || [ "${#set}" -gt 32 ] || [ "${#name}" -gt 96 ] ||
+       ! [[ $set =~ ^[a-z]([a-z0-9]|-[a-z0-9])*$ ]] || ! [[ $name =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+        BGS_QUERY=$value
+        BGS_FOUND="not a set and name"
+        BGS_WANTFIND=
+        return 0
+    fi
+    BGS_QUERY="$set/$name"
+    BGS_FOUND=asking
+    BGS_WANTFIND=1
+    blit_gs_kick
+    return 0
+}
+
+fn blit_gs_tick(int w) {
+    local left
+    # Hibr asks every pane for scratch rows during search; that is not a
+    # visible pane and must not start I/O or wake the desktop.
+    [ "$w" != 999999 ] || return 0
+    blit_gs_poll
+    blit_gs_kick
+    if [ "$BGS_BUSY" = 1 ]; then left=250
+    else
+        left=$(((BGS_NEXT - EPOCHSECONDS) * 1000))
+        [ "$left" -gt 0 ] || left=1000
+    fi
+    command -v dt_want > /dev/null && dt_want "$left"
+    return 0
+}
+
+fn blit_gs_row(int w, int n, kind, text, value = "", key = "", after = "") {
+    CP[$w][$n][kind]=$kind; CP[$w][$n][text]=$text
+    CP[$w][$n][val]=$value; CP[$w][$n][key]=$key
+    [ -z "$after" ] || CP[$w][$n][after]=$after
+    return 0
+}
+
+fn blit_glyphs_rows(int w) {
+    local n=0 i=0 p first last v
+    blit_gs_tick "$w"
+    case $BGS_CONN in
+    ok) ;;
+    "")
+        blit_gs_row "$w" "$n" head "Blit"; n=$((n + 1))
+        blit_gs_row "$w" "$n" info "Reading the Blit pane's connection"; n=$((n + 1))
+        ret "$n"; return 0 ;;
+    *)
+        # Shown as an absent pane is, and saying where the connection is made.
+        blit_gs_row "$w" "$n" head "Blit is not connected"; n=$((n + 1))
+        blit_gs_row "$w" "$n" info "Set up the server and API token in the Blit pane" "" setup; n=$((n + 1))
+        if [ -n "$BGS_CONNWHY" ]; then
+            blit_gs_row "$w" "$n" info "$BGS_CONNWHY"; n=$((n + 1))
+        fi
+        ret "$n"; return 0 ;;
+    esac
+    blit_gs_row "$w" "$n" head Connection; n=$((n + 1))
+    blit_gs_row "$w" "$n" info Server "$BGS_URL"; n=$((n + 1))
+    blit_gs_row "$w" "$n" info "$BGS_STATUS" "" status; n=$((n + 1))
+    blit_gs_row "$w" "$n" action "Read again" "" reload; n=$((n + 1))
+    [ "$BGS_HAVE" = 1 ] || { ret "$n"; return 0; }
+    while [ "$i" -lt "${#BGS_RK[@]}" ]; do
+        if [ "${BGS_RK[$i]}" = browse ]; then
+            blit_gs_row "$w" "$n" set "${BGS_RT[$i]}" "" browse
+            cp_choice "$w" "$n" "${BGS_SET:-none}" blit_gs_choose none "${BGS_SETIDS[@]}"
+        else
+            blit_gs_row "$w" "$n" "${BGS_RK[$i]}" "${BGS_RT[$i]}" "${BGS_RV[$i]}" "${BGS_RKEY[$i]}" "${BGS_RA[$i]}"
+        fi
+        n=$((n + 1)); i=$((i + 1))
+    done
+    [ "$BGS_STATE" = ok ] || { ret "$n"; return 0; }
+    blit_gs_row "$w" "$n" head "Look up a name"; n=$((n + 1))
+    blit_gs_row "$w" "$n" action "Set and name" "${BGS_QUERY:-blit/...}" find; n=$((n + 1))
+    case $BGS_FOUND in
+    "") ;;
+    found) blit_gs_row "$w" "$n" info "" "$BGS_FOUNDV" found "$BGS_QUERY${BGS_FOUNDA:+ $BGS_FOUNDA}"; n=$((n + 1)) ;;
+    asking) blit_gs_row "$w" "$n" info "" "looking up" found "$BGS_QUERY"; n=$((n + 1)) ;;
+    *) blit_gs_row "$w" "$n" info "" "$BGS_FOUND" found "$BGS_QUERY${BGS_FOUNDA:+ $BGS_FOUNDA}"; n=$((n + 1)) ;;
+    esac
+    [ -n "$BGS_SET" ] || { ret "$n"; return 0; }
+    blit_gs_row "$w" "$n" head "Names in $BGS_SET"; n=$((n + 1))
+    p=$((${#BGS_TRAIL[@]} + 1))
+    if [ -n "$BGS_PAGESTATUS" ]; then
+        blit_gs_row "$w" "$n" info "Page $p" "$BGS_PAGESTATUS" page; n=$((n + 1))
+    else
+        first=$(((p - 1) * 128 + 1))
+        last=$((first + BGS_PCOUNT - 1))
+        v="$first-$last"
+        [ "$BGS_PCOUNT" -gt 0 ] || v=none
+        blit_gs_row "$w" "$n" info "Page $p" "$v" page "(of ${BGS_PAGE[set][count]} names)"; n=$((n + 1))
+        i=0
+        while [ "$i" -lt "$BGS_PCOUNT" ]; do
+            blit_gs_row "$w" "$n" info "" "${BGS_PV[$i]}" "name:${BGS_PT[$i]}" "${BGS_PT[$i]}${BGS_PA[$i]:+ ${BGS_PA[$i]}}"
+            n=$((n + 1)); i=$((i + 1))
+        done
+    fi
+    if [ -n "$BGS_PMORE" ] && [ -z "$BGS_PAGESTATUS" ]; then
+        blit_gs_row "$w" "$n" action "Next page" "" next; n=$((n + 1))
+    fi
+    if [ "${#BGS_TRAIL[@]}" -gt 0 ]; then
+        blit_gs_row "$w" "$n" action "Previous page" "" prev; n=$((n + 1))
+    fi
+    ret "$n"
+}
+
+fn blit_glyphs_do(int w, key, int dir) {
+    case $key in
+    reload)
+        BGS_FAILURES=0
+        BGS_NEXT=0
+        [ -z "$BGS_SET" ] || BGS_WANTPAGE=1
+        blit_gs_kick ;;
+    set:*) blit_gs_browse "${key#set:}" ;;
+    next) blit_gs_turn 1 ;;
+    prev) blit_gs_turn -1 ;;
+    find) blit_gs_ask ;;
+    esac
+    return 0
+}
