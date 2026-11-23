@@ -68,6 +68,8 @@ Dir.mktmpdir('blit-panel') do |root|
       source #{HIBR_DESKTOP}/wm/names.hibr
       source #{HIBR_DESKTOP}/wm/settings.hibr
       source #{HIBR_DESKTOP}/system/panel.hibr
+      # The rows (CP, cp_rowsbuild...) moved out of panel.hibr in hibr 0.99.558.
+      [ ! -e #{HIBR_DESKTOP}/widgets/rows.hibr ] || source #{HIBR_DESKTOP}/widgets/rows.hibr
       source #{HIBR_DESKTOP}/wm/jobs.hibr
       source #{HIBR_DESKTOP}/wm/ask.hibr
       source '#{BUNDLE}'

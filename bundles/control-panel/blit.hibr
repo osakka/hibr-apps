@@ -13,7 +13,7 @@
 # token is never requested. The source of this pane is this file, in the
 # hibr catalogue (itdlabs/hibr-apps), not the Blit tree.
 strict
-app blit "API configuration and diagnostics for the Blit display server" 0.1.40
+app blit "API configuration and diagnostics for the Blit display server" 0.1.41
 command -v cp_pane > /dev/null && cp_pane blit "Blit" "▦" hardware
 command -v cp_pane > /dev/null && cp_pane blit_mouse "Blit Mouse" "◎" hardware
 command -v cp_pane > /dev/null && cp_pane blit_keyboard "Blit Keyboard" "⌨" hardware
@@ -165,7 +165,7 @@ fn blit_cp_ready() {
 
 # One request, through hibr's dav module: the token is a header on a
 # builtin, so no command line ever holds it. HIBR_DAV_TIMEOUT bounds the
-# connect and every read; the job that calls this sets it. The reply is in
+# connect and every read; the job that calls this sets it, locally. The reply is in
 # BCP_HTTP, its status in BCP_HTTP_CODE (000 when no server answered).
 fn blit_cp_http(method, path, body = "", revision = "") {
     local -a o
@@ -192,7 +192,7 @@ fn blit_cp_http(method, path, body = "", revision = "") {
 fn blit_cp_work(what, method = "GET", path = "", body = "", revision = "") {
     local ok=0 raw
     local -A envelope reply
-    export HIBR_DAV_TIMEOUT=6
+    local HIBR_DAV_TIMEOUT=6   # this job's, never the desktop's (hibr ADR 0050)
     json parse reply '{}'
     if [ "$what" = refresh ]; then
         if blit_cp_http GET /v1/diagnostics/observation; then
