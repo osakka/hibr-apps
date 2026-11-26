@@ -33,7 +33,7 @@
 # carry no coreutils.
 
 # What the catalogue reads before it fetches this.
-app vml-collector "Polls the Cix API into VictoriaMetrics and VictoriaLogs" 1.0.1
+app vml-collector "Polls the Cix API into VictoriaMetrics and VictoriaLogs" 1.0.2
 
 need fetch
 need sys
@@ -287,8 +287,11 @@ fn logs_pass() {
 		PENDING+=("$line")
 	done
 	LAST_TS=$newest
+	# Prune by the timestamp at the front of each key. Never read a value back: hibr's
+	# ${SEEN["$key"]} returns empty for a key containing [...] (a kernel boot line like
+	# "e820: update [mem 0x...] System RAM ==> device reserved"), which broke this loop's arithmetic.
 	for key in "${!SEEN[@]}"; do
-		(( ${SEEN["$key"]} < LAST_TS - 1 )) && unset SEEN["$key"]
+		(( ${key%%|*} < LAST_TS - 1 )) && unset SEEN["$key"]
 	done
 	flush_logs
 	return 0
