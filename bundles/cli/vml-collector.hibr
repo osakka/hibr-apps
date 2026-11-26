@@ -33,7 +33,7 @@
 # carry no coreutils.
 
 # What the catalogue reads before it fetches this.
-app vml-collector "Polls the Cix API into VictoriaMetrics and VictoriaLogs" 1.0.0
+app vml-collector "Polls the Cix API into VictoriaMetrics and VictoriaLogs" 1.0.1
 
 need fetch
 need sys
@@ -46,16 +46,42 @@ VL_URL=${VL_URL:-http://127.0.0.1:9428}
 VML_INTERVAL=${VML_INTERVAL:-30}
 VML_LOG_INTERVAL=${VML_LOG_INTERVAL:-10}
 if [[ -z ${CIX_AUTH-} && -n ${CIX_AUTH_FILE-} ]]; then
-	read -r CIX_AUTH < "$CIX_AUTH_FILE" || { echo "vml-collector: cannot read $CIX_AUTH_FILE" >&2; exit 1; }
+	# A file with no trailing newline still sets the value; read just
+	# answers 1 at the end of the file.
+	read -r CIX_AUTH < "$CIX_AUTH_FILE" || [[ -n ${CIX_AUTH-} ]] || { echo "vml-collector: cannot read $CIX_AUTH_FILE" >&2; exit 1; }
 fi
 : "${CIX_AUTH:?CIX_AUTH or CIX_AUTH_FILE is required}"
+
+# Base64, in-process (no base64 program in a Cix image). For the login.
+fn b64(str s) {
+	local A=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
+	local out="" i b0 b1 b2 v len
+	len=${#s}
+	for ((i = 0; i < len; i += 3)); do
+		printf -v b0 '%d' "'${s:i:1}"
+		b1=0; b2=0
+		(( i + 1 < len )) && printf -v b1 '%d' "'${s:i+1:1}"
+		(( i + 2 < len )) && printf -v b2 '%d' "'${s:i+2:1}"
+		v=$(( (b0 << 16) | (b1 << 8) | b2 ))
+		out+=${A:$(( (v >> 18) & 63 )):1}${A:$(( (v >> 12) & 63 )):1}
+		if (( i + 1 < len )); then out+=${A:$(( (v >> 6) & 63 )):1}; else out+="="; fi
+		if (( i + 2 < len )); then out+=${A:$(( v & 63 )):1}; else out+="="; fi
+	done
+	ret "$out"
+}
+
+# The login goes on every request. fetch -u answers a challenge, and cixd
+# sends none (its 401 carries no WWW-Authenticate), so -u never logs in.
+AUTH_B64 := b64 "$CIX_AUTH"
+AUTH_HDR="Authorization: Basic $AUTH_B64"
+unset AUTH_B64
 
 fn say(str msg) { printf '%(%Y-%m-%dT%H:%M:%SZ)T vml-collector: %s\n' -1 "$msg" >&2; }
 
 # GET a Cix read; on success the parsed document is in the global map DOC.
 fn api(str path) {
 	local r
-	r := fetch get "$CIX_API/v1$path" -u "$CIX_AUTH" -t 10
+	r := fetch get "$CIX_API/v1$path" -H "$AUTH_HDR" -t 10
 	if [[ ${r["status"]-0} != 200 ]]; then
 		fail "GET $path: ${r["status"]-no reply} ${r["error"]-}"
 	fi
