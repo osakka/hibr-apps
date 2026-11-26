@@ -1625,6 +1625,17 @@
       "name": "ar",
       "hibr": "0.99.523"
     },
+    "cli/forgesync": {
+      "title": "forgesync",
+      "version": "2.0.0",
+      "kind": "cli",
+      "bundle": "bundles/cli/forgesync.hibr",
+      "sha256": "8f8b7b564e09ca777b32e2e5d91d3e3440e10aacba390a973b2bf920efa9131f",
+      "about": "Makes a Gitea forge match a forge.json, through its API (Cix ADR-0388: the forge is declared in git and reconciled through its API).\n\n  forgesync [--once] [--interval=SECONDS]   apply forge.json, then every                                             SECONDS (default 300) unless --once   forgesync --export                        print the forge as it stands, as a forge.json   forgesync --dry-run [--once]              read and compare, write nothing: each                                             change is printed as \"would: ...\"",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "forgesync"
+    },
     "cli/longwire-switchboard": {
       "title": "longwire-switchboard",
       "version": "0.5.81",
@@ -2652,6 +2663,17 @@
       "licence": "LGPL-3.0-or-later",
       "author": "Omar Sakka",
       "name": "toasters"
+    },
+    "forgesync": {
+      "title": "forgesync",
+      "version": "2.0.0",
+      "kind": "cli",
+      "bundle": "bundles/cli/forgesync.hibr",
+      "sha256": "8f8b7b564e09ca777b32e2e5d91d3e3440e10aacba390a973b2bf920efa9131f",
+      "about": "Makes a Gitea forge match a forge.json, through its API (Cix ADR-0388: the forge is declared in git and reconciled through its API).\n\n  forgesync [--once] [--interval=SECONDS]   apply forge.json, then every                                             SECONDS (default 300) unless --once   forgesync --export                        print the forge as it stands, as a forge.json   forgesync --dry-run [--once]              read and compare, write nothing: each                                             change is printed as \"would: ...\"",
+      "licence": "GPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "forgesync"
     },
     "longwire-switchboard": {
       "title": "longwire-switchboard",

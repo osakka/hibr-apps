@@ -1,0 +1,476 @@
+#!/usr/bin/hibr
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# forgesync -- makes a Gitea forge match a forge.json, through its API
+# (Cix ADR-0388: the forge is declared in git and reconciled through its API).
+#
+#   forgesync [--once] [--interval=SECONDS]   apply forge.json, then every
+#                                             SECONDS (default 300) unless --once
+#   forgesync --export                        print the forge as it stands, as a forge.json
+#   forgesync --dry-run [--once]              read and compare, write nothing: each
+#                                             change is printed as "would: ..."
+#
+# Settings, all from the environment, so the deployment states them. There are
+# no defaults that name a site: a missing required one stops forgesync, naming it.
+#   FORGESYNC_API          required. The API root, e.g. https://forge.example/api/v1
+#   FORGESYNC_SOURCE       required. Where forge.json is, as OWNER/REPO:PATH, read
+#                          through the same API at the default branch,
+#                          e.g. myorg/forge-config:forge.json
+#   FORGESYNC_TOKEN_FILE   required. A file holding an admin token, one line
+#   FORGESYNC_CREDENTIALS  optional. A folder of named credentials: a mirror that
+#                          says "credential": "github" pushes with the token in
+#                          $FORGESYNC_CREDENTIALS/github. Needed only when a mirror
+#                          names a credential; one that does without it is a problem.
+#   HIBR_TLS_CAFILE        a CA file, so a forge with a private CA verifies;
+#                          verification is never skipped
+#
+# What it manages, version 1:
+#   - organisations: full_name, description, visibility. Created when missing;
+#     never removed.
+#   - repositories: description, website, private, default_branch. Created when
+#     missing, updated when different, removed only when marked "absent": true.
+#   - push mirrors: remote, interval, sync_on_commit, credential (and username,
+#     default git). Added when missing. Gitea cannot change a push mirror, so one
+#     that differs is removed and added again. Removed only when marked
+#     "absent": true.
+# Anything the forge has that the file does not mention is reported as
+# "undeclared ... (left alone)" and never touched. Teams are not managed yet.
+#
+# forge.json:
+#   {
+#     "orgs": { "myorg": { "full_name": "My Org", "description": "", "visibility": "public" } },
+#     "repos": {
+#       "myorg/tools": {
+#         "description": "", "website": "", "private": false, "default_branch": "main",
+#         "mirrors": [ { "remote": "https://github.com/someone/tools",
+#                        "interval": "2h0m0s", "sync_on_commit": true, "credential": "github" } ]
+#       }
+#     }
+#   }
+# A mirror names its credential and never holds it.
+#
+# Output: one line per change and one per problem, on standard error, which hibr
+# does not buffer, so a container's log has each line as it happens. Each pass
+# ends with "pass done: N change(s), M problem(s)". A line never contains a
+# credential. (`hibr --plan` cannot stand in for --dry-run: it refuses loading
+# the fetch module, so nothing can be read.)
+
+# What the catalogue reads before it fetches this.
+app forgesync "Makes a Gitea forge match a forge.json, through its API" 2.0.0
+
+strict
+need fetch
+need sys
+
+FETCH_STATUS=
+FS_API=
+FS_SOURCE=
+FS_TOKEN_FILE=
+FS_CREDS=
+FS_TOKEN=
+FS_BODY=
+FS_CODE=
+FS_CHANGES=0
+FS_PROBLEMS=0
+FS_DRY=0
+declare -gA FS_DECL
+declare -gA FS_SEEN
+
+fn fs_log(text) {
+	printf '%s\n' "forgesync: $text" >&2
+}
+
+fn fs_problem(text) {
+	fs_log "problem: $text"
+	FS_PROBLEMS=$((FS_PROBLEMS + 1))
+}
+
+fn fs_die(text) {
+	fs_log "$text"
+	exit 1
+}
+
+# One API request. The status in FS_CODE, the body in FS_BODY; status 0 when
+# the forge answered below 400.
+fn fs_api(method, path, body = "") {
+	local -A r
+	local -a o=(-H "Authorization: token $FS_TOKEN" -H "Accept: application/json" -t 60)
+
+	[ -n "$body" ] && o+=(-H "Content-Type: application/json" -d "$body")
+	FS_BODY=
+	FS_CODE=
+	r := fetch "$method" "$FS_API$path" "${o[@]}"
+	FS_CODE=${r["status"]:-0}
+	FS_BODY=${r["body"]}
+	[ "$FS_CODE" -gt 0 ] && [ "$FS_CODE" -lt 400 ]
+}
+
+# A change: said, counted, and made, unless --dry-run, which says it and
+# returns failure, so no caller builds on a write that did not happen.
+fn fs_change(what, method, path, body = "") {
+	FS_CHANGES=$((FS_CHANGES + 1))
+	if [ "$FS_DRY" = 1 ]; then
+		fs_log "would: $what"
+		return 1
+	fi
+	if fs_api "$method" "$path" "$body"; then
+		fs_log "$what"
+		return 0
+	fi
+	fs_problem "$what: HTTP $FS_CODE ${FS_BODY:0:200}"
+	return 1
+}
+
+# Every page of a list endpoint, joined into one JSON array in FS_BODY.
+fn fs_all(path) {
+	local page=1 all="" sep="?" n x
+	local -A one
+
+	str contains "$path" "?" && sep="&"
+	while :; do
+		fs_api GET "$path${sep}limit=50&page=$page" || return 1
+		json parse one "{\"a\":$FS_BODY}" || return 1
+		n := json len one .a
+		[ "$n" -eq 0 ] && break
+		x := json get one .a
+		all="$all${all:+,}${x:1:-1}"
+		[ "$n" -lt 50 ] && break
+		page=$((page + 1))
+	done
+	FS_BODY="[$all]"
+}
+
+fn fs_token() {
+	[ -r "$FS_TOKEN_FILE" ] || fs_die "no token at $FS_TOKEN_FILE"
+	FS_TOKEN=$(< "$FS_TOKEN_FILE")
+	str trim "$FS_TOKEN" FS_TOKEN
+	[ -n "$FS_TOKEN" ] || fs_die "$FS_TOKEN_FILE is empty"
+}
+
+# forge.json, read through the API from FS_SOURCE.
+fn fs_read_decl() {
+	local repo=${FS_SOURCE%%:*} file=${FS_SOURCE#*:}
+
+	if ! fs_api GET "/repos/$repo/raw/$file"; then
+		fs_problem "cannot read $FS_SOURCE: HTTP $FS_CODE"
+		return 1
+	fi
+	FS_DECL=()
+	if ! json parse FS_DECL "$FS_BODY"; then
+		fs_problem "$FS_SOURCE does not parse"
+		return 1
+	fi
+}
+
+# A field the file declares, compared with what the forge has; adds it to the
+# PATCH body in the named map when they differ.
+fn fs_want(bodyvar, field, want, have) {
+	[ "$want" = "$have" ] && return 0
+	json set "$bodyvar" ".$field" "$want"
+	return 1
+}
+
+fn fs_org(o) {
+	local -A have
+	local -A body
+	local d v f k b
+	local same=1
+
+	FS_SEEN["org:$o"]=1
+	f=${FS_DECL["orgs"]["$o"]["full_name"]}
+	d=${FS_DECL["orgs"]["$o"]["description"]}
+	v=${FS_DECL["orgs"]["$o"]["visibility"]:-public}
+	if ! fs_api GET "/orgs/$o"; then
+		if [ "$FS_CODE" = 404 ]; then
+			json parse body '{}'
+			json set body .username "$o" -s
+			json set body .full_name "$f" -s
+			json set body .description "$d" -s
+			json set body .visibility "$v" -s
+			b := json emit body
+			fs_change "created organisation $o" POST /orgs "$b"
+		else
+			fs_problem "organisation $o: HTTP $FS_CODE"
+		fi
+		return 0
+	fi
+	json parse have "$FS_BODY"
+	json parse body '{}'
+	fs_want body full_name "$f" "${have["full_name"]}" || same=0
+	fs_want body description "$d" "${have["description"]}" || same=0
+	fs_want body visibility "$v" "${have["visibility"]}" || same=0
+	if [ "$same" = 0 ]; then
+		b := json emit body
+		fs_change "updated organisation $o: $b" PATCH "/orgs/$o" "$b"
+	fi
+}
+
+fn fs_bool(v) {
+	case $v in
+	true | 1 | yes) ret true ;;
+	*) ret false ;;
+	esac
+}
+
+fn fs_mirrors(full) {
+	local -A have
+	local -A body
+	local i j r iv soc cred user tok want_absent name found s b
+	local -a keep=()
+
+	fs_api GET "/repos/$full/push_mirrors" || { fs_problem "$full mirrors: HTTP $FS_CODE"; return 0; }
+	json parse have "{\"m\":$FS_BODY}"
+	for i in "${!FS_DECL["repos"]["$full"]["mirrors"][@]}"; do
+		r=${FS_DECL["repos"]["$full"]["mirrors"][$i]["remote"]}
+		iv=${FS_DECL["repos"]["$full"]["mirrors"][$i]["interval"]:-8h0m0s}
+		soc := fs_bool "${FS_DECL["repos"]["$full"]["mirrors"][$i]["sync_on_commit"]}"
+		cred=${FS_DECL["repos"]["$full"]["mirrors"][$i]["credential"]}
+		user=${FS_DECL["repos"]["$full"]["mirrors"][$i]["username"]:-git}
+		want_absent := fs_bool "${FS_DECL["repos"]["$full"]["mirrors"][$i]["absent"]}"
+		[ -n "$r" ] || { fs_problem "$full: a mirror with no remote"; continue; }
+		keep+=("$r")
+		found=
+		for j in "${!have["m"][@]}"; do
+			if [ "${have["m"][$j]["remote_address"]}" = "$r" ]; then
+				found=$j
+				break
+			fi
+		done
+		if [ "$want_absent" = true ]; then
+			if [ -n "$found" ]; then
+				name=${have["m"][$found]["remote_name"]}
+				fs_change "removed mirror $full -> $r" DELETE "/repos/$full/push_mirrors/$name"
+			fi
+			continue
+		fi
+		# Gitea has no way to change a push mirror, so one that differs is
+		# removed and made again.
+		if [ -n "$found" ]; then
+			s := fs_bool "${have["m"][$found]["sync_on_commit"]}"
+			[ "${have["m"][$found]["interval"]}" = "$iv" ] && [ "$s" = "$soc" ] && continue
+			name=${have["m"][$found]["remote_name"]}
+			fs_change "replacing mirror $full -> $r (interval or push on commit changed)" \
+				DELETE "/repos/$full/push_mirrors/$name" || continue
+		fi
+		tok=
+		if [ -n "$cred" ]; then
+			[ -n "$FS_CREDS" ] || { fs_problem "$full -> $r: names credential $cred, but FORGESYNC_CREDENTIALS is not set"; continue; }
+			[ -r "$FS_CREDS/$cred" ] || { fs_problem "$full -> $r: no credential $cred in $FS_CREDS"; continue; }
+			tok=$(< "$FS_CREDS/$cred")
+			str trim "$tok" tok
+		fi
+		json parse body '{}'
+		json set body .remote_address "$r" -s
+		json set body .interval "$iv" -s
+		json set body .sync_on_commit "$soc"
+		if [ -n "$tok" ]; then
+			json set body .remote_username "$user" -s
+			json set body .remote_password "$tok" -s
+		fi
+		b := json emit body
+		# The body holds a credential, so the line says what, never the body.
+		fs_change "added mirror $full -> $r every $iv" POST "/repos/$full/push_mirrors" "$b"
+	done
+	for j in "${!have["m"][@]}"; do
+		r=${have["m"][$j]["remote_address"]}
+		arr contains keep "$r" || fs_log "undeclared mirror $full -> $r (left alone)"
+	done
+}
+
+fn fs_repo(full) {
+	local -A have
+	local -A body
+	local d w p br absent owner name b hp
+	local same=1
+
+	FS_SEEN["repo:$full"]=1
+	owner=${full%%/*}
+	name=${full#*/}
+	absent := fs_bool "${FS_DECL["repos"]["$full"]["absent"]}"
+	d=${FS_DECL["repos"]["$full"]["description"]}
+	w=${FS_DECL["repos"]["$full"]["website"]}
+	p := fs_bool "${FS_DECL["repos"]["$full"]["private"]}"
+	br=${FS_DECL["repos"]["$full"]["default_branch"]}
+	if ! fs_api GET "/repos/$full"; then
+		if [ "$FS_CODE" != 404 ]; then
+			fs_problem "repository $full: HTTP $FS_CODE"
+			return 0
+		fi
+		[ "$absent" = true ] && return 0
+		json parse body '{}'
+		json set body .name "$name" -s
+		json set body .description "$d" -s
+		json set body .private "$p"
+		b := json emit body
+		if fs_api GET "/orgs/$owner"; then
+			fs_change "created repository $full" POST "/orgs/$owner/repos" "$b" || return 0
+		else
+			fs_change "created repository $full" POST "/admin/users/$owner/repos" "$b" || return 0
+		fi
+		fs_api GET "/repos/$full" || return 0
+	fi
+	if [ "$absent" = true ]; then
+		fs_change "removed repository $full" DELETE "/repos/$full"
+		return 0
+	fi
+	json parse have "$FS_BODY"
+	json parse body '{}'
+	fs_want body description "$d" "${have["description"]}" || same=0
+	fs_want body website "$w" "${have["website"]}" || same=0
+	hp := fs_bool "${have["private"]}"
+	if [ "$p" != "$hp" ]; then
+		json set body .private "$p"
+		same=0
+	fi
+	if [ -n "$br" ] && [ "$br" != "${have["default_branch"]}" ]; then
+		json set body .default_branch "$br" -s
+		same=0
+	fi
+	if [ "$same" = 0 ]; then
+		b := json emit body
+		fs_change "updated repository $full: $b" PATCH "/repos/$full" "$b"
+	fi
+	fs_mirrors "$full"
+}
+
+# Everything the forge has that the file does not mention.
+fn fs_undeclared() {
+	local -A l
+	local i n page=1
+
+	if fs_all /orgs; then
+		json parse l "{\"a\":$FS_BODY}"
+		for i in "${!l["a"][@]}"; do
+			n=${l["a"][$i]["username"]}
+			[ -n "${FS_SEEN["org:$n"]}" ] || fs_log "undeclared organisation $n (left alone)"
+		done
+	fi
+	while fs_api GET "/repos/search?limit=50&page=$page"; do
+		json parse l "$FS_BODY"
+		[ "$(json len l .data)" -eq 0 ] && break
+		for i in "${!l["data"][@]}"; do
+			n=${l["data"][$i]["full_name"]}
+			[ -n "${FS_SEEN["repo:$n"]}" ] || fs_log "undeclared repository $n (left alone)"
+		done
+		page=$((page + 1))
+	done
+}
+
+fn fs_pass() {
+	local k
+
+	FS_CHANGES=0
+	FS_PROBLEMS=0
+	FS_SEEN=()
+	fs_read_decl || return 1
+	for k in "${!FS_DECL["orgs"][@]}"; do
+		fs_org "$k"
+	done
+	for k in "${!FS_DECL["repos"][@]}"; do
+		fs_repo "$k"
+	done
+	fs_undeclared
+	fs_log "pass done: $FS_CHANGES change(s), $FS_PROBLEMS problem(s)"
+}
+
+# The forge as it stands, as a forge.json: the starting point (ADR-0388).
+fn fs_export() {
+	local -A out
+	local -A l
+	local -A m
+	local i j n k r c x page=1
+
+	json parse out '{"orgs":{},"repos":{}}'
+	fs_all /orgs || fs_die "cannot list organisations: HTTP $FS_CODE"
+	json parse l "{\"a\":$FS_BODY}"
+	for i in "${!l["a"][@]}"; do
+		n=${l["a"][$i]["username"]}
+		json parse m '{}'
+		json set m .full_name "${l["a"][$i]["full_name"]}" -s
+		json set m .description "${l["a"][$i]["description"]}" -s
+		json set m .visibility "${l["a"][$i]["visibility"]}" -s
+		x := json emit m
+		json parse "out[orgs][$n]" "$x"
+	done
+	while :; do
+		fs_api GET "/repos/search?limit=50&page=$page" || fs_die "cannot list repositories: HTTP $FS_CODE"
+		json parse l "$FS_BODY"
+		[ "$(json len l .data)" -eq 0 ] && break
+		for i in "${!l["data"][@]}"; do
+			n=${l["data"][$i]["full_name"]}
+			json parse m '{"mirrors":[]}'
+			json set m .description "${l["data"][$i]["description"]}" -s
+			json set m .website "${l["data"][$i]["website"]}" -s
+			json set m .private "${l["data"][$i]["private"]}"
+			json set m .default_branch "${l["data"][$i]["default_branch"]}" -s
+			if fs_api GET "/repos/$n/push_mirrors"; then
+				local -A pm
+				json parse pm "{\"a\":$FS_BODY}"
+				c=0
+				for j in "${!pm["a"][@]}"; do
+					r=${pm["a"][$j]["remote_address"]}
+					json set m ".mirrors[$c].remote" "$r" -s
+					json set m ".mirrors[$c].interval" "${pm["a"][$j]["interval"]}" -s
+					json set m ".mirrors[$c].sync_on_commit" "${pm["a"][$j]["sync_on_commit"]}"
+					str contains "$r" "github.com" && json set m ".mirrors[$c].credential" github -s
+					c=$((c + 1))
+				done
+			fi
+			x := json emit m
+			json parse "out[repos][$n]" "$x"
+		done
+		page=$((page + 1))
+	done
+	json emit out -p
+}
+
+# Required settings, checked after the arguments (so --help needs none) and
+# before anything else runs: no site is assumed.
+fn fs_config() {
+	local v
+	for v in FORGESYNC_API FORGESYNC_SOURCE FORGESYNC_TOKEN_FILE; do
+		[ -n "${!v-}" ] || fs_die "$v is required (forgesync --help, or the header of this file)"
+	done
+	FS_API=$FORGESYNC_API
+	FS_SOURCE=$FORGESYNC_SOURCE
+	FS_TOKEN_FILE=$FORGESYNC_TOKEN_FILE
+	FS_CREDS=${FORGESYNC_CREDENTIALS-}
+	case $FS_SOURCE in
+	*/*:?*) ;;
+	*) fs_die "FORGESYNC_SOURCE must be OWNER/REPO:PATH, not $FS_SOURCE" ;;
+	esac
+}
+
+fn fs_main(...argv) {
+	local a once=0 interval=300 export=0
+
+	for a in "${argv[@]}"; do
+		case $a in
+		--once) once=1 ;;
+		--dry-run) FS_DRY=1 ;;
+		--export) export=1 ;;
+		--interval=*) interval=${a#--interval=} ;;
+		-h | --help)
+			printf '%s\n' "usage: forgesync [--dry-run] [--once] [--interval=SECONDS] | --export" \
+				"needs FORGESYNC_API, FORGESYNC_SOURCE (OWNER/REPO:PATH), FORGESYNC_TOKEN_FILE;" \
+				"optional FORGESYNC_CREDENTIALS (a folder of named mirror credentials)"
+			exit 0
+			;;
+		*) fs_die "unknown argument $a (forgesync --help)" ;;
+		esac
+	done
+	fs_config
+	fs_token
+	if [ "$export" = 1 ]; then
+		fs_export
+		exit 0
+	fi
+	while :; do
+		# A failed pass says why and the next one still runs.
+		try fs_pass || fs_problem "the pass stopped: $ERRMSG"
+		[ "$once" = 1 ] && break
+		sleepms $((interval * 1000))
+	done
+}
+
+fs_main "$@"
