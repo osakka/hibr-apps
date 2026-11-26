@@ -1,0 +1,299 @@
+#!/usr/bin/hibr
+# vml-collector -- turns the Cix API's JSON reads into VictoriaMetrics
+# metrics and VictoriaLogs entries. cixd serves no /metrics (the owner's
+# decision, 2026-11-26): this polls the reads and pushes.
+#
+# Metrics, every VML_INTERVAL seconds, into VictoriaMetrics' Prometheus
+# import (VM_URL/api/v1/import/prometheus):
+#   GET /v1/system/stats              -> cix_host_*
+#   GET /v1/containers                -> cix_container_{info,running,ready,paused}
+#   GET /v1/containers/{name}/stats   -> cix_container_*  {container=}
+#   GET /v1/volumes, /{name}/usage    -> cix_volume_*     {volume=}
+#   GET /v1/storage                   -> cix_storage_*
+# Every numeric leaf becomes a metric named after its JSON path; an array
+# element is labelled by its own name/interface/device field (or its
+# index), so a field Cix adds later appears without a change here.
+# Counters stay raw (cumulative), as Cix serves them: rate() in Grafana.
+#
+# Logs, every VML_LOG_INTERVAL seconds: GET /v1/system/logs with no filter
+# (the cheap read, ADR-0342), the kernel/cixd/audit entries only --
+# container lines already arrive by syslog forwarding (ADR-0127) -- sent
+# to VictoriaLogs' JSON-lines insert. Entries already sent are skipped.
+#
+# Environment:
+#   CIX_API        https://host of the Cix API       (required)
+#   CIX_AUTH       user:app-password, or CIX_AUTH_FILE holding it
+#   HIBR_TLS_CAFILE  the Cix CA (/etc/ssl/certs/cix-ca-bundle.pem)
+#   VM_URL         default http://127.0.0.1:8428
+#   VL_URL         default http://127.0.0.1:9428
+#   VML_INTERVAL   default 30     VML_LOG_INTERVAL  default 10
+#   VML_ONCE=1     one pass of each, then exit (testing)
+#
+# Needs nothing but hibr: no date, no sleep, no env -- a Cix image may
+# carry no coreutils.
+
+# What the catalogue reads before it fetches this.
+app vml-collector "Polls the Cix API into VictoriaMetrics and VictoriaLogs" 1.0.0
+
+need fetch
+need sys
+export TZ=UTC
+
+CIX_API=${CIX_API:?CIX_API is required, e.g. https://cix-host}
+CIX_API=${CIX_API%/}
+VM_URL=${VM_URL:-http://127.0.0.1:8428}
+VL_URL=${VL_URL:-http://127.0.0.1:9428}
+VML_INTERVAL=${VML_INTERVAL:-30}
+VML_LOG_INTERVAL=${VML_LOG_INTERVAL:-10}
+if [[ -z ${CIX_AUTH-} && -n ${CIX_AUTH_FILE-} ]]; then
+	read -r CIX_AUTH < "$CIX_AUTH_FILE" || { echo "vml-collector: cannot read $CIX_AUTH_FILE" >&2; exit 1; }
+fi
+: "${CIX_AUTH:?CIX_AUTH or CIX_AUTH_FILE is required}"
+
+fn say(str msg) { printf '%(%Y-%m-%dT%H:%M:%SZ)T vml-collector: %s\n' -1 "$msg" >&2; }
+
+# GET a Cix read; on success the parsed document is in the global map DOC.
+fn api(str path) {
+	local r
+	r := fetch get "$CIX_API/v1$path" -u "$CIX_AUTH" -t 10
+	if [[ ${r["status"]-0} != 200 ]]; then
+		fail "GET $path: ${r["status"]-no reply} ${r["error"]-}"
+	fi
+	unset DOC
+	json parse DOC <<< "${r["body"]}"
+}
+
+# A metric name from a path: lowercase, [a-z0-9_] only.
+fn mname(str s) {
+	local t
+	t := str lower "$s"
+	t := rsub -g "$t" '[^a-z0-9_]+' '_'
+	t := rsub -g "$t" '_+' '_'
+	t=${t#_}; t=${t%_}
+	ret "$t"
+}
+
+# A label value with \ " and newline escaped, as the text format wants.
+fn lesc(str s) {
+	s := str replace "$s" '\' '\\'
+	s := str replace "$s" '"' '\"'
+	s := str replace "$s" $'\n' '\n'
+	ret "$s"
+}
+
+# Walk DOC from a jq path, appending "name{labels} value" lines to OUT.
+# prefix: metric name so far; labels: 'k="v",...' so far (may be empty).
+fn flat(str path, str prefix, str labels = "") {
+	local t k i n item lbl lv sel
+	t := json type DOC "$path"
+	case $t in
+	number)
+		local v
+		v := json get DOC "$path"
+		if [[ -n $labels ]]; then OUT+=("$prefix{$labels} $v"); else OUT+=("$prefix $v"); fi
+		;;
+	boolean)
+		local v
+		v := json get DOC "$path"
+		[[ $v == true ]] && v=1 || v=0
+		if [[ -n $labels ]]; then OUT+=("$prefix{$labels} $v"); else OUT+=("$prefix $v"); fi
+		;;
+	object)
+		local -a ks
+		json keys DOC "$path" kl
+		read -ra ks <<< "$kl"
+		for k in "${ks[@]}"; do
+			local sub
+			sub := mname "$k"
+			if [[ $path == . ]]; then flat ".$k" "${prefix}_$sub" "$labels"
+			else flat "$path.$k" "${prefix}_$sub" "$labels"; fi
+		done
+		;;
+	array)
+		# The label's name: the item's own field (name, interface, device),
+		# or "index". When an outer array already used that name -- a
+		# disk's partitions inside a disk -- it is prefixed with this
+		# array's own name (partitions_name), since a label may appear
+		# only once in a series.
+		local aname lk
+		aname=${path##*.}; aname=${aname%%\[*}
+		aname := mname "$aname"
+		n := json len DOC "$path"
+		for ((i = 0; i < n; i++)); do
+			item="$path[$i]"
+			sel=""
+			for k in name interface device index; do
+				if [[ $k != index ]]; then
+					[[ $(json type DOC "$item.$k" 2>/dev/null) == string ]] || continue
+					lv := json get DOC "$item.$k"
+					lv := lesc "$lv"
+				else
+					lv=$i
+				fi
+				lk=$k
+				[[ ,$labels, == *",$lk=\""* ]] && lk="${aname}_$k"
+				sel="$lk=\"$lv\""
+				break
+			done
+			if [[ -n $labels ]]; then lbl="$labels,$sel"; else lbl=$sel; fi
+			flat "$item" "$prefix" "$lbl"
+		done
+		;;
+	esac
+	# strings and nulls are not metrics
+}
+
+# Send OUT to VictoriaMetrics.
+fn push_metrics() {
+	local body f
+	(( ${#OUT[@]} )) || return 0
+	printf -v body '%s\n' "${OUT[@]}"
+	if ! fetch post "$VM_URL/api/v1/import/prometheus" -H 'Content-Type: text/plain' -d "$body" -t 10 > /dev/null; then
+		fail "push to VictoriaMetrics: $FETCH_STATUS"
+	fi
+}
+
+fn metrics_pass() {
+	local -a names vols
+	local c v i n st lab up rdy pz img iv
+	OUT=()
+
+	try api /system/stats
+	if (( ERR )); then say "$ERRMSG"; else flat . cix_host; fi
+
+	# {"containers": [...], "hidden_internal": n}; include_internal brings
+	# the platform's own containers (the cores, the build lane) in too.
+	try api "/containers?include_internal=1"
+	if (( ERR )); then
+		say "$ERRMSG"
+	else
+		n := json len DOC .containers
+		for ((i = 0; i < n; i++)); do
+			c=${DOC["containers"][$i]["name"]}
+			names+=("$c")
+			st=${DOC["containers"][$i]["status"]-}
+			img=${DOC["containers"][$i]["image"]-}
+			iv=${DOC["containers"][$i]["image_version"]-}
+			lab := lesc "$c"
+			st := lesc "$st"; img := lesc "$img"; iv := lesc "$iv"
+			OUT+=("cix_container_info{container=\"$lab\",status=\"$st\",image=\"$img\",image_version=\"$iv\"} 1")
+			[[ $st == running ]] && up=1 || up=0
+			OUT+=("cix_container_running{container=\"$lab\"} $up")
+			[[ ${DOC["containers"][$i]["ready"]-} == true ]] && rdy=1 || rdy=0
+			OUT+=("cix_container_ready{container=\"$lab\"} $rdy")
+			[[ ${DOC["containers"][$i]["paused"]-} == true ]] && pz=1 || pz=0
+			OUT+=("cix_container_paused{container=\"$lab\"} $pz")
+		done
+	fi
+	for c in "${names[@]}"; do
+		try api "/containers/$c/stats"
+		if (( ERR )); then say "$ERRMSG"; continue; fi
+		lab := lesc "$c"
+		flat . cix_container "container=\"$lab\""
+	done
+
+	try api /volumes
+	if (( ERR )); then
+		say "$ERRMSG"
+	else
+		n := json len DOC .volumes
+		for ((i = 0; i < n; i++)); do
+			v := json get DOC ".volumes[$i].name"
+			vols+=("$v")
+		done
+		for v in "${vols[@]}"; do
+			try api "/volumes/$v/usage"
+			if (( ERR )); then say "$ERRMSG"; continue; fi
+			lab := lesc "$v"
+			flat . cix_volume "volume=\"$lab\""
+		done
+	fi
+
+	# {"storage": [device...]}, each device labelled by its name.
+	try api /storage
+	if (( ERR )); then say "$ERRMSG"; else flat .storage cix_storage; fi
+
+	OUT+=("cix_collector_series ${#OUT[@]}")
+	try push_metrics
+	(( ERR )) && say "$ERRMSG"
+	return 0
+}
+
+# Logs. SEEN holds the keys of entries sent at or after LAST_TS - 1, so a
+# tail that overlaps the previous one sends nothing twice; older keys are
+# dropped as the clock moves on.
+# PENDING holds lines built but not yet accepted by VictoriaLogs: a failed
+# send keeps them for the next pass, up to VML_PENDING_MAX, oldest dropped.
+declare -A SEEN
+LAST_TS=0
+PENDING=()
+VML_PENDING_MAX=${VML_PENDING_MAX:-20000}
+
+fn logs_pass() {
+	local i n ts src lvl ctr msg key body line when
+	local -a lines
+	try api "/system/logs?tail=2000"
+	if (( ERR )); then say "$ERRMSG"; flush_logs; return 0; fi
+	n := json len DOC .
+	local newest=$LAST_TS
+	for ((i = 0; i < n; i++)); do
+		ts := json get DOC ".[$i].ts"
+		(( ts < LAST_TS - 1 )) && continue
+		src := json get DOC ".[$i].source"
+		[[ $src == container ]] && continue
+		lvl := json get DOC ".[$i].level"
+		ctr := json get DOC ".[$i].container"
+		msg := json get DOC ".[$i].msg"
+		key="$ts|$src|$ctr|$msg"
+		[[ -v SEEN["$key"] ]] && continue
+		SEEN["$key"]=$ts
+		(( ts > newest )) && newest=$ts
+		unset E
+		json parse E '{}'
+		printf -v when '%(%Y-%m-%dT%H:%M:%SZ)T' "$ts"
+		json set E ._time "$when" -s
+		json set E .source "$src" -s
+		json set E .level "$lvl" -s
+		json set E .host cix -s
+		[[ -n $ctr ]] && json set E .container "$ctr" -s
+		json set E ._msg "$msg" -s
+		line := json emit E
+		PENDING+=("$line")
+	done
+	LAST_TS=$newest
+	for key in "${!SEEN[@]}"; do
+		(( ${SEEN["$key"]} < LAST_TS - 1 )) && unset SEEN["$key"]
+	done
+	flush_logs
+	return 0
+}
+
+# Send PENDING to VictoriaLogs; on failure keep it (capped) for next time.
+fn flush_logs() {
+	local body drop
+	(( ${#PENDING[@]} )) || return 0
+	if (( ${#PENDING[@]} > VML_PENDING_MAX )); then
+		drop=$(( ${#PENDING[@]} - VML_PENDING_MAX ))
+		say "VictoriaLogs unreachable too long: dropping the oldest $drop entries"
+		PENDING=("${PENDING[@]:drop}")
+	fi
+	printf -v body '%s\n' "${PENDING[@]}"
+	if fetch post "$VL_URL/insert/jsonline?_stream_fields=host,source&_time_field=_time&_msg_field=_msg" \
+		-H 'Content-Type: application/stream+json' -d "$body" -t 10 > /dev/null; then
+		PENDING=()
+	else
+		say "push to VictoriaLogs: status $FETCH_STATUS; ${#PENDING[@]} entries kept for the next pass"
+	fi
+	return 0
+}
+
+say "starting: api=$CIX_API vm=$VM_URL vl=$VL_URL every ${VML_INTERVAL}s, logs every ${VML_LOG_INTERVAL}s"
+next_m=0
+next_l=0
+while :; do
+	now=${EPOCHREALTIME%.*}
+	if (( now >= next_m )); then metrics_pass; next_m=$(( now + VML_INTERVAL )); fi
+	if (( now >= next_l )); then logs_pass; next_l=$(( now + VML_LOG_INTERVAL )); fi
+	[[ ${VML_ONCE-} == 1 ]] && exit 0
+	sleepms 1000
+done

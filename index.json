@@ -1649,6 +1649,17 @@
       "name": "longwire",
       "modules": "longwire"
     },
+    "cli/vml-collector": {
+      "title": "vml-collector",
+      "version": "1.0.0",
+      "kind": "cli",
+      "bundle": "bundles/cli/vml-collector.hibr",
+      "sha256": "a08df15c56d79bb65efbe83b6e1d99a95c366998a701796ea4f1e4449a430955",
+      "about": "Polls the Cix API into VictoriaMetrics and VictoriaLogs\n\nturns the Cix API's JSON reads into VictoriaMetrics metrics and VictoriaLogs entries. cixd serves no /metrics (the owner's decision, 2026-11-26): this polls the reads and pushes.\n\nMetrics, every VML_INTERVAL seconds, into VictoriaMetrics' Prometheus import (VM_URL/api/v1/import/prometheus):   GET /v1/system/stats              -> cix_host_*   GET /v1/containers                -> cix_container_{info,running,ready,paused}   GET /v1/containers/{name}/stats   -> cix_container_*  {container=}   GET /v1/volumes, /{name}/usage    -> cix_volume_*     {volume=}   GET /v1/storage                   -> cix_storage_* Every numeric leaf becomes a metric named after its JSON path; an array element is labelled by its own name/interface/device field (or its index), so a field Cix adds later appears without a change here. Counters stay raw (cumulative), as Cix serves them: rate() in Grafana.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "vml-collector"
+    },
     "cli/wiretap": {
       "title": "wiretap",
       "version": "0.8.8",
@@ -2653,6 +2664,17 @@
       "author": "Omar Sakka",
       "name": "longwire-switchboard",
       "modules": "longwire"
+    },
+    "vml-collector": {
+      "title": "vml-collector",
+      "version": "1.0.0",
+      "kind": "cli",
+      "bundle": "bundles/cli/vml-collector.hibr",
+      "sha256": "a08df15c56d79bb65efbe83b6e1d99a95c366998a701796ea4f1e4449a430955",
+      "about": "Polls the Cix API into VictoriaMetrics and VictoriaLogs\n\nturns the Cix API's JSON reads into VictoriaMetrics metrics and VictoriaLogs entries. cixd serves no /metrics (the owner's decision, 2026-11-26): this polls the reads and pushes.\n\nMetrics, every VML_INTERVAL seconds, into VictoriaMetrics' Prometheus import (VM_URL/api/v1/import/prometheus):   GET /v1/system/stats              -> cix_host_*   GET /v1/containers                -> cix_container_{info,running,ready,paused}   GET /v1/containers/{name}/stats   -> cix_container_*  {container=}   GET /v1/volumes, /{name}/usage    -> cix_volume_*     {volume=}   GET /v1/storage                   -> cix_storage_* Every numeric leaf becomes a metric named after its JSON path; an array element is labelled by its own name/interface/device field (or its index), so a field Cix adds later appears without a change here. Counters stay raw (cumulative), as Cix serves them: rate() in Grafana.",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "vml-collector"
     },
     "video-bilibili": {
       "title": "video-bilibili",
