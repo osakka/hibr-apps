@@ -1660,6 +1660,17 @@
       "name": "longwire",
       "modules": "longwire"
     },
+    "cli/pbr": {
+      "title": "pbr",
+      "version": "0.1.0",
+      "kind": "cli",
+      "bundle": "bundles/cli/pbr.hibr",
+      "sha256": "808a7c0cfb4b9b3cfe586fe14998eb542f59df77f34dc1fc3ae8481988923bfc",
+      "about": "Policy-based routing: a Cisco-style policy compiled to nft and ip rules, with a health-gated apply and a domain filler\n\na policy-based router's configuration language, checker and packet tracer.\n\n  pbr check FILE                 parse and validate; exit 0 if clean (warnings do not fail)   pbr show FILE                  print the running-config: the canonical form of FILE   pbr trace FILE SRC DST [asn=N] which bypass/rule a packet SRC -> DST takes, and the verdict",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "pbr"
+    },
     "cli/vml-collector": {
       "title": "vml-collector",
       "version": "1.0.2",
@@ -2686,6 +2697,17 @@
       "author": "Omar Sakka",
       "name": "longwire-switchboard",
       "modules": "longwire"
+    },
+    "pbr": {
+      "title": "pbr",
+      "version": "0.1.0",
+      "kind": "cli",
+      "bundle": "bundles/cli/pbr.hibr",
+      "sha256": "808a7c0cfb4b9b3cfe586fe14998eb542f59df77f34dc1fc3ae8481988923bfc",
+      "about": "Policy-based routing: a Cisco-style policy compiled to nft and ip rules, with a health-gated apply and a domain filler\n\na policy-based router's configuration language, checker and packet tracer.\n\n  pbr check FILE                 parse and validate; exit 0 if clean (warnings do not fail)   pbr show FILE                  print the running-config: the canonical form of FILE   pbr trace FILE SRC DST [asn=N] which bypass/rule a packet SRC -> DST takes, and the verdict",
+      "licence": "LGPL-3.0-or-later",
+      "author": "Omar Sakka",
+      "name": "pbr"
     },
     "vml-collector": {
       "title": "vml-collector",

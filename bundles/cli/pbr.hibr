@@ -1,0 +1,1205 @@
+#!/usr/bin/hibr
+# pbr -- a policy-based router's configuration language, checker and packet tracer.
+#
+#   pbr check FILE                 parse and validate; exit 0 if clean (warnings do not fail)
+#   pbr show FILE                  print the running-config: the canonical form of FILE
+#   pbr trace FILE SRC DST [asn=N] which bypass/rule a packet SRC -> DST takes, and the verdict
+#
+# The file is the list of commands you would type (Cisco style). `!` starts a comment.
+#
+#   exit NAME                      object-group network NAME        policy NAME
+#    description TEXT               network A.B.C.D/L                bypass SEQ [from G] [to G]
+#    table N                        host A.B.C.D                     rule SEQ [from G] [to G]
+#    beacon A.B.C.D                 range A.B.C.D-A.B.C.D              set exit NAME
+#                                   asn N                             on-down drop
+#                                   group-object NAME             apply policy NAME
+#
+# Bypass lines are always checked before every rule. Rules run in SEQ order, the first match wins.
+# A packet that matches nothing takes the site's normal path. This is the offline half: it reads
+# a file and never touches a router.
+app pbr "Policy-based routing: a Cisco-style policy compiled to nft and ip rules, with a health-gated apply and a domain filler" 0.1.0
+
+strict
+need fetch
+need sys
+SELF=$0
+
+declare -g FETCH_STATUS=
+declare -gA EXIT_TABLE EXIT_BEACON EXIT_DESC GROUP_N GROUP_M ITEM_FROM ITEM_TO ITEM_EXIT ITEM_DOWN ITEM_LINE
+declare -gA POLICY_ITEMS GROUP_LINE EXIT_LINE
+# guard tcp HOST PORT: a path that must keep answering while a policy is applied (checked from the core by `apply`)
+# assert SRC DST normal|exit NAME: an invariant of the policy itself, checked by `check` with the trace engine
+declare -ga GUARDS ASSERTS
+GUARDS=()
+ASSERTS=()
+EXITS=()
+GROUPS=()
+POLICIES=()
+APPLY=
+ERRS=0
+WARNS=0
+QUIET=
+FILE=
+V=
+NETI=0
+LEN=0
+APPLY_LINE=0
+
+fn err(str line, str msg) {
+	echo "$FILE:$line: error: $msg" >&2
+	ERRS=$((ERRS + 1))
+}
+fn warn(str line, str msg) {
+	[[ -n $QUIET ]] || echo "$FILE:$line: warning: $msg" >&2
+	WARNS=$((WARNS + 1))
+}
+
+# dotted quad -> integer in V; returns 1 if it is not an IPv4 address
+fn ip2int(str ip) {
+	[[ $ip =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
+	local a=${BASH_REMATCH[1]} b=${BASH_REMATCH[2]} c=${BASH_REMATCH[3]} d=${BASH_REMATCH[4]}
+	(( 10#$a > 255 || 10#$b > 255 || 10#$c > 255 || 10#$d > 255 )) && return 1
+	V=$(( (10#$a << 24) | (10#$b << 16) | (10#$c << 8) | 10#$d ))
+	return 0
+}
+
+# integer -> dotted quad in V
+fn int2ip(str n) {
+	V="$(( (n >> 24) & 255 )).$(( (n >> 16) & 255 )).$(( (n >> 8) & 255 )).$(( n & 255 ))"
+}
+
+# does IP (an integer) lie in NET/LEN (NET an integer)? the mask is applied to both
+fn in_net(str ip, str net, str len) {
+	local mask=$(( len == 0 ? 0 : (0xFFFFFFFF << (32 - len)) & 0xFFFFFFFF ))
+	(( (ip & mask) == (net & mask) ))
+}
+
+# split "A.B.C.D/L" into NETI (integer) and LEN; returns 1 if invalid
+fn parse_cidr(str s) {
+	[[ $s =~ ^([0-9.]+)/([0-9]{1,2})$ ]] || return 1
+	local len=${BASH_REMATCH[2]}
+	(( 10#$len > 32 )) && return 1
+	ip2int "${BASH_REMATCH[1]}" || return 1
+	NETI=$V
+	LEN=$((10#$len))
+}
+
+# ---------------------------------------------------------------- parse
+fn add_member(str g, str kind, str value, str ln) {
+	local n=${GROUP_N[$g]:-0}
+	GROUP_M["$g:$n"]="$kind $value"
+	GROUP_N[$g]=$((n + 1))
+}
+
+fn parse(str file) {
+	FILE=$file
+	local line ln=0 ctx= cur= curitem= w1 w2 rest gk gh gp asrc adst aexp aname
+	[[ -r $file ]] || { echo "pbr: cannot read $file" >&2; exit 2; }
+	while IFS= read -r line || [[ -n $line ]]; do
+		ln=$((ln + 1))
+		line=${line%%!*}
+		line=${line#"${line%%[![:space:]]*}"}
+		line=${line%"${line##*[![:space:]]}"}
+		[[ -z $line ]] && continue
+		read -r w1 w2 rest <<< "$line"
+		case $w1 in
+		exit)
+			[[ $w2 =~ ^[a-z][a-z0-9_-]*$ ]] || { err $ln "exit name '$w2' must be lowercase letters, digits, - or _"; ctx=; continue; }
+			if [[ -n ${EXIT_LINE[$w2]-} ]]; then err $ln "exit $w2 is already defined at line ${EXIT_LINE[$w2]}"; ctx=; continue; fi
+			EXITS+=("$w2"); EXIT_LINE[$w2]=$ln; ctx=exit; cur=$w2
+			;;
+		object-group)
+			if [[ $w2 != network ]]; then err $ln "only 'object-group network NAME' exists"; ctx=; continue; fi
+			read -r w1 w2 <<< "$rest"
+			[[ $w1 =~ ^[A-Z][A-Z0-9_-]*$ ]] || { err $ln "group name '$w1' must be UPPERCASE letters, digits, - or _"; ctx=; continue; }
+			if [[ -n ${GROUP_LINE[$w1]-} ]]; then err $ln "object-group $w1 is already defined at line ${GROUP_LINE[$w1]}"; ctx=; continue; fi
+			GROUPS+=("$w1"); GROUP_LINE[$w1]=$ln; GROUP_N[$w1]=0; ctx=group; cur=$w1
+			;;
+		policy)
+			[[ $w2 =~ ^[A-Z][A-Z0-9_-]*$ ]] || { err $ln "policy name '$w2' must be UPPERCASE letters, digits, - or _"; ctx=; continue; }
+			POLICIES+=("$w2"); POLICY_ITEMS[$w2]=; ctx=policy; cur=$w2; curitem=
+			;;
+		apply)
+			if [[ $w2 != policy || -z ${rest%% *} ]]; then err $ln "expected 'apply policy NAME'"; continue; fi
+			APPLY=${rest%% *}; APPLY_LINE=$ln; ctx=
+			;;
+		bypass|rule)
+			if [[ $ctx != policy && $ctx != rule ]]; then err $ln "'$w1' belongs inside a policy"; continue; fi
+			ctx=rule
+			local seq=$w2
+			if ! [[ $seq =~ ^[0-9]+$ ]]; then err $ln "$w1 needs a sequence number: '$w1 10 from X to Y'"; curitem=; continue; fi
+			local key="$w1:$((10#$seq))"
+			if [[ -n ${ITEM_LINE["$cur:$key"]-} ]]; then err $ln "$w1 $seq is already defined at line ${ITEM_LINE["$cur:$key"]}"; curitem=; continue; fi
+			local f= t= i
+			local -a toks
+			read -ra toks <<< "$rest"
+			for ((i = 0; i < ${#toks[@]}; i += 2)); do
+				case ${toks[$i]} in
+				from) f=${toks[$((i + 1))]-} ;;
+				to) t=${toks[$((i + 1))]-} ;;
+				*) err $ln "unexpected '${toks[$i]}' (expected from GROUP / to GROUP)" ;;
+				esac
+			done
+			if [[ -z $f && -z $t ]]; then err $ln "$w1 $seq must match something: from GROUP and/or to GROUP"; fi
+			curitem="$cur:$key"
+			ITEM_LINE[$curitem]=$ln; ITEM_FROM[$curitem]=$f; ITEM_TO[$curitem]=$t; ITEM_EXIT[$curitem]=; ITEM_DOWN[$curitem]=drop
+			POLICY_ITEMS[$cur]+="$key "
+			;;
+		set)
+			if [[ $ctx != rule || -z $curitem ]]; then err $ln "'set exit' belongs inside a rule"; continue; fi
+			if [[ $curitem == *:bypass:* ]]; then err $ln "a bypass has no exit: it is never policy-routed"; continue; fi
+			if [[ $w2 != exit || -z ${rest%% *} ]]; then err $ln "expected 'set exit NAME'"; continue; fi
+			ITEM_EXIT[$curitem]=${rest%% *}
+			;;
+		on-down)
+			if [[ $ctx != rule || -z $curitem || $curitem == *:bypass:* ]]; then err $ln "'on-down' belongs inside a rule"; continue; fi
+			case $w2 in drop|next|clear) ITEM_DOWN[$curitem]=$w2 ;; *) err $ln "on-down must be drop, next or clear" ;; esac
+			;;
+		description)
+			if [[ $ctx != exit ]]; then err $ln "'description' belongs inside an exit"; continue; fi
+			EXIT_DESC[$cur]="$w2${rest:+ $rest}"
+			;;
+		table)
+			if [[ $ctx != exit ]]; then err $ln "'table' belongs inside an exit"; continue; fi
+			if ! [[ $w2 =~ ^[0-9]+$ ]] || (( 10#$w2 < 1 || 10#$w2 > 252 )); then err $ln "table must be a number from 1 to 252"; continue; fi
+			EXIT_TABLE[$cur]=$((10#$w2))
+			;;
+		beacon)
+			if [[ $ctx != exit ]]; then err $ln "'beacon' belongs inside an exit"; continue; fi
+			ip2int "$w2" || { err $ln "beacon '$w2' is not an IPv4 address"; continue; }
+			EXIT_BEACON[$cur]=$w2
+			;;
+		network)
+			if [[ $ctx != group ]]; then err $ln "'network' belongs inside an object-group"; continue; fi
+			parse_cidr "$w2" || { err $ln "'$w2' is not a network like 203.0.113.0/24"; continue; }
+			add_member $cur network "$w2" $ln
+			;;
+		host)
+			if [[ $ctx != group ]]; then err $ln "'host' belongs inside an object-group"; continue; fi
+			ip2int "$w2" || { err $ln "'$w2' is not an IPv4 address"; continue; }
+			add_member $cur host "$w2" $ln
+			;;
+		range)
+			if [[ $ctx != group ]]; then err $ln "'range' belongs inside an object-group"; continue; fi
+			[[ $w2 =~ ^([0-9.]+)-([0-9.]+)$ ]] || { err $ln "'$w2' is not a range like 10.0.0.1-10.0.0.9"; continue; }
+			local lo=${BASH_REMATCH[1]} hi=${BASH_REMATCH[2]} loi hii
+			ip2int "$lo" && loi=$V || { err $ln "range start '$lo' is not an IPv4 address"; continue; }
+			ip2int "$hi" && hii=$V || { err $ln "range end '$hi' is not an IPv4 address"; continue; }
+			(( loi <= hii )) || { err $ln "range runs backwards"; continue; }
+			add_member $cur range "$w2" $ln
+			;;
+		asn)
+			if [[ $ctx != group ]]; then err $ln "'asn' belongs inside an object-group"; continue; fi
+			[[ $w2 =~ ^[0-9]+$ ]] || { err $ln "'$w2' is not an AS number"; continue; }
+			add_member $cur asn "$((10#$w2))" $ln
+			;;
+		guard)
+			read -r gk gh gp <<< "$rest"
+			if [[ $w2 != tcp || -z $gk || -z $gh ]]; then err $ln "expected 'guard tcp HOST PORT'"; ctx=; continue; fi
+			ip2int "$gk" || { err $ln "guard host '$gk' is not an IPv4 address"; ctx=; continue; }
+			[[ $gh =~ ^[0-9]+$ ]] && (( 10#$gh >= 1 && 10#$gh <= 65535 )) || { err $ln "guard port '$gh' must be 1-65535"; ctx=; continue; }
+			GUARDS+=("$gk $((10#$gh))"); ctx=
+			;;
+		assert)
+			read -r asrc adst aexp aname <<< "$w2 $rest"
+			if [[ -z $asrc || -z $adst ]] || ! { [[ $aexp == normal && -z $aname ]] || [[ $aexp == exit && -n $aname ]]; }; then
+				err $ln "expected 'assert SRC DST normal' or 'assert SRC DST exit NAME'"; ctx=; continue
+			fi
+			ip2int "$asrc" || { err $ln "assert source '$asrc' is not an IPv4 address"; ctx=; continue; }
+			ip2int "$adst" || { err $ln "assert destination '$adst' is not an IPv4 address"; ctx=; continue; }
+			ASSERTS+=("$ln $asrc $adst ${aexp}${aname:+ $aname}"); ctx=
+			;;
+		pin)
+			[[ $w2 == ct || $w2 == none ]] || { err $ln "pin must be ct (flows keep their exit in the conntrack mark; needs CONFIG_NF_CONNTRACK_MARK) or none"; continue; }
+			PIN_CFG=$w2; ctx=
+			;;
+		domain)
+			if [[ $ctx != group ]]; then err $ln "'domain' belongs inside an object-group"; continue; fi
+			w2=${w2,,}
+			[[ $w2 =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] || { err $ln "'$w2' is not a domain name like example.com (letters, digits, - and at least two labels)"; continue; }
+			add_member $cur domain "$w2" $ln
+			;;
+		group-object)
+			if [[ $ctx != group ]]; then err $ln "'group-object' belongs inside an object-group"; continue; fi
+			add_member $cur group "$w2" $ln
+			;;
+		*) err $ln "unknown command '$w1'" ;;
+		esac
+	done < "$file"
+}
+
+# the sequence numbers of one kind (bypass|rule) in policy P, ascending, in SEQS
+# (hibr does not word-split an unquoted list: split explicitly)
+declare -ga SEQS
+fn seqs_of(str p, str kind) {
+	SEQS=()
+	local -a all
+	local k
+	read -ra all <<< "${POLICY_ITEMS[$p]}"
+	for k in "${all[@]}"; do
+		[[ $k == $kind:* ]] && SEQS+=("${k#*:}")
+	done
+	(( ${#SEQS[@]} > 1 )) && arr sort SEQS -n
+	return 0
+}
+
+# ---------------------------------------------------------------- validate
+GCYCLE=
+fn group_cycle(str g, str path) {
+	# depth-first: does g (directly or not) include itself?
+	local n=${GROUP_N[$g]:-0} i kind val
+	for ((i = 0; i < n; i++)); do
+		read -r kind val <<< "${GROUP_M["$g:$i"]}"
+		[[ $kind == group ]] || continue
+		[[ -n ${GROUP_LINE[$val]-} ]] || continue
+		if [[ " $path " == *" $val "* ]]; then GCYCLE="$path $val"; return 0; fi
+		group_cycle "$val" "$path $val" && return 0
+	done
+	return 1
+}
+
+# what does the applied policy do with a packet SRC -> DST (both addresses)? VERDICT is "normal" (a bypass, or no rule) or an
+# exit's name. The same engine as `trace`, without the talking. Needs no ASN data: a group with only an ASN just doesn't match.
+declare -g VERDICT=normal
+fn verdict(str src, str dst) {
+	local p=$APPLY kind k item f t srci dsti
+	VERDICT=normal
+	ip2int "$src" || return 2
+	srci=$V
+	ip2int "$dst" || return 2
+	dsti=$V
+	TRACE_NAME=
+	[[ -n $p ]] || return 0
+	for kind in bypass rule; do
+		seqs_of "$p" "$kind"
+		for k in "${SEQS[@]}"; do
+			item="$p:$kind:$k"
+			f=${ITEM_FROM[$item]}; t=${ITEM_TO[$item]}
+			TRACE_NOTE=
+			if [[ -n $f ]]; then group_match "$f" "$srci" "" || continue; fi
+			if [[ -n $t ]]; then group_match "$t" "$dsti" "" || continue; fi
+			[[ $kind == bypass ]] && { VERDICT=normal; return 0; }
+			VERDICT=${ITEM_EXIT[$item]}
+			return 0
+		done
+	done
+	return 0
+}
+
+# every `assert` must hold for the applied policy, or the policy is wrong
+fn check_asserts() {
+	local a aln asrc adst aexp aname want
+	[[ -n $APPLY && -n ${POLICY_ITEMS[$APPLY]+x} ]] || return 0
+	for a in "${ASSERTS[@]}"; do
+		read -r aln asrc adst aexp aname <<< "$a"
+		verdict "$asrc" "$adst"
+		want=normal
+		[[ $aexp == exit ]] && want=$aname
+		if [[ $aexp == exit && -z ${EXIT_LINE[$aname]-} ]]; then err $aln "assert: exit $aname is not defined"; continue; fi
+		[[ $VERDICT == "$want" ]] || err $aln "assert failed: $asrc -> $adst goes to ${VERDICT/normal/the normal path}, the policy says it must go to ${want/normal/the normal path}"
+	done
+}
+
+# does group G contain a domain, directly or through group-object?
+fn group_has_domain(str g) {
+	local n=${GROUP_N[$g]:-0} i kind val
+	for ((i = 0; i < n; i++)); do
+		read -r kind val <<< "${GROUP_M["$g:$i"]}"
+		[[ $kind == domain ]] && return 0
+		if [[ $kind == group && -n ${GROUP_LINE[$val]-} && $val != "$g" ]]; then group_has_domain "$val" && return 0; fi
+	done
+	return 1
+}
+
+fn validate() {
+	local e g p k item ln pk s
+	local -A tables
+	for e in "${EXITS[@]}"; do
+		ln=${EXIT_LINE[$e]}
+		[[ -n ${EXIT_TABLE[$e]-} ]] || err $ln "exit $e has no 'table'"
+		[[ -n ${EXIT_BEACON[$e]-} ]] || err $ln "exit $e has no 'beacon'"
+		if [[ -n ${EXIT_TABLE[$e]-} ]]; then
+			if [[ -n ${tables[${EXIT_TABLE[$e]}]-} ]]; then err $ln "exit $e uses table ${EXIT_TABLE[$e]}, already used by ${tables[${EXIT_TABLE[$e]}]}"; fi
+			tables[${EXIT_TABLE[$e]}]=$e
+		fi
+	done
+	for g in "${GROUPS[@]}"; do
+		ln=${GROUP_LINE[$g]}
+		(( ${GROUP_N[$g]} > 0 )) || warn $ln "object-group $g is empty: it matches nothing"
+		local n=${GROUP_N[$g]} i kind val
+		for ((i = 0; i < n; i++)); do
+			read -r kind val <<< "${GROUP_M["$g:$i"]}"
+			if [[ $kind == group && -z ${GROUP_LINE[$val]-} ]]; then err $ln "object-group $g includes $val, which is not defined"; fi
+		done
+		GCYCLE=
+		if group_cycle "$g" "$g"; then err $ln "object-group $g includes itself: $GCYCLE"; fi
+	done
+	for p in "${POLICIES[@]}"; do
+		for pk in bypass rule; do
+		seqs_of "$p" "$pk"
+		for s in "${SEQS[@]}"; do
+			k="$pk:$s"
+			item="$p:$k"
+			ln=${ITEM_LINE[$item]}
+			local f=${ITEM_FROM[$item]} t=${ITEM_TO[$item]} x=${ITEM_EXIT[$item]-}
+			[[ -z $f || -n ${GROUP_LINE[$f]-} ]] || err $ln "${k%%:*} ${k#*:}: from $f is not an object-group"
+			if [[ -n $f && -n ${GROUP_LINE[$f]-} ]] && group_has_domain "$f"; then
+				err $ln "${k%%:*} ${k#*:}: from $f contains a domain: a domain names a destination, never a source"
+			fi
+			[[ -z $t || -n ${GROUP_LINE[$t]-} ]] || err $ln "${k%%:*} ${k#*:}: to $t is not an object-group"
+			if [[ $k == rule:* ]]; then
+				if [[ -z $x ]]; then err $ln "rule ${k#*:} has no 'set exit'"
+				elif [[ -z ${EXIT_LINE[$x]-} ]]; then err $ln "rule ${k#*:}: exit $x is not defined"; fi
+				case ${ITEM_DOWN[$item]} in next|clear) err $ln "rule ${k#*:}: on-down ${ITEM_DOWN[$item]} is not available yet, only drop" ;; esac
+				if [[ -z $t && ${ITEM_DOWN[$item]} == drop ]] && [[ -n $f ]]; then
+					warn $ln "rule ${k#*:} sends everything from $f through $x with on-down drop: if $x goes down, all of it is dropped (DNS included)"
+				fi
+			fi
+		done
+		done
+	done
+	if [[ -n $APPLY && -z ${POLICY_ITEMS[$APPLY]+x} ]]; then err ${APPLY_LINE:-0} "apply policy $APPLY: no such policy"; fi
+	if (( ${#POLICIES[@]} > 0 )) && [[ -z $APPLY ]]; then warn 0 "no 'apply policy NAME': nothing would be active"; fi
+	if (( ${#EXITS[@]} == 0 && ${#GROUPS[@]} == 0 && ${#POLICIES[@]} == 0 )); then warn 0 "the configuration is empty: it defines nothing"; fi
+	check_asserts
+}
+
+# ---------------------------------------------------------------- show running-config
+fn show() {
+	local e g p k item n i kind val
+	echo "! pbr running-config"
+	echo "!"
+	[[ $PIN_CFG == ct ]] && { echo "pin ct"; echo "!"; }
+	local gd ad aln rest
+	for gd in "${GUARDS[@]}"; do echo "guard tcp $gd"; done
+	(( ${#GUARDS[@]} > 0 )) && echo "!"
+	for ad in "${ASSERTS[@]}"; do read -r aln rest <<< "$ad"; echo "assert $rest"; done
+	(( ${#ASSERTS[@]} > 0 )) && echo "!"
+	for e in "${EXITS[@]}"; do
+		echo "exit $e"
+		[[ -n ${EXIT_DESC[$e]-} ]] && echo " description ${EXIT_DESC[$e]}"
+		[[ -n ${EXIT_TABLE[$e]-} ]] && echo " table ${EXIT_TABLE[$e]}"
+		[[ -n ${EXIT_BEACON[$e]-} ]] && echo " beacon ${EXIT_BEACON[$e]}"
+		echo "!"
+	done
+	for g in "${GROUPS[@]}"; do
+		echo "object-group network $g"
+		n=${GROUP_N[$g]}
+		for ((i = 0; i < n; i++)); do
+			read -r kind val <<< "${GROUP_M["$g:$i"]}"
+			case $kind in
+			group) echo " group-object $val" ;;
+			*) echo " $kind $val" ;;
+			esac
+		done
+		echo "!"
+	done
+	for p in "${POLICIES[@]}"; do
+		echo "policy $p"
+		for kind in bypass rule; do
+			# in sequence order
+			seqs_of "$p" "$kind"
+			for k in "${SEQS[@]}"; do
+				item="$p:$kind:$k"
+				local line=" $kind $k"
+				[[ -n ${ITEM_FROM[$item]} ]] && line+=" from ${ITEM_FROM[$item]}"
+				[[ -n ${ITEM_TO[$item]} ]] && line+=" to ${ITEM_TO[$item]}"
+				echo "$line"
+				if [[ $kind == rule ]]; then
+					echo "  set exit ${ITEM_EXIT[$item]}"
+					echo "  on-down ${ITEM_DOWN[$item]}"
+				fi
+			done
+		done
+		echo "!"
+	done
+	[[ -n $APPLY ]] && echo "apply policy $APPLY"
+	return 0
+}
+
+# ---------------------------------------------------------------- trace
+# does address IPI (integer) match group G? A group with an ASN only matches when ASN is known.
+TRACE_NOTE=
+declare -g TRACE_NAME=
+fn group_match(str g, str ipi, str asn) {
+	local n=${GROUP_N[$g]:-0} i kind val
+	for ((i = 0; i < n; i++)); do
+		read -r kind val <<< "${GROUP_M["$g:$i"]}"
+		case $kind in
+		network|host|range|asn)
+			if (( ipi < 0 )); then TRACE_NOTE="group $g has address members: a name does not say which address it resolves to (give the address)"; continue; fi
+			case $kind in
+			network) parse_cidr "$val"; in_net "$ipi" "$NETI" "$LEN" && return 0 ;;
+			host) ip2int "$val"; (( ipi == V )) && return 0 ;;
+			range)
+				local lo=${val%-*} hi=${val#*-} loi
+				ip2int "$lo"; loi=$V; ip2int "$hi"
+				(( ipi >= loi && ipi <= V )) && return 0
+				;;
+			asn)
+				if [[ -z $asn ]]; then TRACE_NOTE="group $g has an ASN member (AS$val) and the destination's ASN is unknown: give asn=N"
+				elif [[ $asn == "$val" ]]; then return 0; fi
+				;;
+			esac
+			;;
+		domain)
+			if [[ -z $TRACE_NAME ]]; then TRACE_NOTE="group $g has a domain member ($val): give a name to test it"
+			elif [[ $TRACE_NAME == "$val" || $TRACE_NAME == *".$val" ]]; then return 0; fi
+			;;
+		group) group_match "$val" "$ipi" "$asn" && return 0 ;;
+		esac
+	done
+	return 1
+}
+
+fn trace(str src, str dst, str asn) {
+	local p=$APPLY k item f t kind
+	[[ -n $p ]] || { echo "pbr: no 'apply policy' in $FILE" >&2; return 2; }
+	ip2int "$src" || { echo "pbr: '$src' is not an IPv4 address" >&2; return 2; }
+	local srci=$V
+	local dsti
+	TRACE_NAME=
+	if ip2int "$dst"; then
+		dsti=$V
+	elif [[ ${dst,,} =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]]; then
+		TRACE_NAME=${dst,,}
+		dsti=-1
+	else
+		echo "pbr: '$dst' is neither an IPv4 address nor a domain name" >&2; return 2
+	fi
+	echo "trace $src -> $dst${asn:+ (destination AS$asn)}${TRACE_NAME:+ (a name: matches domain members only, and only if the client resolved it through the cores)}   policy $p"
+	for kind in bypass rule; do
+		seqs_of "$p" "$kind"
+		for k in "${SEQS[@]}"; do
+			item="$p:$kind:$k"
+			f=${ITEM_FROM[$item]}; t=${ITEM_TO[$item]}
+			local what= ok=1 why=
+			TRACE_NOTE=
+			if [[ -n $f ]]; then what+="from $f "; group_match "$f" "$srci" "" || { ok=0; why="source not in $f"; }; fi
+			if (( ok )) && [[ -n $t ]]; then what+="to $t"; group_match "$t" "$dsti" "$asn" || { ok=0; why="destination not in $t"; }; elif [[ -n $t ]]; then what+="to $t"; fi
+			printf '  %-6s %5s  %-28s %s\n' "$kind" "$k" "$what" "$( (( ok )) && echo MATCH || echo "no match") ${why:+($why)}${TRACE_NOTE:+ [$TRACE_NOTE]}"
+			if (( ok )); then
+				if [[ $kind == bypass ]]; then echo "  verdict: bypass $k: the normal site path, never policy-routed"; return 0; fi
+				local x=${ITEM_EXIT[$item]}
+				echo "  exit    $x  table ${EXIT_TABLE[$x]-?}  beacon ${EXIT_BEACON[$x]-?}  on-down ${ITEM_DOWN[$item]}"
+				echo "  verdict: $x"
+				return 0
+			fi
+		done
+	done
+	echo "  verdict: no rule matched: the normal site path"
+	return 0
+}
+
+# ---------------------------------------------------------------- plan (the compiler)
+# The policy becomes two things a router can run, and nothing else:
+#   1. one nft table (ip pbr) with a sets per object-group and one chain that, in order, lets every
+#      bypass through unmarked and marks each rule's traffic with its exit's table number;
+#   2. one `ip rule fwmark N lookup N` per exit, sending marked packets to that exit's kernel table
+#      (which already ends in a blackhole when the exit is down: that is `on-down drop`).
+# `plan` only prints. It never touches a router.
+declare -gA ASN_PFX FLAT_SEEN
+declare -ga ELEMS ASNS_USED
+ASN_DATA=
+ONLY=
+NFT=
+IPR=
+
+# lowercase set name for a group: g_<name>, - and . become _
+fn setname(str g) {
+	local s=${g,,}
+	s=${s//-/_}
+	SETNAME="g_$s"
+}
+declare -g SETNAME=
+
+# ASN prefixes from FILE: one "AS36040 142.250.0.0/15" (or "36040 ...") per line; # comments allowed.
+# A line "# fetched-epoch N DATE" (written by asn-fetch) dates the data: OLDEST is the oldest such stamp.
+declare -g OLDEST=0
+fn load_asn_file(str file) {
+	local l a p ep junk
+	[[ -r $file ]] || { echo "pbr: cannot read ASN data $file" >&2; exit 2; }
+	while IFS= read -r l || [[ -n $l ]]; do
+		if [[ $l == "# fetched-epoch "* ]]; then
+			read -r junk junk ep junk <<< "$l"
+			if [[ $ep =~ ^[0-9]+$ ]] && (( OLDEST == 0 || ep < OLDEST )); then OLDEST=$ep; fi
+		fi
+		l=${l%%#*}
+		read -r a p <<< "$l"
+		[[ -n $a && -n $p ]] || continue
+		a=${a#AS}; a=${a#as}
+		parse_cidr "$p" || { echo "pbr: $file: '$p' is not a prefix" >&2; exit 2; }
+		ASN_PFX[$a]+="$p "
+	done < "$file"
+}
+
+# every ASN any object-group names, once, in ASN_LIST
+declare -ga ASN_LIST
+fn all_asns() {
+	local g n i kind val
+	local -A seen
+	ASN_LIST=()
+	for g in "${GROUPS[@]}"; do
+		n=${GROUP_N[$g]}
+		for ((i = 0; i < n; i++)); do
+			read -r kind val <<< "${GROUP_M["$g:$i"]}"
+			[[ $kind == asn && -z ${seen[$val]-} ]] && { seen[$val]=1; ASN_LIST+=("$val"); }
+		done
+	done
+}
+
+# PATH is one file, or a directory holding AS<n>.txt for each ASN the policy uses
+fn load_asn(str path) {
+	local a f
+	if [[ -d $path ]]; then
+		all_asns
+		for a in "${ASN_LIST[@]}"; do
+			f="$path/AS$a.txt"
+			[[ -r $f ]] && load_asn_file "$f"
+		done
+	else
+		load_asn_file "$path"
+	fi
+}
+
+declare -ga INTS
+# Fetch AS<asn>'s announced IPv4 prefixes from RIPEstat (HTTPS) into DIR/AS<asn>.txt, sorted, dated.
+# Refuses an empty or failed answer: CSL cached an empty answer forever and silently matched nothing.
+declare -gA FR KEYPFX
+fn fetch_asn(str asn, str dir) {
+	local r i n p key
+	r := fetch get "https://stat.ripe.net/data/announced-prefixes/data.json?resource=AS$asn" -t 30
+	if [[ ${r["status"]-0} != 200 ]]; then echo "pbr asn-fetch: AS$asn: RIPEstat answered '${r["status"]-nothing}'" >&2; return 1; fi
+	FR=(); KEYPFX=(); INTS=()
+	json parse FR <<< "${r["body"]}" || { echo "pbr asn-fetch: AS$asn: the answer was not JSON" >&2; return 1; }
+	n := json len FR .data.prefixes
+	for ((i = 0; i < n; i++)); do
+		p=${FR["data"]["prefixes"][$i]["prefix"]-}
+		[[ $p =~ ^[0-9.]+/[0-9]+$ ]] || continue
+		parse_cidr "$p" || continue
+		key=$(( (NETI << 6) | LEN ))
+		[[ -n ${KEYPFX[$key]-} ]] && continue
+		KEYPFX[$key]=$p
+		INTS+=("$key")
+	done
+	if (( ${#INTS[@]} == 0 )); then echo "pbr asn-fetch: AS$asn: no IPv4 prefixes in the answer; not writing a file" >&2; return 1; fi
+	arr sort INTS -n
+	local out d
+	printf -v d '%(%F)T' -1
+	out="# AS$asn announced IPv4 prefixes, from RIPEstat announced-prefixes (https://stat.ripe.net), sorted."$'\n'
+	out+="# fetched-epoch ${EPOCHREALTIME%.*} $d"$'\n'
+	for key in "${INTS[@]}"; do out+="AS$asn ${KEYPFX[$key]}"$'\n'; done
+	printf '%s' "$out" > "$dir/AS$asn.txt"
+	echo "pbr asn-fetch: AS$asn: ${#INTS[@]} IPv4 prefixes -> $dir/AS$asn.txt"
+}
+
+# every address element of group G, nested groups, ASNs and domains expanded: addresses into ELEMS,
+# domain names into DOMS (both deduplicated)
+declare -ga DOMS
+fn flatten(str g) {
+	local n=${GROUP_N[$g]:-0} i kind val p
+	local -a pf
+	for ((i = 0; i < n; i++)); do
+		read -r kind val <<< "${GROUP_M["$g:$i"]}"
+		case $kind in
+		network|range|host) [[ -n ${FLAT_SEEN[$val]-} ]] || { FLAT_SEEN[$val]=1; ELEMS+=("$val"); } ;;
+		domain) [[ -n ${FLAT_SEEN["d:$val"]-} ]] || { FLAT_SEEN["d:$val"]=1; DOMS+=("$val"); } ;;
+		group) flatten "$val" ;;
+		asn)
+			if [[ -z ${ASN_PFX[$val]-} ]]; then
+				ASNS_USED+=("$val")
+				continue
+			fi
+			read -ra pf <<< "${ASN_PFX[$val]}"
+			for p in "${pf[@]}"; do
+				[[ -n ${FLAT_SEEN[$p]-} ]] || { FLAT_SEEN[$p]=1; ELEMS+=("$p"); }
+			done
+			;;
+		esac
+	done
+}
+
+# The packet mark/conntrack mark that means "no exit: the normal site path". Not a table number, so no
+# `ip rule` matches it and it falls through to the main table.
+PIN_NONE=0x10000
+DYN_TIMEOUT=1h
+DNSMASQ=
+# --pin ct stores each flow's exit in the conntrack mark so a live flow never changes exit. It needs a kernel built
+# with CONFIG_NF_CONNTRACK_MARK; the box's 7.3.5 has none (nft says "Operation not supported", 2026-11-26), so the
+# default is none: every packet is classified by the sets as they are at that moment.
+PIN_CFG=none
+PIN_CLI=
+
+# Compile the applied policy. Results: NFT (an nft script), IPR (ip rule commands), DNSMASQ (nftset= lines).
+#
+# nft: ONE transaction that never deletes the table. It creates the table, chain and sets if absent,
+# flushes the chain and the static sets and refills them. The dynamic (domain) sets are created if absent and
+# NEVER flushed: dnsmasq fills them, and a commit must not forget what it learned.
+# The chain, in order:
+#   replies are accepted untouched (a reply is never policy-routed: only the original direction is);
+#   a flow already classified keeps its exit (the result lives in the conntrack mark, so an address entering or
+#   leaving a set never moves a live connection);
+#   the bypasses; the rules; and a last line pinning anything unmatched to the normal path.
+# ip rules: a hard bypass first (anything with a SPECIFIC route in the main table, i.e. the inside networks,
+# never uses an exit, whatever the nft rules say), then one fwmark rule per used exit.
+fn plan() {
+	local p=$APPLY k item f t kind x e g a d sn action dl list first ctm to_m
+	local -A used_groups used_exits has_static has_dyn
+	local -a order
+	# pin ct (in the policy) stores each flow's exit in the conntrack mark; --pin on the command line overrides it
+	local pin=${PIN_CLI:-$PIN_CFG}
+	[[ -n $p ]] || { echo "pbr: no 'apply policy' in $FILE: nothing to plan" >&2; return 2; }
+	# which groups and exits does the applied policy use, in first-use order?
+	for kind in bypass rule; do
+		seqs_of "$p" "$kind"
+		for k in "${SEQS[@]}"; do
+			item="$p:$kind:$k"
+			for g in "${ITEM_FROM[$item]}" "${ITEM_TO[$item]}"; do
+				[[ -n $g && -z ${used_groups[$g]-} ]] && { used_groups[$g]=1; order+=("$g"); }
+			done
+			[[ $kind == rule ]] && used_exits[${ITEM_EXIT[$item]}]=1
+		done
+	done
+	local sets= missing=
+	DNSMASQ=
+	for g in "${order[@]}"; do
+		ELEMS=(); DOMS=(); ASNS_USED=(); FLAT_SEEN=()
+		flatten "$g"
+		for a in "${ASNS_USED[@]}"; do missing+="AS$a (in $g) "; done
+		setname "$g"
+		sn=$SETNAME
+		if (( ${#ELEMS[@]} > 0 || ${#DOMS[@]} == 0 )); then
+			has_static[$g]=1
+			sets+="add set ip pbr $sn { type ipv4_addr; flags interval; auto-merge; }"$'\n'
+			sets+="flush set ip pbr $sn"$'\n'
+			if (( ${#ELEMS[@]} > 0 )); then
+				list=; first=1
+				for e in "${ELEMS[@]}"; do
+					if (( first )); then list="$e"; first=0; else list+=", $e"; fi
+				done
+				sets+="add element ip pbr $sn { $list }"$'\n'
+			fi
+		fi
+		if (( ${#DOMS[@]} > 0 )); then
+			has_dyn[$g]=1
+			sets+="add set ip pbr ${sn}_d { type ipv4_addr; flags timeout; timeout $DYN_TIMEOUT; size 65536; }"$'\n'
+			dl=
+			for d in "${DOMS[@]}"; do dl+="/$d"; FEED+=("$d ${sn}_d"); done
+			DNSMASQ+="nftset=$dl/4#ip#pbr#${sn}_d"$'\n'
+		fi
+	done
+	if [[ -n $missing && -z $FEED_ONLY ]]; then
+		echo "pbr plan: no prefixes for: $missing" >&2
+		echo "pbr plan: give --asn-data FILE|DIR (see asn-fetch); refusing to leave an ASN out silently" >&2
+		return 1
+	fi
+	local chain= from_m to_m
+	local -a tos
+	chain+="add rule ip pbr classify ct direction reply accept comment \"replies are never policy-routed\""$'\n'
+	if [[ $pin == ct ]]; then
+		chain+="add rule ip pbr classify ct mark != 0 counter meta mark set ct mark accept comment \"an established flow keeps its exit\""$'\n'
+	fi
+	for kind in bypass rule; do
+		seqs_of "$p" "$kind"
+		for k in "${SEQS[@]}"; do
+			item="$p:$kind:$k"
+			f=${ITEM_FROM[$item]}; t=${ITEM_TO[$item]}
+			from_m=
+			[[ -n $f ]] && { setname "$f"; from_m="ip saddr @$SETNAME "; }
+			tos=()
+			if [[ -z $t ]]; then tos+=(""); else
+				setname "$t"
+				[[ -n ${has_static[$t]-} ]] && tos+=("ip daddr @$SETNAME ")
+				[[ -n ${has_dyn[$t]-} ]] && tos+=("ip daddr @${SETNAME}_d ")
+			fi
+			if [[ $kind == bypass ]]; then
+				if [[ $pin == ct ]]; then ctm=" ct mark set $PIN_NONE"; else ctm=; fi
+				action="meta mark set 0$ctm accept comment \"bypass $k${f:+ from $f}${t:+ to $t}\""
+			else
+				x=${ITEM_EXIT[$item]}
+				if [[ $pin == ct ]]; then ctm=" ct mark set ${EXIT_TABLE[$x]}"; else ctm=; fi
+				action="meta mark set ${EXIT_TABLE[$x]}$ctm accept comment \"rule $k${f:+ from $f}${t:+ to $t} exit $x\""
+			fi
+			for to_m in "${tos[@]}"; do
+				chain+="add rule ip pbr classify ${from_m}${to_m}counter $action"$'\n'
+			done
+		done
+	done
+	if [[ $pin == ct ]]; then
+		chain+="add rule ip pbr classify counter meta mark set 0 ct mark set $PIN_NONE comment \"no rule matched: pinned to the normal path\""$'\n'
+	else
+		chain+="add rule ip pbr classify counter meta mark set 0 comment \"no rule matched: the normal path\""$'\n'
+	fi
+	NFT="add table ip pbr"$'\n'
+	NFT+="add chain ip pbr classify { type filter hook prerouting priority mangle; policy accept; }"$'\n'
+	NFT+="flush chain ip pbr classify"$'\n'
+	NFT+="$sets$chain"
+	IPR="ip rule add lookup main suppress_prefixlength 0 priority 999   # hard bypass: a destination with a specific route in main never uses an exit"$'\n'
+	for e in "${EXITS[@]}"; do
+		[[ -n ${used_exits[$e]-} ]] || continue
+		IPR+="ip rule add fwmark ${EXIT_TABLE[$e]} lookup ${EXIT_TABLE[$e]} priority $((1000 + EXIT_TABLE[$e]))   # exit $e"$'\n'
+	done
+	return 0
+}
+
+# ---------------------------------------------------------------- apply (a health gate, and a way back)
+# apply compiles the policy and loads it on THIS host (a core): one nft transaction and the ip rules, then it watches for a
+# gate period that every `guard` that answered BEFORE the change still answers, and that every exit table in use still has a
+# route. All good: the new state becomes `last-good` on this host's disk. Anything not: ROLLBACK to last-good (or, on the very
+# first apply, to nothing: no pbr table, none of its ip rules). `restore` loads last-good with no gate (after a restart).
+# The real safety net is earlier and offline: `check` refuses a policy whose `assert`s fail. This is the second layer.
+STATE=${PBR_STATE:-/var/lib/pbr}
+GATE=30
+DRY=
+NOGUARD=
+declare -ga GOOD
+declare -g LASTIP=
+
+fn alog(str msg) {
+	local t
+	printf -v t '%(%T)T' -1
+	echo "$t pbr: $msg"
+}
+
+# a TCP connect from this host, bounded to a second
+fn guard_ok(str host, str port) {
+	( HIBR_CONNTIMEO=1000 exec 9<>"/dev/tcp/$host/$port" ) 2> /dev/null
+}
+
+# the ip rule lines of FILE ("ip rule add ARGS   # comment"): ARGS into RULE_ARGS (an array); returns 1 for other lines
+declare -ga RULE_ARGS
+fn rule_args(str line) {
+	local l=${line%%#*}
+	[[ $l == "ip rule add "* ]] || return 1
+	l=${l#ip rule add }
+	l=${l%"${l##*[![:space:]]}"}
+	read -ra RULE_ARGS <<< "$l"
+	return 0
+}
+
+# make a rule present exactly once: delete it (a few times, in case a failed run left duplicates), then add it
+fn rule_set(str line) {
+	local i
+	rule_args "$line" || return 0
+	for ((i = 0; i < 4; i++)); do ip rule del "${RULE_ARGS[@]}" 2> /dev/null || break; done
+	ip rule add "${RULE_ARGS[@]}"
+}
+fn rule_del(str line) {
+	local i
+	rule_args "$line" || return 0
+	for ((i = 0; i < 4; i++)); do ip rule del "${RULE_ARGS[@]}" 2> /dev/null || break; done
+	return 0
+}
+fn rules_set_all(str file) {
+	local l
+	while IFS= read -r l || [[ -n $l ]]; do rule_set "$l" || return 1; done < "$file"
+	return 0
+}
+
+# back to last-good; with none, back to nothing
+fn rollback(str why) {
+	local l
+	alog "ROLLBACK: $why"
+	if [[ -r $STATE/last-good.nft ]]; then
+		nft -f "$STATE/last-good.nft" || alog "ROLLBACK FAILED: nft would not load last-good.nft: the state of this host is UNKNOWN"
+		LASTIP=$(< "$STATE/last-good.ip")
+		# rules only the new policy had
+		while IFS= read -r l || [[ -n $l ]]; do [[ $LASTIP == *"$l"* ]] || rule_del "$l"; done < "$STATE/next.ip"
+		rules_set_all "$STATE/last-good.ip"
+		alog "rolled back to last-good"
+	else
+		nft delete table ip pbr 2> /dev/null
+		while IFS= read -r l || [[ -n $l ]]; do rule_del "$l"; done < "$STATE/next.ip"
+		alog "rolled back to nothing (this was the first apply): no pbr table, none of its ip rules"
+	fi
+}
+
+# the pieces of the apply command, run after parse/validate
+fn do_apply() {
+	local g gh gp s used e tbl out i fail stamp
+	[[ -n $APPLY ]] || { echo "pbr apply: no 'apply policy' in $FILE" >&2; return 1; }
+	plan || return 1
+	if [[ -n $DRY ]]; then
+		# a dry run writes nothing: no state directory, no files; it only says what it would do
+		alog "dry run: would load $(( ${#NFT} )) bytes of nft and these ip rules, gate ${GATE}s, state in $STATE:"
+		printf '%s' "$IPR"
+		return 0
+	fi
+	mkdir -p "$STATE" || { echo "pbr apply: cannot make $STATE" >&2; return 1; }
+	printf '%s' "$NFT" > "$STATE/next.nft"
+	printf '%s' "$IPR" > "$STATE/next.ip"
+	GOOD=()
+	for g in "${GUARDS[@]}"; do
+		read -r gh gp <<< "$g"
+		if guard_ok "$gh" "$gp"; then GOOD+=("$g"); else alog "guard tcp $gh $gp is already failing: excluded"; fi
+	done
+	if (( ${#GOOD[@]} == 0 )) && [[ -z $NOGUARD ]]; then
+		alog "REFUSED: no guard answers before the apply, so nothing could tell whether the apply breaks the network (add guards, or --no-guard)"
+		return 1
+	fi
+	alog "applying policy $APPLY: ${#GOOD[@]} guard(s) answer now"
+	if ! nft -f "$STATE/next.nft"; then
+		alog "REFUSED: nft would not load the ruleset (a transaction: nothing was changed)"
+		return 1
+	fi
+	if ! rules_set_all "$STATE/next.ip"; then rollback "an ip rule could not be added"; return 1; fi
+	# the gate: every second, the guards that answered still answer and every exit table in use still has a route
+	for ((s = 1; s <= GATE; s++)); do
+		sleepms 1000
+		fail=
+		for g in "${GOOD[@]}"; do
+			read -r gh gp <<< "$g"
+			guard_ok "$gh" "$gp" || fail="guard tcp $gh $gp stopped answering ${s}s after the apply"
+		done
+		for e in "${EXITS[@]}"; do
+			[[ $IPR == *"lookup ${EXIT_TABLE[$e]} "* ]] || continue
+			tbl=$(ip route show table "${EXIT_TABLE[$e]}" 2>&1)
+			[[ -n $tbl ]] || fail="exit $e: its table ${EXIT_TABLE[$e]} has no route"
+		done
+		if [[ -n $fail ]]; then rollback "$fail"; return 1; fi
+	done
+	printf -v stamp '%(%F %T)T' -1
+	printf '%s\n%s' "# pbr applied $stamp (epoch ${EPOCHREALTIME%.*}) policy $APPLY from $FILE" "$NFT" > "$STATE/last-good.nft"
+	printf '%s' "$IPR" > "$STATE/last-good.ip"
+	alog "kept: the gate passed (${GATE}s, ${#GOOD[@]} guard(s)); this is now last-good"
+	return 0
+}
+
+fn do_restore() {
+	[[ -r $STATE/last-good.nft ]] || { alog "nothing to restore: no last-good in $STATE"; return 1; }
+	nft -f "$STATE/last-good.nft" || { alog "restore FAILED: nft would not load last-good.nft"; return 1; }
+	rules_set_all "$STATE/last-good.ip" || { alog "restore FAILED: an ip rule could not be added"; return 1; }
+	alog "restored last-good"
+	return 0
+}
+
+fn do_status() {
+	local first l
+	if [[ -r $STATE/last-good.nft ]]; then
+		read -r first < "$STATE/last-good.nft"
+		echo "last-good: $first"
+	else
+		echo "last-good: none"
+	fi
+	if nft list table ip pbr > /dev/null 2>&1; then echo "live: table ip pbr is loaded"; else echo "live: no pbr table"; fi
+	echo "live ip rules (policy):"
+	ip rule show | while IFS= read -r l; do [[ $l == *suppress_prefixlength* || $l == *fwmark* ]] && echo "  $l"; done
+	return 0
+}
+
+# ---------------------------------------------------------------- feed (the domain filler)
+# dnsmasq's own nftset crashes on this platform (tested 2026-11-27: 2.90 gcc, 2.90 and 2.93 tcc), so the cores run dnsmasq
+# with `log-queries=extra` and pipe its log here. The log marks every line with a query id:
+#   1 127.0.0.1/52209 query[A] www.shop.example.com from 127.0.0.1
+#   1 127.0.0.1/52209 reply www.shop.example.com is <CNAME>
+#   1 127.0.0.1/52209 reply edge.cdn.example.net is 203.0.113.77
+# so an address answered for a query is tied to the NAME THE CLIENT ASKED FOR (the root), however long the CNAME chain.
+# When the root is one of a policy's domains (or a subdomain), the address goes into that group's dynamic set:
+#   nft add element ip pbr SET { ADDR timeout T }
+# Without --exec it only prints what it would do. IPv4 only. The pbr table's dynamic sets are never flushed by a commit.
+declare -ga FEED
+declare -gA FEED_ROOT FEED_LAST
+declare -g FEED_ONLY=
+fn feed_line(str line, str exec) {
+	local rest id client what tail name is val root entry dom set now
+	[[ $line == *"dnsmasq["*"]: "* ]] || return 0
+	rest=${line#*]: }
+	read -r id client what tail <<< "$rest"
+	[[ $id =~ ^[0-9]+$ ]] || return 0
+	case $what in
+	"query["*"]")
+		name=${tail%% *}
+		FEED_ROOT[$id]=${name,,}
+		# keep memory bounded: forget queries older than 4096 ids
+		(( id > 4096 )) && unset "FEED_ROOT[$((id - 4096))]"
+		;;
+	reply|cached)
+		read -r name is val <<< "$tail"
+		[[ $is == is ]] || return 0
+		ip2int "$val" || return 0
+		root=${FEED_ROOT[$id]-}
+		[[ -n $root ]] || return 0
+		for entry in "${FEED[@]}"; do
+			read -r dom set <<< "$entry"
+			if [[ $root == "$dom" || $root == *".$dom" ]]; then
+				now=${EPOCHREALTIME%.*}
+				# the same address for the same set is refreshed at most once a minute
+				if [[ -n ${FEED_LAST["$set $val"]-} ]] && (( now - ${FEED_LAST["$set $val"]} < 60 )); then continue; fi
+				FEED_LAST["$set $val"]=$now
+				if [[ -n $exec ]]; then
+					# one transaction: drop the element if present, add it with a fresh timeout. A plain `add element` on an
+					# existing address does NOT refresh its expiry (measured), so a busy address would lapse an hour after it
+					# was first learned.
+					nft -f - <<< "destroy element ip pbr $set { $val }"$'\n'"add element ip pbr $set { $val timeout $DYN_TIMEOUT }" 2>&1 || echo "pbr feed: refreshing $val in $set failed" >&2
+				fi
+				echo "feed: $set $val (asked for $root, domain $dom)"
+			fi
+		done
+		;;
+	esac
+	return 0
+}
+
+# ---------------------------------------------------------------- daemon (pull the policy, check it, apply it)
+# pbr daemon [--once]: every PBR_INTERVAL seconds read the policy from its source; when it changed, `check` it, then
+#   PBR_MODE=observe (the default): compile it and say what apply WOULD do (--dry-run). Nothing on this host changes.
+#   PBR_MODE=enforce: `apply` it (health gate, automatic rollback); on start, `restore` last-good first.
+# A policy that fails `check` or whose apply rolled back is not tried again until the text changes. A source that cannot
+# be read changes nothing: what is live stays live. PBR_SETTLE seconds must pass after a change is first seen before it is
+# applied (give the standby core 0 and the active core 600, so the standby carries a new policy first).
+# Settings, from the environment (no site names here):
+#   PBR_SOURCE      required. OWNER/REPO:PATH, read through PBR_API (raw file, default branch), or file:/PATH for a local file
+#   PBR_API         the forge API root, e.g. https://forge.example/api/v1 (required unless PBR_SOURCE is file:)
+#   PBR_TOKEN_FILE  a file holding a read-only token, one line (required unless PBR_SOURCE is file:)
+#   PBR_STATE       state directory (default /var/lib/pbr)         PBR_INTERVAL  seconds between reads (default 60)
+#   PBR_MODE        observe | enforce (default observe)             PBR_SETTLE    seconds (default 0)
+#   PBR_GATE        gate seconds for apply (default 30)             HIBR_TLS_CAFILE  a CA file for a private forge
+declare -g D_TEXT=
+fn dlog(str msg) {
+	local t
+	printf -v t '%(%F %T)T' -1
+	echo "$t pbr-daemon: $msg" >&2
+}
+# the lines of a command's output, each logged. A line naming media.so is dropped: hibr 0.99.559 (the version in Cix's egress
+# image) prints a harmless "need sys: ... media.so: undefined symbol: pow" for every `need` (hibr #640, fixed in 0.99.560);
+# remove this filter once the images carry 0.99.560.
+fn dlines(str out) {
+	local l
+	while IFS= read -r l; do [[ -n $l && $l != *media.so* ]] && dlog "  | $l"; done <<< "$out"
+}
+# the policy text from its source into D_TEXT (trailing newlines trimmed); 1 if it cannot be read
+fn d_read(str src, str api, str token) {
+	local r path owner
+	if [[ $src == file:* ]]; then
+		[[ -r ${src#file:} ]] || return 1
+		D_TEXT=$(< "${src#file:}")
+		return 0
+	fi
+	owner=${src%%:*}
+	path=${src#*:}
+	r := fetch get "$api/repos/$owner/raw/$path" -H "Authorization: token $token" -t 20
+	[[ ${r["status"]-0} == 200 ]] || return 1
+	D_TEXT=${r["body"]}
+	while [[ $D_TEXT == *$'\n' ]]; do D_TEXT=${D_TEXT%$'\n'}; done
+	return 0
+}
+
+fn daemon_run(str once) {
+	local src=${PBR_SOURCE-} api=${PBR_API-} tokfile=${PBR_TOKEN_FILE-} state=${PBR_STATE:-/var/lib/pbr}
+	local interval=${PBR_INTERVAL:-60} mode=${PBR_MODE:-observe} settle=${PBR_SETTLE:-0} gate=${PBR_GATE:-30}
+	local token= last= rejected= seen= seen_at=0 now out rc cand
+	local -a asnopt
+	[[ -n $src ]] || { echo "pbr daemon: PBR_SOURCE is required" >&2; return 2; }
+	[[ $mode == observe || $mode == enforce ]] || { echo "pbr daemon: PBR_MODE must be observe or enforce" >&2; return 2; }
+	if [[ $src != file:* ]]; then
+		[[ -n $api && -n $tokfile ]] || { echo "pbr daemon: PBR_API and PBR_TOKEN_FILE are required for a forge source" >&2; return 2; }
+		[[ -r $tokfile ]] || { echo "pbr daemon: cannot read PBR_TOKEN_FILE $tokfile" >&2; return 2; }
+		read -r token < "$tokfile"
+	fi
+	mkdir -p "$state" || { echo "pbr daemon: cannot make $state" >&2; return 2; }
+	# the running shell's own absolute path: a child must be this hibr, not whichever one PATH finds first
+	local hb=${HIBR:-hibr}
+	cand="$state/policy.candidate"
+	dlog "start: mode=$mode source=${src%%:*}:... state=$state interval=${interval}s settle=${settle}s gate=${gate}s"
+	if [[ $mode == enforce ]]; then
+		out=$("$hb" "$SELF" restore --state "$state" 2>&1); rc=$?
+		dlines "$out"
+		(( rc == 0 )) && dlog "restored last-good" || dlog "no last-good restored (rc=$rc): this host forwards unmarked until a policy is applied"
+	fi
+	while :; do
+		if d_read "$src" "$api" "$token"; then
+			now=${EPOCHREALTIME%.*}
+			if [[ $D_TEXT != "$seen" ]]; then seen=$D_TEXT; seen_at=$now; fi
+			if [[ $D_TEXT != "$last" && $D_TEXT != "$rejected" ]]; then
+				# the settle delay is for a policy that CHANGES while we run (so the standby carries it first); the first
+				# policy after a start is just the one the peer already has, and waiting for it would leave this host unmarked
+				if (( now - seen_at < settle && once != 1 )) && [[ -n $last$rejected ]]; then
+					dlog "a changed policy is settling ($((settle - (now - seen_at)))s to go)"
+				else
+					dlog "policy changed: checking it"
+					printf '%s\n' "$D_TEXT" > "$cand"
+					out=$("$hb" "$SELF" check "$cand" 2>&1); rc=$?
+					dlines "$out"
+					if (( rc != 0 )); then
+						rejected=$D_TEXT
+						dlog "REJECTED by check: not applying; what is live is untouched. It is not retried until the text changes."
+					else
+						asnopt=()
+						[[ -d $state/asn ]] && asnopt=(--asn-data "$state/asn")
+						# a policy that names ASNs needs their prefixes first (best effort; a missing one stops the compile)
+						out=$("$hb" "$SELF" asn-fetch "$cand" "$state/asn" 2>&1); [[ $out == *"names no ASN"* ]] || dlines "$out"
+						[[ -d $state/asn ]] && asnopt=(--asn-data "$state/asn")
+						if [[ $mode == observe ]]; then
+							out=$("$hb" "$SELF" apply "$cand" --state "$state" --dry-run "${asnopt[@]}" 2>&1); rc=$?
+							dlines "$out"
+							(( rc == 0 )) && dlog "observe mode: the policy checks and compiles; NOT applied" || dlog "observe mode: it checks but does not compile (rc=$rc)"
+							last=$D_TEXT
+						else
+							dlog "applying (gate ${gate}s)"
+							out=$("$hb" "$SELF" apply "$cand" --state "$state" --gate "$gate" "${asnopt[@]}" 2>&1); rc=$?
+							dlines "$out"
+							if (( rc == 0 )); then last=$D_TEXT; dlog "applied and kept"; else rejected=$D_TEXT; dlog "apply did not stick (rc=$rc); rolled back. Not retried until the text changes."; fi
+						fi
+					fi
+				fi
+			fi
+		else
+			dlog "cannot read the policy source: changing nothing"
+		fi
+		(( once == 1 )) && break
+		sleepms $((interval * 1000))
+	done
+	return 0
+}
+
+# ---------------------------------------------------------------- main
+usage() {
+	echo "usage:" >&2
+	echo "  pbr check FILE                  parse and validate; exit 0 if clean (warnings do not fail)" >&2
+	echo "  pbr show FILE                   print the running-config: the canonical form of FILE" >&2
+	echo "  pbr trace FILE SRC DST [asn=N]  which bypass/rule a packet SRC -> DST takes, and the verdict" >&2
+	echo "  pbr apply FILE [--state DIR] [--gate SECONDS] [--asn-data F] [--dry-run] [--no-guard]" >&2
+	echo "                                  load the policy on this host; keep it only if the guards still answer, else roll back" >&2
+	echo "  pbr daemon [--once]             pull the policy from PBR_SOURCE; check it; observe (default) or enforce (PBR_MODE)" >&2
+	echo "  pbr restore [--state DIR]       load the last-good state again (after a restart), no gate" >&2
+	echo "  pbr status [--state DIR]        what is last-good, what is live" >&2
+	echo "  pbr feed FILE [--exec]          read dnsmasq's query log on stdin; put answers for the policy's domains into the sets" >&2
+	echo "  pbr asn-fetch FILE DIR [--refresh]  fetch the prefixes of every ASN FILE names into DIR (RIPEstat, https)" >&2
+	echo "  pbr plan FILE [--asn-data FILE|DIR] [--only nft|ip|dnsmasq] [--pin ct|none]" >&2
+	echo "                                  print the nft ruleset, ip rules and dnsmasq lines FILE compiles to (changes nothing)" >&2
+	exit 2
+}
+cmd=${1:-}
+[[ -n $cmd ]] || usage
+shift || true
+case $cmd in
+check)
+	[[ -n ${1-} ]] || usage
+	parse "$1"; validate
+	if (( ERRS )); then echo "pbr check: $ERRS error(s), $WARNS warning(s)" >&2; exit 1; fi
+	echo "pbr check: ok ($WARNS warning(s)): ${#EXITS[@]} exit(s), ${#GROUPS[@]} group(s), ${#POLICIES[@]} policy"
+	;;
+show)
+	QUIET=1
+	[[ -n ${1-} ]] || usage
+	parse "$1"; validate
+	(( ERRS )) && { echo "pbr show: $ERRS error(s); fix them first (pbr check)" >&2; exit 1; }
+	show
+	;;
+trace)
+	QUIET=1
+	[[ -n ${1-} && -n ${2-} && -n ${3-} ]] || usage
+	parse "$1"; validate
+	(( ERRS )) && { echo "pbr trace: $ERRS error(s); fix them first (pbr check)" >&2; exit 1; }
+	asn=
+	[[ ${4-} == asn=* ]] && asn=${4#asn=}
+	trace "$2" "$3" "$asn"
+	;;
+daemon)
+	QUIET=1
+	once=0
+	[[ ${1-} == --once ]] && once=1
+	daemon_run "$once"
+	exit $?
+	;;
+apply|restore|status)
+	QUIET=1
+	asn_arg=
+	if [[ $cmd == apply ]]; then
+		[[ -n ${1-} ]] || usage
+		applyfile=$1
+		shift
+	fi
+	while (( $# > 0 )); do
+		case $1 in
+		--state) STATE=${2:?--state needs a directory}; shift 2 ;;
+		--gate) GATE=${2:?--gate needs seconds}; shift 2 ;;
+		--asn-data) asn_arg=${2:?--asn-data needs a file or directory}; shift 2 ;;
+		--pin) PIN_CLI=${2:?--pin needs ct or none}; shift 2 ;;
+		--dry-run) DRY=1; shift ;;
+		--no-guard) NOGUARD=1; shift ;;
+		*) echo "pbr $cmd: unknown option $1" >&2; exit 2 ;;
+		esac
+	done
+	[[ $GATE =~ ^[0-9]+$ ]] || { echo "pbr $cmd: --gate takes seconds" >&2; exit 2; }
+	case $cmd in
+	status) do_status; exit $? ;;
+	restore) do_restore; exit $? ;;
+	esac
+	parse "$applyfile"; validate
+	(( ERRS )) && { echo "pbr apply: $ERRS error(s); nothing applied (pbr check shows them)" >&2; exit 1; }
+	[[ -n $asn_arg ]] && load_asn "$asn_arg"
+	do_apply
+	exit $?
+	;;
+feed)
+	QUIET=1
+	[[ -n ${1-} ]] || usage
+	feedexec=
+	[[ ${2-} == --exec ]] && feedexec=1
+	parse "$1"; validate
+	(( ERRS )) && { echo "pbr feed: $ERRS error(s); fix them first (pbr check)" >&2; exit 1; }
+	FEED_ONLY=1
+	plan > /dev/null || exit $?
+	(( ${#FEED[@]} > 0 )) || { echo "pbr feed: $1 has no domain rules: nothing to feed" >&2; exit 0; }
+	while IFS= read -r l || [[ -n $l ]]; do feed_line "$l" "$feedexec"; done
+	;;
+asn-fetch)
+	[[ -n ${1-} && -n ${2-} ]] || usage
+	QUIET=1
+	parse "$1"; validate
+	(( ERRS )) && { echo "pbr asn-fetch: $ERRS error(s); fix them first (pbr check)" >&2; exit 1; }
+	adir=$2
+	refresh=
+	[[ ${3-} == --refresh ]] && refresh=1
+	mkdir -p "$adir"
+	all_asns
+	(( ${#ASN_LIST[@]} > 0 )) || { echo "pbr asn-fetch: $1 names no ASN: nothing to fetch"; exit 0; }
+	failed=0
+	for a in "${ASN_LIST[@]}"; do
+		if [[ -r $adir/AS$a.txt && -z $refresh ]]; then echo "pbr asn-fetch: AS$a: already in $adir (use --refresh to fetch again)"; continue; fi
+		fetch_asn "$a" "$adir" || failed=1
+	done
+	exit $failed
+	;;
+plan)
+	QUIET=1
+	[[ -n ${1-} ]] || usage
+	planfile=$1
+	shift
+	while (( $# > 0 )); do
+		case $1 in
+		--asn-data) ASN_DATA=${2:?--asn-data needs a file}; shift 2 ;;
+		--only) ONLY=${2:?--only needs nft, ip or dnsmasq}; shift 2 ;;
+		--pin) PIN_CLI=${2:?--pin needs ct or none}; shift 2 ;;
+		*) echo "pbr plan: unknown option $1" >&2; exit 2 ;;
+		esac
+	done
+	[[ -z $PIN_CLI || $PIN_CLI == ct || $PIN_CLI == none ]] || { echo "pbr plan: --pin takes ct or none" >&2; exit 2; }
+	parse "$planfile"; validate
+	(( ERRS )) && { echo "pbr plan: $ERRS error(s); fix them first (pbr check)" >&2; exit 1; }
+	[[ -n $ASN_DATA ]] && load_asn "$ASN_DATA"
+	if (( OLDEST > 0 )); then
+		age=$(( (${EPOCHREALTIME%.*} - OLDEST) / 86400 ))
+		(( age > 30 )) && echo "pbr plan: warning: the ASN data is $age days old: run 'pbr asn-fetch ... --refresh'" >&2
+	fi
+	plan || exit $?
+	case $ONLY in
+	nft) printf '%s' "$NFT"; exit 0 ;;
+	ip) printf '%s' "$IPR"; exit 0 ;;
+	dnsmasq) printf '%s' "$DNSMASQ"; exit 0 ;;
+	"") ;;
+	*) echo "pbr plan: --only takes nft, ip or dnsmasq" >&2; exit 2 ;;
+	esac
+	echo "# pbr plan for policy $APPLY (offline: nothing was changed)"
+	echo "# --- nft ruleset: one transaction replaces table ip pbr ---"
+	printf '%s' "$NFT"
+	echo "# --- ip rules: a hard bypass first, then marked packets use their exit's table ---"
+	printf '%s' "$IPR"
+	if [[ -n $DNSMASQ ]]; then
+		echo "# --- dnsmasq (on the cores, as the resolver clients use): fills the domain sets from the answers it gives ---"
+		printf '%s' "$DNSMASQ"
+	fi
+	;;
+*) usage ;;
+esac
